@@ -1,1 +1,372 @@
 @import "tailwindcss";
+
+/* dark: vale quando <html data-theme="dark"> (escolha salva no navegador). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  /* Verde do trevo do logo da ARP. */
+  --color-marca: #58c069;
+  --color-marca-escuro: #2f7d3d;
+}
+
+/*
+ * Modo escuro: a interface é monocromática, então a escala de cinzas é
+ * invertida (branco vira a superfície escura, quase preto vira o texto
+ * claro). Telas novas ganham o tema escuro sem classes extras. O que não
+ * deve inverter (fotos, ícones sobre cor de status) usa cor fixa.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-white: #1b1b1b;
+  --color-black: #ffffff;
+  --color-neutral-50: #232323;
+  --color-neutral-100: #101010;
+  --color-neutral-200: #2f2f2f;
+  --color-neutral-300: #3f3f3f;
+  --color-neutral-400: #6e6e6e;
+  --color-neutral-500: #9b9b9b;
+  --color-neutral-600: #b8b8b8;
+  --color-neutral-700: #d4d4d4;
+  --color-neutral-800: #e6e6e6;
+  --color-neutral-900: #f4f4f4;
+  --color-neutral-950: #fafafa;
+
+  /* Avisos e mensagens: fundo escuro tingido, texto claro. */
+  --color-red-50: #3a1717;
+  --color-red-700: #fca5a5;
+  --color-green-50: #10301b;
+  --color-green-700: #86efac;
+  --color-green-800: #86efac;
+  --color-amber-50: #36290a;
+  --color-amber-900: #fcd34d;
+  --color-violet-100: #2c2152;
+  --color-violet-700: #c4b5fd;
+}
+
+/*
+ * Linguagem visual: fundo suave com brilhos difusos, superfícies de vidro
+ * fosco e cartões de destaque escuros com brilho verde da marca.
+ */
+:root {
+  --fundo:
+    radial-gradient(
+      60rem 40rem at 8% -10%,
+      rgb(255 255 255 / 0.95),
+      transparent 60%
+    ),
+    radial-gradient(
+      50rem 35rem at 100% 0%,
+      rgb(88 192 105 / 0.12),
+      transparent 55%
+    ),
+    radial-gradient(55rem 40rem at 70% 110%, rgb(0 0 0 / 0.06), transparent 60%),
+    #ececeb;
+}
+:root[data-theme="dark"] {
+  --fundo:
+    radial-gradient(
+      60rem 40rem at 8% -10%,
+      rgb(255 255 255 / 0.06),
+      transparent 60%
+    ),
+    radial-gradient(
+      50rem 35rem at 100% 0%,
+      rgb(88 192 105 / 0.14),
+      transparent 55%
+    ),
+    radial-gradient(
+      55rem 40rem at 70% 110%,
+      rgb(88 192 105 / 0.05),
+      transparent 60%
+    ),
+    #080808;
+}
+
+@utility fundo-app {
+  background: var(--fundo);
+  background-attachment: fixed;
+}
+
+/*
+ * Aurora: brilhos desfocados nos tons do verde da marca (claro, médio e
+ * escuro) atrás de tudo, que se movem devagar. É o que dá cor ao vidro.
+ * Parado para quem pede menos movimento.
+ */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aurora i {
+  position: absolute;
+  display: block;
+  border-radius: 9999px;
+  filter: blur(90px);
+  will-change: transform;
+  animation: deriva 40s ease-in-out infinite alternate;
+}
+.aurora i:nth-child(1) {
+  width: 44rem;
+  height: 44rem;
+  left: -12rem;
+  top: -14rem;
+  background: rgb(88 192 105 / 0.3);
+}
+.aurora i:nth-child(2) {
+  width: 36rem;
+  height: 36rem;
+  right: -10rem;
+  top: 12%;
+  background: rgb(143 217 155 / 0.26);
+  animation-duration: 52s;
+  animation-delay: -14s;
+}
+.aurora i:nth-child(3) {
+  width: 42rem;
+  height: 42rem;
+  left: 32%;
+  bottom: -18rem;
+  background: rgb(47 125 61 / 0.16);
+  animation-duration: 46s;
+  animation-delay: -22s;
+}
+:root[data-theme="dark"] .aurora i:nth-child(1) {
+  background: rgb(88 192 105 / 0.2);
+}
+:root[data-theme="dark"] .aurora i:nth-child(2) {
+  background: rgb(143 217 155 / 0.08);
+}
+:root[data-theme="dark"] .aurora i:nth-child(3) {
+  background: rgb(47 125 61 / 0.16);
+}
+@keyframes deriva {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(7rem, 4rem, 0) scale(1.12);
+  }
+  100% {
+    transform: translate3d(-5rem, 9rem, 0) scale(0.94);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora i {
+    animation: none;
+  }
+}
+
+/* Superfície de vidro: cartões, menu e barras. Translúcida, com reflexo. */
+@utility vidro {
+  background-color: color-mix(in oklab, var(--color-white) 52%, transparent);
+  background-image: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.38),
+    rgb(255 255 255 / 0) 45%
+  );
+  backdrop-filter: blur(26px) saturate(170%);
+  border: 1px solid color-mix(in oklab, var(--color-white) 72%, transparent);
+  box-shadow:
+    0 1px 0 0 rgb(255 255 255 / 0.6) inset,
+    0 18px 40px -24px rgb(0 0 0 / 0.22);
+}
+:root[data-theme="dark"] .vidro {
+  background-image: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.06),
+    rgb(255 255 255 / 0) 45%
+  );
+  border-color: rgb(255 255 255 / 0.08);
+  box-shadow:
+    0 1px 0 0 rgb(255 255 255 / 0.05) inset,
+    0 18px 40px -24px rgb(0 0 0 / 0.8);
+}
+
+/* Vidro fumê: escuro e translúcido nos dois temas (texto claro). */
+@utility fume {
+  color: #fff;
+  background-color: rgb(16 16 16 / 0.58);
+  background-image: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.12),
+    rgb(255 255 255 / 0) 50%
+  );
+  backdrop-filter: blur(26px) saturate(160%);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  box-shadow:
+    0 1px 0 0 rgb(255 255 255 / 0.08) inset,
+    0 24px 50px -28px rgb(0 0 0 / 0.5);
+}
+
+/* Cartão de destaque: escuro nos dois temas, com brilho verde no canto. */
+@utility destaque {
+  color: #fff;
+  background:
+    radial-gradient(
+      28rem 18rem at 100% 0%,
+      rgb(88 192 105 / 0.24),
+      transparent 60%
+    ),
+    radial-gradient(
+      20rem 14rem at 0% 100%,
+      rgb(255 255 255 / 0.06),
+      transparent 60%
+    ),
+    linear-gradient(160deg, rgb(29 29 29 / 0.9), rgb(10 10 10 / 0.94));
+  backdrop-filter: blur(20px);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow: 0 24px 50px -28px rgb(0 0 0 / 0.55);
+}
+
+/* Bloco translúcido dentro do cartão de destaque. */
+@utility ladrilho {
+  background-color: rgb(255 255 255 / 0.06);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+
+/* Cartão que sobe um pouco ao passar o mouse. */
+@utility flutua {
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 0 0 rgb(255 255 255 / 0.6) inset,
+      0 26px 50px -24px rgb(0 0 0 / 0.3);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+    &:hover {
+      transform: none;
+    }
+  }
+}
+
+/*
+ * Cores das séries por categoria, na ordem validada para daltonismo
+ * (azul, laranja, água, amarelo, magenta). Sempre na mesma ordem, presas à
+ * categoria, nunca à posição; status (ok/atenção/fora) usa outras cores.
+ */
+/* Par divergente (dois lados do zero, ex.: banco de horas): azul e vermelho. */
+:root {
+  --div-positivo: #2a78d6;
+  --div-negativo: #e34948;
+}
+:root[data-theme="dark"] {
+  --div-positivo: #3987e5;
+  --div-negativo: #e66767;
+}
+
+:root {
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --serie-5: #e87ba4;
+}
+:root[data-theme="dark"] {
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-5: #d55181;
+}
+
+/* Barras de rolagem discretas (menu lateral, tabelas). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-300) transparent;
+}
+
+/* Painel do modal: quase opaco (lista legível), com o mesmo reflexo do vidro. */
+.painel-modal {
+  background-color: rgb(250 250 249 / 0.94);
+  background-image: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.6),
+    rgb(255 255 255 / 0) 40%
+  );
+  backdrop-filter: blur(30px) saturate(160%);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  box-shadow: 0 40px 80px -30px rgb(0 0 0 / 0.45);
+}
+:root[data-theme="dark"] .painel-modal {
+  background-color: rgb(22 22 22 / 0.93);
+  background-image: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.06),
+    rgb(255 255 255 / 0) 40%
+  );
+  border-color: rgb(255 255 255 / 0.08);
+}
+
+/* Modal de detalhe: sobe e aparece; o fundo escurece junto. */
+.modal-detalhe[open] {
+  animation: modal-entrar 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.modal-detalhe[open]::backdrop {
+  animation: modal-fundo 260ms ease-out;
+}
+@keyframes modal-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+}
+@keyframes modal-fundo {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-detalhe[open],
+  .modal-detalhe[open]::backdrop {
+    animation: none;
+  }
+}
+
+/* Avisos da página: sobem do canto inferior direito; ao fechar, saem para o lado. */
+.aviso-entrar {
+  animation: aviso-entrar 420ms cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+}
+.aviso-entrar[data-saindo] {
+  animation: aviso-sair 220ms ease-in forwards;
+}
+@keyframes aviso-entrar {
+  from {
+    opacity: 0;
+    transform: translate(12px, 18px) scale(0.96);
+  }
+}
+@keyframes aviso-sair {
+  to {
+    opacity: 0;
+    transform: translateX(24px) scale(0.97);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aviso-entrar,
+  .aviso-entrar[data-saindo] {
+    animation: none;
+  }
+}
+
+/* Lista da seleção: abre com um leve zoom. */
+.selecao-lista {
+  animation: selecao-abrir 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes selecao-abrir {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .selecao-lista {
+    animation: none;
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "quantidade": 11,
+  "subdetalhes": {
+    "carro": {
+      "quantidade": 11,
+      "descricao": "carro"
+    },
+    "caminhao": {
+      "quantidade": 0,
+      "descricao": "caminhao"
+    },
+    "moto": {
+      "quantidade": 0,
+      "descricao": "moto"
+    }
+  }
+}

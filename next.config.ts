@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  experimental: {
+    // Envio do Extrato Mensal (PDF) pela Server Action da folha.
+    serverActions: { bodySizeLimit: "10mb" },
+  },
   headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

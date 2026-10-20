@@ -1,0 +1,855 @@
+import type { Detalhe, TabelaDetalhe } from "@/components/modal-detalhe";
+import {
+  fimDoMes,
+  formatarData,
+  formatarHoras,
+  formatarMes,
+  formatarMoeda,
+  formatarNumero,
+  formatarPct,
+} from "@/lib/formato";
+import {
+  ativosEm,
+  type ColaboradorQuadro,
+  type LinhaPonto,
+  movimentoDoMes,
+  porSetor,
+  somarPonto,
+  type TotaisSetor,
+} from "./calculos";
+import type { CustoIndividual, TotaisCusto } from "./custo";
+import {
+  movimentoEntre,
+  tabelaDeHorasPerdidas,
+  tabelaDeSaidas,
+  tabelaDoBanco,
+  tabelaDoPonto,
+  tabelaDoQuadro,
+} from "./detalhes";
+import { ROTULO_CONTRATO } from "./rubricas";
+
+// Modais "de onde vem este número" das telas do RH: fonte, fórmula e quem
+// forma o valor. Lista de pessoas só para quem já as vê nas telas (o
+// chamador decide pela permissão); sem ela, o modal mostra só as somas.
+
+type Link = Detalhe["link"];
+
+export const FONTES = {
+  ponto: (mes: string, ate: string) =>
+    `Ponto (Secullum), de ${formatarData(mes)} a ${formatarData(ate)}; sincronizado todo dia`,
+  cadastro:
+    "Cadastro de colaboradores do ponto (Secullum): admissão, desligamento e motivo",
+  folha: (competencia: string, ficticia: boolean) =>
+    `Extrato Mensal da Sousa e Couto de ${formatarMes(competencia)}${ficticia ? " (protótipo: todo salário gravado como R$ 2.000,00)" : ""}`,
+  calculo:
+    "Recalculado ao importar a folha, classificar rubrica e salvar encargos ou RAT/FAP",
+};
+
+const moeda = (v: number) => formatarMoeda(v, 0);
+
+// ---------------------------------------------------------------------------
+// Tabelas de somas (sem pessoas)
+// ---------------------------------------------------------------------------
+
+function tabelaDePontoPorSetor(setores: TotaisSetor[]): TabelaDetalhe {
+  return {
+    titulo: "Por setor",
+    colunas: [
+      { titulo: "Setor" },
+      { titulo: "Pessoas", numero: true },
+      { titulo: "Previstas", numero: true },
+      { titulo: "Faltas", numero: true },
+      { titulo: "Atrasos", numero: true },
+      { titulo: "Absenteísmo", numero: true },
+    ],
+    linhas: setores.map((s) => ({
+      chave: s.departamento_id ?? "sem",
+      celulas: [
+        s.departamento,
+        String(s.colaboradores),
+        formatarHoras(s.previstas_min),
+        formatarHoras(s.faltas_min),
+        formatarHoras(s.atrasos_min),
+        formatarPct(s.absenteismo),
+      ],
+      ordem: [
+        s.departamento,
+        s.colaboradores,
+        s.previstas_min,
+        s.faltas_min,
+        s.atrasos_min,
+        s.absenteismo,
+      ],
+    })),
+    vazio: "Ninguém no ponto deste período.",
+  };
+}
+
+function tabelaDeBancoPorSetor(
+  setores: TotaisSetor[],
+  reais?: Map<string | null, number | null>,
+): TabelaDetalhe {
+  return {
+    titulo: "Por setor",
+    colunas: [
+      { titulo: "Setor" },
+      { titulo: "Pessoas", numero: true },
+      { titulo: "Positivo", numero: true },
+      { titulo: "Negativo", numero: true },
+      { titulo: "Saldo", numero: true },
+      ...(reais ? [{ titulo: "Positivo em R$", numero: true }] : []),
+    ],
+    linhas: setores.map((s) => {
+      const r = reais?.get(s.departamento_id) ?? null;
+      return {
+        chave: s.departamento_id ?? "sem",
+        celulas: [
+          s.departamento,
+          String(s.colaboradores),
+          `+${formatarHoras(s.banco_positivo_min)}`,
+          formatarHoras(s.banco_negativo_min),
+          formatarHoras(s.banco_saldo_min),
+          ...(reais ? [r === null ? "—" : moeda(r)] : []),
+        ],
+        ordem: [
+          s.departamento,
+          s.colaboradores,
+          s.banco_positivo_min,
+          s.banco_negativo_min,
+          s.banco_saldo_min,
+          ...(reais ? [r] : []),
+        ],
+      };
+    }),
+    vazio: "Ninguém com banco de horas neste período.",
+  };
+}
+
+function tabelaDeQuadroPorSetor(
+  colaboradores: ColaboradorQuadro[],
+  titulo: string,
+): TabelaDetalhe {
+  const n = new Map<string, number>();
+  for (const c of colaboradores)
+    n.set(c.departamento, (n.get(c.departamento) ?? 0) + 1);
+  return {
+    titulo,
+    colunas: [{ titulo: "Setor" }, { titulo: "Pessoas", numero: true }],
+    linhas: [...n]
+      .sort((a, b) => b[1] - a[1])
+      .map(([setor, q]) => ({
+        chave: setor,
+        celulas: [setor, String(q)],
+        ordem: [setor, q],
+      })),
+    vazio: "Ninguém aqui.",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Quadro
+// ---------------------------------------------------------------------------
+
+export type FocoQuadro = "ativos" | "admissoes" | "desligamentos" | "turnover";
+
+/** Quadro de um mês: ativos no fim, admissões, desligamentos e turnover. */
+export function origemDoQuadro(
+  colaboradores: ColaboradorQuadro[],
+  competencia: string,
+  fim: string,
+  opcoes: { foco?: FocoQuadro; pessoas: boolean; link?: Link },
+): Detalhe {
+  const foco = opcoes.foco ?? "ativos";
+  const ativos = ativosEm(colaboradores, fim).sort((a, b) =>
+    a.nome.localeCompare(b.nome),
+  );
+  const { admitidos, desligados } = movimentoEntre(
+    colaboradores,
+    competencia,
+    fimDoMes(competencia),
+  );
+  const m = movimentoDoMes(colaboradores, competencia);
+
+  const tabelas: Record<
+    "ativos" | "admissoes" | "desligamentos",
+    TabelaDetalhe
+  > = opcoes.pessoas
+    ? {
+        ativos: tabelaDoQuadro(ativos, fim, `Ativos em ${formatarData(fim)}`),
+        admissoes: {
+          ...tabelaDoQuadro(admitidos, fim, "Admitidos no mês"),
+          vazio: "Nenhuma admissão no mês.",
+        },
+        desligamentos: {
+          ...tabelaDeSaidas(
+            desligados,
+            m.efetivacoes
+              ? "Desligados no mês (inclui efetivações)"
+              : "Desligados no mês",
+          ),
+          vazio: "Nenhum desligamento no mês.",
+        },
+      }
+    : {
+        ativos: tabelaDeQuadroPorSetor(ativos, "Ativos por setor"),
+        admissoes: {
+          ...tabelaDeQuadroPorSetor(admitidos, "Admissões por setor"),
+          vazio: "Nenhuma admissão no mês.",
+        },
+        desligamentos: {
+          ...tabelaDeQuadroPorSetor(desligados, "Desligamentos por setor"),
+          vazio: "Nenhum desligamento no mês.",
+        },
+      };
+  const ordem: ("ativos" | "admissoes" | "desligamentos")[] =
+    foco === "admissoes"
+      ? ["admissoes", "desligamentos", "ativos"]
+      : foco === "desligamentos"
+        ? ["desligamentos", "admissoes", "ativos"]
+        : foco === "turnover"
+          ? ["admissoes", "desligamentos", "ativos"]
+          : ["ativos", "admissoes", "desligamentos"];
+
+  const regra: Record<FocoQuadro, string> = {
+    ativos:
+      "Admitido até a data e sem desligamento até ela (PJ e pró-labore entram com a folha)",
+    admissoes: "Data de admissão dentro do mês",
+    desligamentos:
+      "Data de desligamento dentro do mês; o tipo vem do motivo no Secullum (ajustável em Parâmetros)",
+    turnover:
+      "((admissões + desligamentos) ÷ 2) ÷ quadro médio × 100; efetivação fica fora",
+  };
+  const titulos: Record<FocoQuadro, string> = {
+    ativos: `Colaboradores ativos em ${formatarData(fim)}`,
+    admissoes: `Admissões de ${formatarMes(competencia)}`,
+    desligamentos: `Desligamentos de ${formatarMes(competencia)}`,
+    turnover: `Turnover de ${formatarMes(competencia)}`,
+  };
+
+  return {
+    secao: "Quadro",
+    titulo: titulos[foco],
+    subtitulo: opcoes.pessoas
+      ? undefined
+      : "Somas por setor (a lista de pessoas fica na tela Quadro e turnover)",
+    resumo: [
+      { rotulo: "Ativos no fim", valor: String(ativos.length) },
+      { rotulo: "Admissões", valor: String(m.admissoes) },
+      { rotulo: "Desligamentos", valor: String(m.desligamentos) },
+      { rotulo: "Turnover", valor: formatarPct(m.turnover) },
+    ],
+    fontes: [
+      { rotulo: "Fonte", valor: FONTES.cadastro },
+      { rotulo: "Regra", valor: regra[foco] },
+      ...(foco === "turnover"
+        ? [
+            {
+              rotulo: "Quadro médio",
+              valor: `(${m.inicio} no início + ${m.fim} no fim) ÷ 2`,
+            },
+          ]
+        : []),
+      { rotulo: "Atualização", valor: "Sincronização diária com o Secullum" },
+    ],
+    tabelas: ordem.map((k) => tabelas[k]),
+    link: opcoes.link,
+  };
+}
+
+/** Desligamentos de um tipo (ex.: voluntário) num período. */
+export function origemDeSaidasPorTipo(
+  desligados: ColaboradorQuadro[],
+  rotulo: string,
+  periodo: string,
+  pessoas: boolean,
+  link?: Link,
+): Detalhe {
+  return {
+    secao: "Desligamentos por tipo",
+    titulo: rotulo,
+    subtitulo: periodo,
+    resumo: [{ rotulo: "Saídas", valor: String(desligados.length) }],
+    fontes: [
+      { rotulo: "Fonte", valor: FONTES.cadastro },
+      {
+        rotulo: "Tipo",
+        valor:
+          "Pelo motivo de desligamento no Secullum, classificado em Parâmetros",
+      },
+    ],
+    tabelas: [
+      pessoas
+        ? tabelaDeSaidas(desligados)
+        : tabelaDeQuadroPorSetor(desligados, "Por setor"),
+    ],
+    link,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Jornada (ponto)
+// ---------------------------------------------------------------------------
+
+interface OpcoesPonto {
+  mes: string;
+  ate: string;
+  pessoas: boolean;
+  meta?: string;
+  link?: Link;
+}
+
+export function origemDoAbsenteismo(
+  ponto: LinhaPonto[],
+  o: OpcoesPonto,
+): Detalhe {
+  const t = somarPonto(ponto);
+  return {
+    secao: "Absenteísmo",
+    titulo: `Absenteísmo de ${formatarMes(o.mes)}`,
+    resumo: [
+      { rotulo: "Absenteísmo", valor: formatarPct(t.absenteismo) },
+      { rotulo: "Faltas", valor: formatarHoras(t.faltas_min) },
+      { rotulo: "Atrasos", valor: formatarHoras(t.atrasos_min) },
+      { rotulo: "Horas previstas", valor: formatarHoras(t.previstas_min) },
+    ],
+    fontes: [
+      { rotulo: "Fonte", valor: FONTES.ponto(o.mes, o.ate) },
+      {
+        rotulo: "Fórmula",
+        valor: "(faltas + atrasos) ÷ horas previstas × 100",
+      },
+      {
+        rotulo: "Fora da conta",
+        valor: "Abonos (atestados e afins) aparecem separados na Jornada",
+      },
+      ...(o.meta ? [{ rotulo: "Meta", valor: `${o.meta} (Parâmetros)` }] : []),
+    ],
+    tabelas: [
+      tabelaDePontoPorSetor(porSetor(ponto)),
+      ...(o.pessoas ? [tabelaDoPonto(ponto, "Por pessoa")] : []),
+    ],
+    link: o.link,
+  };
+}
+
+export function origemDasHorasPerdidas(
+  ponto: LinhaPonto[],
+  motivo: "faltas" | "atrasos",
+  o: OpcoesPonto,
+): Detalhe {
+  const t = somarPonto(ponto);
+  const total = motivo === "faltas" ? t.faltas_min : t.atrasos_min;
+  return {
+    secao: "Horas perdidas",
+    titulo: motivo === "faltas" ? "Faltas" : "Atrasos",
+    subtitulo: `${formatarMes(o.mes)}, da maior para a menor`,
+    resumo: [
+      { rotulo: "Total", valor: formatarHoras(total) },
+      ...(motivo === "faltas"
+        ? [{ rotulo: "Dias", valor: formatarNumero(t.faltas_dias, 1) }]
+        : []),
+      {
+        rotulo: "Pessoas",
+        valor: String(
+          ponto.filter((l) =>
+            motivo === "faltas" ? l.faltas_min > 0 : l.atrasos_min > 0,
+          ).length,
+        ),
+      },
+    ],
+    fontes: [
+      { rotulo: "Fonte", valor: FONTES.ponto(o.mes, o.ate) },
+      {
+        rotulo: "Coluna",
+        valor:
+          motivo === "faltas"
+            ? "Faltas e FaltasDias do cálculo do Secullum"
+            : "Atrasos do cálculo do Secullum",
+      },
+    ],
+    tabelas: o.pessoas
+      ? [tabelaDeHorasPerdidas(ponto, motivo)]
+      : [tabelaDePontoPorSetor(porSetor(ponto))],
+    link: o.link,
+  };
+}
+
+export function origemDosAbonos(
+  ponto: LinhaPonto[],
+  colunas: string[],
+  o: OpcoesPonto,
+): Detalhe {
+  const t = somarPonto(ponto);
+  const com = ponto
+    .map((l) => ({
+      l,
+      total: colunas.reduce((s, c) => s + (l.abonos_min[c] ?? 0), 0),
+    }))
+    .filter((x) => x.total > 0)
+    .sort((a, b) => b.total - a.total);
+  return {
+    secao: "Abonos",
+    titulo: `Abonos de ${formatarMes(o.mes)}`,
+    resumo: [
+      { rotulo: "Total", valor: formatarHoras(t.abonos_min) },
+      { rotulo: "Pessoas", valor: String(com.length) },
+    ],
+    fontes: [
+      { rotulo: "Fonte", valor: FONTES.ponto(o.mes, o.ate) },
+      {
+        rotulo: "Colunas",
+        valor: `${colunas.join(", ") || "nenhuma"}: separadas até a Gestora confirmar qual é atestado`,
+      },
+      { rotulo: "Regra", valor: "Não entram no absenteísmo" },
+    ],
+    tabelas: o.pessoas
+      ? [
+          {
+            colunas: [
+              { titulo: "Colaborador", pessoa: true },
+              { titulo: "Setor" },
+              ...colunas.map((c) => ({ titulo: c, numero: true })),
+              { titulo: "Total", numero: true },
+            ],
+            linhas: com.map(({ l, total }) => ({
+              chave: l.colaborador_id,
+              celulas: [
+                l.nome,
+                l.departamento,
+                ...colunas.map((c) => formatarHoras(l.abonos_min[c] ?? 0)),
+                formatarHoras(total),
+              ],
+              ordem: [
+                l.nome,
+                l.departamento,
+                ...colunas.map((c) => l.abonos_min[c] ?? 0),
+                total,
+              ],
+            })),
+            vazio: "Ninguém com abono no mês.",
+          },
+        ]
+      : [],
+    link: o.link,
+  };
+}
+
+export interface BancoEmReaisResumo {
+  valor: number | null;
+  folha: string | null;
+  adicional: number | null;
+  porDepartamento: Map<string | null, number | null>;
+}
+
+export function origemDoBanco(
+  ponto: LinhaPonto[],
+  o: OpcoesPonto & {
+    /** Só positivos (card "Banco positivo") ou todos os saldos. */
+    soPositivo?: boolean;
+    reais?: BancoEmReaisResumo | null;
+  },
+): Detalhe {
+  const t = somarPonto(ponto);
+  const r = o.reais;
+  const emReais =
+    r?.folha && r.adicional !== null
+      ? `Horas positivas × salário/hora da folha de ${formatarMes(r.folha)} × (1 + ${formatarNumero(r.adicional)}% de adicional)`
+      : r?.folha
+        ? "Configure o ciclo e o adicional do banco de horas em Parâmetros"
+        : r === null
+          ? "Precisa de folha importada e de acesso ao custo de pessoal"
+          : undefined;
+  return {
+    secao: "Banco de horas",
+    titulo: o.soPositivo
+      ? `Banco positivo de ${formatarMes(o.mes)}`
+      : `Banco de horas de ${formatarMes(o.mes)}`,
+    subtitulo: o.soPositivo
+      ? "Quem tem horas a folgar ou a receber"
+      : "De quem mais deve para quem mais tem crédito",
+    resumo: [
+      { rotulo: "Positivo", valor: `+${formatarHoras(t.banco_positivo_min)}` },
+      { rotulo: "Negativo", valor: formatarHoras(t.banco_negativo_min) },
+      { rotulo: "Saldo", valor: formatarHoras(t.banco_saldo_min) },
+      ...(r?.valor !== null && r?.valor !== undefined
+        ? [{ rotulo: "Positivo em R$", valor: moeda(r.valor) }]
+        : []),
+    ],
+    fontes: [
+      { rotulo: "Fonte", valor: FONTES.ponto(o.mes, o.ate) },
+      {
+        rotulo: "Saldo",
+        valor:
+          "BSaldo do Secullum por pessoa; positivo soma só quem tem crédito",
+      },
+      ...(emReais ? [{ rotulo: "Valor em R$", valor: emReais }] : []),
+      ...(o.meta ? [{ rotulo: "Meta", valor: `${o.meta} (Parâmetros)` }] : []),
+    ],
+    tabelas: [
+      tabelaDeBancoPorSetor(porSetor(ponto), r?.porDepartamento),
+      ...(o.pessoas ? [tabelaDePessoasNoBanco(ponto, !!o.soPositivo)] : []),
+    ],
+    link: o.link,
+  };
+}
+
+/** Por pessoa; no banco positivo, de quem tem mais crédito. */
+function tabelaDePessoasNoBanco(
+  ponto: LinhaPonto[],
+  soPositivo: boolean,
+): TabelaDetalhe {
+  if (!soPositivo) return tabelaDoBanco(ponto, "Por pessoa");
+  const t = tabelaDoBanco(
+    ponto.filter((l) => l.banco_saldo_min > 0),
+    "Por pessoa",
+  );
+  return { ...t, linhas: [...t.linhas].reverse() };
+}
+
+/** Pessoas de um setor no ponto do mês (barras por setor). */
+export function origemDoSetor(
+  s: TotaisSetor,
+  linhas: LinhaPonto[],
+  o: OpcoesPonto,
+): Detalhe {
+  return {
+    secao: "Absenteísmo por setor",
+    titulo: s.departamento,
+    subtitulo: "Do maior absenteísmo para o menor",
+    resumo: [
+      { rotulo: "Pessoas", valor: String(s.colaboradores) },
+      { rotulo: "Absenteísmo", valor: formatarPct(s.absenteismo) },
+      { rotulo: "Faltas", valor: formatarHoras(s.faltas_min) },
+      { rotulo: "Atrasos", valor: formatarHoras(s.atrasos_min) },
+    ],
+    fontes: [
+      { rotulo: "Fonte", valor: FONTES.ponto(o.mes, o.ate) },
+      {
+        rotulo: "Fórmula",
+        valor: "(faltas + atrasos) ÷ horas previstas do setor × 100",
+      },
+    ],
+    tabelas: o.pessoas ? [tabelaDoPonto(linhas)] : [],
+    link: o.link,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Custo de pessoal
+// ---------------------------------------------------------------------------
+
+export type ComponenteCusto =
+  | "remuneracao"
+  | "encargos"
+  | "provisoes"
+  | "beneficios"
+  | "rescisao";
+
+export const COMPONENTES: Record<
+  ComponenteCusto,
+  { rotulo: string; regra: string; fonte: string }
+> = {
+  remuneracao: {
+    rotulo: "Remuneração",
+    regra:
+      "Salário + pró-labore + adicionais + horas extras (grupos das rubricas); PJ: notas do mês",
+    fonte: "Rubricas da folha, classificadas em Importar folha",
+  },
+  encargos: {
+    rotulo: "Encargos",
+    regra:
+      "Remuneração × (INSS patronal + Terceiros + FGTS + RAT × FAP) do tipo de contrato",
+    fonte: "Parâmetros: encargos por contrato e RAT/FAP da empresa",
+  },
+  provisoes: {
+    rotulo: "Provisões",
+    regra:
+      "13º = remuneração ÷ 12; férias = ÷ 12 × 4/3, ambos com todos os encargos; multa rescisória = % do FGTS do mês",
+    fonte: "Parâmetros: provisões e multa por tipo de contrato",
+  },
+  beneficios: {
+    rotulo: "Benefícios",
+    regra:
+      "Valor do benefício (manual, padrão ou faixa etária) − o que o funcionário paga na folha + parte da empresa nos dependentes",
+    fonte: "Cadastro de Benefícios + descontos da folha",
+  },
+  rescisao: {
+    rotulo: "Rescisões",
+    regra:
+      "Verbas do grupo Rescisão (ex.: aviso prévio indenizado); férias e 13º pagos consomem a provisão",
+    fonte: "Rubricas da folha, classificadas em Importar folha",
+  },
+};
+
+interface OpcoesCusto {
+  competencia: string;
+  ficticia: boolean;
+  /** Totais por departamento, já com o nome. */
+  porSetor: { nome: string; totais: TotaisCusto }[];
+  /** Pessoas, só com rh.custo_pessoal.individual. */
+  pessoas?: CustoIndividual[] | null;
+  link?: Link;
+}
+
+const fontesDoCusto = (o: OpcoesCusto, extra: Detalhe["fontes"] = []) => [
+  { rotulo: "Folha", valor: FONTES.folha(o.competencia, o.ficticia) },
+  ...(extra ?? []),
+  { rotulo: "Atualização", valor: FONTES.calculo },
+];
+
+function tabelaDeCustoPorSetor(
+  o: OpcoesCusto,
+  valor: (t: TotaisCusto) => number,
+  rotulo: string,
+): TabelaDetalhe {
+  return {
+    titulo: "Por departamento",
+    colunas: [
+      { titulo: "Departamento" },
+      { titulo: "Pessoas", numero: true },
+      { titulo: rotulo, numero: true },
+      { titulo: "Por pessoa", numero: true },
+    ],
+    linhas: [...o.porSetor]
+      .sort((a, b) => valor(b.totais) - valor(a.totais))
+      .map((d) => ({
+        chave: d.nome,
+        celulas: [
+          d.nome,
+          String(d.totais.colaboradores),
+          moeda(valor(d.totais)),
+          moeda(valor(d.totais) / (d.totais.colaboradores || 1)),
+        ],
+        ordem: [
+          d.nome,
+          d.totais.colaboradores,
+          valor(d.totais),
+          valor(d.totais) / (d.totais.colaboradores || 1),
+        ],
+      })),
+    vazio: "Sem custo calculado.",
+  };
+}
+
+function tabelaDeCustoPorPessoa(
+  pessoas: CustoIndividual[],
+  valor: (p: CustoIndividual) => number,
+  rotulo: string,
+): TabelaDetalhe {
+  return {
+    titulo: "Por pessoa",
+    colunas: [
+      { titulo: "Colaborador", pessoa: true },
+      { titulo: "Setor" },
+      { titulo: "Contrato" },
+      { titulo: rotulo, numero: true },
+      { titulo: "Custo total", numero: true },
+    ],
+    linhas: [...pessoas]
+      .sort((a, b) => valor(b) - valor(a))
+      .map((p) => ({
+        chave: p.colaborador_id,
+        celulas: [
+          p.nome,
+          p.departamento,
+          ROTULO_CONTRATO[p.tipo_contrato] ?? p.tipo_contrato,
+          moeda(valor(p)),
+          moeda(p.custo_total),
+        ],
+        ordem: [
+          p.nome,
+          p.departamento,
+          p.tipo_contrato,
+          valor(p),
+          p.custo_total,
+        ],
+      })),
+    vazio: "Ninguém com custo calculado.",
+  };
+}
+
+/** Custo total: a escada da remuneração ao custo e quem forma cada parte. */
+export function origemDoCustoTotal(t: TotaisCusto, o: OpcoesCusto): Detalhe {
+  const degraus: [string, number, string][] = [
+    ["Remuneração", t.remuneracao, COMPONENTES.remuneracao.fonte],
+    ["+ Rescisões", t.rescisao, COMPONENTES.rescisao.fonte],
+    ["+ Encargos", t.encargos, COMPONENTES.encargos.fonte],
+    ["+ Provisões", t.provisoes, COMPONENTES.provisoes.fonte],
+    ["+ Benefícios", t.beneficios, COMPONENTES.beneficios.fonte],
+    ["= Custo total", t.custo_total, "Soma dos degraus"],
+  ];
+  return {
+    secao: "Custo de pessoal",
+    titulo: `Custo total de ${formatarMes(o.competencia)}`,
+    subtitulo: `${t.colaboradores} pessoas na folha`,
+    resumo: [
+      { rotulo: "Custo total", valor: moeda(t.custo_total) },
+      { rotulo: "Remuneração", valor: moeda(t.remuneracao) },
+      {
+        rotulo: "Encargos e provisões",
+        valor: moeda(t.encargos + t.provisoes),
+      },
+      { rotulo: "Benefícios", valor: moeda(t.beneficios) },
+    ],
+    fontes: fontesDoCusto(o, [
+      { rotulo: "Encargos e provisões", valor: COMPONENTES.encargos.fonte },
+      { rotulo: "Benefícios", valor: COMPONENTES.beneficios.fonte },
+      {
+        rotulo: "Fórmula",
+        valor: "Remuneração + rescisões + encargos + provisões + benefícios",
+      },
+    ]),
+    tabelas: [
+      {
+        titulo: "Da remuneração ao custo",
+        colunas: [
+          { titulo: "Degrau" },
+          { titulo: "Valor", numero: true },
+          { titulo: "De onde vem" },
+        ],
+        linhas: degraus.map(([d, v, f], i) => ({
+          chave: d,
+          celulas: [d, moeda(v), f],
+          ordem: [i, v, f],
+        })),
+      },
+      tabelaDeCustoPorSetor(o, (x) => x.custo_total, "Custo total"),
+      ...(o.pessoas
+        ? [
+            tabelaDeCustoPorPessoa(
+              o.pessoas,
+              (p) => p.custo_total,
+              "Custo total",
+            ),
+          ]
+        : []),
+    ],
+    link: o.link,
+  };
+}
+
+/** Uma parte do custo (encargos, provisões…): regra, setores e pessoas. */
+export function origemDoComponente(
+  c: ComponenteCusto,
+  t: TotaisCusto,
+  o: OpcoesCusto,
+): Detalhe {
+  const info = COMPONENTES[c];
+  const valorPessoa = (p: CustoIndividual) => p[c];
+  return {
+    secao: "Custo de pessoal",
+    titulo: `${info.rotulo} de ${formatarMes(o.competencia)}`,
+    resumo: [
+      { rotulo: info.rotulo, valor: moeda(t[c]) },
+      {
+        rotulo: "% do custo total",
+        valor: formatarPct(t.custo_total ? (t[c] / t.custo_total) * 100 : null),
+      },
+      ...(c === "encargos" || c === "provisoes"
+        ? [
+            {
+              rotulo: "% da remuneração",
+              valor: formatarPct(
+                t.remuneracao ? (t[c] / t.remuneracao) * 100 : null,
+              ),
+            },
+          ]
+        : []),
+      ...(o.pessoas
+        ? [
+            {
+              rotulo: "Pessoas com valor",
+              valor: String(
+                o.pessoas.filter((p) => valorPessoa(p) !== 0).length,
+              ),
+            },
+          ]
+        : []),
+    ],
+    fontes: fontesDoCusto(o, [
+      { rotulo: "Fonte", valor: info.fonte },
+      { rotulo: "Regra", valor: info.regra },
+    ]),
+    tabelas: [
+      tabelaDeCustoPorSetor(o, (x) => x[c], info.rotulo),
+      ...(o.pessoas
+        ? [tabelaDeCustoPorPessoa(o.pessoas, valorPessoa, info.rotulo)]
+        : []),
+    ],
+    link: o.link,
+  };
+}
+
+export function origemDoCustoMedio(t: TotaisCusto, o: OpcoesCusto): Detalhe {
+  return {
+    secao: "Custo de pessoal",
+    titulo: `Custo médio por pessoa em ${formatarMes(o.competencia)}`,
+    resumo: [
+      {
+        rotulo: "Custo médio",
+        valor: moeda(t.colaboradores ? t.custo_total / t.colaboradores : 0),
+      },
+      { rotulo: "Custo total", valor: moeda(t.custo_total) },
+      { rotulo: "Pessoas", valor: String(t.colaboradores) },
+    ],
+    fontes: fontesDoCusto(o, [
+      {
+        rotulo: "Fórmula",
+        valor:
+          "Custo total ÷ pessoas com custo na folha (inclui afastados e desligados no mês)",
+      },
+    ]),
+    tabelas: [
+      tabelaDeCustoPorSetor(o, (x) => x.custo_total, "Custo total"),
+      ...(o.pessoas
+        ? [
+            tabelaDeCustoPorPessoa(
+              o.pessoas,
+              (p) => p.custo_total,
+              "Custo total",
+            ),
+          ]
+        : []),
+    ],
+    link: o.link,
+  };
+}
+
+/** % sobre a receita: custo ÷ faturamento, com o que falta para sair. */
+export function origemDoCustoSobreReceita(
+  t: TotaisCusto | null,
+  faturamento: number | null,
+  o: Omit<OpcoesCusto, "porSetor"> & { meta?: string },
+): Detalhe {
+  const pct = t && faturamento ? (t.custo_total / faturamento) * 100 : null;
+  return {
+    secao: "Custo de pessoal",
+    titulo: "Custo de pessoal sobre a receita",
+    subtitulo: `Competência ${formatarMes(o.competencia)}`,
+    resumo: [
+      { rotulo: "Custo total", valor: t ? moeda(t.custo_total) : "—" },
+      {
+        rotulo: "Faturamento bruto",
+        valor: faturamento ? moeda(faturamento) : "Pendente",
+      },
+      { rotulo: "Custo ÷ receita", valor: formatarPct(pct) },
+      ...(o.meta ? [{ rotulo: "Meta", valor: o.meta }] : []),
+    ],
+    fontes: [
+      { rotulo: "Custo", valor: FONTES.folha(o.competencia, o.ficticia) },
+      {
+        rotulo: "Faturamento",
+        valor: faturamento
+          ? "Faturamento bruto da competência (ENET)"
+          : "Faturamento bruto do ENET: integração pendente, ainda sem valor para o mês",
+      },
+      {
+        rotulo: "Fórmula",
+        valor: "Custo total ÷ faturamento bruto da mesma competência × 100",
+      },
+      { rotulo: "Meta", valor: "Configurável em Parâmetros (hoje até 10%)" },
+    ],
+    tabelas: [],
+    link: o.link,
+  };
+}

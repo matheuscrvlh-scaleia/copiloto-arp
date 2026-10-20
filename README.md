@@ -1,48 +1,97 @@
-# copiloto-arp
+# ARP Centralizador
 
-ERP da ARP. Consulta dados de ~8 sistemas externos (APIs REST) e consolida numa base própria.
+Sistema web da ARP Empreendimentos Imobiliários (Espaço ARP, Nova Friburgo-RJ).
+Junta num lugar só os dados que hoje estão espalhados entre o ENET, o ponto, a
+folha, o estacionamento e as planilhas, e calcula os indicadores que a equipe
+monta à mão.
+
+## Módulos
+
+- **RH**: custo de pessoal por funcionário (encargos, provisões e benefícios),
+  % sobre a receita, quadro e turnover, absenteísmo e banco de horas.
+  Quem valida: Aline.
+- **Financeiro**: inadimplência por cliente, faturamento e recebimentos,
+  contas a pagar, fluxo de caixa, plano orçamentário e o Performance &
+  Capital do Pedro. Quem valida: Milena, Taiane e Pedro.
+
+As especificações completas estão na pasta do projeto ARP (fora do repo).
+Integrações: [docs/integracoes.md](docs/integracoes.md).
 
 ## Stack
 
 - **Next.js** (App Router) na **Vercel**: front e back (Route Handlers / Server Actions)
 - **Supabase**: Postgres, Auth e RLS
-- **TypeScript** estrito, **Tailwind CSS**, **Biome** (lint + format)
+- **TypeScript** estrito, **Tailwind CSS**, **Biome**, **Zod**, **Vitest**
 
 ## Arquitetura
 
 ```
 Vercel Cron ─▶ /api/sync/[sistema] ─▶ conector ─▶ valida (Zod) ─▶ upsert no Supabase
                                                               └▶ registra em sync_runs
+Upload (folha, relatório do ENET) ─▶ conferência ─▶ Supabase
 App (Next.js) ─▶ Supabase (com RLS)
 ```
 
 Princípios:
 
-- **Conectores independentes do Next**: cada sistema externo é um módulo puro
-  (`buscarPagina(cursor) → { dados, proximoCursor }`), testável isoladamente e
-  portável para outro runtime se um dia for preciso.
+- **Só leitura nos sistemas externos**: nada é gravado de volta.
+- **Conectores independentes do Next**: cada sistema é um módulo puro em
+  `src/connectors`, testável isoladamente.
 - **Sincronização incremental e idempotente**: o cursor só avança em caso de
   sucesso; upserts nunca duplicam dados.
-- **Segredos só no servidor**: credenciais de sistemas externos e a
-  `service_role` do Supabase nunca chegam ao navegador.
+- **Segredos só no servidor**: credenciais nunca chegam ao navegador.
+- **Nada fixo no código**: metas, encargos, jornadas e faixas são parâmetros
+  editáveis, com histórico de quem mudou.
+- **Permissão por tela**: o administrador libera, usuário por usuário, o que
+  cada um vê (`src/lib/permissions.ts`).
 
 ## Estrutura
 
 ```
 src/
-  app/          rotas (páginas e API)
+  app/
+    (app)/          telas autenticadas, com o menu lateral
+      rh/           módulo RH
+      financeiro/   módulo Financeiro
+  components/       componentes de UI
+  config/           menu e configurações estáticas
+  connectors/       um módulo por sistema externo (sem dependência do Next)
+  lib/              utilitários compartilhados (permissões…)
+  server/           código só do servidor (env, integrações, regras de negócio)
+supabase/
+  migrations/       schema do banco (SQL), fonte de verdade
+  tests/            testes das migrations e do RLS (Postgres em memória)
+docs/               integrações e modelo de dados
 ```
 
-As pastas abaixo serão criadas conforme forem necessárias:
+Modelo de dados: [docs/modelo-de-dados.md](docs/modelo-de-dados.md).
 
-```
-src/
-  components/   componentes de UI
-  connectors/   um módulo por sistema externo (sem dependência do Next)
-  server/       código exclusivo do servidor (acesso a dados, regras de negócio)
-  lib/          utilitários compartilhados
-supabase/       migrations e configuração local
-```
+## Acesso
+
+- Login por e-mail e senha (Supabase Auth). **Não existe cadastro público**:
+  o administrador cria o usuário em Administração › Usuários e cargos, com
+  um cargo (conjunto de permissões) e, se quiser, permissões individuais.
+  Desativar um usuário bloqueia o login e corta o acesso aos dados; o
+  histórico continua. O banco não deixa tirar o último administrador.
+- Dados da empresa: Administração › Empresa.
+- O `proxy` (`src/proxy.ts`) renova a sessão e manda para `/login` quem
+  não está logado. A permissão de cada tela é conferida no servidor
+  (`src/server/auth.ts`) e, nos dados, pelo RLS.
+
+## Sincronização
+
+| Sistema | Rota | Quando |
+|---|---|---|
+| Secullum (ponto) | `/api/sync/secullum` | Vercel Cron, todo dia às 06h de Brasília (`vercel.json`) |
+
+As rotas de sincronização exigem `Authorization: Bearer <CRON_SECRET>`.
+Cada execução fica registrada em `integracao.sync_runs`.
+
+O acesso a cada sistema (usuário, senha, token) é cadastrado em
+Administração › Integrações, que testa a conexão antes de salvar e permite
+"Sincronizar agora". A senha ou o token é cifrado no servidor (AES-256-GCM,
+chave `INTEGRACOES_CHAVE`) antes de ir para o banco e nunca volta para a
+tela. Sem credencial salva, vale a das variáveis de ambiente.
 
 ## Desenvolvimento
 
@@ -50,7 +99,21 @@ Requer Node 24+.
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
-npm run check      # lint + tipos
-npm run format     # formata o código
+cp .env.example .env         # preencha as credenciais
+npm run dev                  # http://localhost:3000
+npm run check                # lint + tipos
+npm test                     # testes (inclui migrations e RLS num Postgres em memória)
+npm run format               # formata o código
+npm run db:types             # regenera os tipos do banco depois de uma migration
 ```
+
+Aplicar migrations no banco: `npx supabase db push --db-url "$SUPABASE_DB_URL"`.
+
+## Deploy (Vercel)
+
+1. Cadastrar na Vercel as variáveis do `.env.example` (incluindo
+   `CRON_SECRET`, que o Vercel Cron envia automaticamente, e
+   `INTEGRACOES_CHAVE`, que cifra as credenciais das integrações; trocar
+   essa chave obriga a cadastrar as credenciais de novo).
+2. No Supabase (Authentication › URL Configuration), trocar o Site URL de
+   `http://localhost:3000` para o domínio de produção.
