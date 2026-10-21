@@ -1,3 +1,5 @@
+import { TOM, type Tom } from "@/components/estilos";
+
 export interface Coluna<T> {
   titulo: string;
   valor: (linha: T) => React.ReactNode;
@@ -100,14 +102,22 @@ export function Secao({
   descricao,
   children,
   className = "",
+  tom = "claro",
+  id,
 }: {
+  /** Âncora (ex.: #beneficios) para os atalhos levarem ao bloco certo. */
+  id?: string;
   titulo: string;
   descricao?: string;
   children: React.ReactNode;
   className?: string;
+  tom?: Tom;
 }) {
   return (
-    <section className={`vidro rounded-[1.75rem] p-5 md:p-6 ${className}`}>
+    <section
+      id={id}
+      className={`${TOM[tom]} scroll-mt-6 rounded-[1.75rem] p-5 md:p-6 ${className}`}
+    >
       <h2 className="text-base font-semibold">{titulo}</h2>
       {descricao && (
         <p className="mt-1 text-xs text-neutral-500">{descricao}</p>

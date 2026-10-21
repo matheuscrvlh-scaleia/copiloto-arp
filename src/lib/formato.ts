@@ -13,6 +13,19 @@ export function formatarMoeda(valor: number | null, casas = 2): string {
   return valor === null ? "—" : `R$ ${formatarNumero(valor, casas)}`;
 }
 
+/**
+ * Valor digitado em reais → número: "1.234,56", "R$ 57,50", "1234.5" ou
+ * "1234". Vazio → null; texto que não é número → NaN (o formulário recusa).
+ */
+export function lerValorBr(texto: string): number | null {
+  const t = texto.replace(/R\$|\s/g, "");
+  if (t === "") return null;
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$|^-?\d+,\d+$/.test(t))
+    return Number(t.replace(/\./g, "").replace(",", "."));
+  if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
+  return Number.NaN;
+}
+
 /** 6.523 → "6,5%". */
 export function formatarPct(valor: number | null, casas = 1): string {
   return valor === null ? "—" : `${formatarNumero(valor, casas)}%`;

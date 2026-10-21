@@ -1,0 +1,157 @@
+import "server-only";
+import { cache } from "react";
+import readXlsxFile from "read-excel-file/node";
+import { type AbaDaPlanilha, lerTabelaDoPlano } from "@/lib/rh/plano";
+import { createClient } from "@/lib/supabase/server";
+
+// Benefícios, vínculos por funcionário e tabelas do plano. Leituras com a
+// sessão do usuário: o RLS decide o que ele vê (rh.beneficios).
+
+function falhar(erro: { message: string } | null): asserts erro is null {
+  if (erro) throw new Error(`Falha ao ler o banco: ${erro.message}`);
+}
+
+async function rh() {
+  return (await createClient()).schema("rh");
+}
+
+export const TIPOS_BENEFICIO = {
+  plano_saude: "Plano de saúde",
+  odonto: "Odonto",
+  alimentacao: "Alimentação (VR/VA)",
+  transporte: "Vale-transporte",
+  seguro: "Seguro de vida",
+  outro: "Outro (massagem, auxílio…)",
+} as const;
+export type TipoBeneficio = keyof typeof TIPOS_BENEFICIO;
+
+export const REGRAS_DEPENDENTE = {
+  nao_paga: "Empresa não paga",
+  percentual: "Empresa paga um % da faixa",
+  valor_fixo: "Empresa paga um valor fixo",
+} as const;
+
+export interface Beneficio {
+  id: string;
+  nome: string;
+  tipo: TipoBeneficio;
+  valor_padrao: number | null;
+  rubricas_desconto: number[];
+  rubricas_desconto_dependente: number[];
+  dependente_regra: keyof typeof REGRAS_DEPENDENTE;
+  dependente_valor: number | null;
+  ativo: boolean;
+}
+
+export interface Vinculo {
+  id: string;
+  beneficio_id: string;
+  colaborador_id: string;
+  nome: string;
+  matricula: number | null;
+  desde: string;
+  ate: string | null;
+  valor_manual: number | null;
+}
+
+export const beneficiosCadastrados = cache(async (): Promise<Beneficio[]> => {
+  const { data, error } = await (await rh())
+    .from("beneficios")
+    .select(
+      "id, nome, tipo, valor_padrao, rubricas_desconto, rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo",
+    )
+    .order("ativo", { ascending: false })
+    .order("nome");
+  falhar(error);
+  return (data ?? []).map((b) => ({
+    ...b,
+    valor_padrao: b.valor_padrao === null ? null : Number(b.valor_padrao),
+    dependente_valor:
+      b.dependente_valor === null ? null : Number(b.dependente_valor),
+  }));
+});
+
+export const vinculosDeBeneficio = cache(async (): Promise<Vinculo[]> => {
+  const { data, error } = await (await rh())
+    .from("colaborador_beneficios")
+    .select(
+      "id, beneficio_id, colaborador_id, desde, ate, valor_manual, colaborador:colaboradores(nome, matricula)",
+    )
+    .order("desde", { ascending: false });
+  falhar(error);
+  return (data ?? [])
+    .map((v) => ({
+      id: v.id,
+      beneficio_id: v.beneficio_id,
+      colaborador_id: v.colaborador_id,
+      nome: v.colaborador?.nome ?? "—",
+      matricula: v.colaborador?.matricula ?? null,
+      desde: v.desde,
+      ate: v.ate,
+      valor_manual: v.valor_manual === null ? null : Number(v.valor_manual),
+    }))
+    .sort((a, b) => a.nome.localeCompare(b.nome));
+});
+
+/** Quem pode receber benefício: cadastro ainda sem desligamento. */
+export const colaboradoresAtivos = cache(async () => {
+  const { data, error } = await (await rh())
+    .from("colaboradores")
+    .select("id, nome, matricula, tipo_contrato")
+    .is("desligamento", null)
+    .order("nome");
+  falhar(error);
+  return data ?? [];
+});
+
+export interface TabelaCadastrada {
+  id: string;
+  beneficio: string;
+  vigente_desde: string;
+  reajuste_pct: number | null;
+  faixas: {
+    idade_min: number;
+    idade_max: number | null;
+    mensalidade: number;
+  }[];
+  regras: number;
+}
+
+export const tabelasDoPlano = cache(async (): Promise<TabelaCadastrada[]> => {
+  const { data, error } = await (await rh())
+    .from("plano_tabelas")
+    .select(
+      `id, vigente_desde, reajuste_pct,
+       beneficio:beneficios(nome),
+       faixas:plano_faixas_etarias(idade_min, idade_max, mensalidade),
+       regras:plano_coparticipacao(meses_min)`,
+    )
+    .order("vigente_desde", { ascending: false });
+  falhar(error);
+  return (data ?? []).map((t) => ({
+    id: t.id,
+    beneficio: t.beneficio?.nome ?? "—",
+    vigente_desde: t.vigente_desde,
+    reajuste_pct: t.reajuste_pct === null ? null : Number(t.reajuste_pct),
+    faixas: [...t.faixas]
+      .map((f) => ({ ...f, mensalidade: Number(f.mensalidade) }))
+      .sort((a, b) => a.idade_min - b.idade_min),
+    regras: t.regras.length,
+  }));
+});
+
+/** Lê a planilha da operadora (.xlsx) já no formato das tabelas do banco. */
+export async function lerPlanilhaDoPlano(bytes: Uint8Array) {
+  const abas = await readXlsxFile(Buffer.from(bytes));
+  return lerTabelaDoPlano(abas as AbaDaPlanilha[]);
+}
+
+/** .xlsx é um zip: começa com "PK\x03\x04". */
+export function ehXlsx(bytes: Uint8Array): boolean {
+  return (
+    bytes[0] === 0x50 &&
+    bytes[1] === 0x4b &&
+    bytes[2] === 0x03 &&
+    bytes[3] === 0x04
+  );
+}

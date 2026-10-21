@@ -12,6 +12,7 @@ import {
   type LucideIcon,
   PieChart,
   Receipt,
+  Settings2,
   SlidersHorizontal,
   Sparkles,
   TrendingUp,
@@ -42,4 +43,5 @@ export const ICONES: Record<Icone, LucideIcon> = {
   usuarios: UserCog,
   empresa: Building2,
   integracoes: Cable,
+  configuracoes: Settings2,
 };

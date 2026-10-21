@@ -26,6 +26,12 @@ export interface TotaisPonto {
   atrasos_min: number;
   faltas_dias: number;
   abonos_min: Record<string, number>;
+  /** Horas extras por coluna do Secullum (Ex80%, Ex100%, ExNot…). */
+  extras_min: Record<string, number>;
+  /** Adicional noturno (Not.). */
+  noturnas_min: number;
+  /** DSR descontado por falta (DSR.Deb). */
+  dsr_debito_min: number;
   banco_saldo_min: number;
   banco_creditos_min: number;
   banco_debitos_min: number;
@@ -41,9 +47,12 @@ export function totaisDoCalculo(calculo: Calculo): TotaisPonto {
     return i < 0 ? "" : (calculo.Totais[i] ?? "");
   };
   const abonos: Record<string, number> = {};
+  const extras: Record<string, number> = {};
   for (const coluna of calculo.Colunas) {
     if (/^Abono\d*$/.test(coluna))
       abonos[coluna] = horasEmMinutos(total(coluna));
+    // Tipos e percentuais de extra dependem da configuração do ponto.
+    if (/^Ex/.test(coluna)) extras[coluna] = horasEmMinutos(total(coluna));
   }
   return {
     previstas_min: horasEmMinutos(total("Carga")),
@@ -52,6 +61,9 @@ export function totaisDoCalculo(calculo: Calculo): TotaisPonto {
     atrasos_min: horasEmMinutos(total("Atras.")),
     faltas_dias: numeroBr(total("FaltasDias")),
     abonos_min: abonos,
+    extras_min: extras,
+    noturnas_min: horasEmMinutos(total("Not.")),
+    dsr_debito_min: horasEmMinutos(total("DSR.Deb")),
     banco_saldo_min: horasEmMinutos(total("BSaldo")),
     banco_creditos_min: horasEmMinutos(total("BCred.")),
     banco_debitos_min: horasEmMinutos(total("BDeb.")),

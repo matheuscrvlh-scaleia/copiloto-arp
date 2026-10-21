@@ -64,8 +64,4 @@ export function EmConstrucao({ motivo }: { motivo: string }) {
   );
 }
 
-export function Carregando() {
-  return (
-    <div className="vidro h-40 animate-pulse rounded-[1.75rem]" aria-hidden />
-  );
-}
+export { Carregando } from "@/components/carregando";

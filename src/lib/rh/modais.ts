@@ -27,6 +27,7 @@ import {
   tabelaDoQuadro,
 } from "./detalhes";
 import { ROTULO_CONTRATO } from "./rubricas";
+import { type ConfigTurnover, TURNOVER_PADRAO } from "./turnover";
 
 // Modais "de onde vem este número" das telas do RH: fonte, fórmula e quem
 // forma o valor. Lista de pessoas só para quem já as vê nas telas (o
@@ -38,7 +39,7 @@ export const FONTES = {
   ponto: (mes: string, ate: string) =>
     `Ponto (Secullum), de ${formatarData(mes)} a ${formatarData(ate)}; sincronizado todo dia`,
   cadastro:
-    "Cadastro de colaboradores do ponto (Secullum): admissão, desligamento e motivo",
+    "Copiloto RH: colaboradores, admissão, desligamento e motivo (departamento do ponto, cargo da folha)",
   folha: (competencia: string, ficticia: boolean) =>
     `Extrato Mensal da Sousa e Couto de ${formatarMes(competencia)}${ficticia ? " (protótipo: todo salário gravado como R$ 2.000,00)" : ""}`,
   calculo:
@@ -157,9 +158,16 @@ export function origemDoQuadro(
   colaboradores: ColaboradorQuadro[],
   competencia: string,
   fim: string,
-  opcoes: { foco?: FocoQuadro; pessoas: boolean; link?: Link },
+  opcoes: {
+    foco?: FocoQuadro;
+    pessoas: boolean;
+    link?: Link;
+    /** Configuração do turnover (a do Copiloto); sem ela, a padrão. */
+    turnover?: ConfigTurnover;
+  },
 ): Detalhe {
   const foco = opcoes.foco ?? "ativos";
+  const config = opcoes.turnover ?? TURNOVER_PADRAO;
   const ativos = ativosEm(colaboradores, fim).sort((a, b) =>
     a.nome.localeCompare(b.nome),
   );
@@ -168,7 +176,7 @@ export function origemDoQuadro(
     competencia,
     fimDoMes(competencia),
   );
-  const m = movimentoDoMes(colaboradores, competencia);
+  const m = movimentoDoMes(colaboradores, competencia, config);
 
   const tabelas: Record<
     "ativos" | "admissoes" | "desligamentos",
@@ -181,12 +189,7 @@ export function origemDoQuadro(
           vazio: "Nenhuma admissão no mês.",
         },
         desligamentos: {
-          ...tabelaDeSaidas(
-            desligados,
-            m.efetivacoes
-              ? "Desligados no mês (inclui efetivações)"
-              : "Desligados no mês",
-          ),
+          ...tabelaDeSaidas(desligados, "Desligados no mês"),
           vazio: "Nenhum desligamento no mês.",
         },
       }
@@ -211,13 +214,11 @@ export function origemDoQuadro(
           : ["ativos", "admissoes", "desligamentos"];
 
   const regra: Record<FocoQuadro, string> = {
-    ativos:
-      "Admitido até a data e sem desligamento até ela (PJ e pró-labore entram com a folha)",
+    ativos: "Admitido até a data e sem desligamento até ela",
     admissoes: "Data de admissão dentro do mês",
     desligamentos:
-      "Data de desligamento dentro do mês; o tipo vem do motivo no Secullum (ajustável em Parâmetros)",
-    turnover:
-      "((admissões + desligamentos) ÷ 2) ÷ quadro médio × 100; efetivação fica fora",
+      "Data de desligamento dentro do mês; o tipo vem do motivo do desligamento no Copiloto",
+    turnover: `Fórmula do Copiloto: ${config.formulaGeral}`,
   };
   const titulos: Record<FocoQuadro, string> = {
     ativos: `Colaboradores ativos em ${formatarData(fim)}`,
@@ -236,7 +237,10 @@ export function origemDoQuadro(
       { rotulo: "Ativos no fim", valor: String(ativos.length) },
       { rotulo: "Admissões", valor: String(m.admissoes) },
       { rotulo: "Desligamentos", valor: String(m.desligamentos) },
-      { rotulo: "Turnover", valor: formatarPct(m.turnover) },
+      ...m.taxas.map((t) => ({
+        rotulo: t.rotulo,
+        valor: formatarPct(t.valor),
+      })),
     ],
     fontes: [
       { rotulo: "Fonte", valor: FONTES.cadastro },
@@ -244,12 +248,15 @@ export function origemDoQuadro(
       ...(foco === "turnover"
         ? [
             {
-              rotulo: "Quadro médio",
-              valor: `(${m.inicio} no início + ${m.fim} no fim) ÷ 2`,
+              rotulo: "Ativos no início do mês",
+              valor: `${m.inicio} (total_colaboradores_inicio_mes)`,
             },
           ]
         : []),
-      { rotulo: "Atualização", valor: "Sincronização diária com o Secullum" },
+      {
+        rotulo: "Atualização",
+        valor: "Sincronização diária com o Copiloto RH",
+      },
     ],
     tabelas: ordem.map((k) => tabelas[k]),
     link: opcoes.link,
@@ -274,7 +281,7 @@ export function origemDeSaidasPorTipo(
       {
         rotulo: "Tipo",
         valor:
-          "Pelo motivo de desligamento no Secullum, classificado em Parâmetros",
+          "Pelo motivo do desligamento no Copiloto, com a classificação de lá",
       },
     ],
     tabelas: [

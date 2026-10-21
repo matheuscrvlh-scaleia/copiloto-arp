@@ -92,13 +92,22 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
     );
 
     // Colaboradores: casa pelo id do Secullum ou, para quem veio da folha,
-    // pela matrícula. Tipo de contrato e cargo são da folha: não mexe.
+    // pela matrícula. Tipo de contrato e cargo são da folha: não mexe. Quem
+    // está ligado ao Copiloto RH fica com nome, nascimento, admissão e
+    // desligamento de lá (o Secullum só liga o ponto a essa pessoa).
     const funcionarios = await api.funcionarios();
     const donos = donosDaMatricula(funcionarios);
     const existentes = await rh
       .from("colaboradores")
-      .select("id, matricula, secullum_id");
+      .select(
+        "id, matricula, secullum_id, copiloto_id, nome, nascimento, admissao, desligamento, motivo_desligamento_id",
+      );
     if (existentes.error) throw existentes.error;
+    const doCopiloto = new Map(
+      existentes.data
+        .filter((c) => c.copiloto_id !== null)
+        .map((c) => [c.id, c]),
+    );
     const porSecullum = new Map(
       existentes.data.map((c) => [c.secullum_id, c.id]),
     );
@@ -116,23 +125,35 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
           `matrícula ${m} repetida no ponto (Secullum id ${f.Id} ficou sem matrícula)`,
         );
       }
+      const id =
+        porSecullum.get(f.Id) ??
+        (minha !== null ? porMatricula.get(minha) : undefined) ??
+        randomUUID();
+      const copiloto = doCopiloto.get(id);
       return {
-        id:
-          porSecullum.get(f.Id) ??
-          (minha !== null ? porMatricula.get(minha) : undefined) ??
-          randomUUID(),
+        id,
         secullum_id: f.Id,
         matricula: minha,
-        nome: f.Nome.trim(),
-        nascimento: data(f.Nascimento),
-        admissao: data(f.Admissao),
-        desligamento: data(f.Demissao),
-        motivo_desligamento_id: f.MotivoDemissaoId
-          ? (motivoPorSecullum.get(f.MotivoDemissaoId) ?? null)
-          : null,
         departamento_id: f.Departamento
           ? (depPorSecullum.get(f.Departamento.Id) ?? null)
           : null,
+        ...(copiloto
+          ? {
+              nome: copiloto.nome,
+              nascimento: copiloto.nascimento,
+              admissao: copiloto.admissao,
+              desligamento: copiloto.desligamento,
+              motivo_desligamento_id: copiloto.motivo_desligamento_id,
+            }
+          : {
+              nome: f.Nome.trim(),
+              nascimento: data(f.Nascimento),
+              admissao: data(f.Admissao),
+              desligamento: data(f.Demissao),
+              motivo_desligamento_id: f.MotivoDemissaoId
+                ? (motivoPorSecullum.get(f.MotivoDemissaoId) ?? null)
+                : null,
+            }),
       };
     });
     for (const lote of emLotes(colaboradores, 500)) {
@@ -308,6 +329,8 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
         executado_em: hoje.toISOString(),
         competencias: ponto,
         chamadas_calcular: api.chamadasCalcular(),
+        // Aparecem no histórico de Administração › Integrações.
+        avisos,
       },
     };
   });

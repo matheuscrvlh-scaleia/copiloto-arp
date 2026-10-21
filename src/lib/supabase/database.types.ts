@@ -384,6 +384,7 @@ export type Database = {
       historico_integracoes: {
         Args: { p_limite?: number }
         Returns: {
+          avisos: Json
           erro: string
           finalizado_em: string
           iniciado_em: string
@@ -764,45 +765,54 @@ export type Database = {
           admissao: string | null
           atualizado_em: string
           cargo_id: string | null
+          copiloto_id: string | null
           criado_em: string
           departamento_id: string | null
           desligamento: string | null
           id: string
           matricula: number | null
+          motivo_desligamento_copiloto: string | null
           motivo_desligamento_id: string | null
           nascimento: string | null
           nome: string
           secullum_id: number | null
+          situacao_copiloto: string | null
           tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"] | null
         }
         Insert: {
           admissao?: string | null
           atualizado_em?: string
           cargo_id?: string | null
+          copiloto_id?: string | null
           criado_em?: string
           departamento_id?: string | null
           desligamento?: string | null
           id?: string
           matricula?: number | null
+          motivo_desligamento_copiloto?: string | null
           motivo_desligamento_id?: string | null
           nascimento?: string | null
           nome: string
           secullum_id?: number | null
+          situacao_copiloto?: string | null
           tipo_contrato?: Database["rh"]["Enums"]["tipo_contrato"] | null
         }
         Update: {
           admissao?: string | null
           atualizado_em?: string
           cargo_id?: string | null
+          copiloto_id?: string | null
           criado_em?: string
           departamento_id?: string | null
           desligamento?: string | null
           id?: string
           matricula?: number | null
+          motivo_desligamento_copiloto?: string | null
           motivo_desligamento_id?: string | null
           nascimento?: string | null
           nome?: string
           secullum_id?: number | null
+          situacao_copiloto?: string | null
           tipo_contrato?: Database["rh"]["Enums"]["tipo_contrato"] | null
         }
         Relationships: [
@@ -1407,6 +1417,45 @@ export type Database = {
         }
         Relationships: []
       }
+      parametros_turnover: {
+        Row: {
+          acordo_conta_como: string
+          atualizado_em: string
+          criado_em: string
+          formula_acordo: string | null
+          formula_geral: string
+          formula_involuntario: string | null
+          formula_voluntario: string | null
+          id: boolean
+          motivos_involuntarios: string[]
+          motivos_voluntarios: string[]
+        }
+        Insert: {
+          acordo_conta_como?: string
+          atualizado_em?: string
+          criado_em?: string
+          formula_acordo?: string | null
+          formula_geral?: string
+          formula_involuntario?: string | null
+          formula_voluntario?: string | null
+          id?: boolean
+          motivos_involuntarios?: string[]
+          motivos_voluntarios?: string[]
+        }
+        Update: {
+          acordo_conta_como?: string
+          atualizado_em?: string
+          criado_em?: string
+          formula_acordo?: string | null
+          formula_geral?: string
+          formula_involuntario?: string | null
+          formula_voluntario?: string | null
+          id?: boolean
+          motivos_involuntarios?: string[]
+          motivos_voluntarios?: string[]
+        }
+        Relationships: []
+      }
       plano_coparticipacao: {
         Row: {
           colaborador_pct: number | null
@@ -1517,9 +1566,12 @@ export type Database = {
           colaborador_id: string
           competencia: string
           departamento_id: string | null
+          dsr_debito_min: number
+          extras_min: Json
           faltas_dias: number
           faltas_min: number
           normais_min: number
+          noturnas_min: number
           previstas_min: number
           sync_run_id: string | null
         }
@@ -1533,9 +1585,12 @@ export type Database = {
           colaborador_id: string
           competencia: string
           departamento_id?: string | null
+          dsr_debito_min?: number
+          extras_min?: Json
           faltas_dias?: number
           faltas_min?: number
           normais_min?: number
+          noturnas_min?: number
           previstas_min?: number
           sync_run_id?: string | null
         }
@@ -1549,9 +1604,12 @@ export type Database = {
           colaborador_id?: string
           competencia?: string
           departamento_id?: string | null
+          dsr_debito_min?: number
+          extras_min?: Json
           faltas_dias?: number
           faltas_min?: number
           normais_min?: number
+          noturnas_min?: number
           previstas_min?: number
           sync_run_id?: string | null
         }
@@ -1639,6 +1697,16 @@ export type Database = {
       gravar_custos: {
         Args: { p_competencia: string; p_linhas: Json }
         Returns: number
+      }
+      importar_tabela_plano: {
+        Args: {
+          p_beneficio_id: string
+          p_coparticipacao: Json
+          p_faixas: Json
+          p_importacao_id: string
+          p_reajuste_pct: number | null
+        }
+        Returns: string
       }
       importar_folha: {
         Args: {

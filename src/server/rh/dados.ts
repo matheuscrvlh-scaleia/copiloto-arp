@@ -1,9 +1,16 @@
 import "server-only";
 import { cache } from "react";
+import type { AvisoDaPagina } from "@/components/avisos-da-pagina";
+import { CONFIGURACOES_RH } from "@/config/navigation";
 import type { Meta } from "@/lib/indicadores";
 import { metaVigente } from "@/lib/indicadores";
 import type { ColaboradorQuadro, LinhaPonto } from "@/lib/rh/calculos";
 import type { CustoAgregado, CustoIndividual } from "@/lib/rh/custo";
+import {
+  type ConfigTurnover,
+  TURNOVER_PADRAO,
+  tipoDoDesligamento,
+} from "@/lib/rh/turnover";
 
 export type { CustoIndividual };
 
@@ -50,6 +57,7 @@ export const pontoDoMes = cache(
       .select(
         `colaborador_id, departamento_id, previstas_min, faltas_min, atrasos_min,
          faltas_dias, abonos_min, banco_saldo_min, banco_creditos_min, banco_debitos_min,
+         extras_min, noturnas_min, dsr_debito_min,
          colaborador:colaboradores(nome, matricula),
          departamento:departamentos(nome)`,
       )
@@ -69,20 +77,53 @@ export const pontoDoMes = cache(
       banco_saldo_min: l.banco_saldo_min,
       banco_creditos_min: l.banco_creditos_min,
       banco_debitos_min: l.banco_debitos_min,
+      extras_min: (l.extras_min ?? {}) as Record<string, number>,
+      noturnas_min: l.noturnas_min,
+      dsr_debito_min: l.dsr_debito_min,
     }));
   },
 );
 
+/** Configuração do turnover (a mesma do Copiloto RH da ARP). */
+export const configTurnover = cache(async (): Promise<ConfigTurnover> => {
+  const { data, error } = await (await rh())
+    .from("parametros_turnover")
+    .select("*")
+    .maybeSingle();
+  falhar(error);
+  if (!data) return TURNOVER_PADRAO;
+  return {
+    formulaGeral: data.formula_geral,
+    formulaVoluntario: data.formula_voluntario,
+    formulaInvoluntario: data.formula_involuntario,
+    formulaAcordo: data.formula_acordo,
+    acordoContaComo:
+      data.acordo_conta_como as ConfigTurnover["acordoContaComo"],
+    motivosVoluntarios: data.motivos_voluntarios,
+    motivosInvoluntarios: data.motivos_involuntarios,
+  };
+});
+
+/**
+ * Quadro e turnover: só quem veio do Copiloto RH (fonte da especificação para
+ * ativos, admissões, desligamentos e turnover). Departamento e cargo seguem
+ * do ponto e da folha.
+ */
 export const colaboradoresDoQuadro = cache(
   async (): Promise<ColaboradorQuadro[]> => {
-    const { data, error } = await (await rh())
-      .from("colaboradores")
-      .select(
-        `id, nome, matricula, departamento_id, admissao, desligamento,
-         departamento:departamentos(nome),
-         motivo:motivos_desligamento(tipo_turnover)`,
-      )
-      .order("nome");
+    const [{ data, error }, config] = await Promise.all([
+      (await rh())
+        .from("colaboradores")
+        .select(
+          `id, nome, matricula, departamento_id, admissao, desligamento,
+           tipo_contrato, motivo_desligamento_copiloto,
+           departamento:departamentos(nome),
+           cargo:cargos(nome)`,
+        )
+        .not("copiloto_id", "is", null)
+        .order("nome"),
+      configTurnover(),
+    ]);
     falhar(error);
     return (data ?? []).map((c) => ({
       id: c.id,
@@ -92,7 +133,12 @@ export const colaboradoresDoQuadro = cache(
       departamento: c.departamento?.nome ?? "Sem departamento",
       admissao: c.admissao,
       desligamento: c.desligamento,
-      tipo_turnover: c.motivo?.tipo_turnover ?? null,
+      motivo_desligamento: c.motivo_desligamento_copiloto,
+      tipo_turnover: c.desligamento
+        ? tipoDoDesligamento(c.motivo_desligamento_copiloto, config)
+        : null,
+      cargo: c.cargo?.nome ?? null,
+      tipo_contrato: c.tipo_contrato,
     }));
   },
 );
@@ -349,7 +395,7 @@ export const faturamentoDe = cache(
 );
 
 /** O que ainda falta configurar para o custo sair completo. */
-export const faltasDoCusto = cache(async (): Promise<string[]> => {
+export const faltasDoCusto = cache(async (): Promise<AvisoDaPagina[]> => {
   const [empresa, beneficios] = await Promise.all([
     (await rh()).from("parametros_empresa").select("vigente_desde").limit(1),
     (await rh())
@@ -359,14 +405,56 @@ export const faltasDoCusto = cache(async (): Promise<string[]> => {
   ]);
   falhar(empresa.error);
   falhar(beneficios.error);
-  const faltas: string[] = [];
+  const faltas: AvisoDaPagina[] = [];
   if (!empresa.data?.length)
-    faltas.push(
-      "RAT e FAP não configurados em Parâmetros: os encargos saem sem o RAT.",
-    );
+    faltas.push({
+      id: "rat-fap",
+      tipo: "atencao",
+      titulo: "RAT e FAP não configurados",
+      texto:
+        "Os encargos estão saindo sem o RAT. Preencha em Parâmetros e o custo é recalculado na hora.",
+      acao: { href: CONFIGURACOES_RH.parametros, rotulo: "Abrir Parâmetros" },
+    });
   if (!beneficios.count)
-    faltas.push(
-      "Nenhum benefício cadastrado: plano, VR, VT e os demais ainda não entram no custo.",
-    );
+    faltas.push({
+      id: "sem-beneficios",
+      tipo: "atencao",
+      titulo: "Nenhum benefício cadastrado",
+      texto: "Plano de saúde, VR, VT e os demais ainda não entram no custo.",
+      acao: {
+        href: `${CONFIGURACOES_RH.cadastros}#beneficios`,
+        rotulo: "Cadastrar benefícios",
+      },
+    });
   return faltas;
+});
+
+export interface DadosFinanceiros {
+  competencia: string;
+  faturamento_bruto: number | null;
+  custo_despesa_total: number | null;
+  custos_operacionais_sem_pessoal: number | null;
+  lucro: number | null;
+  endomarketing: number | null;
+  origem: string;
+}
+
+/** Valores financeiros do mês lançados (manual até o ENET), do mais recente. */
+export const dadosFinanceiros = cache(async (): Promise<DadosFinanceiros[]> => {
+  const { data, error } = await (await rh())
+    .from("dados_financeiros_mensais")
+    .select(
+      "competencia, faturamento_bruto, custo_despesa_total, custos_operacionais_sem_pessoal, lucro, endomarketing, origem",
+    )
+    .order("competencia", { ascending: false });
+  falhar(error);
+  const n = (v: number | null) => (v === null ? null : Number(v));
+  return (data ?? []).map((d) => ({
+    ...d,
+    faturamento_bruto: n(d.faturamento_bruto),
+    custo_despesa_total: n(d.custo_despesa_total),
+    custos_operacionais_sem_pessoal: n(d.custos_operacionais_sem_pessoal),
+    lucro: n(d.lucro),
+    endomarketing: n(d.endomarketing),
+  }));
 });

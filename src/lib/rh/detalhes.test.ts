@@ -35,7 +35,8 @@ const pessoa = (
   id: string,
   admissao: string | null,
   desligamento: string | null = null,
-  tipo: string | null = null,
+  tipo: ColaboradorQuadro["tipo_turnover"] = null,
+  motivo: string | null = null,
 ): ColaboradorQuadro => ({
   id,
   nome: `Pessoa ${id}`,
@@ -45,6 +46,7 @@ const pessoa = (
   admissao,
   desligamento,
   tipo_turnover: tipo,
+  motivo_desligamento: motivo,
 });
 
 describe("tabelas do modal de detalhe", () => {
@@ -76,19 +78,20 @@ describe("tabelas do modal de detalhe", () => {
       "Pessoa 7",
       "7",
       "Administração",
+      "—",
       "19/10/2024",
       "2 anos",
     ]);
   });
 
-  it("saídas: tipo pelo motivo; sem motivo vira 'Sem classificação'", () => {
+  it("saídas: motivo e tipo com os nomes do Copiloto", () => {
     const t = tabelaDeSaidas([
-      pessoa("1", "2020-01-01", "2026-09-10", "voluntario"),
+      pessoa("1", "2020-01-01", "2026-09-10", "voluntario", "pedido_demissao"),
       pessoa("2", "2020-01-01", "2026-09-12"),
     ]);
-    expect(t.linhas.map((l) => l.celulas[3])).toEqual([
-      "Voluntário (pedido de demissão)",
-      "Sem classificação",
+    expect(t.linhas.map((l) => l.celulas.slice(3))).toEqual([
+      ["Pedido de demissão", "Voluntário (iniciativa do empregado)"],
+      ["—", "Sem classificação"],
     ]);
   });
 

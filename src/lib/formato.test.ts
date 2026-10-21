@@ -7,6 +7,7 @@ import {
   formatarMes,
   formatarMoeda,
   formatarPct,
+  lerValorBr,
   ultimasCompetencias,
 } from "./formato";
 import { metaVigente, status } from "./indicadores";
@@ -25,6 +26,11 @@ describe("formato", () => {
     expect(formatarMoeda(1234.5)).toBe("R$ 1.234,50");
     expect(formatarMoeda(1234.5, 0)).toBe("R$ 1.235");
     expect(formatarMoeda(null)).toBe("—");
+    expect(lerValorBr("1.234,56")).toBe(1234.56);
+    expect(lerValorBr("R$ 57,50")).toBe(57.5);
+    expect(lerValorBr("1234.5")).toBe(1234.5);
+    expect(lerValorBr("  ")).toBeNull();
+    expect(lerValorBr("1.5.3")).toBeNaN();
     expect(formatarMes("2026-10-01")).toBe("out/2026");
     expect(formatarData("2026-10-19")).toBe("19/10/2026");
   });

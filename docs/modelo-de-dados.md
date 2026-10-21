@@ -75,7 +75,7 @@ de verdade das colunas; este documento explica o desenho.
 | `departamentos` | Nome + `codigo_folha` (2 a 6) + `secullum_id`: é o de-para entre folha e ponto |
 | `cargos` | Nome, código da folha, CBO |
 | `motivos_desligamento` | Vêm do Secullum; `tipo_turnover` configurável (ex.: voluntário) |
-| `colaboradores` | Identidade estável: matrícula, nome, nascimento (Secullum), admissão, desligamento e motivo, tipo de contrato, departamento e cargo atuais. Matrícula nula para quem não está na folha (PJ) |
+| `colaboradores` | Identidade estável: matrícula, nome, nascimento, admissão, desligamento e motivo, tipo de contrato, departamento e cargo atuais. Para quem tem `copiloto_id`, nome, nascimento, contrato, admissão, desligamento, `situacao_copiloto` e `motivo_desligamento_copiloto` vêm do Copiloto RH; o resto (e quem não está ligado) vem do ponto e da folha. Quadro e turnover usam só os ligados ao Copiloto |
 | `dependentes` | Nome, nascimento, se tem plano e odonto |
 
 ### Parâmetros (vigência + auditoria)
@@ -83,6 +83,7 @@ de verdade das colunas; este documento explica o desenho.
 | Tabela | Para quê |
 |---|---|
 | `parametros_empresa` | RAT, FAP (0,5–2,0), regime, ciclo e adicional do banco de horas |
+| `parametros_turnover` | Uma linha: fórmulas (geral, voluntário, involuntário, acordo), se o acordo soma no voluntário, no involuntário ou é à parte, e as listas de motivos voluntários e involuntários. Espelha a configuração de turnover do Copiloto RH (padrões de lá) |
 | `encargos_por_contrato` | Por tipo (CLT, aprendiz, estagiário, PJ, pró-labore): INSS patronal, Terceiros, FGTS, se aplica RAT, se provisiona 13º e férias, % da multa rescisória |
 | `jornadas` | Horas/mês em níveis: colaborador > cargo > departamento > empresa (nenhum id) |
 | `rubricas` | Código, descrição e grupo (como entra no custo). Rubrica nova entra como `nao_classificada` e gera aviso; `informativa` (ex.: FGTS de rescisão) não entra no custo |
@@ -122,6 +123,10 @@ Funções (`security definer`, só somas):
   Exige `rh.custo_pessoal`.
 - `rh.gravar_custos(competencia, linhas)`: troca o custo da competência numa
   transação; recusa folha fechada. Só `service_role` executa.
+- `rh.importar_tabela_plano(importacao, beneficio, reajuste, faixas, coparticipacao)`:
+  grava a tabela do plano, faixas e coparticipação e confirma a importação
+  numa transação; a mesma vigência do mesmo benefício substitui a anterior.
+  Exige `rh.beneficios`.
 
 O cálculo fica em `src/lib/rh/custo.ts` (função pura, testada) e roda no
 servidor (`src/server/rh/custo.ts`) ao importar a folha, classificar
@@ -177,7 +182,5 @@ Quando o Financeiro entrar:
 
 ## Fora do escopo por enquanto
 
-- Turnover do Copiloto RH (acesso indefinido). O motivo de desligamento do
-  Secullum já permite classificar o turnover.
 - Projeção 2027–2030, Diário de Obras e régua de cobrança com envio de
   mensagens.

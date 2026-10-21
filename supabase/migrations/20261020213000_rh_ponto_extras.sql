@@ -15,7 +15,7 @@ alter table rh.ponto_mensal
 -- chamar a API de novo.
 
 -- "176:00" → 10560; "-12:30" → -750; vazio → 0 (igual a horasEmMinutos).
-create function pg_temp.minutos(v text)
+create or replace function pg_temp.minutos(v text)
 returns int
 language sql
 immutable

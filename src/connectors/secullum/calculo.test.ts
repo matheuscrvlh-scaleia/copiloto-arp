@@ -46,9 +46,23 @@ describe("totaisDoCalculo", () => {
       atrasos_min: 30,
       faltas_dias: 1,
       abonos_min: { Abono2: 240 },
+      extras_min: {},
+      noturnas_min: 0,
+      dsr_debito_min: 0,
       banco_saldo_min: -135,
       banco_creditos_min: 0,
       banco_debitos_min: 0,
     });
+  });
+
+  it("guarda as horas extras por coluna, o noturno e o DSR descontado", () => {
+    const t = totaisDoCalculo({
+      Colunas: ["Data", "Ex80%", "Ex100%", "ExNot", "Not.", "DSR.Deb"],
+      Linhas: [],
+      Totais: ["", "03:10", "", "00:45", "01:00", "07:20"],
+    });
+    expect(t.extras_min).toEqual({ "Ex80%": 190, "Ex100%": 0, ExNot: 45 });
+    expect(t.noturnas_min).toBe(60);
+    expect(t.dsr_debito_min).toBe(440);
   });
 });

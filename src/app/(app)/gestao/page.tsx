@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
+import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import {
   AreaLinha,
   BarrasDivergentes,
@@ -15,7 +16,6 @@ import {
   type Detalhe,
   ProvedorDetalhe,
 } from "@/components/modal-detalhe";
-import { Carregando } from "@/components/page-header";
 import {
   fimDoMes,
   formatarData,
@@ -47,6 +47,7 @@ import { avisosDo } from "@/server/avisos";
 import {
   colaboradoresDoQuadro,
   competenciasDoPonto,
+  configTurnover,
   folhasImportadas,
   metaDe,
   pontoDoMes,
@@ -77,7 +78,7 @@ const FAIXAS_TEMPO_DE_CASA = [
 
 export default function Page() {
   return (
-    <Suspense fallback={<Carregando />}>
+    <Suspense fallback={<EsqueletoDashboard />}>
       <Dashboard />
     </Suspense>
   );
@@ -125,7 +126,7 @@ async function Dashboard() {
         />
 
         {veRh && (
-          <Suspense fallback={<Carregando />}>
+          <Suspense fallback={<EsqueletoPessoas />}>
             <Pessoas
               podeFolha={usuario.permissoes.includes("rh.folha")}
               pendencias={avisos.length}
@@ -192,6 +193,7 @@ async function Pessoas({
     metaAbs,
     metaBanco,
     metaTurnover,
+    turnover,
   ] = await Promise.all([
     colaboradoresDoQuadro(),
     podeFolha ? folhasImportadas() : Promise.resolve([]),
@@ -200,6 +202,7 @@ async function Pessoas({
     metaDe("rh.absenteismo", mes),
     metaDe("rh.banco_horas_positivo", mes),
     metaDe("rh.turnover", mes),
+    configTurnover(),
   ]);
 
   const totais = somarPonto(ponto);
@@ -208,7 +211,7 @@ async function Pessoas({
   const ativosHoje = ativosEm(colaboradores, ate);
   const ativos = ativosHoje.length;
   const ativosAnt = ativosEm(colaboradores, fimConsiderado(anterior)).length;
-  const movimento = movimentoDoMes(colaboradores, mes);
+  const movimento = movimentoDoMes(colaboradores, mes, turnover);
   const doze = ultimasCompetencias(mes, 12);
   const evolucao = doze.map((c) => {
     const n = ativosEm(colaboradores, fimConsiderado(c)).length;
@@ -222,7 +225,7 @@ async function Pessoas({
     };
   });
   const fluxo = doze.map((c) => {
-    const m = movimentoDoMes(colaboradores, c);
+    const m = movimentoDoMes(colaboradores, c, turnover);
     return {
       chave: c,
       rotulo: formatarMes(c).slice(0, 3),
@@ -278,11 +281,11 @@ async function Pessoas({
       c,
       fimDoMes(c),
     );
-    const m = movimentoDoMes(colaboradores, c);
+    const m = movimentoDoMes(colaboradores, c, turnover);
     return {
       secao: "Quadro",
       titulo: `Pessoas em ${formatarMes(c)}`,
-      subtitulo: `Cadastro em ${formatarData(fim)} (ponto e folha)`,
+      subtitulo: `Copiloto RH em ${formatarData(fim)}`,
       resumo: [
         { rotulo: "Ativos", valor: String(lista.length) },
         { rotulo: "Admissões", valor: String(m.admissoes) },
@@ -295,12 +298,7 @@ async function Pessoas({
           vazio: "Nenhuma admissão no mês.",
         },
         {
-          ...tabelaDeSaidas(
-            desligados,
-            m.efetivacoes
-              ? "Desligados no mês (inclui efetivações)"
-              : "Desligados no mês",
-          ),
+          ...tabelaDeSaidas(desligados, "Desligados no mês"),
           vazio: "Nenhum desligamento no mês.",
         },
         tabelaDoQuadro(lista, fim, "Ativos no fim do mês"),
@@ -471,7 +469,7 @@ async function Pessoas({
             >
               <p className="text-6xl font-semibold tracking-tight">{ativos}</p>
               <p className="mt-1 text-sm text-[rgb(255_255_255/0.6)]">
-                colaboradores ativos
+                headcount · colaboradores ativos
               </p>
             </AbreDetalhe>
             <div
@@ -550,7 +548,7 @@ async function Pessoas({
         <section className="vidro flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-7">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">Evolução do quadro</h2>
+              <h2 className="text-lg font-semibold">Evolução do headcount</h2>
               <p className="text-xs text-neutral-500">
                 Colaboradores ativos no fim de cada mês
               </p>
@@ -577,14 +575,14 @@ async function Pessoas({
         </section>
       </div>
 
-      {/* Pessoas por setor: cartão de destaque largo, uma coluna por setor. */}
-      <section className="destaque rounded-[2rem] p-6">
+      {/* Pessoas por setor: cartão preto largo, uma coluna por setor. */}
+      <section className="tom-escuro rounded-[2rem] p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">
               Pessoas por setor
             </h2>
-            <p className="text-xs text-[rgb(255_255_255/0.55)]">
+            <p className="text-xs text-neutral-500">
               Ponto de {formatarData(mes)} a {formatarData(ate)}
               {ultimaFolha
                 ? ` · última folha: ${formatarMes(ultimaFolha.competencia)}`
@@ -593,50 +591,50 @@ async function Pessoas({
           </div>
           <Link
             href="/rh"
-            className="ladrilho inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition hover:bg-[rgb(255_255_255/0.12)]"
+            className="inline-flex items-center gap-2 rounded-full border border-neutral-900/10 bg-neutral-900/[0.08] px-4 py-2 text-sm transition hover:bg-neutral-900/[0.14]"
           >
             Abrir o RH <ArrowUpRight className="size-4" aria-hidden />
           </Link>
         </div>
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3 md:divide-x md:divide-[rgb(255_255_255/0.1)]">
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3 md:divide-x md:divide-neutral-900/10">
           {setores.map((s) => (
             <AbreDetalhe
               key={s.departamento_id ?? "sem"}
               detalhe={detSetores?.[s.departamento_id ?? "sem"]}
-              className="flex flex-col gap-4 rounded-2xl p-2 hover:bg-[rgb(255_255_255/0.05)] md:px-4 md:first:pl-2"
+              className="flex flex-col gap-4 rounded-2xl p-2 hover:bg-neutral-900/[0.06] md:px-4 md:first:pl-2"
             >
               <div>
                 <p className="text-base font-semibold">{s.departamento}</p>
-                <p className="text-xs text-[rgb(255_255_255/0.55)]">
+                <p className="text-xs text-neutral-500">
                   {s.colaboradores} pessoas no ponto
                 </p>
               </div>
               <div>
-                <div className="flex items-baseline justify-between text-xs text-[rgb(255_255_255/0.7)]">
+                <div className="flex items-baseline justify-between text-xs text-neutral-600">
                   <span>Absenteísmo</span>
-                  <span className="text-sm font-semibold text-[#fff]">
+                  <span className="text-sm font-semibold text-neutral-900">
                     {formatarPct(s.absenteismo)}
                   </span>
                 </div>
-                <div className="mt-2 h-1.5 rounded-full bg-[rgb(255_255_255/0.1)]">
+                <div className="mt-2 h-1.5 rounded-full bg-neutral-900/10">
                   <div
-                    className="h-full rounded-full bg-[#fff]"
+                    className="h-full rounded-full bg-neutral-900"
                     style={{
                       width: `${Math.max(((s.absenteismo ?? 0) / maxAbs) * 100, 2)}%`,
                     }}
                   />
                 </div>
               </div>
-              <div className="flex gap-4 text-xs text-[rgb(255_255_255/0.6)]">
+              <div className="flex gap-4 text-xs text-neutral-600">
                 <span>
                   Faltas{" "}
-                  <b className="font-semibold text-[#fff]">
+                  <b className="font-semibold text-neutral-900">
                     {formatarHoras(s.faltas_min)}
                   </b>
                 </span>
                 <span>
                   Banco{" "}
-                  <b className="font-semibold text-[#fff]">
+                  <b className="font-semibold text-neutral-900">
                     {formatarHoras(s.banco_saldo_min)}
                   </b>
                 </span>
@@ -732,7 +730,7 @@ async function Pessoas({
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        <section className="vidro flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-7">
+        <section className="tom-verde flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-7">
           <div>
             <h2 className="text-lg font-semibold">Tempo de casa</h2>
             <p className="text-xs text-neutral-500">
@@ -825,5 +823,44 @@ function Boasvindas({
         {texto}
       </p>
     </header>
+  );
+}
+
+/** Blocos no lugar das boas-vindas e dos cartões de pessoas. */
+function EsqueletoDashboard() {
+  return (
+    <TelaCarregando>
+      <CartaoCarregando altura="h-56" />
+      <CartoesPessoasCarregando />
+    </TelaCarregando>
+  );
+}
+
+/** Blocos no lugar dos cartões de pessoas enquanto os dados chegam. */
+function EsqueletoPessoas() {
+  return (
+    <TelaCarregando>
+      <CartoesPessoasCarregando />
+    </TelaCarregando>
+  );
+}
+
+function CartoesPessoasCarregando() {
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <CartaoCarregando className="xl:col-span-5" altura="h-80" />
+        <CartaoCarregando className="xl:col-span-7" altura="h-80" />
+      </div>
+      <CartaoCarregando altura="h-72" />
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <CartaoCarregando className="xl:col-span-5" altura="h-80" />
+        <CartaoCarregando className="xl:col-span-7" altura="h-80" />
+      </div>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <CartaoCarregando className="xl:col-span-7" altura="h-80" />
+        <CartaoCarregando className="xl:col-span-5" altura="h-80" />
+      </div>
+    </>
   );
 }

@@ -1,5 +1,15 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import {
+  type AvisoDaPagina,
+  AvisosDaPagina,
+} from "@/components/avisos-da-pagina";
+import {
+  CartaoCarregando,
+  FiltrosCarregando,
+  IndicadoresCarregando,
+  TelaCarregando,
+} from "@/components/carregando";
 import { Filtros } from "@/components/dashboard/filtros";
 import { type FatiaRosca, Rosca } from "@/components/dashboard/graficos";
 import {
@@ -20,7 +30,7 @@ import {
   type Detalhe,
   ProvedorDetalhe,
 } from "@/components/modal-detalhe";
-import { Carregando, EmConstrucao, PageHeader } from "@/components/page-header";
+import { EmConstrucao, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
   formatarHoras,
@@ -66,7 +76,7 @@ export default function Page({
         title="Custo de pessoal"
         description="Composição do custo (remuneração, encargos, provisões e benefícios), por departamento e cargo, e tabela por funcionário com custo mensal, custo por hora e memória de cálculo."
       />
-      <Suspense fallback={<Carregando />}>
+      <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="rh.custo_pessoal">
           <Custo busca={searchParams} />
         </Protegido>
@@ -114,6 +124,33 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   const nomeCargo = new Map(listaCargos.map((c) => [c.id, c.nome]));
   const comPendencia =
     pessoas?.filter((p) => p.memoria.pendencias.length) ?? [];
+
+  // O que falta para o custo sair completo: sobe no canto ao abrir a tela.
+  const avisos: AvisoDaPagina[] = [
+    ...(folha?.ficticia
+      ? [
+          {
+            id: `prototipo-${mes}`,
+            tipo: "prototipo" as const,
+            titulo: "Valores fictícios",
+            texto: `Todo salário da folha de ${formatarMes(mes)} foi gravado como R$ 2.000,00. Os totais mostram a conta, não o custo real.`,
+          },
+        ]
+      : []),
+    ...faltas,
+    ...(comPendencia.length > 0
+      ? [
+          {
+            id: `pendencias-${mes}`,
+            tipo: "info" as const,
+            titulo: `${comPendencia.length} ${comPendencia.length > 1 ? "pessoas" : "pessoa"} com pendência`,
+            texto:
+              "Algo ficou fora da conta delas. A coluna Memória mostra o quê.",
+            acao: { href: "#por-funcionario", rotulo: "Ver na tabela" },
+          },
+        ]
+      : []),
+  ];
 
   const variacao = (
     atual: number,
@@ -216,34 +253,12 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
           departamento={departamento}
         />
 
-        {(faltas.length > 0 || comPendencia.length > 0 || folha?.ficticia) && (
-          <div className="vidro rounded-[1.75rem] p-5 text-sm">
-            <p className="font-medium">
-              O que ainda falta para o custo sair completo
-            </p>
-            <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-neutral-600">
-              {folha?.ficticia && (
-                <li>
-                  Protótipo: todo salário da folha de {formatarMes(mes)} foi
-                  gravado como R$ 2.000,00, então os valores são fictícios.
-                </li>
-              )}
-              {faltas.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-              {comPendencia.length > 0 && (
-                <li>
-                  {comPendencia.length} pessoa(s) com pendência na memória de
-                  cálculo (veja a coluna Memória).
-                </li>
-              )}
-            </ul>
-          </div>
-        )}
+        <AvisosDaPagina avisos={avisos} />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <CartaoIndicador
             titulo="Custo total"
+            tom="escuro"
             valor={moeda(t.custo_total)}
             variacao={variacao(t.custo_total, tAnt?.custo_total)}
             detalhe={`${t.colaboradores} pessoas na folha de ${formatarMes(mes)}`}
@@ -278,10 +293,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
               titulo: `Encargos e provisões de ${formatarMes(mes)}`,
               fontes: [
                 ...(origemDe.encargos.fontes ?? []),
-                {
-                  rotulo: "Provisões",
-                  valor: COMPONENTES.provisoes.regra,
-                },
+                { rotulo: "Provisões", valor: COMPONENTES.provisoes.regra },
               ],
               tabelas: [
                 ...origemDe.encargos.tabelas.map((tb) => ({
@@ -297,6 +309,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
           />
           <CartaoIndicador
             titulo="Benefícios"
+            tom="verde"
             valor={moeda(t.beneficios)}
             detalhe="Valor do benefício − o que o funcionário paga"
             origem={origemDe.beneficios}
@@ -318,6 +331,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
           </Secao>
           <Secao
             titulo="Da remuneração ao custo"
+            tom="escuro"
             descricao="Cada degrau soma uma parte"
             className="xl:col-span-2"
           >
@@ -351,7 +365,11 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
         </Secao>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <Secao titulo="Por cargo" className="flex h-[400px] flex-col">
+          <Secao
+            titulo="Por cargo"
+            tom="verde"
+            className="flex h-[650px] flex-col"
+          >
             <TabelaBusca
               placeholder="Buscar cargo…"
               {...paraBusca(
@@ -371,7 +389,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
           </Secao>
           <Secao
             titulo="Por tipo de contrato"
-            className="flex h-[400px] flex-col"
+            className="flex h-[650px] flex-col"
           >
             <TabelaBusca
               placeholder="Buscar contrato…"
@@ -396,34 +414,36 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
         </div>
 
         {pessoas && (
-          <Secao
-            titulo="Por funcionário"
-            descricao="Custo mensal e por hora; clique em Ver para a memória de cálculo"
-            className="flex h-[400px] flex-col"
-          >
-            <TabelaBusca
-              placeholder="Buscar pelo nome, departamento ou cargo…"
-              {...paraBusca(
-                colunasPessoa,
-                [...pessoas].sort((a, b) => b.custo_total - a.custo_total),
-                (p) => p.colaborador_id,
-                (p) => `${p.nome} ${p.departamento} ${p.cargo}`,
-              )}
-              rodape={[
-                "Total",
-                "",
-                "",
-                "",
-                moeda(t.remuneracao),
-                moeda(t.encargos),
-                moeda(t.provisoes),
-                moeda(t.beneficios),
-                moeda(t.custo_total),
-                "",
-                "",
-              ]}
-            />
-          </Secao>
+          <div id="por-funcionario" className="scroll-mt-6">
+            <Secao
+              titulo="Por funcionário"
+              descricao="Custo mensal e por hora; clique em Ver para a memória de cálculo"
+              className="flex h-[650px] flex-col"
+            >
+              <TabelaBusca
+                placeholder="Buscar pelo nome, departamento ou cargo…"
+                {...paraBusca(
+                  colunasPessoa,
+                  [...pessoas].sort((a, b) => b.custo_total - a.custo_total),
+                  (p) => p.colaborador_id,
+                  (p) => `${p.nome} ${p.departamento} ${p.cargo}`,
+                )}
+                rodape={[
+                  "Total",
+                  "",
+                  "",
+                  "",
+                  moeda(t.remuneracao),
+                  moeda(t.encargos),
+                  moeda(t.provisoes),
+                  moeda(t.beneficios),
+                  moeda(t.custo_total),
+                  "",
+                  "",
+                ]}
+              />
+            </Secao>
+          </div>
         )}
 
         {podeRecalcular && (
@@ -529,4 +549,24 @@ function memoria(p: CustoIndividual): Detalhe {
         : []),
     ],
   };
+}
+
+/** Blocos no lugar dos cartões da tela enquanto os dados chegam. */
+function Esqueleto() {
+  return (
+    <TelaCarregando>
+      <FiltrosCarregando />
+      <IndicadoresCarregando quantidade={4} />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <CartaoCarregando className="xl:col-span-3" altura="h-80" />
+        <CartaoCarregando className="xl:col-span-2" altura="h-80" />
+      </div>
+      <CartaoCarregando />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <CartaoCarregando altura="h-[650px]" />
+        <CartaoCarregando altura="h-[650px]" />
+      </div>
+      <CartaoCarregando altura="h-[650px]" />
+    </TelaCarregando>
+  );
 }

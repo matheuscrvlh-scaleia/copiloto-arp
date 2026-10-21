@@ -12,6 +12,10 @@ const schema = z.object({
   WPS_USUARIO: z.string().min(1).optional(),
   WPS_SENHA: z.string().min(1).optional(),
   WPS_ESTACIONAMENTO_ID: z.coerce.number().int().positive().optional(),
+
+  COPILOTO_RH_BASE_URL: z.url().optional(),
+  COPILOTO_RH_USUARIO: z.string().min(1).optional(),
+  COPILOTO_RH_SENHA: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof schema>;

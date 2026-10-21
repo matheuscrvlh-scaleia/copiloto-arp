@@ -3,6 +3,8 @@ import {
   absenteismo,
   ativosEm,
   type ColaboradorQuadro,
+  EXTRAS_SEM_DIVISAO,
+  extrasDe,
   formatarTempoDeCasa,
   type LinhaPonto,
   mesesDeCasa,
@@ -10,6 +12,7 @@ import {
   porSetor,
   somarPonto,
 } from "./calculos";
+import { TURNOVER_PADRAO } from "./turnover";
 
 const ponto = (p: Partial<LinhaPonto>): LinhaPonto => ({
   colaborador_id: "x",
@@ -99,25 +102,75 @@ describe("quadro e turnover", () => {
     expect(ativosEm(cs, "2026-09-30").length).toBe(1);
   });
 
-  it("movimento do mês e turnover; efetivação não conta como saída", () => {
+  it("movimento e turnover como o Copiloto: ativos no 1º dia e fórmula padrão", () => {
     const cs = [
       ...Array.from({ length: 10 }, () => pessoa({})),
-      pessoa({ admissao: "2026-09-05" }),
+      pessoa({ admissao: "2026-09-01" }), // admitido no dia 1 já conta no início
       pessoa({ admissao: "2026-09-12" }),
-      pessoa({ desligamento: "2026-09-20", tipo_turnover: "voluntario" }),
-      pessoa({ desligamento: "2026-09-25", tipo_turnover: "efetivacao" }),
+      pessoa({
+        desligamento: "2026-09-01",
+        motivo_desligamento: "pedido_demissao",
+      }),
+      pessoa({
+        desligamento: "2026-09-20",
+        motivo_desligamento: "sem_justa_causa",
+      }),
+      pessoa({
+        desligamento: "2026-09-25",
+        motivo_desligamento: "acordo_mutuo",
+      }),
     ];
     const m = movimentoDoMes(cs, "2026-09-01");
     expect(m).toMatchObject({
-      inicio: 12,
+      inicio: 13, // 10 + admitido em 01/09 + desligados em 20 e 25/09
       fim: 12,
       admissoes: 2,
-      desligamentos: 1,
-      efetivacoes: 1,
-      desligamentosPorTipo: { voluntario: 1, efetivacao: 1 },
+      desligamentos: 3,
+      // Acordo soma no voluntário (padrão do Copiloto).
+      desligamentosPorTipo: { voluntario: 2, involuntario: 1, acordo: 0 },
     });
-    // ((2 + 1) ÷ 2) ÷ 12 × 100
-    expect(m.turnover).toBeCloseTo(12.5);
+    // (2 + 1 + 0) ÷ 13 × 100
+    expect(m.turnover).toBeCloseTo(23.08, 2);
+    expect(m.taxas.map((t) => [t.rotulo, Number(t.valor.toFixed(2))])).toEqual([
+      ["Turnover Geral", 23.08],
+      ["Turnover Voluntário", 15.38],
+      ["Turnover Involuntário", 7.69],
+    ]);
+  });
+
+  it("acordo separado vira tipo à parte, com taxa própria", () => {
+    const cs = [
+      ...Array.from({ length: 4 }, () => pessoa({})),
+      pessoa({
+        desligamento: "2026-09-10",
+        motivo_desligamento: "acordo_mutuo",
+      }),
+    ];
+    const m = movimentoDoMes(cs, "2026-09-01", {
+      ...TURNOVER_PADRAO,
+      acordoContaComo: "separado",
+    });
+    expect(m.desligamentosPorTipo).toEqual({
+      voluntario: 0,
+      involuntario: 0,
+      acordo: 1,
+    });
+    expect(m.taxas.map((t) => t.tipo)).toEqual([
+      "geral",
+      "voluntario",
+      "involuntario",
+      "acordo",
+    ]);
+    expect(m.taxas[3]?.valor).toBeCloseTo(20);
+  });
+
+  it("sem ninguém no início do mês o turnover é 0, como no Copiloto", () => {
+    const m = movimentoDoMes(
+      [pessoa({ admissao: "2026-09-10" })],
+      "2026-09-01",
+    );
+    expect(m.inicio).toBe(0);
+    expect(m.turnover).toBe(0);
   });
 
   it("tempo de casa", () => {
@@ -126,5 +179,29 @@ describe("quadro e turnover", () => {
     expect(formatarTempoDeCasa(29)).toBe("2a 5m");
     expect(formatarTempoDeCasa(5)).toBe("5 meses");
     expect(formatarTempoDeCasa(24)).toBe("2 anos");
+  });
+});
+
+describe("horas extras do ponto", () => {
+  it("horário com percentuais: soma os percentuais; ExNot é parte, ExInt à parte", () => {
+    const e = extrasDe({
+      extras_min: { "Ex80%": 120, "Ex100%": 30, ExNot: 60, ExInt: 15 },
+    });
+    expect(e).toEqual({
+      total: 150,
+      porTipo: { "Ex80%": 120, "Ex100%": 30 },
+      noturnas: 60,
+      intervalo: 15,
+    });
+  });
+
+  it("horário sem divisão: usa a coluna Extras, sem contar ExNot de novo", () => {
+    const e = extrasDe({ extras_min: { Extras: 135, ExNot: 135, ExInt: 0 } });
+    expect(e.total).toBe(135);
+    expect(e.porTipo).toEqual({ [EXTRAS_SEM_DIVISAO]: 135 });
+  });
+
+  it("sem colunas de extra, zero", () => {
+    expect(extrasDe({}).total).toBe(0);
   });
 });

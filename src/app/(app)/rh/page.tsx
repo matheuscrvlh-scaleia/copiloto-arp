@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import {
+  CartaoCarregando,
+  FiltrosCarregando,
+  IndicadoresCarregando,
+  TelaCarregando,
+} from "@/components/carregando";
 import { Filtros } from "@/components/dashboard/filtros";
 import { BarrasHorizontais, Colunas } from "@/components/dashboard/graficos";
 import {
@@ -11,7 +17,7 @@ import {
 } from "@/components/dashboard/indicador";
 import { Nota, Secao } from "@/components/dashboard/tabela";
 import { AbreDetalhe, ProvedorDetalhe } from "@/components/modal-detalhe";
-import { Carregando, PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
   formatarData,
@@ -45,6 +51,7 @@ import {
   bancoHorasEmReais,
   colaboradoresDoQuadro,
   competenciasDoPonto,
+  configTurnover,
   custoAgregado,
   custosIndividuais,
   faturamentoDe,
@@ -68,7 +75,7 @@ export default function Page({ searchParams }: PageProps<"/rh">) {
         title="Painel de RH"
         description="Indicadores de pessoal do mês, com semáforo pela meta configurada em Parâmetros."
       />
-      <Suspense fallback={<Carregando />}>
+      <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="rh.painel">
           <Painel busca={searchParams} />
         </Protegido>
@@ -111,6 +118,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
     custo,
     veJornada,
     veQuadro,
+    turnover,
   ] = await Promise.all([
     pontoDoMes(mes).then(doDep),
     pontoDoMes(anterior).then(doDep),
@@ -127,6 +135,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
     // Lista de pessoas no modal só para quem já as vê nas telas do RH.
     pode("rh.jornada"),
     pode("rh.quadro"),
+    configTurnover(),
   ]);
 
   const totais = somarPonto(ponto);
@@ -134,7 +143,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
   const ate = fimConsiderado(mes);
   const ativos = ativosEm(todos, ate).length;
   const ativosAnt = ativosEm(todos, fimConsiderado(anterior)).length;
-  const movimento = movimentoDoMes(todos, mes);
+  const movimento = movimentoDoMes(todos, mes, turnover);
   const evolucao = ultimasCompetencias(mes, 12).map((c) => {
     const n = ativosEm(todos, fimConsiderado(c)).length;
     return {
@@ -171,6 +180,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
     origemDoQuadro(todos, c, fimConsiderado(c), {
       foco,
       pessoas: veQuadro,
+      turnover,
       link: veQuadro
         ? {
             href: `/rh/quadro?mes=${c.slice(0, 7)}${comDep}`,
@@ -236,6 +246,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
           {custo.totais && custo.competencia ? (
             <CartaoIndicador
               titulo="Custo total de pessoal"
+              tom="escuro"
               valor={formatarMoeda(custo.totais.custo_total, 0)}
               serie={custo.serie}
               variacao={custo.variacao}
@@ -256,7 +267,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
             />
           )}
           <CartaoIndicador
-            titulo="Colaboradores ativos"
+            titulo="Headcount"
             valor={formatarNumero(ativos)}
             detalhe={`Cadastro do ponto em ${formatarData(ate)}`}
             serie={evolucao}
@@ -268,6 +279,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
           />
           <CartaoIndicador
             titulo="Absenteísmo"
+            tom="verde"
             valor={formatarPct(totais.absenteismo)}
             status={status(totais.absenteismo, metaAbs)}
             meta={
@@ -309,7 +321,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Secao
-            titulo="Evolução do quadro"
+            titulo="Evolução do headcount"
             descricao="Colaboradores ativos no fim de cada mês (cadastro do ponto)"
             className="lg:col-span-2"
           >
@@ -322,7 +334,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
             />
           </Secao>
 
-          <Secao titulo={`Movimento de ${formatarMes(mes)}`}>
+          <Secao tom="escuro" titulo={`Movimento de ${formatarMes(mes)}`}>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <AbreDetalhe
                 detalhe={quadroDoMes("admissoes")}
@@ -355,12 +367,15 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
                 </p>
               </AbreDetalhe>
             </div>
-            {movimento.efetivacoes > 0 && (
-              <p className="mt-4 text-xs text-neutral-500">
-                {movimento.efetivacoes} efetivação(ões) no mês, fora do
-                turnover.
-              </p>
-            )}
+            <p className="mt-4 text-xs text-neutral-500">
+              {movimento.taxas
+                .slice(1)
+                .map(
+                  (t) =>
+                    `${t.rotulo.replace("Turnover ", "")}: ${formatarPct(t.valor)}`,
+                )
+                .join(" · ")}
+            </p>
             <Link
               href={`/rh/quadro?mes=${mes.slice(0, 7)}`}
               className="mt-4 inline-block text-sm font-medium underline-offset-4 hover:underline"
@@ -536,4 +551,22 @@ function textoBancoEmReais(
   if (banco.adicional === null)
     return "valor em R$: configure o banco de horas em Parâmetros";
   return `≈ ${formatarMoeda(valor ?? 0, 0)} a pagar (salário/hora de ${formatarMes(banco.folha)}, +${formatarNumero(banco.adicional)}%)${banco.semSalario ? ` · ${banco.semSalario} sem salário na folha` : ""}`;
+}
+
+/** Blocos no lugar dos cartões da tela enquanto os dados chegam. */
+function Esqueleto() {
+  return (
+    <TelaCarregando>
+      <FiltrosCarregando />
+      <IndicadoresCarregando
+        className="sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+        quantidade={5}
+      />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <CartaoCarregando className="lg:col-span-2" altura="h-80" />
+        <CartaoCarregando altura="h-80" />
+      </div>
+      <CartaoCarregando altura="h-80" />
+    </TelaCarregando>
+  );
 }

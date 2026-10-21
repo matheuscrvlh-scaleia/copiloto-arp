@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { Nota, Secao, Tabela } from "@/components/dashboard/tabela";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
-import { Carregando, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
-import { Selecao } from "@/components/selecao";
 import {
   competenciaDe,
   formatarDataHora,
@@ -17,18 +16,14 @@ import {
   type IndicadorRh,
   metaVigente,
 } from "@/lib/indicadores";
-import { ROTULO_TURNOVER, TIPOS_TURNOVER } from "@/lib/rh/turnover";
 import { metasDoRh } from "@/server/rh/dados";
 import { dadosDosParametros } from "@/server/rh/parametros";
-import {
-  salvarDepartamento,
-  salvarEmpresa,
-  salvarEncargos,
-  salvarMeta,
-  salvarMotivo,
-} from "./actions";
+import { salvarEmpresa, salvarEncargos, salvarMeta } from "./actions";
 
 export const metadata: Metadata = { title: "Parâmetros do RH" };
+
+// Valores que entram nas contas e no semáforo (cadastros ficam na aba
+// Cadastros). Nada fica fixo no código; toda alteração fica registrada.
 
 const CONTRATOS: Record<string, string> = {
   clt: "CLT",
@@ -36,23 +31,6 @@ const CONTRATOS: Record<string, string> = {
   estagiario: "Estagiário",
   pj: "PJ",
   pro_labore: "Pró-labore",
-};
-
-const GRUPOS: Record<string, string> = {
-  salario: "Salário",
-  pro_labore: "Pró-labore",
-  adicional: "Adicionais",
-  hora_extra: "Horas extras",
-  adiantamento: "Adiantamento (não entra)",
-  afastamento: "Afastamento (não entra)",
-  rescisao: "Rescisão (custo)",
-  pagamento_provisionado: "Férias e 13º pagos (consomem a provisão)",
-  beneficio_desconto: "Desconto de benefício (reduz o custo)",
-  desconto_terceiros: "Descontos de terceiros (não entra)",
-  imposto_funcionario: "Impostos do funcionário (não entra)",
-  arredondamento: "Arredondamentos (não entra)",
-  reembolso_inss: "Reembolso do INSS (abate do custo)",
-  nao_classificada: "Não classificada",
 };
 
 const TABELAS: Record<string, string> = {
@@ -63,6 +41,9 @@ const TABELAS: Record<string, string> = {
   "rh.rubricas": "Rubricas",
   "rh.jornadas": "Jornadas",
   "rh.beneficios": "Benefícios",
+  "rh.colaborador_beneficios": "Benefício de funcionário",
+  "rh.plano_tabelas": "Tabela do plano de saúde",
+  "rh.dados_financeiros_mensais": "Faturamento e dados financeiros",
   "core.metas": "Metas",
 };
 
@@ -70,17 +51,11 @@ const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 
 export default function Page() {
   return (
-    <>
-      <PageHeader
-        title="Parâmetros do RH"
-        description="Nada fica fixo no código: estes valores alimentam os cálculos e o semáforo. Toda alteração fica registrada."
-      />
-      <Suspense fallback={<Carregando />}>
-        <Protegido permissao="rh.parametros">
-          <Parametros />
-        </Protegido>
-      </Suspense>
-    </>
+    <Suspense fallback={<Esqueleto />}>
+      <Protegido permissao="rh.parametros">
+        <Parametros />
+      </Protegido>
+    </Suspense>
   );
 }
 
@@ -92,7 +67,9 @@ async function Parametros() {
   return (
     <div className="flex flex-col gap-6">
       <Secao
+        id="empresa"
         titulo="Empresa"
+        tom="escuro"
         descricao={`RAT, FAP e ciclo do banco de horas. Valem a partir de ${formatarMes(mesAtual)}${e ? `; último registro desde ${formatarMes(e.vigente_desde)}` : "; ainda não configurado"}.`}
       >
         <FormAcao acao={salvarEmpresa} className="flex flex-col gap-4">
@@ -163,6 +140,7 @@ async function Parametros() {
       </Secao>
 
       <Secao
+        id="metas"
         titulo="Metas e semáforo"
         descricao={`Até a meta: Ok. Até a faixa de atenção: Atenção. Depois dela: fora da meta. Valem a partir de ${formatarMes(mesAtual)}.`}
       >
@@ -208,81 +186,6 @@ async function Parametros() {
               </FormAcao>
             );
           })}
-        </div>
-      </Secao>
-
-      <Secao
-        titulo="Departamentos"
-        descricao="O código da folha liga o departamento do ponto ao do Extrato Mensal (códigos 2 a 6)."
-      >
-        <div className="flex flex-col divide-y divide-neutral-100">
-          {dados.departamentos.map((d) => (
-            <FormAcao
-              key={d.id}
-              acao={salvarDepartamento}
-              className="grid items-end gap-3 py-4 first:pt-0 sm:grid-cols-[1fr_8rem_6rem_auto]"
-            >
-              <input type="hidden" name="id" value={d.id} />
-              <label className={rotulo}>
-                Nome
-                <input
-                  name="nome"
-                  defaultValue={d.nome}
-                  className={classeCampo}
-                />
-              </label>
-              <label className={rotulo}>
-                Código na folha
-                <input
-                  name="codigo_folha"
-                  inputMode="numeric"
-                  defaultValue={d.codigo_folha ?? ""}
-                  placeholder="—"
-                  className={classeCampo}
-                />
-              </label>
-              <label className={rotulo}>
-                Id no ponto
-                <input
-                  value={d.secullum_id ?? "—"}
-                  disabled
-                  className={classeCampo}
-                />
-              </label>
-            </FormAcao>
-          ))}
-        </div>
-      </Secao>
-
-      <Secao
-        titulo="Motivos de desligamento"
-        descricao="Vêm do Secullum. A classificação decide como cada saída entra no turnover."
-      >
-        <div className="flex flex-col divide-y divide-neutral-100">
-          {dados.motivos.map((m) => (
-            <FormAcao
-              key={m.id}
-              acao={salvarMotivo}
-              className="grid items-end gap-3 py-4 first:pt-0 sm:grid-cols-[1fr_16rem_auto]"
-            >
-              <input type="hidden" name="id" value={m.id} />
-              <p className="text-sm">{m.descricao}</p>
-              <label className={rotulo}>
-                Tipo de turnover
-                <Selecao
-                  name="tipo_turnover"
-                  valorInicial={m.tipo_turnover ?? ""}
-                  opcoes={[
-                    { valor: "", rotulo: "Sem classificação" },
-                    ...TIPOS_TURNOVER.map((t) => ({
-                      valor: t,
-                      rotulo: ROTULO_TURNOVER[t] ?? t,
-                    })),
-                  ]}
-                />
-              </label>
-            </FormAcao>
-          ))}
         </div>
       </Secao>
 
@@ -381,41 +284,6 @@ async function Parametros() {
       </Secao>
 
       <Secao
-        titulo="Rubricas da folha"
-        descricao={`${dados.rubricas.length} rubricas classificadas a partir da folha de 07/2026. A classificação de rubricas novas é feita na importação da folha.`}
-      >
-        <div className="flex flex-col gap-2">
-          {Object.entries(GRUPOS).map(([grupo, nome]) => {
-            const doGrupo = dados.rubricas.filter((r) => r.grupo === grupo);
-            if (doGrupo.length === 0) return null;
-            return (
-              <details
-                key={grupo}
-                className="rounded-2xl bg-neutral-50 px-4 py-3"
-              >
-                <summary className="cursor-pointer text-sm font-medium">
-                  {nome}{" "}
-                  <span className="font-normal text-neutral-500">
-                    ({doGrupo.length})
-                  </span>
-                </summary>
-                <ul className="mt-2 grid gap-x-6 gap-y-1 text-sm text-neutral-600 sm:grid-cols-2 lg:grid-cols-3">
-                  {doGrupo.map((r) => (
-                    <li key={r.codigo}>
-                      <span className="tabular-nums text-neutral-900">
-                        {r.codigo}
-                      </span>{" "}
-                      · {r.descricao}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            );
-          })}
-        </div>
-      </Secao>
-
-      <Secao
         titulo="Histórico de alterações"
         descricao="As 30 alterações mais recentes nos parâmetros."
       >
@@ -447,5 +315,17 @@ async function Parametros() {
         mês antigo usa o valor da época.
       </Nota>
     </div>
+  );
+}
+
+/** Blocos no lugar dos cartões da tela enquanto os dados chegam. */
+function Esqueleto() {
+  return (
+    <TelaCarregando>
+      {Array.from({ length: 4 }, (_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: blocos fixos, a posição é a identidade
+        <CartaoCarregando key={i} altura="h-56" />
+      ))}
+    </TelaCarregando>
   );
 }

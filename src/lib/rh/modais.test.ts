@@ -57,7 +57,7 @@ describe("modal do quadro", () => {
       foco: "admissoes",
       pessoas: true,
     });
-    expect(d.fontes?.[0]?.valor).toMatch(/Secullum/);
+    expect(d.fontes?.[0]?.valor).toMatch(/Copiloto RH/);
     expect(d.tabelas[0]?.titulo).toBe("Admitidos no mês");
     expect(d.tabelas[0]?.linhas.map((l) => l.celulas[0])).toEqual(["Bia"]);
     expect(d.resumo).toContainEqual({ rotulo: "Ativos no fim", valor: "2" });
@@ -71,12 +71,27 @@ describe("modal do quadro", () => {
     expect(d.tabelas[0]?.linhas[0]?.celulas).toEqual(["Administração", "2"]);
   });
 
-  it("turnover explica o quadro médio", () => {
+  it("turnover: fórmula do Copiloto e todos os tipos no resumo", () => {
     const d = origemDoQuadro(todos, "2026-10-01", "2026-10-19", {
       foco: "turnover",
       pessoas: true,
     });
-    expect(d.fontes?.map((f) => f.rotulo)).toContain("Quadro médio");
+    expect(d.fontes?.find((f) => f.rotulo === "Regra")?.valor).toMatch(
+      /total_colaboradores_inicio_mes/,
+    );
+    // Ana e Caio ativos em 01/10; Caio saiu: 1 ÷ 2 × 100.
+    expect(d.resumo).toContainEqual({
+      rotulo: "Turnover Geral",
+      valor: "50,0%",
+    });
+    expect(d.resumo?.map((r) => r.rotulo)).toEqual([
+      "Ativos no fim",
+      "Admissões",
+      "Desligamentos",
+      "Turnover Geral",
+      "Turnover Voluntário",
+      "Turnover Involuntário",
+    ]);
   });
 });
 

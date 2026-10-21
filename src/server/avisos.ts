@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { CONFIGURACOES_RH } from "@/config/navigation";
 import { competenciaDe, formatarMes } from "@/lib/formato";
 import { INDICADORES_RH, metaVigente } from "@/lib/indicadores";
 import { createClient } from "@/lib/supabase/server";
@@ -36,7 +37,7 @@ export const avisosDo = cache(async (usuario: Usuario): Promise<Aviso[]> => {
         id: "rubricas",
         titulo: `${count} rubrica${count > 1 ? "s" : ""} para classificar`,
         descricao: "Vieram na folha e ainda não dizem como entram no custo.",
-        href: "/rh/folha",
+        href: `${CONFIGURACOES_RH.importacoes}#rubricas-novas`,
       });
     }
   }
@@ -52,7 +53,7 @@ export const avisosDo = cache(async (usuario: Usuario): Promise<Aviso[]> => {
         id: "folha",
         titulo: `Folha de ${formatarMes(mesAnterior)} não importada`,
         descricao: "Envie o Extrato Mensal da Sousa e Couto.",
-        href: "/rh/folha",
+        href: CONFIGURACOES_RH.importacoes,
       });
     }
   }
@@ -75,7 +76,7 @@ export const avisosDo = cache(async (usuario: Usuario): Promise<Aviso[]> => {
         id: "empresa",
         titulo: "RAT, FAP e banco de horas não configurados",
         descricao: "Necessários para o cálculo dos encargos.",
-        href: "/rh/parametros",
+        href: CONFIGURACOES_RH.parametros,
       });
     }
     const competencia = competenciaDe(hoje);
@@ -88,7 +89,7 @@ export const avisosDo = cache(async (usuario: Usuario): Promise<Aviso[]> => {
         titulo: `${semMeta} indicador${semMeta > 1 ? "es" : ""} sem meta`,
         descricao:
           "Sem meta, o semáforo não mostra Ok, Atenção ou fora da meta.",
-        href: "/rh/parametros",
+        href: `${CONFIGURACOES_RH.parametros}#metas`,
       });
     }
     if (provisorios.count) {
@@ -96,7 +97,7 @@ export const avisosDo = cache(async (usuario: Usuario): Promise<Aviso[]> => {
         id: "departamentos",
         titulo: `${provisorios.count} departamento${provisorios.count > 1 ? "s" : ""} para renomear`,
         descricao: "Criados pela importação da folha como “Departamento N”.",
-        href: "/rh/parametros",
+        href: `${CONFIGURACOES_RH.cadastros}#departamentos`,
       });
     }
   }

@@ -4,6 +4,10 @@
     {
       "path": "/api/sync/secullum",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/sync/copiloto-rh",
+      "schedule": "30 9 * * *"
     }
   ]
 }

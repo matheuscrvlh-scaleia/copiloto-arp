@@ -531,6 +531,7 @@ export function BarrasHorizontais({
   vazio = "Sem dados no período.",
   meta,
   descricao = "Barras por categoria",
+  rotuloLargo = false,
   detalhes,
 }: {
   itens: ItemGrafico[];
@@ -538,6 +539,8 @@ export function BarrasHorizontais({
   /** Linha tracejada da meta, na mesma escala dos valores. */
   meta?: { valor: number; texto: string };
   descricao?: string;
+  /** Coluna do nome mais larga (rótulos longos, ex.: cargos). */
+  rotuloLargo?: boolean;
   /** Quem forma cada item, pela chave (abre o modal ao clicar). */
   detalhes?: Record<string, Detalhe>;
 }) {
@@ -560,7 +563,7 @@ export function BarrasHorizontais({
           return (
             <li
               key={i.chave}
-              className={`grid grid-cols-[minmax(5rem,9rem)_1fr_4.5rem] items-center gap-3 transition-opacity duration-200 ${det.tem(i.chave) ? "cursor-pointer" : ""}`}
+              className={`grid ${rotuloLargo ? "grid-cols-[minmax(7rem,17rem)_1fr_3.5rem]" : "grid-cols-[minmax(5rem,9rem)_1fr_4.5rem]"} items-center gap-3 transition-opacity duration-200 ${det.tem(i.chave) ? "cursor-pointer" : ""}`}
               style={{ opacity: apagado ? 0.5 : 1 }}
               onPointerEnter={() => setAtivo(k)}
               onPointerUp={() => det.abrir(i.chave)}
@@ -638,8 +641,11 @@ export interface FatiaRosca {
   rotulo: string;
   valor: number;
   texto: string;
-  /** Posição fixa da categoria na paleta (--serie-1..5), nunca o ranking. */
-  cor: 1 | 2 | 3 | 4 | 5;
+  /**
+   * Posição fixa da categoria na paleta (--serie-1..5), nunca o ranking.
+   * "neutro" (cinza) para o que não é categoria, como "Sem informação".
+   */
+  cor: 1 | 2 | 3 | 4 | 5 | "neutro";
 }
 
 /**

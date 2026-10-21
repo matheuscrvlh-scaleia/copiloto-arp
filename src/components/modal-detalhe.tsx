@@ -1,8 +1,22 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpRight, Search, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpRight,
+  Info,
+  Search,
+  X,
+} from "lucide-react";
 import Link from "next/link";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { iniciais } from "@/lib/formato";
 
 // Modal padrão do sistema para "quem forma este número": abre ao clicar num
@@ -273,7 +287,9 @@ export function ModalDetalhe({
     >
       {visivel && (
         <div className="painel-modal flex max-h-[min(88dvh,52rem)] flex-col rounded-[2rem]">
-          <header className="relative isolate shrink-0 overflow-hidden px-6 pt-6 pb-4 md:px-8 md:pt-8">
+          {/* Sem overflow-hidden: o balão de fontes desce sobre a tabela (o
+              <dialog> já recorta o brilho nos cantos). */}
+          <header className="relative isolate z-10 shrink-0 px-6 pt-6 pb-4 md:px-8 md:pt-8">
             <div
               aria-hidden
               className="absolute -top-20 right-10 -z-10 h-40 w-1/2 rounded-full bg-marca/25 blur-3xl"
@@ -283,12 +299,17 @@ export function ModalDetalhe({
                 {visivel.secao}
               </p>
             )}
-            <h2
-              id="modal-detalhe-titulo"
-              className="mt-1 pr-12 text-2xl font-semibold tracking-tight md:text-3xl"
-            >
-              {visivel.titulo}
-            </h2>
+            <div className="mt-1 flex items-center gap-2 pr-12">
+              <h2
+                id="modal-detalhe-titulo"
+                className="text-2xl font-semibold tracking-tight md:text-3xl"
+              >
+                {visivel.titulo}
+              </h2>
+              {visivel.fontes && visivel.fontes.length > 0 && (
+                <InfoFontes fontes={visivel.fontes} />
+              )}
+            </div>
             {visivel.subtitulo && (
               <p className="mt-1 text-sm text-neutral-500">
                 {visivel.subtitulo}
@@ -336,21 +357,6 @@ export function ModalDetalhe({
           </header>
 
           <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 pb-6 md:px-8">
-            {visivel.fontes && visivel.fontes.length > 0 && (
-              <section className="rounded-2xl border border-neutral-900/[0.08] bg-white/50 px-4 py-3">
-                <h3 className="text-[11px] font-semibold tracking-[0.12em] text-neutral-500 uppercase">
-                  De onde vêm os dados
-                </h3>
-                <dl className="mt-2 grid gap-x-4 gap-y-1.5 text-sm sm:grid-cols-[10rem_1fr]">
-                  {visivel.fontes.map((f) => (
-                    <div key={f.rotulo} className="contents">
-                      <dt className="text-neutral-500">{f.rotulo}</dt>
-                      <dd className="text-neutral-800">{f.valor}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            )}
             {visivel.tabelas.map((t, k) => (
               <Tabela key={`${visivel.titulo}-${k}`} tabela={t} busca={busca} />
             ))}
@@ -370,5 +376,42 @@ export function ModalDetalhe({
         </div>
       )}
     </dialog>
+  );
+}
+
+/**
+ * "i" discreto ao lado do título: ao passar o mouse (ou focar pelo teclado),
+ * mostra de onde vem o número (fonte, fórmula, atualização).
+ */
+function InfoFontes({ fontes }: { fontes: NonNullable<Detalhe["fontes"]> }) {
+  const id = useId();
+  return (
+    <span className="group/info relative inline-flex">
+      <button
+        type="button"
+        aria-label="De onde vêm os dados"
+        aria-describedby={id}
+        className="grid size-6 place-items-center rounded-full text-neutral-400 ring-1 ring-neutral-900/10 transition hover:bg-neutral-900 hover:text-white hover:ring-neutral-900 focus-visible:bg-neutral-900 focus-visible:text-white focus-visible:outline-none"
+      >
+        <Info className="size-3.5" aria-hidden />
+      </button>
+      <span
+        id={id}
+        role="tooltip"
+        className="pointer-events-none invisible absolute top-full left-1/2 z-20 mt-2 w-[min(24rem,calc(100vw-3rem))] -translate-x-1/2 translate-y-1 rounded-2xl bg-neutral-900/95 p-4 text-left text-xs text-white opacity-0 shadow-[0_20px_40px_-16px_rgb(0_0_0/0.5)] ring-1 ring-white/10 backdrop-blur-md transition duration-150 group-focus-within/info:visible group-focus-within/info:translate-y-0 group-focus-within/info:opacity-100 group-hover/info:visible group-hover/info:translate-y-0 group-hover/info:opacity-100 sm:left-0 sm:translate-x-0"
+      >
+        <span className="block text-[10px] font-semibold tracking-[0.14em] text-white/50 uppercase">
+          De onde vêm os dados
+        </span>
+        <span className="mt-2 flex flex-col gap-1.5">
+          {fontes.map((f) => (
+            <span key={f.rotulo} className="block leading-snug">
+              <span className="text-white/55">{f.rotulo}: </span>
+              {f.valor}
+            </span>
+          ))}
+        </span>
+      </span>
+    </span>
   );
 }

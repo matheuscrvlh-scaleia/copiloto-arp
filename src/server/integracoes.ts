@@ -1,5 +1,10 @@
 import "server-only";
 import {
+  type CopilotoRhConfig,
+  createCopilotoRhClient,
+  ESCOPOS_NECESSARIOS,
+} from "@/connectors/copiloto-rh/client";
+import {
   createDiarioDeObrasClient,
   type DiarioDeObrasConfig,
 } from "@/connectors/diario-de-obras/client";
@@ -98,6 +103,22 @@ const DO_AMBIENTE: Record<Sistema, () => Credencial | null> = {
     };
   },
   diario_de_obras: () => null,
+  copiloto_rh() {
+    const e = env();
+    if (
+      !e.COPILOTO_RH_BASE_URL ||
+      !e.COPILOTO_RH_USUARIO ||
+      !e.COPILOTO_RH_SENHA
+    )
+      return null;
+    return {
+      parametros: {
+        base_url: e.COPILOTO_RH_BASE_URL,
+        usuario: e.COPILOTO_RH_USUARIO,
+      },
+      segredo: e.COPILOTO_RH_SENHA,
+    };
+  },
 };
 
 /** Há credencial completa nas variáveis de ambiente? (Nunca devolve valores.) */
@@ -132,6 +153,15 @@ function configDiario({ segredo }: Credencial): DiarioDeObrasConfig {
   return { token: segredo };
 }
 
+function configCopiloto({ parametros, segredo }: Credencial): CopilotoRhConfig {
+  const p = INTEGRACOES.copiloto_rh.parametros.parse(parametros);
+  return {
+    baseUrl: String(p.base_url),
+    usuario: String(p.usuario),
+    senha: segredo,
+  };
+}
+
 export async function secullum() {
   return createSecullumClient(
     configSecullum(await credencialEmUso("secullum")),
@@ -145,6 +175,12 @@ export async function wps() {
 export async function diarioDeObras() {
   return createDiarioDeObrasClient(
     configDiario(await credencialEmUso("diario_de_obras")),
+  );
+}
+
+export async function copilotoRh() {
+  return createCopilotoRhClient(
+    configCopiloto(await credencialEmUso("copiloto_rh")),
   );
 }
 
@@ -182,6 +218,19 @@ const TESTES: Record<Sistema, (c: Credencial) => Promise<string>> = {
     const obras =
       e.log === undefined ? "" : ` · ${formatarNumero(e.log.totalObras)} obras`;
     return `Conectado à empresa “${e.nome}”${obras}`;
+  },
+  async copiloto_rh(c) {
+    const api = createCopilotoRhClient(configCopiloto(c));
+    const me = await api.me();
+    const faltam = ESCOPOS_NECESSARIOS.filter((s) => !me.scopes.includes(s));
+    if (faltam.length > 0)
+      throw new Error(
+        `login aceito, mas faltam escopos na credencial do Copiloto: ${faltam.join(", ")}`,
+      );
+    const ativos = await api.totalColaboradores({
+      status: ["active", "on_leave"],
+    });
+    return `Conectado à empresa “${me.organization.name}” · ${formatarNumero(ativos)} colaboradores ativos`;
   },
 };
 

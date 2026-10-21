@@ -14,6 +14,7 @@ import {
   credencialSalva,
   testarConexao,
 } from "@/server/integracoes";
+import { sincronizarCopiloto } from "@/server/sync/copiloto-rh";
 import { sincronizarSecullum } from "@/server/sync/secullum";
 
 // Credenciais das integrações. O segredo é cifrado aqui, antes de ir para o
@@ -152,6 +153,7 @@ export async function sincronizarAgora(
 ): Promise<EstadoAcao> {
   const sistema = await sistemaDoForm(form);
   if (ehErro(sistema)) return sistema;
+  if (sistema === "copiloto_rh") return sincronizarCopilotoAgora();
   if (sistema !== "secullum")
     return { erro: "A sincronização desta integração ainda não existe." };
   try {
@@ -170,4 +172,18 @@ export async function sincronizarAgora(
   return {
     ok: "Sincronização iniciada. Leva alguns minutos; acompanhe no histórico.",
   };
+}
+
+/** O Copiloto responde em segundos: roda na hora e mostra o resumo. */
+async function sincronizarCopilotoAgora(): Promise<EstadoAcao> {
+  try {
+    const r = await sincronizarCopiloto();
+    refresh();
+    const avisos = r.avisos.length ? ` · ${r.avisos.length} avisos` : "";
+    return {
+      ok: `${r.colaboradores} colaboradores do Copiloto (${r.ativos} ativos, ${r.desligados} desligados)${r.novos ? ` · ${r.novos} novos` : ""}${avisos}.`,
+    };
+  } catch (erro) {
+    return { erro: erro instanceof Error ? erro.message : "Falhou." };
+  }
 }

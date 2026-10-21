@@ -1,4 +1,12 @@
-import { fimDoMes, isoLocal } from "@/lib/formato";
+import { fimDoMes } from "@/lib/formato";
+import {
+  type ConfigTurnover,
+  type TaxaTurnover,
+  type TipoDesligamento,
+  TURNOVER_PADRAO,
+  taxasDeTurnover,
+  tipoDoDesligamento,
+} from "./turnover";
 
 // ---------------------------------------------------------------------------
 // Jornada (ponto)
@@ -18,7 +26,56 @@ export interface LinhaPonto {
   banco_saldo_min: number;
   banco_creditos_min: number;
   banco_debitos_min: number;
+  // Opcionais: linhas montadas à mão (testes) podem não trazer.
+  /** Horas extras por coluna do Secullum (Ex80%, Ex100%, ExNot…). */
+  extras_min?: Record<string, number>;
+  /** Adicional noturno. */
+  noturnas_min?: number;
+  /** DSR descontado por falta. */
+  dsr_debito_min?: number;
 }
+
+/** Rótulo das extras de quem tem horário sem divisão por percentual. */
+export const EXTRAS_SEM_DIVISAO = "Sem divisão por %";
+
+const PERCENTUAL = /^Ex\d+%$/;
+
+export interface ExtrasDaLinha {
+  /** Horas extras da pessoa (sem contar duas vezes). */
+  total: number;
+  /** O total por percentual (Ex80%, Ex100%…) e o que não tem divisão. */
+  porTipo: Record<string, number>;
+  /** Parte das extras feita à noite (ExNot): já está dentro do total. */
+  noturnas: number;
+  /** Extras de intervalo (ExInt): fora do total até a Gestora confirmar. */
+  intervalo: number;
+}
+
+/**
+ * Horas extras do ponto, pelas colunas que o Secullum devolve. Há dois tipos
+ * de horário: os que dividem por percentual (Ex80%, Ex100%…) e os que trazem
+ * só o total ("Extras"). ExNot é a parte noturna dessas mesmas horas (há
+ * quem tenha Extras = ExNot), então não soma de novo.
+ */
+export function extrasDe(l: Pick<LinhaPonto, "extras_min">): ExtrasDaLinha {
+  const e = l.extras_min ?? {};
+  const porPercentual = Object.entries(e).filter(([k]) => PERCENTUAL.test(k));
+  const somaPercentual = porPercentual.reduce((s, [, m]) => s + m, 0);
+  const total = "Extras" in e ? (e.Extras ?? 0) : somaPercentual;
+  const porTipo: Record<string, number> = Object.fromEntries(porPercentual);
+  const semDivisao = Math.max(total - somaPercentual, 0);
+  if (semDivisao > 0) porTipo[EXTRAS_SEM_DIVISAO] = semDivisao;
+  return {
+    total,
+    porTipo,
+    noturnas: e.ExNot ?? 0,
+    intervalo: e.ExInt ?? 0,
+  };
+}
+
+/** Total de horas extras da linha. */
+export const somaExtras = (l: Pick<LinhaPonto, "extras_min">) =>
+  extrasDe(l).total;
 
 export interface TotaisPonto {
   colaboradores: number;
@@ -34,6 +91,18 @@ export interface TotaisPonto {
   banco_negativo_min: number;
   banco_creditos_min: number;
   banco_debitos_min: number;
+  /** Horas extras do ponto (ver extrasDe). */
+  extras_min: number;
+  /** As extras por percentual e "sem divisão"; somam extras_min. */
+  extras_por_tipo: Record<string, number>;
+  /** Parte noturna das extras (já dentro de extras_min). */
+  extras_noturnas_min: number;
+  /** Extras de intervalo, fora de extras_min até confirmar. */
+  extras_intervalo_min: number;
+  /** Adicional noturno (Not.). */
+  noturnas_min: number;
+  /** DSR descontado por falta. */
+  dsr_debito_min: number;
   /** (faltas + atrasos) ÷ horas previstas × 100. Abonos não entram. */
   absenteismo: number | null;
 }
@@ -65,8 +134,23 @@ export function somarPonto(linhas: LinhaPonto[]): TotaisPonto {
     banco_negativo_min: 0,
     banco_creditos_min: 0,
     banco_debitos_min: 0,
+    extras_min: 0,
+    extras_por_tipo: {} as Record<string, number>,
+    extras_noturnas_min: 0,
+    extras_intervalo_min: 0,
+    noturnas_min: 0,
+    dsr_debito_min: 0,
   };
   for (const l of linhas) {
+    const ex = extrasDe(l);
+    t.extras_min += ex.total;
+    t.extras_noturnas_min += ex.noturnas;
+    t.extras_intervalo_min += ex.intervalo;
+    for (const [tipo, min] of Object.entries(ex.porTipo)) {
+      t.extras_por_tipo[tipo] = (t.extras_por_tipo[tipo] ?? 0) + min;
+    }
+    t.noturnas_min += l.noturnas_min ?? 0;
+    t.dsr_debito_min += l.dsr_debito_min ?? 0;
     t.previstas_min += l.previstas_min;
     t.faltas_min += l.faltas_min;
     t.atrasos_min += l.atrasos_min;
@@ -121,7 +205,13 @@ export interface ColaboradorQuadro {
   departamento: string;
   admissao: string | null;
   desligamento: string | null;
-  tipo_turnover: string | null;
+  /** Tipo do desligamento (Copiloto); null para quem não saiu. */
+  tipo_turnover: TipoDesligamento | null;
+  /** Motivo do desligamento no Copiloto (`termination_reason`). */
+  motivo_desligamento?: string | null;
+  // Opcionais: o cargo vem da folha; quem não está nela não tem.
+  cargo?: string | null;
+  tipo_contrato?: string | null;
 }
 
 /** Quem estava ativo no fim do dia `data` (aaaa-mm-dd). */
@@ -138,57 +228,63 @@ export function ativosEm<
 
 export interface MovimentoMes {
   competencia: string;
+  /** Ativos no 1º dia do mês (admitidos até ele e não desligados nele). */
   inicio: number;
   fim: number;
   admissoes: number;
-  /** Desligamentos que contam no turnover (efetivação não conta). */
   desligamentos: number;
-  efetivacoes: number;
-  desligamentosPorTipo: Record<string, number>;
-  /** ((admissões + desligamentos) ÷ 2) ÷ quadro médio × 100. */
-  turnover: number | null;
+  desligamentosPorTipo: Record<TipoDesligamento, number>;
+  /** Turnover Geral, pela fórmula configurada (a mesma do Copiloto). */
+  turnover: number;
+  /** Geral, Voluntário, Involuntário e (se separado) por Acordo. */
+  taxas: TaxaTurnover[];
 }
 
-/** Efetivação (estagiário/aprendiz que vira CLT) não é saída de verdade. */
-export const TIPO_EFETIVACAO = "efetivacao";
-
+/**
+ * Movimento e turnover do mês como o Copiloto RH calcula: headcount no 1º
+ * dia, admissões e desligamentos com data no mês, desligamento classificado
+ * pelo motivo e taxas pelas fórmulas da configuração.
+ */
 export function movimentoDoMes(
   colaboradores: ColaboradorQuadro[],
   competencia: string,
+  config: ConfigTurnover = TURNOVER_PADRAO,
 ): MovimentoMes {
-  const inicioMes = competencia;
   const fimMes = fimDoMes(competencia);
-  const [a, m] = competencia.split("-").map(Number) as [number, number];
-  const vespera = isoLocal(new Date(a, m - 1, 0));
-
-  const inicio = ativosEm(colaboradores, vespera).length;
+  const inicio = ativosEm(colaboradores, competencia).length;
   const fim = ativosEm(colaboradores, fimMes).length;
   const noMes = (d: string | null) =>
-    d !== null && d >= inicioMes && d <= fimMes;
+    d !== null && d >= competencia && d <= fimMes;
 
   const admissoes = colaboradores.filter((c) => noMes(c.admissao)).length;
   const saidas = colaboradores.filter((c) => noMes(c.desligamento));
-  const efetivacoes = saidas.filter(
-    (c) => c.tipo_turnover === TIPO_EFETIVACAO,
-  ).length;
-  const desligamentosPorTipo: Record<string, number> = {};
+  const desligamentosPorTipo: Record<TipoDesligamento, number> = {
+    voluntario: 0,
+    involuntario: 0,
+    acordo: 0,
+  };
   for (const c of saidas) {
-    const tipo = c.tipo_turnover ?? "nao_classificado";
-    desligamentosPorTipo[tipo] = (desligamentosPorTipo[tipo] ?? 0) + 1;
+    const tipo =
+      c.tipo_turnover ??
+      tipoDoDesligamento(c.motivo_desligamento ?? null, config);
+    desligamentosPorTipo[tipo] += 1;
   }
-  const desligamentos = saidas.length - efetivacoes;
-  const medio = (inicio + fim) / 2;
+  const taxas = taxasDeTurnover(
+    inicio,
+    admissoes,
+    desligamentosPorTipo,
+    config,
+  );
 
   return {
     competencia,
     inicio,
     fim,
     admissoes,
-    desligamentos,
-    efetivacoes,
+    desligamentos: saidas.length,
     desligamentosPorTipo,
-    turnover:
-      medio > 0 ? ((admissoes + desligamentos) / 2 / medio) * 100 : null,
+    turnover: taxas[0]?.valor ?? 0,
+    taxas,
   };
 }
 

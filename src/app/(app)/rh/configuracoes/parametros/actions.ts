@@ -5,7 +5,6 @@ import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
 import { competenciaDe } from "@/lib/formato";
 import { INDICADORES_RH } from "@/lib/indicadores";
-import { TIPOS_TURNOVER } from "@/lib/rh/turnover";
 import { createClient } from "@/lib/supabase/server";
 import { pode } from "@/server/auth";
 import { recalcularEmAberto, tentarRecalcular } from "@/server/rh/custo";
@@ -42,59 +41,6 @@ function primeiroErro(e: z.ZodError): EstadoAcao {
 }
 
 // ---------------------------------------------------------------------------
-
-const departamento = z.object({
-  id: z.uuid(),
-  nome: z.string().trim().min(1, "informe o nome"),
-  codigo_folha: z.preprocess(
-    (v) => (String(v ?? "").trim() === "" ? null : Number(v)),
-    z.number().int().positive().nullable(),
-  ),
-});
-
-export async function salvarDepartamento(
-  _: EstadoAcao,
-  form: FormData,
-): Promise<EstadoAcao> {
-  if (!(await pode("rh.parametros"))) return SEM_PERMISSAO;
-  const d = departamento.safeParse(Object.fromEntries(form));
-  if (!d.success) return primeiroErro(d.error);
-  const { error } = await (await createClient())
-    .schema("rh")
-    .from("departamentos")
-    .update({ nome: d.data.nome, codigo_folha: d.data.codigo_folha })
-    .eq("id", d.data.id);
-  if (error) return erroDoBanco(error);
-  refresh();
-  return { ok: "Salvo." };
-}
-
-// ---------------------------------------------------------------------------
-
-const motivo = z.object({
-  id: z.uuid(),
-  tipo_turnover: z.preprocess(
-    (v) => (v === "" ? null : v),
-    z.enum(TIPOS_TURNOVER).nullable(),
-  ),
-});
-
-export async function salvarMotivo(
-  _: EstadoAcao,
-  form: FormData,
-): Promise<EstadoAcao> {
-  if (!(await pode("rh.parametros"))) return SEM_PERMISSAO;
-  const m = motivo.safeParse(Object.fromEntries(form));
-  if (!m.success) return primeiroErro(m.error);
-  const { error } = await (await createClient())
-    .schema("rh")
-    .from("motivos_desligamento")
-    .update({ tipo_turnover: m.data.tipo_turnover })
-    .eq("id", m.data.id);
-  if (error) return erroDoBanco(error);
-  refresh();
-  return { ok: "Salvo." };
-}
 
 // ---------------------------------------------------------------------------
 

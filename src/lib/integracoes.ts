@@ -4,7 +4,12 @@ import { z } from "zod";
 // campos comuns (guardados abertos, para mostrar e editar) e um segredo
 // (senha ou token), que o servidor cifra antes de gravar e nunca devolve.
 
-export const SISTEMAS = ["secullum", "wps", "diario_de_obras"] as const;
+export const SISTEMAS = [
+  "secullum",
+  "wps",
+  "diario_de_obras",
+  "copiloto_rh",
+] as const;
 export type Sistema = (typeof SISTEMAS)[number];
 
 export interface Campo {
@@ -88,6 +93,34 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       ajuda: "Token da empresa, fornecido pelo Diário de Obras",
     },
     parametros: z.object({}),
+  },
+  copiloto_rh: {
+    nome: "Copiloto RH",
+    serve:
+      "Nascimento, tipo de contrato, ativos, admissões, desligamentos e turnover do RH.",
+    campos: [
+      {
+        nome: "base_url",
+        rotulo: "Endereço da API",
+        tipo: "url",
+        exemplo: "https://…/functions/v1/public-api",
+        ajuda: "O endereço que aparece na documentação da API do Copiloto",
+      },
+      {
+        nome: "usuario",
+        rotulo: "Usuário (client_id)",
+        tipo: "text",
+        ajuda:
+          "Credencial criada no Copiloto em Configurações › Integrações › API pública",
+      },
+    ],
+    segredo: { rotulo: "Senha (client_secret)" },
+    parametros: z.object({
+      base_url: z
+        .url({ protocol: /^https$/, error: "use um endereço https" })
+        .transform((u) => u.replace(/\/+$/, "")),
+      usuario: texto,
+    }),
   },
 };
 

@@ -204,6 +204,44 @@ describe("usuário sem permissão", () => {
 });
 
 describe("regras", () => {
+  it("configuração do turnover: uma linha, padrão do Copiloto, só rh.parametros edita", async () => {
+    const { rows } = await como(U.analista, () =>
+      db.query<{ formula_geral: string; acordo_conta_como: string }>(
+        "select formula_geral, acordo_conta_como from rh.parametros_turnover",
+      ),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.formula_geral).toMatch(/total_colaboradores_inicio_mes/);
+    expect(rows[0]?.acordo_conta_como).toBe("voluntario");
+    await como(U.analista, async () => {
+      await db.query(
+        "update rh.parametros_turnover set acordo_conta_como = 'separado'",
+      );
+    });
+    const { rows: depois } = await db.query<{ acordo_conta_como: string }>(
+      "select acordo_conta_como from rh.parametros_turnover",
+    );
+    expect(depois[0]?.acordo_conta_como).toBe("voluntario"); // RLS barrou
+    expect(
+      await erro("insert into rh.parametros_turnover (id) values (false)"),
+    ).toMatch(/check/);
+  });
+
+  it("um id do Copiloto RH liga a um colaborador só", async () => {
+    const ID = "40000000-0000-0000-0000-000000000001";
+    await db.exec(
+      `update rh.colaboradores set copiloto_id = '${ID}' where id = '${COLAB}'`,
+    );
+    expect(
+      await erro(
+        `insert into rh.colaboradores (nome, copiloto_id) values ('Outra', '${ID}')`,
+      ),
+    ).toMatch(/unique/);
+    await db.exec(
+      `update rh.colaboradores set copiloto_id = null where id = '${COLAB}'`,
+    );
+  });
+
   it("competência só aceita o dia 1", async () => {
     expect(
       await erro("insert into rh.folhas (competencia) values ('2026-08-15')"),
@@ -413,6 +451,27 @@ describe("importação da folha (rh.importar_folha)", () => {
         `select 1 from core.importacoes where referencia = '${AGOSTO}' and status = 'confirmada'`,
       ),
     ).toBe(1);
+  });
+
+  it("o tipo de contrato de quem está ligado ao Copiloto não é sobrescrito", async () => {
+    await db.exec(
+      `update rh.colaboradores set copiloto_id = '40000000-0000-0000-0000-000000000099', tipo_contrato = 'pj' where matricula = 999`,
+    );
+    const id = await previa();
+    await como(U.gestora, () => db.query(importar(id, true)));
+    const { rows } = await db.query<{
+      matricula: number;
+      tipo_contrato: string;
+    }>(
+      "select matricula, tipo_contrato from rh.colaboradores where matricula in (126, 999) order by matricula",
+    );
+    expect(rows).toEqual([
+      { matricula: 126, tipo_contrato: "aprendiz" },
+      { matricula: 999, tipo_contrato: "pj" },
+    ]);
+    await db.exec(
+      "update rh.colaboradores set copiloto_id = null where matricula = 999",
+    );
   });
 
   it("folha fechada nunca é substituída", async () => {
@@ -648,6 +707,46 @@ describe("administração: credenciais das integrações", () => {
       ),
     ).toBe(1);
   });
+
+  it("aceita o Copiloto RH e recusa sistema desconhecido", async () => {
+    await como(U.gestora, async () => {
+      expect(
+        await erro(
+          `select core.salvar_integracao('copiloto_rh', '{"base_url": "https://x"}', 'v1.cifrado', true)`,
+        ),
+      ).toBeNull();
+      expect(
+        await erro(
+          "select core.salvar_integracao('outro', '{}', 'v1.cifrado', true)",
+        ),
+      ).toMatch(/credenciais_sistema_check/);
+      await db.query("select core.remover_integracao('copiloto_rh')");
+    });
+    expect(await linhas("select * from integracao.credenciais")).toBe(0);
+  });
+
+  it("o histórico traz os avisos de cada execução", async () => {
+    await db.exec(`
+      insert into integracao.sync_runs (sistema, recurso, status, iniciado_em, finalizado_em, registros, cursor_depois)
+      values ('copiloto_rh', 'rh', 'sucesso', now(), now(), 3,
+        '{"avisos": ["matrícula 7: conferir"]}');
+    `);
+    const { rows } = await como(U.gestora, () =>
+      db.query<{ sistema: string; avisos: unknown }>(
+        "select sistema, avisos from core.historico_integracoes(20)",
+      ),
+    );
+    expect(rows.find((r) => r.sistema === "copiloto_rh")?.avisos).toEqual([
+      "matrícula 7: conferir",
+    ]);
+    // Execução sem avisos no cursor devolve lista vazia.
+    expect(rows.find((r) => r.sistema === "wps")?.avisos).toEqual([]);
+    expect(
+      await como(U.analista, () =>
+        linhas("select * from core.historico_integracoes(20)"),
+      ),
+    ).toBe(0);
+  });
 });
 
 describe("custo de pessoal (rh.gravar_custos)", () => {
@@ -731,4 +830,92 @@ describe("custo de pessoal (rh.gravar_custos)", () => {
       expect(await linhas(sql)).toBe(0);
     });
   });
+});
+
+describe("ponto: horas extras a partir do cálculo bruto", () => {
+  it("a migration preenche extras, noturno e DSR pelo bruto guardado", async () => {
+    const sql = readFileSync(
+      join(MIGRATIONS, "20261020213000_rh_ponto_extras.sql"),
+      "utf8",
+    );
+    // Só o preenchimento (o alter table já rodou com as migrations).
+    const preenchimento = sql.slice(sql.indexOf("create or replace function"));
+    await db.query(
+      `insert into integracao.registros_brutos (sistema, recurso, chave_externa, payload, hash)
+       values ('secullum', 'calculo_mensal', '2026-07-01:9', $1, 'x')`,
+      [
+        JSON.stringify({
+          Colunas: ["Data", "Ex80%", "Ex100%", "Not.", "DSR.Deb"],
+          Totais: ["", "03:10", "", "01:00", "-07:20"],
+        }),
+      ],
+    );
+    await db.exec(preenchimento);
+    const { rows } = await db.query<{
+      extras_min: Record<string, number>;
+      noturnas_min: number;
+      dsr_debito_min: number;
+    }>(
+      `select extras_min, noturnas_min, dsr_debito_min from rh.ponto_mensal
+       where competencia = '2026-07-01' and colaborador_id = '${COLAB}'`,
+    );
+    expect(rows).toEqual([
+      {
+        extras_min: { "Ex80%": 190, "Ex100%": 0 },
+        noturnas_min: 60,
+        dsr_debito_min: -440,
+      },
+    ]);
+  });
+});
+
+describe("tabela do plano (rh.importar_tabela_plano)", () => {
+  const PLANO = "50000000-0000-0000-0000-000000000001";
+  const imp = (id: string) =>
+    `insert into core.importacoes (id, tipo, referencia, arquivo_nome, arquivo_path, arquivo_sha256, enviado_por)
+     values ('${id}', 'plano_saude', '2026-07-01', 'plano.xlsx', 'plano_saude/${id}/plano.xlsx', '${id}', '${U.gestora}')`;
+  const importar = (id: string, mensalidade = 100) =>
+    `select rh.importar_tabela_plano('${id}', '${PLANO}', 5,
+      '[{"idade_min":0,"idade_max":18,"mensalidade":${mensalidade}},{"idade_min":19,"idade_max":null,"mensalidade":200}]',
+      '[{"meses_min":3,"meses_max":24,"colaborador_pct":50,"colaborador_valor_fixo":null},
+        {"meses_min":85,"meses_max":null,"colaborador_pct":null,"colaborador_valor_fixo":57.5}]')`;
+  const I1 = "60000000-0000-0000-0000-000000000001";
+  const I2 = "60000000-0000-0000-0000-000000000002";
+
+  beforeAll(async () => {
+    await db.exec(
+      `insert into rh.beneficios (id, nome, tipo, rubricas_desconto) values ('${PLANO}', 'Plano', 'plano_saude', '{307}')`,
+    );
+  });
+
+  it("sem rh.beneficios não importa", () =>
+    como(U.analista, async () => {
+      expect(await erro(importar(I1))).toMatch(/permissão/);
+    }));
+
+  it("grava faixas e coparticipação e confirma; a segunda substitui a primeira", () =>
+    como(U.gestora, async () => {
+      await db.exec(imp(I1));
+      expect(await erro(importar(I1))).toBeNull();
+      expect(await erro(importar(I1))).toMatch(/já foi usada/);
+
+      await db.exec(imp(I2));
+      expect(await erro(importar(I2, 111))).toBeNull();
+      const { rows } = await db.query<{ mensalidade: string; tabelas: string }>(
+        `select f.mensalidade, (select count(*) from rh.plano_tabelas) tabelas
+         from rh.plano_faixas_etarias f where f.idade_min = 0`,
+      );
+      expect(
+        rows.map((r) => [Number(r.mensalidade), Number(r.tabelas)]),
+      ).toEqual([[111, 1]]);
+      const { rows: st } = await db.query<{ id: string; status: string }>(
+        `select id, status from core.importacoes where id in ('${I1}', '${I2}') order by id`,
+      );
+      expect(st.map((s) => s.status)).toEqual(["substituida", "confirmada"]);
+      expect(
+        await linhas(
+          "select 1 from rh.plano_coparticipacao where colaborador_valor_fixo = 57.5",
+        ),
+      ).toBe(1);
+    }));
 });

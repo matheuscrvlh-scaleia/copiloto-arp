@@ -20,14 +20,18 @@ export type Icone =
   | "importacao"
   | "usuarios"
   | "empresa"
-  | "integracoes";
+  | "integracoes"
+  | "configuracoes";
 
 export interface NavItem {
   href: string;
   label: string;
   icone: Icone;
-  /** null: qualquer usuário logado (o conteúdo filtra pelas permissões). */
-  permissao: Permissao | null;
+  /**
+   * null: qualquer usuário logado (o conteúdo filtra pelas permissões).
+   * Lista: basta uma delas (ex.: Configurações, com abas por permissão).
+   */
+  permissao: Permissao | Permissao[] | null;
 }
 
 export interface NavSection {
@@ -37,6 +41,13 @@ export interface NavSection {
 
 /** Primeira tela depois do login. */
 export const INICIO = "/gestao";
+
+/** Abas de RH › Configurações: o que alimenta o módulo, longe das telas de consulta. */
+export const CONFIGURACOES_RH = {
+  importacoes: "/rh/configuracoes/importacoes",
+  cadastros: "/rh/configuracoes/cadastros",
+  parametros: "/rh/configuracoes/parametros",
+} as const;
 
 export const navigation: NavSection[] = [
   {
@@ -74,22 +85,10 @@ export const navigation: NavSection[] = [
         permissao: "rh.endomarketing",
       },
       {
-        href: "/rh/folha",
-        label: "Importar folha",
-        icone: "folha",
-        permissao: "rh.folha",
-      },
-      {
-        href: "/rh/beneficios",
-        label: "Benefícios",
-        icone: "beneficios",
-        permissao: "rh.beneficios",
-      },
-      {
-        href: "/rh/parametros",
-        label: "Parâmetros",
-        icone: "parametros",
-        permissao: "rh.parametros",
+        href: "/rh/configuracoes",
+        label: "Configurações",
+        icone: "configuracoes",
+        permissao: ["rh.folha", "rh.beneficios", "rh.parametros"],
       },
     ],
   },
@@ -176,7 +175,13 @@ export function navigationFor(pode: (p: Permissao) => boolean): NavSection[] {
   return navigation
     .map((s) => ({
       ...s,
-      itens: s.itens.filter((i) => i.permissao === null || pode(i.permissao)),
+      itens: s.itens.filter((i) =>
+        i.permissao === null
+          ? true
+          : Array.isArray(i.permissao)
+            ? i.permissao.some(pode)
+            : pode(i.permissao),
+      ),
     }))
     .filter((s) => s.itens.length > 0);
 }

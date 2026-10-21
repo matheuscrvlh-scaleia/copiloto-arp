@@ -7,6 +7,7 @@ import {
   KeyRound,
   type LucideIcon,
   TriangleAlert,
+  Users,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -40,6 +41,7 @@ const ICONE: Record<Sistema, LucideIcon> = {
   secullum: CalendarClock,
   wps: Car,
   diario_de_obras: HardHat,
+  copiloto_rh: Users,
 };
 
 const COR = { ok: "#58c069", erro: "#d03b3b", neutro: "#6e6e6e" } as const;
@@ -145,7 +147,7 @@ async function Integracoes() {
           </li>
           <li>
             <Link
-              href="/rh/folha"
+              href="/rh/configuracoes/importacoes"
               className="ladrilho flex h-full flex-col gap-2 rounded-2xl p-4 transition hover:bg-[rgb(255_255_255/0.1)]"
             >
               <span className="flex items-center gap-2 text-sm font-medium">
@@ -268,16 +270,17 @@ function CartaoIntegracao({
             >
               <input type="hidden" name="sistema" value={i.sistema} />
             </FormAcao>
-            {i.sistema === "secullum" && i.ativa && (
-              <FormAcao
-                acao={sincronizarAgora}
-                rotulo="Sincronizar agora"
-                rotuloEnviando="Iniciando…"
-                variante="secundario"
-              >
-                <input type="hidden" name="sistema" value={i.sistema} />
-              </FormAcao>
-            )}
+            {(i.sistema === "secullum" || i.sistema === "copiloto_rh") &&
+              i.ativa && (
+                <FormAcao
+                  acao={sincronizarAgora}
+                  rotulo="Sincronizar agora"
+                  rotuloEnviando="Iniciando…"
+                  variante="secundario"
+                >
+                  <input type="hidden" name="sistema" value={i.sistema} />
+                </FormAcao>
+              )}
             {salva && (
               <FormAcao
                 acao={removerIntegracao}
@@ -419,14 +422,27 @@ function Historico({ linhas }: { linhas: Execucao[] }) {
             },
             {
               titulo: "Detalhe",
-              valor: (l) => (
-                <span
-                  className="block max-w-md truncate text-xs text-neutral-500"
-                  title={l.erro ?? undefined}
-                >
-                  {l.erro ?? "—"}
-                </span>
-              ),
+              valor: (l) =>
+                l.erro || l.avisos.length === 0 ? (
+                  <span
+                    className="block max-w-md truncate text-xs text-neutral-500"
+                    title={l.erro ?? undefined}
+                  >
+                    {l.erro ?? "—"}
+                  </span>
+                ) : (
+                  <details className="max-w-md text-xs text-neutral-600">
+                    <summary className="cursor-pointer font-medium text-amber-900">
+                      {formatarNumero(l.avisos.length)}{" "}
+                      {l.avisos.length > 1 ? "avisos" : "aviso"} para conferir
+                    </summary>
+                    <ul className="mt-2 list-disc space-y-1 pl-4">
+                      {l.avisos.map((a) => (
+                        <li key={a}>{a}</li>
+                      ))}
+                    </ul>
+                  </details>
+                ),
             },
           ]}
         />

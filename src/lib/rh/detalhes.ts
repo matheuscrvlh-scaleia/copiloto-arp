@@ -8,11 +8,13 @@ import {
 import {
   absenteismo,
   type ColaboradorQuadro,
+  extrasDe,
   formatarTempoDeCasa,
   type LinhaPonto,
   mesesDeCasa,
 } from "./calculos";
-import { ROTULO_TURNOVER } from "./turnover";
+import { emTitulo } from "./headcount";
+import { MOTIVO_DESLIGAMENTO, ROTULO_TURNOVER } from "./turnover";
 
 // Tabelas do modal "quem forma este número". Cada célula vem formatada para
 // leitura e "ordem" guarda o valor cru (minutos, %, datas) para ordenar.
@@ -152,6 +154,7 @@ export function tabelaDoQuadro(
       PESSOA,
       { titulo: "Matrícula", numero: true },
       { titulo: "Setor" },
+      { titulo: "Cargo" },
       { titulo: "Admissão", numero: true },
       { titulo: "Tempo de casa", numero: true },
     ],
@@ -163,17 +166,25 @@ export function tabelaDoQuadro(
           c.nome,
           c.matricula === null ? "—" : String(c.matricula),
           c.departamento,
+          c.cargo ? emTitulo(c.cargo) : "—",
           formatarData(c.admissao),
           meses === null ? "—" : formatarTempoDeCasa(meses),
         ],
-        ordem: [c.nome, c.matricula, c.departamento, c.admissao, meses],
+        ordem: [
+          c.nome,
+          c.matricula,
+          c.departamento,
+          c.cargo ?? null,
+          c.admissao,
+          meses,
+        ],
       };
     }),
     vazio: "Ninguém aqui.",
   };
 }
 
-/** Quem saiu: data e tipo do desligamento (pelo motivo no Secullum). */
+/** Quem saiu: data, motivo e tipo do desligamento (como no Copiloto RH). */
 export function tabelaDeSaidas(
   colaboradores: ColaboradorQuadro[],
   titulo?: string,
@@ -184,6 +195,7 @@ export function tabelaDeSaidas(
       PESSOA,
       { titulo: "Setor" },
       { titulo: "Desligamento", numero: true },
+      { titulo: "Motivo" },
       { titulo: "Tipo" },
     ],
     linhas: colaboradores.map((c) => ({
@@ -192,11 +204,21 @@ export function tabelaDeSaidas(
         c.nome,
         c.departamento,
         formatarData(c.desligamento),
+        c.motivo_desligamento
+          ? (MOTIVO_DESLIGAMENTO[c.motivo_desligamento] ??
+            c.motivo_desligamento)
+          : "—",
         ROTULO_TURNOVER[c.tipo_turnover ?? "nao_classificado"] ??
           c.tipo_turnover ??
           "—",
       ],
-      ordem: [c.nome, c.departamento, c.desligamento, c.tipo_turnover],
+      ordem: [
+        c.nome,
+        c.departamento,
+        c.desligamento,
+        c.motivo_desligamento ?? "",
+        c.tipo_turnover,
+      ],
     })),
     vazio: "Nenhum desligamento.",
   };
@@ -212,5 +234,58 @@ export function movimentoEntre(
   return {
     admitidos: colaboradores.filter((c) => entre(c.admissao)),
     desligados: colaboradores.filter((c) => entre(c.desligamento)),
+  };
+}
+
+/**
+ * Horas extras por pessoa (do ponto): total, divisão por percentual, parte
+ * noturna e intervalo. `tipo` filtra quem tem extras daquele tipo.
+ */
+export function tabelaDeExtras(
+  linhas: LinhaPonto[],
+  tipo?: string,
+  titulo?: string,
+): TabelaDetalhe {
+  const tipos = [
+    ...new Set(linhas.flatMap((l) => Object.keys(extrasDe(l).porTipo))),
+  ].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
+  const valorDe = (l: LinhaPonto) =>
+    tipo ? (extrasDe(l).porTipo[tipo] ?? 0) : extrasDe(l).total;
+  const com = linhas
+    .filter((l) => valorDe(l) > 0)
+    .sort((a, b) => valorDe(b) - valorDe(a));
+  return {
+    titulo,
+    colunas: [
+      PESSOA,
+      { titulo: "Setor" },
+      { titulo: "Extras", numero: true },
+      ...tipos.map((t) => ({ titulo: t, numero: true })),
+      { titulo: "Noturnas (parte)", numero: true },
+      { titulo: "Intervalo", numero: true },
+    ],
+    linhas: com.map((l) => {
+      const e = extrasDe(l);
+      return {
+        chave: l.colaborador_id,
+        celulas: [
+          l.nome,
+          l.departamento,
+          formatarHoras(e.total),
+          ...tipos.map((t) => formatarHoras(e.porTipo[t] ?? 0)),
+          formatarHoras(e.noturnas),
+          formatarHoras(e.intervalo),
+        ],
+        ordem: [
+          l.nome,
+          l.departamento,
+          e.total,
+          ...tipos.map((t) => e.porTipo[t] ?? 0),
+          e.noturnas,
+          e.intervalo,
+        ],
+      };
+    }),
+    vazio: "Ninguém com horas extras neste período.",
   };
 }

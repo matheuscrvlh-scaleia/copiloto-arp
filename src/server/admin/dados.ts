@@ -137,6 +137,8 @@ export interface Execucao {
   finalizado_em: string | null;
   registros: number;
   erro: string | null;
+  /** O que a execução pediu para conferir (sem dado pessoal). */
+  avisos: string[];
 }
 
 export async function integracoesNaTela(): Promise<{
@@ -184,6 +186,11 @@ export async function integracoesNaTela(): Promise<{
   return {
     cofre: cofreConfigurado(),
     integracoes,
-    historico: hist.data ?? [],
+    historico: (hist.data ?? []).map((h) => ({
+      ...h,
+      avisos: Array.isArray(h.avisos)
+        ? h.avisos.filter((a): a is string => typeof a === "string")
+        : [],
+    })),
   };
 }

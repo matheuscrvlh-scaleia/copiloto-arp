@@ -1,4 +1,5 @@
 import { Maximize2 } from "lucide-react";
+import { TOM, type Tom } from "@/components/estilos";
 import { type Direcao, rotuloStatus, type Status } from "@/lib/indicadores";
 import { AbreDetalhe, type Detalhe } from "../modal-detalhe";
 import { type ItemGrafico, MiniArea } from "./graficos";
@@ -53,6 +54,7 @@ export function CartaoIndicador({
   variacao,
   serie,
   origem,
+  tom = "claro",
   children,
 }: {
   titulo: string;
@@ -66,11 +68,15 @@ export function CartaoIndicador({
   serie?: ItemGrafico[];
   /** De onde vem o número e quem o forma (abre o modal ao clicar). */
   origem?: Detalhe;
+  /** Vidro claro (padrão), preto ou verde. */
+  tom?: Tom;
   children?: React.ReactNode;
 }) {
   return (
     <ComDetalhe origem={origem}>
-      <div className="vidro flutua flex h-full flex-col gap-3 rounded-[1.75rem] p-5">
+      <div
+        className={`${TOM[tom]} flutua flex h-full flex-col gap-3 rounded-[1.75rem] p-5`}
+      >
         <Titulo texto={titulo} clicavel={!!origem} />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <p className="text-3xl font-semibold tracking-tight">{valor}</p>

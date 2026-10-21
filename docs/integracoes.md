@@ -12,16 +12,16 @@ nenhum sistema, mesmo quando a API permite.
 | Relatório "Orçamento Realizado Anual" do ENET | Performance & Capital (receitas por conta) | Upload mensal (Excel) | Arquivo de exemplo na planilha do Pedro (aba Base EASE) | — |
 | Secullum Ponto Web | RH: absenteísmo, banco de horas, afastamentos | API | **Funcionando** com o login do RH (conferido em 19/10/2026) | `src/connectors/secullum` |
 | Folha (Sousa e Couto) | RH: rubricas, salários, bases e encargos | Upload mensal (PDF ou Excel) | Extrato de 07/2026 recebido | — |
-| Copiloto RH | RH: nascimento, tipo de contrato, admissões, desligamentos, turnover | A definir | A definir | — |
+| Copiloto RH | RH: nascimento, tipo de contrato, admissões, desligamentos, turnover | API (OAuth client_credentials) | **Funcionando**: fonte de colaboradores, nascimento, contrato, admissões, desligamentos e turnover (cálculo do Copiloto). A base da ARP não tem desligados | `src/connectors/copiloto-rh` |
 | WPS ParkingPlus | Estacionamento: entradas, saídas e pagamentos | API | Homologação funcionando | `src/connectors/wps` |
 | Diário de Obras | Obras: diários (RDO), mão de obra, atividades, ocorrências | API | Falta o token | `src/connectors/diario-de-obras` (só a validação do token) |
 
-**Onde fica o acesso:** Administração › Integrações (Secullum, WPS e Diário
-de Obras). Cada credencial é testada ao salvar, só com leituras (Secullum:
-lista de bancos e departamentos, sem gastar o limite do /Calcular; WPS:
-entradas do dia; Diário de Obras: `GET /empresa`). O segredo vai cifrado
-para `integracao.credenciais`; sem credencial salva, vale a do ambiente
-(`SECULLUM_*`, `WPS_*`).
+**Onde fica o acesso:** Administração › Integrações (Secullum, WPS, Diário
+de Obras e Copiloto RH). Cada credencial é testada ao salvar, só com leituras
+(Secullum: lista de bancos e departamentos, sem gastar o limite do /Calcular;
+WPS: entradas do dia; Diário de Obras: `GET /empresa`; Copiloto RH: `GET
+/v1/me`, escopos e total de ativos). O segredo vai cifrado para `integracao.credenciais`; sem credencial
+salva, vale a do ambiente (`SECULLUM_*`, `WPS_*`, `COPILOTO_RH_*`).
 
 Fora do escopo por enquanto: Itaú (o ENET já recebe o retorno dos boletos) e
 Serasa (negativação continua manual).
@@ -195,7 +195,114 @@ com os cálculos de lá**. O custo de pessoal do módulo parte da base de cálcu
 do Copiloto RH, com duas correções (encargos sobre provisões e multa
 rescisória sem dividir por 12).
 
-**Pendente:** onde roda, se tem API e como acessar.
+- **Documentação:** <https://app.copilotorh.com.br/api-docs> (OpenAPI 3.1
+  em `GET /v1/openapi.json`, público). API REST só de leitura, versão 1.0.0,
+  lida em 20/10/2026.
+- **Base:** `https://nzscsxcyfagtdlzmjgbd.supabase.co/functions/v1/public-api`
+  (o endereço que a documentação mostra). As rotas ficam em `/v1/…`; a tela
+  aceita o endereço com ou sem o `/v1` no fim.
+- **Autenticação** (OAuth 2.0 client_credentials):
+  1. No Copiloto, Configurações › Integrações › API pública: criar uma
+     credencial e marcar os escopos. Ela gera `client_id` (`crh_…`) e
+     `client_secret` (`crh_sk_…`).
+  2. `POST /v1/auth/token` com `{client_id, client_secret}` devolve um
+     `access_token` (`crh_at_…`) válido por **1 hora**.
+  3. Demais chamadas com `Authorization: Bearer <token>`.
+
+  Na tela: **Usuário = client_id**, **Senha = client_secret** (cifrada) e
+  Endereço da API. Sem cadastro na tela, vale `COPILOTO_RH_BASE_URL`,
+  `COPILOTO_RH_USUARIO` e `COPILOTO_RH_SENHA`.
+- **Escopos que a credencial precisa ter:** `organization:read`,
+  `employees:read` e `employees:personal:read` (nascimento). **Não marcar**
+  `employees:compensation:read` (salário: vem da folha), `jobs:read` nem
+  `applications:read`. O teste de conexão lê `GET /v1/me` e diz quais
+  escopos faltam.
+- **Rotas que usamos** (todas GET, paginadas com `page` e `per_page` até
+  100, e `updated_since` para trazer só o que mudou):
+
+  | Rota | Traz |
+  |---|---|
+  | `me` | Empresa, credencial e escopos do token |
+  | `departments` | id, nome, unidade, gestores |
+  | `positions` | id, título, cargo base (`parent_position_id`) |
+  | `employees` | id, matrícula (`code`), nome, situação (`pending`, `active`, `on_leave`, `terminated`), `employment_type`, `contract_type`, admissão, desligamento, `termination_reason`, departamento, cargo; com o escopo pessoal, nascimento |
+
+  Do bloco `personal` o conector guarda só o nascimento; CPF, RG, contatos e
+  endereço são descartados na leitura. O bloco `compensation` também.
+- **Limites:** login 10 por minuto por IP (o token é reaproveitado durante a
+  hora); demais rotas 120 por minuto por credencial. Passou: `429` com
+  `Retry-After`.
+- **Erros:** `{"error": {"code", "message"}}`. `invalid_client` (401) é
+  credencial errada; `invalid_token` (401) renova o token uma vez;
+  `insufficient_scope` (403) é escopo faltando.
+- **O que a API não entrega:**
+  - **Turnover.** Não há rota de indicadores nem da configuração de turnover
+    da empresa. O Centralizador reproduz o cálculo do Copiloto (abaixo).
+  - `termination_decision` (pediu para sair / foi demitido), que o Copiloto
+    usa antes do motivo para classificar. Sem ele, vale só o motivo.
+- **Turnover como no Copiloto** (lido do app em 21/10/2026, tela Relatórios ›
+  Turnover; código em `src/lib/rh/turnover.ts`):
+  - Tipos: **Turnover Geral**, **Voluntário**, **Involuntário** e, se o
+    acordo for um tipo à parte, **por Acordo**.
+  - Variáveis: `total_colaboradores_inicio_mes` (ativos no 1º dia: admitido
+    até ele e não desligado nele), `desligamentos_voluntarios`,
+    `desligamentos_involuntarios`, `desligamentos_acordo`, `admissoes`.
+  - Fórmula geral padrão: `((voluntários + involuntários + acordo) ÷ ativos
+    no início) × 100`. Voluntário e involuntário usam a fórmula própria ou a
+    geral só com o seu tipo. Sem ninguém no início, 0%.
+  - Classificação: `acordo_mutuo` é acordo (soma no voluntário por padrão);
+    motivo da lista de voluntários (pedido de demissão, rescisão indireta,
+    antecipação pelo empregado, aposentadorias) é voluntário; o resto,
+    inclusive sem motivo, é involuntário.
+  - A configuração fica em `rh.parametros_turnover` com os padrões do
+    Copiloto. **Conferir com a tela "Configurações de Turnover" do Copiloto
+    da ARP** e ajustar a linha se a ARP tiver mudado algo lá (ainda não há
+    tela no Centralizador para editar).
+- **Conferido na base da ARP (21/10/2026):**
+  - 37 colaboradores, **todos `active`**, mesmo pedindo `status=terminated`:
+    o Copiloto da ARP não tem nenhum desligado (o Secullum tem 44). Por
+    isso o turnover dá 0% e o headcount dos meses passados só conta quem
+    está ativo hoje. Para ter o histórico, a ARP precisa lançar os
+    desligamentos no Copiloto.
+  - `contract_type`: `clt` 33, `pj` 2, `socio` 1, vazio 1.
+    `employment_type`: só `full_time`. Valores possíveis (tela do
+    Copiloto): `clt`, `pj`, `socio`, `aprendiz`, `internship`,
+    `temporary`, `other`.
+  - 9 departamentos e 29 cargos, diferentes dos do Secullum e da folha. Não
+    são importados: departamento segue do ponto e cargo, da folha.
+  - Nascimento em 36 de 37; matrícula (`code`) em 34, todas batem com o
+    Centralizador. 1 cadastro sem tipo, nascimento nem admissão (fica fora
+    do quadro até ser completado no Copiloto).
+  - A credencial em uso tem escopos a mais (`employees:compensation:read`,
+    `jobs:read`, `applications:read`). O conector descarta salário, mas o
+    certo é tirar esses escopos da credencial.
+- **Sincronização** (`src/server/sync/copiloto-rh.ts`, regras em
+  `copiloto-rh-regras.ts`; rota `/api/sync/copiloto-rh`, Vercel Cron todo
+  dia às 06h30 de Brasília; "Sincronizar agora" na tela roda na hora):
+  - **O Copiloto é a fonte** (especificação 4.5) de nome, nascimento, tipo de
+    contrato, situação, admissão, desligamento e motivo de quem está ligado
+    (`copiloto_id`). O Secullum e a folha não sobrescrevem esses campos;
+    o Secullum continua ligando o ponto à pessoa e trazendo o departamento,
+    e a folha, o cargo.
+  - Liga pelo `copiloto_id` ou pela matrícula. Quem não casa é **criado**
+    (com a matrícula do Copiloto, se estiver livre).
+  - **Quadro e turnover usam só quem veio do Copiloto.** Pessoas que só
+    estão no ponto ou na folha não contam no headcount.
+  - O custo continua pelo tipo de contrato da folha do mês
+    (`folha_colaboradores`): os encargos são os do vínculo na folha.
+  - Avisos só com a matrícula (ou o começo do id), sem nome nem data. Ficam
+    em `sync_runs.cursor_depois.avisos` e aparecem em Administração ›
+    Integrações › Últimas sincronizações. O payload validado vai para
+    `integracao.registros_brutos` (só o nascimento dos dados pessoais).
+- **Pendente:**
+  - ARP lançar no Copiloto os desligamentos (com data e motivo) e completar o
+    cadastro sem tipo, nascimento e admissão.
+  - Conferir a configuração de turnover do Copiloto da ARP e, se diferente
+    do padrão, ajustar `rh.parametros_turnover`; depois validar os números
+    com a tela de turnover do Copiloto (checklist da especificação).
+  - Rota de turnover (ou de configuração) na API pública do Copiloto, para
+    não depender da cópia do cálculo; e `termination_decision` na API.
+  - Tela de Configurações de turnover no Centralizador (se continuar a cópia).
 
 ---
 
@@ -203,8 +310,8 @@ rescisória sem dividir por 12).
 
 | Arquivo | Módulo | Frequência | Observações |
 |---|---|---|---|
-| Extrato Mensal da Sousa e Couto (PDF; Excel quando houver exemplo) | RH | Mensal | Ver seção abaixo |
-| Tabela de faixas do plano de saúde (Excel) | RH | A cada reajuste | Abas "Faixas etárias" (Idade Inicio, Idade Final, Valor Mensalidade) e "Regras de coparticipação" |
+| Extrato Mensal da Sousa e Couto (PDF; Excel quando houver exemplo) | RH | Mensal | RH › Configurações › Importações. Ver seção abaixo |
+| Tabela de faixas do plano de saúde (Excel) | RH | A cada reajuste | RH › Configurações › Importações. Abas "Faixas etárias" (Idade Inicio, Idade Final, Valor Mensalidade; 999 = sem limite) e "Regras de coparticipação" (período em texto, % do colaborador; valor fixo em R$ na observação vence o %). Leitura em `src/lib/rh/plano.ts` |
 | Orçamento Realizado Anual do ENET (Excel) | Financeiro | Mensal | O ano inteiro é substituído; conferências e "voltar para a importação anterior" |
 
 ## Segurança
@@ -219,7 +326,7 @@ rescisória sem dividir por 12).
 
 ### Extrato Mensal (folha)
 
-Tela **RH › Importar folha**: enviar o PDF → conferir a prévia → confirmar.
+Tela **RH › Configurações › Importações**: enviar o PDF → conferir a prévia → confirmar.
 
 - **Leitura** (`src/lib/rh/folha/extrato.ts`): usa a posição de cada texto
   no PDF. Pessoas começam em "Empr.:" (empregado) ou "Contr:" (pró-labore);

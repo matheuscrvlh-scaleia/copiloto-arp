@@ -13,14 +13,17 @@ export async function Protegido({
   permissao: Permissao;
   children: React.ReactNode;
 }) {
-  if (!(await pode(permissao))) {
-    return (
-      <Cartao>
-        <p className="text-sm text-neutral-600">
-          Você não tem acesso a esta tela. Peça a liberação ao administrador.
-        </p>
-      </Cartao>
-    );
-  }
+  if (!(await pode(permissao))) return <SemAcesso />;
   return children;
+}
+
+/** Aviso de tela sem acesso (para telas que conferem várias permissões). */
+export function SemAcesso() {
+  return (
+    <Cartao>
+      <p className="text-sm text-neutral-600">
+        Você não tem acesso a esta tela. Peça a liberação ao administrador.
+      </p>
+    </Cartao>
+  );
 }
