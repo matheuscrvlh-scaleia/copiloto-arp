@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 };
 
 // Aplica o tema antes da primeira pintura (sem piscar claro → escuro):
-// a escolha salva no navegador ou, sem ela, a do sistema operacional.
-const temaInicial = `(function(){try{var t=localStorage.getItem("tema");var e=t?t==="escuro":window.matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.dataset.theme=e?"dark":"light"}catch(_){}})();`;
+// a escolha salva no navegador ou, na primeira visita, o claro.
+const temaInicial = `(function(){try{document.documentElement.dataset.theme=localStorage.getItem("tema")==="escuro"?"dark":"light"}catch(_){document.documentElement.dataset.theme="light"}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
