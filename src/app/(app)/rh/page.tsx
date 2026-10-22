@@ -37,6 +37,7 @@ import {
 } from "@/lib/periodo";
 import { ativosEm, porSetor, somarPonto } from "@/lib/rh/calculos";
 import { custosPor, saldosEmReais, somarCustos } from "@/lib/rh/custo";
+import { movimentoEntre } from "@/lib/rh/detalhes";
 import {
   type FocoQuadro,
   origemDoAbsenteismo,
@@ -162,6 +163,12 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
   const [doPeriodo, dozeMeses] = turnover;
   const tv = doPeriodo.ok ? doPeriodo.dados : null;
   const semTurnover = doPeriodo.ok ? undefined : doPeriodo.motivo;
+  // Sem o Copiloto, as contagens saem da lista de pessoas (o turnover não).
+  const pessoas = movimentoEntre(todos, periodo.de, periodo.ate);
+  const movimento = tv ?? {
+    admissoes: pessoas.admitidos.length,
+    desligamentos: pessoas.desligados.length,
+  };
   const doMes = new Map(
     dozeMeses.ok ? dozeMeses.dados.mensal.map((m) => [m.competencia, m]) : [],
   );
@@ -405,7 +412,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
                 className="-m-2 rounded-2xl p-2 hover:bg-white/50"
               >
                 <p className="text-neutral-500">Admissões</p>
-                <p className="text-2xl font-semibold">{tv?.admissoes ?? "—"}</p>
+                <p className="text-2xl font-semibold">{movimento.admissoes}</p>
               </AbreDetalhe>
               <AbreDetalhe
                 detalhe={quadroDoPeriodo("desligamentos")}
@@ -413,7 +420,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
               >
                 <p className="text-neutral-500">Desligamentos</p>
                 <p className="text-2xl font-semibold">
-                  {tv?.desligamentos ?? "—"}
+                  {movimento.desligamentos}
                 </p>
               </AbreDetalhe>
               <AbreDetalhe
