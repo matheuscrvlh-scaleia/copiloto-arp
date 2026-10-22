@@ -586,7 +586,10 @@ async function Pessoas({
                 {tv ? (
                   <PontoStatus s={status(tv.turnover, metaTurnover)} />
                 ) : (
-                  <span className="text-xs">
+                  <span
+                    className="line-clamp-2 break-words text-xs"
+                    title={doPeriodo.ok ? undefined : doPeriodo.motivo}
+                  >
                     {doPeriodo.ok ? "" : doPeriodo.motivo}
                   </span>
                 )}
