@@ -45,9 +45,11 @@ export interface Funcionario {
   /** De onde a pessoa vem: Copiloto RH, ponto (Secullum). */
   noCopiloto: boolean;
   noPonto: boolean;
+  /** No Secullum, mas o RH tirou do ponto (não conta nas telas). */
+  foraDoPonto: boolean;
 }
 
-const CAMPOS = `id, nome, matricula, copiloto_id, secullum_id, situacao_copiloto,
+const CAMPOS = `id, nome, matricula, copiloto_id, secullum_id, situacao_copiloto, fora_do_ponto,
   nascimento, admissao, desligamento, tipo_contrato, departamento_id,
   departamento:departamentos(nome),
   cargo:cargos(nome)`;
@@ -59,6 +61,7 @@ type LinhaColaborador = {
   copiloto_id: string | null;
   secullum_id: number | null;
   situacao_copiloto: string | null;
+  fora_do_ponto: boolean;
   nascimento: string | null;
   admissao: string | null;
   desligamento: string | null;
@@ -87,6 +90,7 @@ function paraFuncionario(
     situacao: situacaoDe(c, hoje, afastados.has(c.id)),
     noCopiloto: c.copiloto_id !== null,
     noPonto: c.secullum_id !== null,
+    foraDoPonto: c.fora_do_ponto,
   };
 }
 

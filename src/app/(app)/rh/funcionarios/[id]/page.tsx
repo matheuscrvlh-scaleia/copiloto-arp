@@ -18,6 +18,7 @@ import {
   Secao,
   Tabela,
 } from "@/components/dashboard/tabela";
+import { FormAcao } from "@/components/form-acao";
 import { Protegido } from "@/components/protegido";
 import { SeloSituacao } from "@/components/rh/situacao";
 import {
@@ -71,6 +72,7 @@ import {
   type RubricaDoFuncionario,
   rubricasDe,
 } from "@/server/rh/funcionarios";
+import { marcarForaDoPonto } from "./actions";
 
 export const metadata: Metadata = { title: "Funcionário" };
 
@@ -146,13 +148,14 @@ async function Perfil({
   if (!f) notFound();
 
   const { periodo, rotulo, mes, hoje } = await lerFiltrosDoPeriodo(busca);
-  const [ponto, mensal, afastamentos, verBeneficios, verSalario] =
+  const [ponto, mensal, afastamentos, verBeneficios, verSalario, editar] =
     await Promise.all([
       pontoDoPeriodoDe(f, periodo.de, periodo.ate),
       pontoMensalDe(id),
       afastamentosDe(id),
       pode("rh.beneficios"),
       pode("rh.custo_pessoal.individual"),
+      pode("rh.parametros"),
     ]);
   const [beneficios, folhas, custos, adicional] = await Promise.all([
     verBeneficios ? beneficiosDe(id) : Promise.resolve(null),
@@ -270,6 +273,21 @@ async function Perfil({
             Esta pessoa não está no ponto (Secullum): não há batidas nem horas.
           </p>
         </Secao>
+      ) : f.foraDoPonto ? (
+        <Secao titulo="Ponto">
+          <p className="text-sm text-neutral-500">
+            Fora do ponto: está no Secullum, mas não conta no absenteísmo, banco
+            de horas e extras do Painel, Jornada e Gestão, e a sincronização não
+            calcula o ponto dela.
+          </p>
+          {editar && (
+            <ForaDoPonto
+              id={f.id}
+              fora={false}
+              rotulo="Voltar a contar no ponto"
+            />
+          )}
+        </Secao>
       ) : aviso.semDado || !t ? (
         <Secao titulo={`Ponto de ${rotulo}`}>
           <p className="text-sm text-neutral-500">
@@ -344,7 +362,7 @@ async function Perfil({
       )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-        {f.noPonto && mensal.length > 0 && (
+        {f.noPonto && !f.foraDoPonto && mensal.length > 0 && (
           <Secao
             titulo="Ponto mês a mês"
             descricao="Totais do Secullum; clique no mês para filtrar"
@@ -387,7 +405,43 @@ async function Perfil({
         Copiloto RH; cargo, salário e rubricas pela folha importada; custo
         calculado pelo sistema.
       </Nota>
+
+      {editar && f.noPonto && !f.foraDoPonto && (
+        <ForaDoPonto
+          id={f.id}
+          fora
+          rotulo="Tirar do ponto"
+          confirmar={`Tirar ${f.nome} do ponto? Deixa de contar no absenteísmo, banco de horas e extras, e a sincronização para de calcular o ponto dela. Dá para voltar aqui mesmo.`}
+        />
+      )}
     </div>
+  );
+}
+
+/** Tira do ponto ou volta a contar (rh.parametros). */
+function ForaDoPonto({
+  id,
+  fora,
+  rotulo,
+  confirmar,
+}: {
+  id: string;
+  fora: boolean;
+  rotulo: string;
+  confirmar?: string;
+}) {
+  return (
+    <FormAcao
+      acao={marcarForaDoPonto}
+      rotulo={rotulo}
+      rotuloEnviando="Salvando…"
+      variante="secundario"
+      confirmar={confirmar}
+      className="mt-3"
+    >
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="fora" value={fora ? "sim" : "nao"} />
+    </FormAcao>
   );
 }
 

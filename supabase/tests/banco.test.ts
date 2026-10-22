@@ -179,6 +179,39 @@ describe("Gestora (todo o RH)", () => {
       expect(rows).toEqual([{ usuario_id: U.gestora, acao: "insert" }]);
     }));
 
+  it("tira do ponto e só essa marcação vai para a auditoria", async () => {
+    const auditados = () =>
+      linhas(
+        `select 1 from core.auditoria where tabela = 'rh.colaboradores' and registro_id = '${COLAB}'`,
+      );
+    // Analista não edita cadastro: o RLS não deixa a linha mudar.
+    await como(U.analista, () =>
+      db.exec(
+        `update rh.colaboradores set fora_do_ponto = true where id = '${COLAB}'`,
+      ),
+    );
+    // A sincronização regrava o resto da linha sem ir para a auditoria.
+    await db.exec(
+      `update rh.colaboradores set nome = nome where id = '${COLAB}'`,
+    );
+    expect(await auditados()).toBe(0);
+
+    await como(U.gestora, () =>
+      db.exec(
+        `update rh.colaboradores set fora_do_ponto = true where id = '${COLAB}'`,
+      ),
+    );
+    const { rows } = await db.query<{ usuario_id: string }>(
+      `select usuario_id from core.auditoria where tabela = 'rh.colaboradores' and registro_id = '${COLAB}'`,
+    );
+    expect(rows).toEqual([{ usuario_id: U.gestora }]);
+
+    await db.exec(
+      `update rh.colaboradores set fora_do_ponto = false where id = '${COLAB}'`,
+    );
+    expect(await auditados()).toBe(2);
+  });
+
   it("envia arquivo de folha, mas não grava custo (só o servidor)", () =>
     como(U.gestora, async () => {
       expect(

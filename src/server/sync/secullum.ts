@@ -100,7 +100,7 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
     const existentes = await rh
       .from("colaboradores")
       .select(
-        "id, matricula, secullum_id, copiloto_id, nome, nascimento, admissao, desligamento, motivo_desligamento_id",
+        "id, matricula, secullum_id, copiloto_id, nome, nascimento, admissao, desligamento, motivo_desligamento_id, fora_do_ponto",
       );
     if (existentes.error) throw existentes.error;
     const doCopiloto = new Map(
@@ -175,6 +175,9 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
     const colaboradorPorSecullum = new Map(
       colaboradores.map((c) => [c.secullum_id, c]),
     );
+    const foraDoPonto = new Set(
+      existentes.data.filter((c) => c.fora_do_ponto).map((c) => c.id),
+    );
     const colaboradorPorMatricula = new Map(
       colaboradores
         .filter((c) => c.matricula !== null)
@@ -222,7 +225,8 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
       afastamentos.map((a) => ({ chave: String(a.Id), payload: a })),
     );
 
-    // Ponto: totais e dias do /Calcular de quem esteve ativo em cada competência.
+    // Ponto: totais e dias do /Calcular de quem esteve ativo em cada competência
+    // (menos quem o RH marcou como fora do ponto).
     // A API aceita 100 cálculos por hora: desconta o que já foi gasto na
     // última hora e, no primeiro 429, para e deixa o resto para depois.
     const usados = await calculosNaUltimaHora(admin);
@@ -235,7 +239,10 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
     const ponto: ResultadoSecullum["ponto"] = [];
     for (const { competencia, periodo } of competencias) {
       const alvos = funcionarios.filter(
-        (f) => (f.Cpf || f.NumeroPis) && esteveAtivoNoPeriodo(f, periodo),
+        (f) =>
+          (f.Cpf || f.NumeroPis) &&
+          esteveAtivoNoPeriodo(f, periodo) &&
+          !foraDoPonto.has(colaboradorPorSecullum.get(f.Id)?.id ?? ""),
       );
       const daVez = alvos.slice(0, Math.max(orcamento, 0));
       orcamento -= daVez.length;

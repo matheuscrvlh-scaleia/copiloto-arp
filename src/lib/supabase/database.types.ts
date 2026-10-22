@@ -959,6 +959,7 @@ export type Database = {
           criado_em: string
           departamento_id: string | null
           desligamento: string | null
+          fora_do_ponto: boolean
           id: string
           matricula: number | null
           motivo_desligamento_copiloto: string | null
@@ -978,6 +979,7 @@ export type Database = {
           criado_em?: string
           departamento_id?: string | null
           desligamento?: string | null
+          fora_do_ponto?: boolean
           id?: string
           matricula?: number | null
           motivo_desligamento_copiloto?: string | null
@@ -997,6 +999,7 @@ export type Database = {
           criado_em?: string
           departamento_id?: string | null
           desligamento?: string | null
+          fora_do_ponto?: boolean
           id?: string
           matricula?: number | null
           motivo_desligamento_copiloto?: string | null

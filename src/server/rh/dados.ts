@@ -59,6 +59,7 @@ export const competenciasDoPonto = cache(async (): Promise<string[]> => {
   return [...new Set((data ?? []).map((l) => l.competencia))].sort().reverse();
 });
 
+/** Ponto do mês de todos, menos quem o RH tirou do ponto. */
 export const pontoDoMes = cache(
   async (competencia: string): Promise<LinhaPonto[]> => {
     const { data, error } = await (await rh())
@@ -67,10 +68,11 @@ export const pontoDoMes = cache(
         `colaborador_id, departamento_id, previstas_min, faltas_min, atrasos_min,
          faltas_dias, abonos_min, banco_saldo_min, banco_creditos_min, banco_debitos_min,
          extras_min, noturnas_min, dsr_debito_min,
-         colaborador:colaboradores(nome, matricula),
+         colaborador:colaboradores!inner(nome, matricula),
          departamento:departamentos(nome)`,
       )
-      .eq("competencia", competencia);
+      .eq("competencia", competencia)
+      .eq("colaborador.fora_do_ponto", false);
     falhar(error);
     return (data ?? []).map((l) => ({
       colaborador_id: l.colaborador_id,
@@ -93,7 +95,10 @@ export const pontoDoMes = cache(
   },
 );
 
-/** Dias do ponto de um trecho (rh.ponto_diario), com nome e departamento. */
+/**
+ * Dias do ponto de um trecho (rh.ponto_diario), com nome e departamento,
+ * menos quem o RH tirou do ponto.
+ */
 const diasDoTrecho = cache(
   async (de: string, ate: string): Promise<DiaDoPonto[]> => {
     const { data, error } = await (await rh())
@@ -102,11 +107,12 @@ const diasDoTrecho = cache(
         `colaborador_id, data, ocorrencia, previstas_min, faltas_min, atrasos_min,
          abonos_min, extras_min, noturnas_min,
          banco_saldo_min, banco_creditos_min, banco_debitos_min,
-         colaborador:colaboradores(nome, matricula, departamento_id,
+         colaborador:colaboradores!inner(nome, matricula, departamento_id,
            departamento:departamentos(nome))`,
       )
       .gte("data", de)
-      .lte("data", ate);
+      .lte("data", ate)
+      .eq("colaborador.fora_do_ponto", false);
     falhar(error);
     return (data ?? []).map((d) => ({
       colaborador_id: d.colaborador_id,

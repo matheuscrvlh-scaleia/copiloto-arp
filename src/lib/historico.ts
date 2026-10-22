@@ -40,6 +40,7 @@ export const TABELAS: Record<string, string> = {
   "rh.jornadas": "Jornadas",
   "rh.beneficios": "Benefícios",
   "rh.colaborador_beneficios": "Benefício de funcionário",
+  "rh.colaboradores": "Funcionário fora do ponto",
   "rh.plano_tabelas": "Tabela do plano de saúde",
   "rh.plano_faixas_etarias": "Faixas do plano de saúde",
   "rh.folha_colaboradores": "Folha (pessoa editada)",
