@@ -65,6 +65,7 @@ import {
 } from "@/lib/rh/modais";
 import {
   indiceDeRetorno,
+  lancadoOuExemplo,
   participacaoDaFolha,
   receitaDoPeriodo,
   receitaPorColaborador,
@@ -228,10 +229,15 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     ? tArp.custo_total / tArp.colaboradores
     : null;
   const indice = indiceDeRetorno(porPessoa, custoMedioArp);
-  const custoDespesa = usados.map(
-    (c) => financeiroDe.get(c)?.custo_despesa_total ?? null,
+  // Custo + despesa total: o lançado do mês ou, como ilustrativo, o último.
+  const exemploCusto = financeiros.find((f) => f.custo_despesa_total);
+  const custoDespesa = lancadoOuExemplo(
+    usados.map((c) => financeiroDe.get(c)?.custo_despesa_total ?? null),
+    exemploCusto?.custo_despesa_total ?? null,
   );
-  const participacao = participacaoDaFolha(t.custo_total, custoDespesa);
+  const participacao = custoDespesa
+    ? participacaoDaFolha(t.custo_total, custoDespesa.valor)
+    : null;
   const semFaturamento = usados.filter(
     (c) => !financeiroDe.get(c)?.faturamento_bruto,
   );
@@ -529,10 +535,14 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
               origem={origemDaParticipacaoDaFolha(
                 participacao,
                 t.custo_total,
-                custoDespesa.reduce<number>((s, v) => s + (v ?? 0), 0),
-                opcoesRetorno,
+                custoDespesa,
+                { ...opcoesRetorno, exemploDe: exemploCusto?.competencia },
               )}
-            />
+            >
+              {custoDespesa?.ilustrativa && (
+                <SeloIlustrativo texto="Dados ilustrativos – aguardando faturamento do mês" />
+              )}
+            </CartaoIndicador>
           ) : (
             <CartaoPendente
               titulo="Participação da folha no custo total"

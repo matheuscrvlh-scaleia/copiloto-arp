@@ -25,7 +25,7 @@ import {
   tabelaDoPonto,
   tabelaDoQuadro,
 } from "./detalhes";
-import type { Receita } from "./retorno";
+import type { Receita, ValorDoMes } from "./retorno";
 import { ROTULO_CONTRATO } from "./rubricas";
 import type { NumerosTurnover } from "./turnover";
 
@@ -986,28 +986,29 @@ export function origemDoIndiceDeRetorno(
 export function origemDaParticipacaoDaFolha(
   pct: number | null,
   custo: number,
-  custoDespesa: number | null,
-  o: Omit<OpcoesRetorno, "receita" | "metaPct" | "exemploDe">,
+  custoDespesa: ValorDoMes | null,
+  o: Omit<OpcoesRetorno, "receita" | "metaPct">,
 ): Detalhe {
   return {
     secao: "Custo de pessoal",
     titulo: "Participação da folha no custo total",
-    subtitulo: `Competência ${formatarMes(o.competencia)}`,
+    subtitulo: `Competência ${formatarMes(o.competencia)}${custoDespesa?.ilustrativa ? " · dados ilustrativos" : ""}`,
     resumo: [
       { rotulo: "Participação", valor: formatarPct(pct) },
       { rotulo: "Custo de pessoal", valor: moeda(custo) },
       {
         rotulo: "Custo + despesa total",
-        valor: custoDespesa === null ? "Pendente" : moeda(custoDespesa),
+        valor: custoDespesa ? moeda(custoDespesa.valor) : "Pendente",
       },
     ],
     fontes: [
       { rotulo: "Custo", valor: FONTES.folha(o.competencia, o.ficticia) },
       {
         rotulo: "Custo + despesa total",
-        valor:
-          custoDespesa === null
-            ? "Pendente: lance em Cadastros > Faturamento do mês"
+        valor: !custoDespesa
+          ? "Pendente: lance em Cadastros > Faturamento do mês"
+          : custoDespesa.ilustrativa && o.exemploDe
+            ? `Ilustrativo: o lançado de ${formatarMes(o.exemploDe)}, no lugar do mês da folha. Troca sozinho pelo real quando o do mês for lançado em Cadastros`
             : "Lançado em Cadastros > Faturamento do mês (até a integração com o ENET)",
       },
       {

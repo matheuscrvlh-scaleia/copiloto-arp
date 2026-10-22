@@ -1,30 +1,29 @@
 // Retorno sobre pessoal: o custo da folha frente à receita e ao custo total
-// da ARP. O faturamento é lançado à mão (Cadastros) até a integração com o
-// ENET; enquanto falta o do mês da folha, a tela usa um ilustrativo.
+// da ARP. Faturamento e custo + despesa são lançados à mão (Cadastros) até a
+// integração com o ENET; enquanto falta o do mês da folha, a tela usa um
+// ilustrativo.
 
-export interface Receita {
+export interface ValorDoMes {
   valor: number;
-  /** true: faturamento ainda não lançado, valor só para ilustrar a conta. */
+  /** true: ainda não lançado para o mês, valor só para ilustrar a conta. */
   ilustrativa: boolean;
   /** De onde saiu o ilustrativo. */
   base?: "outro_mes" | "meta";
 }
 
+export type Receita = ValorDoMes;
+
 /**
- * Faturamento bruto dos meses da folha. Com todos lançados, a soma deles.
- * Faltando algum, o ilustrativo: o último faturamento lançado (de outro mês)
- * repetido em cada mês; sem nenhum, o que deixaria o custo da ARP exatamente
- * na meta de % sobre a receita (custo ÷ meta). Sem os dois, nada.
+ * Valor lançado dos meses da folha (a soma deles). Faltando algum, o
+ * ilustrativo: o último lançado (de outro mês) repetido em cada mês.
  */
-export function receitaDoPeriodo(
+export function lancadoOuExemplo(
   lancados: (number | null)[],
-  custoTotal: number,
-  metaPct: number | null,
-  ultimoLancado: number | null = null,
-): Receita | null {
-  if (lancados.length && lancados.every((f) => f !== null && f > 0)) {
+  ultimoLancado: number | null,
+): ValorDoMes | null {
+  if (lancados.length && lancados.every((v) => v !== null && v > 0)) {
     return {
-      valor: lancados.reduce<number>((s, f) => s + (f ?? 0), 0),
+      valor: lancados.reduce<number>((s, v) => s + (v ?? 0), 0),
       ilustrativa: false,
     };
   }
@@ -35,6 +34,22 @@ export function receitaDoPeriodo(
       base: "outro_mes",
     };
   }
+  return null;
+}
+
+/**
+ * Faturamento bruto dos meses da folha: o lançado ou o de outro mês. Sem
+ * nenhum faturamento lançado, o que deixaria o custo da ARP exatamente na
+ * meta de % sobre a receita (custo ÷ meta). Sem os dois, nada.
+ */
+export function receitaDoPeriodo(
+  lancados: (number | null)[],
+  custoTotal: number,
+  metaPct: number | null,
+  ultimoLancado: number | null = null,
+): Receita | null {
+  const lancado = lancadoOuExemplo(lancados, ultimoLancado);
+  if (lancado) return lancado;
   if (!metaPct || metaPct <= 0 || custoTotal <= 0) return null;
   return {
     valor: custoTotal / (metaPct / 100),
@@ -69,11 +84,7 @@ export function indiceDeRetorno(
 /** Custo de pessoal ÷ custo + despesa total do mês, em %. */
 export function participacaoDaFolha(
   custo: number,
-  custoDespesa: (number | null)[],
+  custoDespesa: number,
 ): number | null {
-  if (!custoDespesa.length || custoDespesa.some((v) => v === null || v <= 0)) {
-    return null;
-  }
-  const total = custoDespesa.reduce<number>((s, v) => s + (v ?? 0), 0);
-  return (custo / total) * 100;
+  return custoDespesa > 0 ? (custo / custoDespesa) * 100 : null;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   indiceDeRetorno,
+  lancadoOuExemplo,
   participacaoDaFolha,
   receitaDoPeriodo,
   receitaPorColaborador,
@@ -61,9 +62,29 @@ describe("indicadores de retorno", () => {
     expect(indiceDeRetorno(5_000, null)).toBeNull();
   });
 
-  it("participação da folha no custo total exige todos os meses", () => {
-    expect(participacaoDaFolha(30_000, [60_000, 40_000])).toBe(30);
-    expect(participacaoDaFolha(30_000, [60_000, null])).toBeNull();
-    expect(participacaoDaFolha(30_000, [])).toBeNull();
+  it("participação da folha no custo total", () => {
+    expect(participacaoDaFolha(30_000, 100_000)).toBe(30);
+    expect(participacaoDaFolha(30_000, 0)).toBeNull();
+  });
+});
+
+describe("lancadoOuExemplo", () => {
+  it("soma os meses lançados", () => {
+    expect(lancadoOuExemplo([60_000, 40_000], 90_000)).toEqual({
+      valor: 100_000,
+      ilustrativa: false,
+    });
+  });
+
+  it("faltando algum mês, repete o último lançado como ilustrativo", () => {
+    expect(lancadoOuExemplo([60_000, null], 90_000)).toEqual({
+      valor: 180_000,
+      ilustrativa: true,
+      base: "outro_mes",
+    });
+  });
+
+  it("sem nenhum lançado, nada", () => {
+    expect(lancadoOuExemplo([null], null)).toBeNull();
   });
 });
