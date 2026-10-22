@@ -9,6 +9,7 @@ import {
   FileUp,
   Gauge,
   HeartPulse,
+  History,
   LayoutGrid,
   type LucideIcon,
   PieChart,
@@ -45,5 +46,6 @@ export const ICONES: Record<Icone, LucideIcon> = {
   usuarios: UserCog,
   empresa: Building2,
   integracoes: Cable,
+  historico: History,
   configuracoes: Settings2,
 };

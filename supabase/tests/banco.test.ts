@@ -1362,3 +1362,161 @@ describe("estacionamento (financeiro.gravar_estacionamento)", () => {
       ).toMatch(/permission denied/);
     }));
 });
+
+describe("histórico de alterações (core.logs e core.historico)", () => {
+  const AUDITOR = "00000000-0000-0000-0000-000000000031";
+  const HISTORICO = "select * from core.historico()";
+
+  beforeAll(async () => {
+    await db.query("insert into auth.users (id, email) values ($1, $2)", [
+      AUDITOR,
+      "auditor@arp.test",
+    ]);
+    await db.exec(`
+      insert into core.usuario_permissoes (usuario_id, permissao)
+        values ('${AUDITOR}', 'admin.historico');
+      insert into core.logs (usuario_id, modulo, evento, descricao, detalhes, em) values
+        ('${U.gestora}', 'acesso', 'login', 'Entrou no sistema', '{}', '2026-10-21 12:00-03'),
+        (null, 'acesso', 'login_falhou', 'Senha incorreta', '{"email": "x@arp.test"}', '2026-10-22 08:00-03');
+    `);
+  });
+
+  it("o Administrador ganha a permissão nova", async () => {
+    expect(
+      await linhas(`select 1 from core.cargo_permissoes cp join core.cargos c on c.id = cp.cargo_id
+        where c.nome = 'Administrador' and cp.permissao = 'admin.historico'`),
+    ).toBe(1);
+  });
+
+  it("só admin.historico vê; ninguém grava pela aplicação", async () => {
+    for (const u of [U.gestora, U.analista, U.outro]) {
+      await como(u, async () => {
+        expect(await linhas(HISTORICO)).toBe(0);
+        expect(await linhas("select * from core.logs")).toBe(0);
+        expect(await linhas("select * from core.historico_autores()")).toBe(0);
+      });
+    }
+    await como(AUDITOR, async () => {
+      expect(
+        await erro(
+          "insert into core.logs (modulo, evento, descricao) values ('admin', 'falso', 'Falso')",
+        ),
+      ).toMatch(/permission denied/);
+      expect(await linhas("select * from core.logs")).toBe(2);
+      expect(
+        await linhas("select * from core.historico_autores()"),
+      ).toBeGreaterThan(0);
+    });
+  });
+
+  it("junta alterações, eventos e sincronizações, do mais recente ao mais antigo", async () => {
+    await como(AUDITOR, async () => {
+      for (const tipo of ["alteracao", "evento", "sincronizacao"]) {
+        expect(
+          await linhas(`select 1 from core.historico(p_tipo => '${tipo}')`),
+        ).toBeGreaterThan(0);
+      }
+    });
+    const { rows } = await como(AUDITOR, () =>
+      db.query<{ em: Date; total: number }>(
+        "select em, total from core.historico(p_limite => 200)",
+      ),
+    );
+    const total =
+      (await linhas("select 1 from core.auditoria")) +
+      (await linhas("select 1 from core.logs")) +
+      (await linhas("select 1 from integracao.sync_runs"));
+    expect(Number(rows[0]?.total)).toBe(total);
+    const datas = rows.map((r) => new Date(r.em).getTime());
+    expect(datas).toEqual([...datas].sort((a, b) => b - a));
+  });
+
+  it("filtra por tipo, módulo, pessoa e dia (horário de Brasília)", async () => {
+    await como(AUDITOR, async () => {
+      const so = async (sql: string) =>
+        (await db.query<{ acao: string }>(sql)).rows.map((r) => r.acao);
+      expect(
+        await so(
+          "select acao from core.historico(p_tipo => 'evento', p_modulo => 'acesso')",
+        ),
+      ).toEqual(["login_falhou", "login"]);
+      expect(
+        await so(
+          `select acao from core.historico(p_tipo => 'evento', p_usuario => '${U.gestora}')`,
+        ),
+      ).toEqual(["login"]);
+      expect(
+        await so(
+          "select acao from core.historico(p_tipo => 'evento', p_de => '2026-10-21', p_ate => '2026-10-21')",
+        ),
+      ).toEqual(["login"]);
+      expect(
+        await linhas(
+          "select 1 from core.historico(p_modulo => 'rh') where modulo <> 'rh'",
+        ),
+      ).toBe(0);
+      expect(
+        await linhas(
+          "select 1 from core.historico(p_tipo => 'sincronizacao') where modulo <> 'integracoes'",
+        ),
+      ).toBe(0);
+    });
+  });
+
+  it("busca sem acento em quem, o quê e no conteúdo; ou pelo nome da tabela na tela", async () => {
+    await como(AUDITOR, async () => {
+      const { rows } = await db.query<{ acao: string }>(
+        "select acao from core.historico(p_busca => 'X@ARP')",
+      );
+      expect(rows.map((r) => r.acao)).toEqual(["login_falhou"]);
+      expect(
+        await linhas(
+          "select 1 from core.historico(p_busca => 'administracao') where objeto = 'rh.departamentos'",
+        ),
+      ).toBeGreaterThan(0);
+      expect(
+        await linhas(
+          "select 1 from core.historico(p_busca => 'Encargos da tela', p_tabelas => '{rh.encargos_por_contrato}')",
+        ),
+      ).toBe(
+        await linhas(
+          "select 1 from core.auditoria where tabela = 'rh.encargos_por_contrato'",
+        ),
+      );
+      expect(
+        await linhas("select 1 from core.historico(p_busca => 'nada-disso')"),
+      ).toBe(0);
+    });
+  });
+
+  it("pagina com o total", async () => {
+    const { rows } = await como(AUDITOR, () =>
+      db.query<{ total: number }>(
+        "select total from core.historico(p_limite => 1, p_deslocamento => 1)",
+      ),
+    );
+    expect(rows).toHaveLength(1);
+    expect(Number(rows[0]?.total)).toBeGreaterThan(2);
+  });
+
+  it("importações vão para a auditoria, no módulo do RH", async () => {
+    const IMP = "60000000-0000-0000-0000-000000000099";
+    await db.exec(`
+      insert into core.importacoes (id, tipo, referencia, arquivo_nome, arquivo_path, arquivo_sha256)
+        values ('${IMP}', 'folha', '2026-09-01', 'extrato.pdf', 'folha/${IMP}/extrato.pdf', 'abc');
+    `);
+    const { rows } = await como(AUDITOR, () =>
+      db.query<{ modulo: string }>(
+        `select modulo from core.historico(p_busca => '${IMP}') where objeto = 'core.importacoes'`,
+      ),
+    );
+    expect(rows).toEqual([{ modulo: "rh" }]);
+  });
+
+  it("a auditoria inteira fica visível para quem vê o histórico", async () => {
+    const total = await linhas("select 1 from core.auditoria");
+    expect(
+      await como(AUDITOR, () => linhas("select 1 from core.auditoria")),
+    ).toBe(total);
+  });
+});

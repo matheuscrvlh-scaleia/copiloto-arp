@@ -22,6 +22,7 @@ export type Icone =
   | "usuarios"
   | "empresa"
   | "integracoes"
+  | "historico"
   | "configuracoes";
 
 export interface NavItem {
@@ -172,6 +173,12 @@ export const navigation: NavSection[] = [
         label: "Integrações",
         icone: "integracoes",
         permissao: "admin.integracoes",
+      },
+      {
+        href: "/admin/historico",
+        label: "Histórico de alterações",
+        icone: "historico",
+        permissao: "admin.historico",
       },
     ],
   },

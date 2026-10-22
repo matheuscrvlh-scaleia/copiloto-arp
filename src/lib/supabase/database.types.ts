@@ -212,6 +212,36 @@ export type Database = {
           },
         ]
       }
+      logs: {
+        Row: {
+          descricao: string
+          detalhes: Json
+          em: string
+          evento: string
+          id: number
+          modulo: string
+          usuario_id: string | null
+        }
+        Insert: {
+          descricao: string
+          detalhes?: Json
+          em?: string
+          evento: string
+          id?: never
+          modulo: string
+          usuario_id?: string | null
+        }
+        Update: {
+          descricao?: string
+          detalhes?: Json
+          em?: string
+          evento?: string
+          id?: never
+          modulo?: string
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
       metas: {
         Row: {
           atualizado_em: string
@@ -384,6 +414,41 @@ export type Database = {
           teste_ok: boolean
         }[]
       }
+      historico: {
+        Args: {
+          p_ate?: string
+          p_busca?: string
+          p_de?: string
+          p_deslocamento?: number
+          p_limite?: number
+          p_modulo?: string
+          p_tabelas?: string[]
+          p_tipo?: string
+          p_usuario?: string
+        }
+        Returns: {
+          acao: string
+          antes: Json
+          depois: Json
+          descricao: string
+          em: string
+          id: string
+          modulo: string
+          objeto: string
+          registro_id: string
+          tipo: string
+          total: number
+          usuario_id: string
+          usuario_nome: string
+        }[]
+      }
+      historico_autores: {
+        Args: never
+        Returns: {
+          id: string
+          nome: string
+        }[]
+      }
       historico_integracoes: {
         Args: { p_limite?: number }
         Returns: {
@@ -411,6 +476,10 @@ export type Database = {
         }[]
       }
       minhas_permissoes: { Args: never; Returns: string[] }
+      modulo_da_auditoria: {
+        Args: { p_linha: Json; p_tabela: string }
+        Returns: string
+      }
       pode: { Args: { p: string }; Returns: boolean }
       pode_importar: {
         Args: { t: Database["core"]["Enums"]["tipo_importacao"] }
@@ -443,6 +512,7 @@ export type Database = {
           ultimo_sucesso: string
         }[]
       }
+      sem_acento: { Args: { t: string }; Returns: string }
     }
     Enums: {
       direcao_meta: "maior_melhor" | "menor_melhor"

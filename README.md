@@ -80,6 +80,11 @@ Modelo de dados: [docs/modelo-de-dados.md](docs/modelo-de-dados.md).
   Cargo inativo some da escolha e não dá permissão a quem ainda o tem.
   O banco não deixa tirar o último administrador nem excluir a si mesmo.
 - Dados da empresa: Administração › Empresa.
+- Histórico de alterações: Administração › Histórico de alterações
+  (permissão `admin.historico`). Junta a auditoria dos dados (antes e
+  depois), os eventos do sistema (`core.logs`: acessos, senhas, testes,
+  sincronizações pedidas, recálculos) e as execuções das sincronizações,
+  com busca e filtros por módulo, tipo, pessoa e período.
 - O `proxy` (`src/proxy.ts`) renova a sessão e manda para `/login` quem
   não está logado. A permissão de cada tela é conferida no servidor
   (`src/server/auth.ts`) e, nos dados, pelo RLS.

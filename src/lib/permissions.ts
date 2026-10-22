@@ -7,6 +7,8 @@ export const PERMISSOES = {
   "admin.usuarios": "Gerenciar usuários, cargos e permissões",
   "admin.empresa": "Editar os dados da empresa",
   "admin.integracoes": "Configurar, testar e sincronizar as integrações",
+  "admin.historico":
+    "Ver o histórico de alterações e os registros de todo o sistema",
 
   "rh.painel": "Ver o painel de RH",
   "rh.custo_pessoal": "Ver custo de pessoal por departamento e cargo",

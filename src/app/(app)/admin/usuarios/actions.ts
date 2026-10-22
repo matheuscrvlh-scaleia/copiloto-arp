@@ -10,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { erroDoBanco, primeiroErro, valores } from "@/server/acoes";
 import { pode, usuarioAtual } from "@/server/auth";
+import { registrarEvento } from "@/server/logs";
 
 // Usuários e cargos. Perfil, cargo e permissões passam pelo RLS
 // (admin.usuarios) e caem em core.auditoria; o que fica no Auth (criar,
@@ -99,6 +100,17 @@ export async function criarUsuario(
     await auth.deleteUser(id);
     return erroDoBanco(error);
   }
+  await registrarEvento({
+    modulo: "admin",
+    evento: "usuario_criado",
+    descricao: `Criou o usuário ${d.data.nome} (${d.data.email})`,
+    usuarioId: (await usuarioAtual()).id,
+    detalhes: {
+      usuario_id: id,
+      email: d.data.email,
+      cargo_id: d.data.cargo_id,
+    },
+  });
   redirect(`/admin/usuarios/${id}?criado=1`);
 }
 
@@ -227,6 +239,21 @@ export async function trocarSenha(
     },
   );
   if (error) return erroDoAuth(error);
+  const { data: alvo } = await (await createClient())
+    .schema("core")
+    .from("usuarios")
+    .select("nome")
+    .eq("id", d.data.id)
+    .maybeSingle();
+  await registrarEvento({
+    modulo: "admin",
+    evento: "senha_trocada",
+    descricao: provisoria
+      ? `Definiu uma senha provisória para ${alvo?.nome ?? "um usuário"}`
+      : "Trocou a própria senha",
+    usuarioId: (await usuarioAtual()).id,
+    detalhes: { usuario_id: d.data.id, provisoria },
+  });
   return {
     ok: provisoria
       ? "Senha trocada. Passe a senha à pessoa; no próximo acesso ela define uma nova."

@@ -7,13 +7,14 @@ import { ehSistema, INTEGRACOES, type Sistema } from "@/lib/integracoes";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { erroDoBanco, primeiroErro } from "@/server/acoes";
-import { pode } from "@/server/auth";
+import { pode, usuarioAtual } from "@/server/auth";
 import { cifrar, cofreConfigurado } from "@/server/cofre";
 import {
   credencialEmUso,
   credencialSalva,
   testarConexao,
 } from "@/server/integracoes";
+import { registrarEvento } from "@/server/logs";
 import { sincronizarCopiloto } from "@/server/sync/copiloto-rh";
 import { sincronizarSecullum } from "@/server/sync/secullum";
 import { sincronizarWps } from "@/server/sync/wps";
@@ -113,6 +114,13 @@ export async function testarIntegracao(
   } catch (erro) {
     return { erro: erro instanceof Error ? erro.message : "Falhou." };
   }
+  await registrarEvento({
+    modulo: "integracoes",
+    evento: "integracao_testada",
+    descricao: `Testou a conexão com ${INTEGRACOES[sistema].nome}: ${teste.ok ? "ok" : "falhou"}`,
+    usuarioId: (await usuarioAtual()).id,
+    detalhes: { sistema, ok: teste.ok, mensagem: teste.mensagem },
+  });
   // Só a credencial salva na tela guarda o resultado (a do .env não tem linha).
   if (await credencialSalva(sistema).catch(() => null)) {
     const r = await (await createClient())
@@ -154,6 +162,13 @@ export async function sincronizarAgora(
 ): Promise<EstadoAcao> {
   const sistema = await sistemaDoForm(form);
   if (ehErro(sistema)) return sistema;
+  await registrarEvento({
+    modulo: "integracoes",
+    evento: "sincronizacao_pedida",
+    descricao: `Pediu a sincronização de ${INTEGRACOES[sistema].nome}`,
+    usuarioId: (await usuarioAtual()).id,
+    detalhes: { sistema },
+  });
   if (sistema === "copiloto_rh") return sincronizarCopilotoAgora();
   if (sistema === "wps") return sincronizarWpsAgora();
   if (sistema !== "secullum")

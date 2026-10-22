@@ -6,6 +6,7 @@ import { INICIO } from "@/config/navigation";
 import { SENHA_PROVISORIA } from "@/lib/senha-provisoria";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { registrarEvento } from "@/server/logs";
 
 export interface EstadoTroca {
   erro?: string;
@@ -59,5 +60,11 @@ export async function definirSenha(
       erro: "A senha foi trocada, mas o acesso não liberou. Tente de novo.",
     };
   await supabase.auth.refreshSession();
+  await registrarEvento({
+    modulo: "acesso",
+    evento: "senha_definida",
+    descricao: "Trocou a senha provisória pela própria",
+    usuarioId: id,
+  });
   redirect(INICIO);
 }

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { INICIO } from "@/config/navigation";
 import { destinoSeguro } from "@/lib/destino-seguro";
 import { createClient } from "@/lib/supabase/server";
+import { registrarEvento } from "@/server/logs";
 
 export interface EstadoLogin {
   erro?: string;
@@ -27,19 +28,43 @@ export async function entrar(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: dados.data.email,
     password: dados.data.senha,
   });
   if (error) {
+    await registrarEvento({
+      modulo: "acesso",
+      evento: "login_falhou",
+      descricao: `Tentativa de entrar com ${dados.data.email}`,
+      usuarioId: null,
+      detalhes: {
+        email: dados.data.email,
+        motivo: error.code ?? error.message,
+      },
+    });
     // Mesma mensagem para e-mail inexistente e senha errada.
     return { erro: "E-mail ou senha incorretos.", email };
   }
+  await registrarEvento({
+    modulo: "acesso",
+    evento: "login",
+    descricao: "Entrou no sistema",
+    usuarioId: data.user.id,
+  });
   redirect(destinoSeguro(form.get("next"), INICIO));
 }
 
 export async function sair() {
   const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
   await supabase.auth.signOut();
+  if (data?.claims?.sub)
+    await registrarEvento({
+      modulo: "acesso",
+      evento: "logout",
+      descricao: "Saiu do sistema",
+      usuarioId: data.claims.sub,
+    });
   redirect("/login");
 }

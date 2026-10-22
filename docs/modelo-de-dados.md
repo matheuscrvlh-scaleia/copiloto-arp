@@ -54,8 +54,11 @@ de verdade das colunas; este documento explica o desenho.
 | `empresa` | Uma linha: nome exibido, razão social, CNPJ, contato e endereço. Só `admin.empresa` edita |
 | `metas` | Meta e semáforo de qualquer indicador: direção, meta, limite de "Atenção", vigência |
 | `importacoes` | Todo arquivo enviado, com status `previa → confirmada → substituida/revertida`. Uma confirmada por tipo e competência; "voltar" reativa a anterior |
-| `auditoria` | Histórico de alterações (trigger `core.auditar`) |
+| `auditoria` | Alterações de dados (trigger `core.auditar` e funções do banco): tabela, registro, antes e depois, quem e quando. Importações (`core.importacoes`) também entram |
+| `logs` | Eventos que não são alteração de linha: entrar, errar a senha (com o e-mail digitado), sair, trocar senha, criar usuário, testar integração, pedir sincronização, recalcular o custo. Só o servidor grava (service role, `src/server/logs.ts`); nunca senha nem token |
 | `preferencias` | Últimos filtros de cada tela, por usuário |
+
+Administração › Histórico de alterações lê `core.historico(busca, tabelas, módulo, tipo, usuário, de, até, limite, deslocamento)`: junta `auditoria`, `logs` e `integracao.sync_runs`, com busca sem acento no conteúdo e total para paginar. Exige `admin.historico`, que também libera a leitura de toda a `auditoria`. `core.historico_autores()` dá os nomes para o filtro.
 
 ## integracao
 
@@ -161,7 +164,8 @@ ela antes do primeiro fechamento.
 | `folha_colaboradores`, `folha_rubricas` | `rh.custo_pessoal.individual` | `rh.folha` (importação) |
 | `custos_colaborador` | `rh.custo_pessoal.individual` | — (servidor) |
 | `notas_pj` | `rh.custo_pessoal.individual` | `rh.parametros` |
-| `core.auditoria` | `rh.parametros` (tabelas do RH) | — (trigger) |
+| `core.auditoria` | `rh.parametros` (tabelas do RH); `admin.historico` (tudo) | — (trigger) |
+| `core.logs` | `admin.historico` | — (servidor) |
 | `integracao.*` | ninguém (sem permissão de uso do schema) | service role |
 
 ---
