@@ -116,7 +116,7 @@ export async function lerFolha(
       avisos: {
         pessoas: previa.pessoas,
         rubricas_novas: previa.rubricasNovas.length,
-        colaboradores_novos: previa.colaboradoresNovos.length,
+        fora_do_copiloto: previa.foraDoCopiloto.length,
         departamentos_sem_codigo: previa.departamentosSemCodigo.map(
           (d) => d.codigo,
         ),
@@ -203,6 +203,10 @@ export async function confirmarFolha(
   refresh();
   return {
     ok: `Folha de ${formatarMes(extrato.competencia)} importada: ${r.colaboradores} pessoas${
+      r.fora_do_copiloto
+        ? ` (${r.fora_do_copiloto} sem cadastro no Copiloto RH ficaram de fora)`
+        : ""
+    }${
       r.rubricas_novas
         ? `, ${r.rubricas_novas} rubrica(s) nova(s) para classificar`
         : ""

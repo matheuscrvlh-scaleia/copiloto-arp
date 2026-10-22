@@ -121,8 +121,10 @@ login da ARP são do **Secullum Ponto Web**.
   `/api/sync/secullum`, Vercel Cron todo dia às 06h de Brasília):
   - Departamentos e motivos novos são criados; nome e classificação
     editados pela Gestora não são sobrescritos.
-  - Colaboradores casam pelo id do Secullum ou, para quem veio da folha,
-    pela matrícula. Tipo de contrato e cargo são da folha: não são tocados.
+  - **Não cria colaboradores** (desde 22/10/2026): só liga o ponto a quem
+    veio do Copiloto RH, pelo id do Secullum ou pela matrícula, e traz o
+    departamento. Quem não tem par fica de fora, sem ponto, afastamento nem
+    bruto guardado (um aviso com a contagem).
   - Ponto: mês corrente **até ontem** (o dia de hoje está em andamento) e,
     até o dia 10, também o mês anterior inteiro. Reprocessar um mês:
     `GET /api/sync/secullum?competencia=2026-09` com o `CRON_SECRET`.
@@ -335,8 +337,11 @@ rescisória sem dividir por 12).
     e a folha, o cargo.
   - Liga pelo `copiloto_id` ou pela matrícula. Quem não casa é **criado**
     (com a matrícula do Copiloto, se estiver livre).
-  - **Quadro e turnover usam só quem veio do Copiloto.** Pessoas que só
-    estão no ponto ou na folha não contam no headcount.
+  - **Só quem está no Copiloto fica no sistema** (desde 22/10/2026):
+    `copiloto_id` é obrigatório em `rh.colaboradores`, e o Secullum e a
+    folha só se ligam a essas pessoas. Quem estava só no ponto (44
+    desligados que o Copiloto não tem) ou só na folha (14 afastados) saiu na
+    migration `20261022170000_rh_so_copiloto.sql`.
   - O custo continua pelo tipo de contrato da folha do mês
     (`folha_colaboradores`): os encargos são os do vínculo na folha.
   - Avisos só com a matrícula (ou o começo do id), sem nome nem data. Ficam
@@ -391,7 +396,9 @@ Tela **RH › Configurações › Importações**: enviar o PDF → conferir a p
   só descontos fixos de benefício (plano, odonto, alimentação) ficam reais.
   O resumo da empresa (totais reais) não é gravado e a prévia não mostra
   valores.
-- **Gravação**: `rh.importar_folha` numa transação só. Cria pessoas,
+- **Gravação**: `rh.importar_folha` numa transação só. Liga cada linha
+  pela matrícula a quem está no Copiloto RH; quem não tem par fica fora da
+  folha gravada (a prévia lista e a confirmação conta). Cria
   cargos e rubricas novas (como "não classificada"), aplica o de-para de
   departamentos escolhido na prévia, não substitui folha fechada e só
   substitui folha existente com confirmação.

@@ -42,14 +42,13 @@ export interface Funcionario {
   admissao: string | null;
   desligamento: string | null;
   situacao: Situacao;
-  /** De onde a pessoa vem: Copiloto RH, ponto (Secullum). */
-  noCopiloto: boolean;
+  /** Ligado ao ponto (Secullum); todos vêm do Copiloto RH. */
   noPonto: boolean;
   /** No Secullum, mas o RH tirou do ponto (não conta nas telas). */
   foraDoPonto: boolean;
 }
 
-const CAMPOS = `id, nome, matricula, copiloto_id, secullum_id, situacao_copiloto, fora_do_ponto,
+const CAMPOS = `id, nome, matricula, secullum_id, situacao_copiloto, fora_do_ponto,
   nascimento, admissao, desligamento, tipo_contrato, departamento_id,
   departamento:departamentos(nome),
   cargo:cargos(nome)`;
@@ -58,7 +57,6 @@ type LinhaColaborador = {
   id: string;
   nome: string;
   matricula: number | null;
-  copiloto_id: string | null;
   secullum_id: number | null;
   situacao_copiloto: string | null;
   fora_do_ponto: boolean;
@@ -88,7 +86,6 @@ function paraFuncionario(
     admissao: c.admissao,
     desligamento: c.desligamento,
     situacao: situacaoDe(c, hoje, afastados.has(c.id)),
-    noCopiloto: c.copiloto_id !== null,
     noPonto: c.secullum_id !== null,
     foraDoPonto: c.fora_do_ponto,
   };
@@ -107,7 +104,7 @@ async function afastadosEm(hoje: string, id?: string): Promise<Set<string>> {
   return new Set((data ?? []).map((a) => a.colaborador_id));
 }
 
-/** Todos os colaboradores (Copiloto RH, ponto e folha), por nome. */
+/** Todos os colaboradores (vindos do Copiloto RH), por nome. */
 export const funcionarios = cache(async (): Promise<Funcionario[]> => {
   const hoje = isoLocal(new Date());
   const [{ data, error }, afastados] = await Promise.all([

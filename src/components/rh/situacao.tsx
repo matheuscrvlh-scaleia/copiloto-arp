@@ -6,7 +6,6 @@ const COR: Record<Situacao, string> = {
   afastado: "#fab219",
   a_admitir: "#3b82f6",
   desligado: "#a3a3a3",
-  fora_do_copiloto: "#a3a3a3",
 };
 
 export function SeloSituacao({ situacao }: { situacao: Situacao }) {

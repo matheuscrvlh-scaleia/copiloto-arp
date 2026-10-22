@@ -54,7 +54,8 @@ export function matriculaDoCopiloto(
 /**
  * O Copiloto é a fonte de nome, nascimento, tipo de contrato, situação,
  * admissão, desligamento e motivo (especificação, 4.5). Liga pelo
- * copiloto_id ou pela matrícula; quem não existe no Centralizador é criado.
+ * copiloto_id ou pela matrícula; quem não existe no Centralizador é criado
+ * (só o Copiloto cria pessoas: o ponto e a folha apenas se ligam a elas).
  * Departamento e cargo seguem do ponto e da folha. Avisos só com a
  * matrícula, sem nome nem data.
  */

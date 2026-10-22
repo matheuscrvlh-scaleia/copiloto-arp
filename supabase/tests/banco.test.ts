@@ -35,6 +35,7 @@ const U = {
 const DEP = "10000000-0000-0000-0000-000000000001";
 const CARGO = "20000000-0000-0000-0000-000000000001";
 const COLAB = "30000000-0000-0000-0000-000000000001";
+const COPILOTO = "60000000-0000-0000-0000-000000000001";
 const FOLHA = "40000000-0000-0000-0000-000000000001";
 
 const PARAMETROS = `insert into rh.parametros_empresa
@@ -92,8 +93,8 @@ beforeAll(async () => {
 
     insert into rh.departamentos (id, nome, codigo_folha, secullum_id) values ('${DEP}', 'Administração', 2, 2);
     insert into rh.cargos (id, nome, codigo_folha) values ('${CARGO}', 'Analista', 10);
-    insert into rh.colaboradores (id, matricula, nome, nascimento, admissao, tipo_contrato, departamento_id, cargo_id, secullum_id)
-      values ('${COLAB}', 126, 'Pessoa Teste', '1990-01-01', '2025-10-20', 'clt', '${DEP}', '${CARGO}', 9);
+    insert into rh.colaboradores (id, copiloto_id, matricula, nome, nascimento, admissao, tipo_contrato, departamento_id, cargo_id, secullum_id)
+      values ('${COLAB}', '${COPILOTO}', 126, 'Pessoa Teste', '1990-01-01', '2025-10-20', 'clt', '${DEP}', '${CARGO}', 9);
     insert into rh.folhas (id, competencia, ficticia) values ('${FOLHA}', '2026-07-01', true);
     insert into rh.folha_colaboradores (folha_id, colaborador_id, situacao, tipo_contrato, departamento_codigo_folha, departamento_id, horas_mes_min, salario)
       values ('${FOLHA}', '${COLAB}', 'trabalhando', 'clt', 2, '${DEP}', 13200, 2000);
@@ -260,19 +261,15 @@ describe("regras", () => {
     ).toMatch(/check/);
   });
 
-  it("um id do Copiloto RH liga a um colaborador só", async () => {
-    const ID = "40000000-0000-0000-0000-000000000001";
-    await db.exec(
-      `update rh.colaboradores set copiloto_id = '${ID}' where id = '${COLAB}'`,
-    );
+  it("só entra quem está no Copiloto RH, e um id do Copiloto liga a um colaborador só", async () => {
+    expect(
+      await erro(`insert into rh.colaboradores (nome) values ('Sem Copiloto')`),
+    ).toMatch(/copiloto_id/);
     expect(
       await erro(
-        `insert into rh.colaboradores (nome, copiloto_id) values ('Outra', '${ID}')`,
+        `insert into rh.colaboradores (nome, copiloto_id) values ('Outra', '${COPILOTO}')`,
       ),
     ).toMatch(/unique/);
-    await db.exec(
-      `update rh.colaboradores set copiloto_id = null where id = '${COLAB}'`,
-    );
   });
 
   it("competência só aceita o dia 1", async () => {
@@ -384,9 +381,9 @@ describe("importação da folha (rh.importar_folha)", () => {
     ficticia: true,
     resumo_empresa: {},
     colaboradores: [
-      pessoa(126, 2, { tipo_contrato: "aprendiz" }), // já existe (veio do ponto)
-      pessoa(999, 7), // nova, departamento sem cadastro
-      pessoa(555, 8), // nova, departamento mapeado na prévia
+      pessoa(126, 2, { tipo_contrato: "aprendiz" }), // está no Copiloto
+      pessoa(999, 7), // fora do Copiloto, departamento sem cadastro
+      pessoa(555, 8), // fora do Copiloto, departamento mapeado na prévia
     ],
   });
   let n = 0;
@@ -413,14 +410,14 @@ describe("importação da folha (rh.importar_folha)", () => {
     });
   });
 
-  it("importa tudo de uma vez: pessoas, rubricas novas, departamentos e de-para", async () => {
+  it("importa tudo de uma vez: pessoas do Copiloto, rubricas novas, departamentos e de-para", async () => {
     const id = await previa();
     const { rows } = await como(U.gestora, () =>
       db.query<{ r: Record<string, number> }>(importar(id)),
     );
     expect(rows[0]?.r).toMatchObject({
-      colaboradores: 3,
-      colaboradores_novos: 2,
+      colaboradores: 1,
+      fora_do_copiloto: 2,
       rubricas_novas: 1,
       departamentos_novos: 1,
     });
@@ -430,14 +427,20 @@ describe("importação da folha (rh.importar_folha)", () => {
     );
     expect(rub[0]?.grupo).toBe("nao_classificada");
 
-    // Quem já existia: a folha manda no contrato; o departamento do ponto fica.
+    // Quem está no Copiloto: contrato do Copiloto e departamento do ponto ficam.
     const { rows: ana } = await db.query<{
       tipo_contrato: string;
       departamento_id: string;
     }>(
       "select tipo_contrato, departamento_id from rh.colaboradores where matricula = 126",
     );
-    expect(ana[0]).toEqual({ tipo_contrato: "aprendiz", departamento_id: DEP });
+    expect(ana[0]).toEqual({ tipo_contrato: "clt", departamento_id: DEP });
+    // Quem não está no Copiloto não entra.
+    expect(
+      await linhas(
+        "select 1 from rh.colaboradores where matricula in (555, 999)",
+      ),
+    ).toBe(0);
 
     // De-para da prévia aplicado; código sem departamento vira "Departamento 7".
     const { rows: deps } = await db.query<{
@@ -455,7 +458,7 @@ describe("importação da folha (rh.importar_folha)", () => {
       await linhas(
         `select 1 from rh.folha_rubricas fr join rh.folhas f on f.id = fr.folha_id where f.competencia = '${AGOSTO}'`,
       ),
-    ).toBe(6);
+    ).toBe(2);
     const { rows: imp } = await db.query<{ status: string }>(
       `select status from core.importacoes where id = '${id}'`,
     );
@@ -484,27 +487,6 @@ describe("importação da folha (rh.importar_folha)", () => {
         `select 1 from core.importacoes where referencia = '${AGOSTO}' and status = 'confirmada'`,
       ),
     ).toBe(1);
-  });
-
-  it("o tipo de contrato de quem está ligado ao Copiloto não é sobrescrito", async () => {
-    await db.exec(
-      `update rh.colaboradores set copiloto_id = '40000000-0000-0000-0000-000000000099', tipo_contrato = 'pj' where matricula = 999`,
-    );
-    const id = await previa();
-    await como(U.gestora, () => db.query(importar(id, true)));
-    const { rows } = await db.query<{
-      matricula: number;
-      tipo_contrato: string;
-    }>(
-      "select matricula, tipo_contrato from rh.colaboradores where matricula in (126, 999) order by matricula",
-    );
-    expect(rows).toEqual([
-      { matricula: 126, tipo_contrato: "aprendiz" },
-      { matricula: 999, tipo_contrato: "pj" },
-    ]);
-    await db.exec(
-      "update rh.colaboradores set copiloto_id = null where matricula = 999",
-    );
   });
 
   it("folha fechada nunca é substituída", async () => {

@@ -1,5 +1,4 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
 import { ConnectorError, mensagemSegura } from "@/connectors/http";
 import { diasDoCalculo, totaisDoCalculo } from "@/connectors/secullum/calculo";
 import {
@@ -87,75 +86,60 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
       );
       if (error) throw error;
     }
-    const motivoPorSecullum = await mapa(
-      rh.from("motivos_desligamento").select("id, secullum_id"),
-    );
 
-    // Colaboradores: casa pelo id do Secullum ou, para quem veio da folha,
-    // pela matrícula. Tipo de contrato e cargo são da folha: não mexe. Quem
-    // está ligado ao Copiloto RH fica com nome, nascimento, admissão e
-    // desligamento de lá (o Secullum só liga o ponto a essa pessoa).
+    // Colaboradores: só quem veio do Copiloto RH fica no sistema. O Secullum
+    // liga o ponto a essa pessoa pelo id do Secullum ou pela matrícula e traz
+    // o departamento; não cria ninguém. Quem não tem par fica de fora.
     const funcionarios = await api.funcionarios();
     const donos = donosDaMatricula(funcionarios);
     const existentes = await rh
       .from("colaboradores")
-      .select(
-        "id, matricula, secullum_id, copiloto_id, nome, nascimento, admissao, desligamento, motivo_desligamento_id, fora_do_ponto",
-      );
+      .select("id, copiloto_id, nome, matricula, secullum_id, fora_do_ponto");
     if (existentes.error) throw existentes.error;
-    const doCopiloto = new Map(
-      existentes.data
-        .filter((c) => c.copiloto_id !== null)
-        .map((c) => [c.id, c]),
-    );
-    const porSecullum = new Map(
-      existentes.data.map((c) => [c.secullum_id, c.id]),
-    );
+    const porSecullum = new Map(existentes.data.map((c) => [c.secullum_id, c]));
     const porMatricula = new Map(
       existentes.data
         .filter((c) => c.secullum_id === null)
-        .map((c) => [c.matricula, c.id]),
+        .map((c) => [c.matricula, c]),
     );
 
-    const colaboradores = funcionarios.map((f) => {
+    const colaboradores = [];
+    const ligados = [];
+    // Matrículas de quem ficou de fora: os afastamentos delas também ficam.
+    const matriculasDeFora = new Set<number>();
+    for (const f of funcionarios) {
       const m = matricula(f.NumeroFolha);
       const minha = m !== null && donos.get(m) === f.Id ? m : null;
+      const c =
+        porSecullum.get(f.Id) ??
+        (minha !== null ? porMatricula.get(minha) : undefined);
+      if (!c) {
+        if (m !== null) matriculasDeFora.add(m);
+        continue;
+      }
       if (m !== null && minha === null) {
         avisos.push(
-          `matrícula ${m} repetida no ponto (Secullum id ${f.Id} ficou sem matrícula)`,
+          `matrícula ${m} repetida no ponto (Secullum id ${f.Id} ligado sem ela)`,
         );
       }
-      const id =
-        porSecullum.get(f.Id) ??
-        (minha !== null ? porMatricula.get(minha) : undefined) ??
-        randomUUID();
-      const copiloto = doCopiloto.get(id);
-      return {
-        id,
+      ligados.push(f);
+      colaboradores.push({
+        id: c.id,
+        copiloto_id: c.copiloto_id,
+        nome: c.nome,
         secullum_id: f.Id,
-        matricula: minha,
+        matricula: minha ?? c.matricula,
         departamento_id: f.Departamento
           ? (depPorSecullum.get(f.Departamento.Id) ?? null)
           : null,
-        ...(copiloto
-          ? {
-              nome: copiloto.nome,
-              nascimento: copiloto.nascimento,
-              admissao: copiloto.admissao,
-              desligamento: copiloto.desligamento,
-              motivo_desligamento_id: copiloto.motivo_desligamento_id,
-            }
-          : {
-              nome: f.Nome.trim(),
-              nascimento: data(f.Nascimento),
-              admissao: data(f.Admissao),
-              desligamento: data(f.Demissao),
-              motivo_desligamento_id: f.MotivoDemissaoId
-                ? (motivoPorSecullum.get(f.MotivoDemissaoId) ?? null)
-                : null,
-            }),
-      };
-    });
+      });
+    }
+    const deFora = funcionarios.length - ligados.length;
+    if (deFora > 0) {
+      avisos.push(
+        `${deFora} funcionário(s) do ponto sem par no Copiloto RH ficaram de fora`,
+      );
+    }
     for (const lote of emLotes(colaboradores, 500)) {
       const { error } = await rh
         .from("colaboradores")
@@ -167,7 +151,7 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
       SISTEMA,
       "funcionarios",
       runId,
-      funcionarios.map((f) => ({
+      ligados.map((f) => ({
         chave: String(f.Id),
         payload: funcionarioSemDocumentos(f),
       })),
@@ -195,9 +179,10 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
       const colaborador_id =
         m !== null ? colaboradorPorMatricula.get(m) : undefined;
       if (!colaborador_id) {
-        avisos.push(
-          `afastamento ${a.Id} sem colaborador com a matrícula informada`,
-        );
+        if (m === null || !matriculasDeFora.has(m))
+          avisos.push(
+            `afastamento ${a.Id} sem colaborador com a matrícula informada`,
+          );
         return [];
       }
       return [
@@ -211,6 +196,7 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
         },
       ];
     });
+    const gravados = new Set(linhasAfastamento.map((l) => l.secullum_id));
     for (const lote of emLotes(linhasAfastamento, 500)) {
       const { error } = await rh
         .from("afastamentos")
@@ -222,11 +208,13 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
       SISTEMA,
       "afastamentos",
       runId,
-      afastamentos.map((a) => ({ chave: String(a.Id), payload: a })),
+      afastamentos
+        .filter((a) => gravados.has(a.Id))
+        .map((a) => ({ chave: String(a.Id), payload: a })),
     );
 
-    // Ponto: totais e dias do /Calcular de quem esteve ativo em cada competência
-    // (menos quem o RH marcou como fora do ponto).
+    // Ponto: totais e dias do /Calcular de quem está ligado e esteve ativo em
+    // cada competência (menos quem o RH marcou como fora do ponto).
     // A API aceita 100 cálculos por hora: desconta o que já foi gasto na
     // última hora e, no primeiro 429, para e deixa o resto para depois.
     const usados = await calculosNaUltimaHora(admin);
@@ -238,7 +226,7 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
     let adiados = 0;
     const ponto: ResultadoSecullum["ponto"] = [];
     for (const { competencia, periodo } of competencias) {
-      const alvos = funcionarios.filter(
+      const alvos = ligados.filter(
         (f) =>
           (f.Cpf || f.NumeroPis) &&
           esteveAtivoNoPeriodo(f, periodo) &&

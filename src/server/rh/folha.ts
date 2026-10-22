@@ -123,7 +123,8 @@ export interface Previa {
   porSituacao: Record<string, number>;
   conferencia: Conferencia;
   rubricasNovas: { codigo: number; descricao: string }[];
-  colaboradoresNovos: { matricula: number; nome: string }[];
+  /** Matrícula sem par no Copiloto RH: fica fora da folha gravada. */
+  foraDoCopiloto: { matricula: number; nome: string }[];
   /** Códigos de departamento da folha sem departamento cadastrado. */
   departamentosSemCodigo: { codigo: number; pessoas: number }[];
   /** Departamentos que ainda não têm código da folha (opções do de-para). */
@@ -185,7 +186,7 @@ export function montarPrevia(
       codigo,
       descricao,
     })),
-    colaboradoresNovos: extrato.colaboradores
+    foraDoCopiloto: extrato.colaboradores
       .filter((c) => !ctx.matriculas.has(c.matricula))
       .map((c) => ({ matricula: c.matricula, nome: c.nome })),
     departamentosSemCodigo: Object.entries(semCodigo).map(

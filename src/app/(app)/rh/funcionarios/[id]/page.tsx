@@ -475,11 +475,7 @@ function Dados({
     ],
     [
       "Fontes",
-      [
-        f.noCopiloto && "Copiloto RH",
-        f.noPonto && "Ponto",
-        f.tipo_contrato && "Folha",
-      ]
+      ["Copiloto RH", f.noPonto && "Ponto", f.tipo_contrato && "Folha"]
         .filter(Boolean)
         .join(" · ") || "—",
     ],

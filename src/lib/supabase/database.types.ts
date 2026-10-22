@@ -954,7 +954,7 @@ export type Database = {
           admissao: string | null
           atualizado_em: string
           cargo_id: string | null
-          copiloto_id: string | null
+          copiloto_id: string
           decisao_desligamento_copiloto: string | null
           criado_em: string
           departamento_id: string | null
@@ -974,7 +974,7 @@ export type Database = {
           admissao?: string | null
           atualizado_em?: string
           cargo_id?: string | null
-          copiloto_id?: string | null
+          copiloto_id: string
           decisao_desligamento_copiloto?: string | null
           criado_em?: string
           departamento_id?: string | null
@@ -994,7 +994,7 @@ export type Database = {
           admissao?: string | null
           atualizado_em?: string
           cargo_id?: string | null
-          copiloto_id?: string | null
+          copiloto_id?: string
           decisao_desligamento_copiloto?: string | null
           criado_em?: string
           departamento_id?: string | null

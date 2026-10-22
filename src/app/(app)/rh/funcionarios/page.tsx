@@ -30,7 +30,7 @@ export default function Page() {
     <>
       <PageHeader
         title="Funcionários"
-        description="Todos os colaboradores do Copiloto RH, do ponto e da folha. Abra um perfil para ver as batidas de cada dia, o ponto mês a mês e os afastamentos."
+        description="Todos os colaboradores do Copiloto RH. Abra um perfil para ver as batidas de cada dia, o ponto mês a mês e os afastamentos."
       />
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="rh.funcionarios">

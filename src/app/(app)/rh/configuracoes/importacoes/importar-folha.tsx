@@ -192,20 +192,21 @@ function Rodada({
         <Chips contagem={p.porSituacao} rotulos={ROTULO_SITUACAO} />
       </section>
 
-      {p.colaboradoresNovos.length > 0 && (
+      {p.foraDoCopiloto.length > 0 && (
         <details className="rounded-2xl bg-neutral-50 px-4 py-3 text-sm">
           <summary className="cursor-pointer font-medium">
-            {p.colaboradoresNovos.length} pessoa(s) ainda sem cadastro (serão
-            criadas)
+            {p.foraDoCopiloto.length} pessoa(s) fora do Copiloto RH (ficam de
+            fora)
           </summary>
           <p className="mt-2 text-neutral-600">
-            {p.colaboradoresNovos
+            {p.foraDoCopiloto
               .map((c) => `${c.matricula} ${c.nome}`)
               .join(" · ")}
           </p>
           <p className="mt-2 text-xs text-neutral-500">
-            Em geral, quem não bate ponto (pró-labore) ou não está no cadastro
-            do Secullum.
+            Só entra quem está no Copiloto RH, pela matrícula. Para incluir
+            alguém, cadastre a pessoa no Copiloto com a mesma matrícula da folha
+            e importe de novo.
           </p>
         </details>
       )}

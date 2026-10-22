@@ -1,37 +1,28 @@
 // Funcionários: situação de cada pessoa e leitura do ponto do dia.
 
-export type Situacao =
-  | "ativo"
-  | "afastado"
-  | "a_admitir"
-  | "desligado"
-  | "fora_do_copiloto";
+export type Situacao = "ativo" | "afastado" | "a_admitir" | "desligado";
 
 export const ROTULO_SITUACAO: Record<Situacao, string> = {
   ativo: "Ativo",
   afastado: "Afastado",
   a_admitir: "A admitir",
   desligado: "Desligado",
-  fora_do_copiloto: "Fora do Copiloto",
 };
 
 /** Agrupa as situações no filtro da lista (o padrão é "ativos"). */
-export const VINCULO: Record<Situacao, "ativos" | "desligados" | "fora"> = {
+export const VINCULO: Record<Situacao, "ativos" | "desligados"> = {
   ativo: "ativos",
   afastado: "ativos",
   a_admitir: "ativos",
   desligado: "desligados",
-  fora_do_copiloto: "fora",
 };
 
 /**
- * Como no quadro, quem vale é o Copiloto RH: sem `copiloto_id` a pessoa está
- * só no ponto ou na folha. Afastado pelo Copiloto (on_leave) ou por um
+ * Todos vêm do Copiloto RH. Afastado pelo Copiloto (on_leave) ou por um
  * afastamento do ponto que cobre `hoje`.
  */
 export function situacaoDe(
   c: {
-    copiloto_id: string | null;
     situacao_copiloto: string | null;
     admissao: string | null;
     desligamento: string | null;
@@ -40,7 +31,6 @@ export function situacaoDe(
   afastadoHoje = false,
 ): Situacao {
   if (c.desligamento && c.desligamento <= hoje) return "desligado";
-  if (!c.copiloto_id) return "fora_do_copiloto";
   if (c.situacao_copiloto === "pending" || (c.admissao && c.admissao > hoje))
     return "a_admitir";
   if (c.situacao_copiloto === "on_leave" || afastadoHoje) return "afastado";

@@ -174,7 +174,7 @@ export const pontoDoPeriodo = cache(
 );
 
 /**
- * Quadro e turnover: só quem veio do Copiloto RH (fonte da especificação para
+ * Quadro e turnover: todos vêm do Copiloto RH (fonte da especificação para
  * ativos, admissões, desligamentos e turnover). Departamento e cargo seguem
  * do ponto e da folha.
  */
@@ -189,7 +189,6 @@ export const colaboradoresDoQuadro = cache(
          departamento:departamentos(nome),
          cargo:cargos(nome)`,
       )
-      .not("copiloto_id", "is", null)
       .order("nome");
     falhar(error);
     return (data ?? []).map((c) => ({

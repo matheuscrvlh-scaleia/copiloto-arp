@@ -9,7 +9,6 @@ import {
 
 const HOJE = "2026-10-21";
 const BASE = {
-  copiloto_id: "c1",
   situacao_copiloto: "active",
   admissao: "2025-01-10",
   desligamento: null,
@@ -20,21 +19,12 @@ describe("situacaoDe", () => {
     expect(situacaoDe(BASE, HOJE)).toBe("ativo");
   });
 
-  it("desligado vale mesmo sem Copiloto; desligamento futuro ainda é ativo", () => {
-    expect(
-      situacaoDe(
-        { ...BASE, copiloto_id: null, desligamento: "2024-03-01" },
-        HOJE,
-      ),
-    ).toBe("desligado");
+  it("desligado pela data; desligamento futuro ainda é ativo", () => {
+    expect(situacaoDe({ ...BASE, desligamento: "2024-03-01" }, HOJE)).toBe(
+      "desligado",
+    );
     expect(situacaoDe({ ...BASE, desligamento: "2026-11-01" }, HOJE)).toBe(
       "ativo",
-    );
-  });
-
-  it("sem Copiloto e sem desligamento fica fora do quadro", () => {
-    expect(situacaoDe({ ...BASE, copiloto_id: null }, HOJE)).toBe(
-      "fora_do_copiloto",
     );
   });
 

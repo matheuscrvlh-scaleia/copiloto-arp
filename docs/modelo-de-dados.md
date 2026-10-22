@@ -78,7 +78,7 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 | `departamentos` | Nome + `codigo_folha` (2 a 6) + `secullum_id`: é o de-para entre folha e ponto |
 | `cargos` | Nome, código da folha, CBO |
 | `motivos_desligamento` | Vêm do Secullum (descrição do motivo no perfil do funcionário). `tipo_turnover` não é mais usado: o turnover e o tipo de cada saída vêm do Copiloto RH |
-| `colaboradores` | Identidade estável: matrícula, nome, nascimento, admissão, desligamento e motivo, tipo de contrato, departamento e cargo atuais. Para quem tem `copiloto_id`, nome, nascimento, contrato, admissão, desligamento, `situacao_copiloto`, `motivo_desligamento_copiloto` e `decisao_desligamento_copiloto` vêm do Copiloto RH; o resto (e quem não está ligado) vem do ponto e da folha. Quadro e turnover usam só os ligados ao Copiloto. `fora_do_ponto` (marcado na ficha, `rh.parametros`, com auditoria): a sincronização não calcula o ponto e as telas não contam o que já veio |
+| `colaboradores` | Identidade estável: matrícula, nome, nascimento, admissão, desligamento e motivo, tipo de contrato, departamento e cargo atuais. Para quem tem `copiloto_id`, nome, nascimento, contrato, admissão, desligamento, `situacao_copiloto`, `motivo_desligamento_copiloto` e `decisao_desligamento_copiloto` vêm do Copiloto RH; o resto vem do ponto e da folha. `copiloto_id` é obrigatório: só o Copiloto cria pessoas; o ponto e a folha só se ligam a elas. `fora_do_ponto` (marcado na ficha, `rh.parametros`, com auditoria): a sincronização não calcula o ponto e as telas não contam o que já veio |
 | `dependentes` | Nome, nascimento, se tem plano e odonto |
 
 ### Parâmetros (vigência + auditoria)
