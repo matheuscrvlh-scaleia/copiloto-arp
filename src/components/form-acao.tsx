@@ -1,6 +1,10 @@
 "use client";
 
 import { createContext, use, useActionState } from "react";
+import {
+  ModalConfirmacao,
+  useConfirmacao,
+} from "@/components/modal-confirmacao";
 
 export interface EstadoAcao {
   ok?: string;
@@ -54,19 +58,26 @@ export function FormAcao({
   className?: string;
 }) {
   const [estado, executar, enviando] = useActionState(acao, {});
+  const confirmacao = useConfirmacao({ confirmar, estado });
   return (
     <ContextoEnvio
       value={{ estado, enviando, rotulo, rotuloEnviando, variante }}
     >
       <form
+        ref={confirmacao.form}
         action={executar}
         className={className}
-        onSubmit={(e) => {
-          if (confirmar && !window.confirm(confirmar)) e.preventDefault();
-        }}
+        onSubmit={confirmacao.onSubmit}
       >
         {children}
         {botaoNoFim && <EnvioDaAcao />}
+        <ModalConfirmacao
+          {...confirmacao.modal}
+          rotulo={rotulo}
+          rotuloEnviando={rotuloEnviando}
+          perigo={variante === "perigo"}
+          enviando={enviando}
+        />
       </form>
     </ContextoEnvio>
   );

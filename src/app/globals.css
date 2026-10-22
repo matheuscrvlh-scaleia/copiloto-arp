@@ -306,11 +306,13 @@
   border-color: rgb(255 255 255 / 0.08);
 }
 
-/* Modal de detalhe: sobe e aparece; o fundo escurece junto. */
-.modal-detalhe[open] {
+/* Modais (detalhe e confirmação): sobem e aparecem; o fundo escurece junto. */
+.modal-detalhe[open],
+.modal-confirmacao[open] {
   animation: modal-entrar 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.modal-detalhe[open]::backdrop {
+.modal-detalhe[open]::backdrop,
+.modal-confirmacao[open]::backdrop {
   animation: modal-fundo 260ms ease-out;
 }
 @keyframes modal-entrar {
@@ -326,7 +328,9 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .modal-detalhe[open],
-  .modal-detalhe[open]::backdrop {
+  .modal-detalhe[open]::backdrop,
+  .modal-confirmacao[open],
+  .modal-confirmacao[open]::backdrop {
     animation: none;
   }
 }

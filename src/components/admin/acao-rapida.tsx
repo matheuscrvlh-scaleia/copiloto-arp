@@ -2,6 +2,10 @@
 
 import { useActionState } from "react";
 import type { Acao } from "@/components/form-acao";
+import {
+  ModalConfirmacao,
+  useConfirmacao,
+} from "@/components/modal-confirmacao";
 
 const ESTILO = {
   icone: {
@@ -20,7 +24,7 @@ const ESTILO = {
 
 /**
  * Um botão que dispara uma Server Action (inativar, excluir...), com
- * confirmação opcional. O erro aparece num balão embaixo; o sucesso
+ * confirmação opcional. O erro aparece no modal de confirmação; o sucesso
  * aparece na própria tela, que a ação atualiza.
  */
 export function AcaoRapida({
@@ -42,13 +46,12 @@ export function AcaoRapida({
   comTexto?: boolean;
 }) {
   const [estado, executar, enviando] = useActionState(acao, {});
+  const confirmacao = useConfirmacao({ confirmar, estado, erroNoModal: true });
   return (
     <form
+      ref={confirmacao.form}
       action={executar}
-      onSubmit={(e) => {
-        if (confirmar && !window.confirm(confirmar)) e.preventDefault();
-      }}
-      className="relative"
+      onSubmit={confirmacao.onSubmit}
     >
       {Object.entries(campos).map(([nome, valor]) => (
         <input key={nome} type="hidden" name={nome} value={valor} />
@@ -63,14 +66,12 @@ export function AcaoRapida({
         {icone}
         {comTexto && rotulo}
       </button>
-      {estado.erro && !enviando && (
-        <span
-          role="alert"
-          className="absolute top-full right-0 z-20 mt-1 w-64 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700 shadow-lg"
-        >
-          {estado.erro}
-        </span>
-      )}
+      <ModalConfirmacao
+        {...confirmacao.modal}
+        rotulo={rotulo}
+        perigo={perigo}
+        enviando={enviando}
+      />
     </form>
   );
 }
