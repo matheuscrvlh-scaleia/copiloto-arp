@@ -5,6 +5,8 @@ export interface Coluna<T> {
   valor: (linha: T) => React.ReactNode;
   /** Números alinham à direita. */
   numero?: boolean;
+  /** Texto que não quebra (ex.: o nome da pessoa) na TabelaBusca. */
+  inteiro?: boolean;
 }
 
 /**
@@ -98,7 +100,11 @@ export function paraBusca<T>(
   filtros?: (l: T) => Record<string, string>,
 ) {
   return {
-    colunas: colunas.map(({ titulo, numero }) => ({ titulo, numero })),
+    colunas: colunas.map(({ titulo, numero, inteiro }) => ({
+      titulo,
+      numero,
+      inteiro,
+    })),
     linhas: linhas.map((l) => ({
       chave: chave(l),
       busca: busca(l),

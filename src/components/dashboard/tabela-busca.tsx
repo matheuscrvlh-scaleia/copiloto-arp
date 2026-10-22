@@ -13,6 +13,8 @@ export interface ColunaBusca {
   titulo: string;
   /** Números alinham à direita e não quebram. */
   numero?: boolean;
+  /** Texto que não quebra (ex.: o nome da pessoa). */
+  inteiro?: boolean;
 }
 
 export interface LinhaBusca {
@@ -79,10 +81,14 @@ export function TabelaBusca({
   const alinhar = (c?: ColunaBusca) =>
     c?.numero
       ? "text-right tabular-nums whitespace-nowrap"
-      : "text-left break-words";
+      : c?.inteiro
+        ? "text-left whitespace-nowrap"
+        : "text-left break-words";
 
+  // flex-1: dentro de uma coluna flex (ex.: abaixo de um selo), divide a
+  // altura do quadro em vez de somar 100% a ela e vazar por baixo.
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex min-w-56 flex-1 items-center gap-2 rounded-full border border-neutral-900/10 bg-white/70 py-1.5 pr-4 pl-1.5 text-sm">
           <span className="grid size-7 place-items-center rounded-full bg-neutral-900 text-white">

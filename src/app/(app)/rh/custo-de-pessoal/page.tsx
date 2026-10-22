@@ -592,27 +592,29 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
             tom="verde"
             className="flex h-[650px] flex-col"
           >
-            {seloIlustrativo && <div className="mb-3">{seloIlustrativo}</div>}
-            <TabelaBusca
-              placeholder="Buscar cargo…"
-              {...paraBusca(
-                colunasGrupo("Cargo").filter((c) =>
-                  [
-                    "Cargo",
-                    "Pessoas",
-                    "Custo total",
-                    "Custo médio",
-                    "% sobre a receita",
-                  ].includes(c.titulo),
-                ),
-                agrupar(
-                  (l) => l.cargo_id,
-                  (k) => (k && nomeCargo.get(k)) || "Sem cargo",
-                ),
-                (l) => l.nome,
-                (l) => l.nome,
-              )}
-            />
+            <div className="flex h-full flex-col">
+              {seloIlustrativo && <div className="mb-3">{seloIlustrativo}</div>}
+              <TabelaBusca
+                placeholder="Buscar cargo…"
+                {...paraBusca(
+                  colunasGrupo("Cargo").filter((c) =>
+                    [
+                      "Cargo",
+                      "Pessoas",
+                      "Custo total",
+                      "Custo médio",
+                      "% sobre a receita",
+                    ].includes(c.titulo),
+                  ),
+                  agrupar(
+                    (l) => l.cargo_id,
+                    (k) => (k && nomeCargo.get(k)) || "Sem cargo",
+                  ),
+                  (l) => l.nome,
+                  (l) => l.nome,
+                )}
+              />
+            </div>
           </Secao>
           <Secao
             titulo="Por tipo de contrato"
@@ -698,8 +700,14 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
 }
 
 const colunasPessoa: Coluna<CustoIndividual>[] = [
-  { titulo: "Colaborador", valor: (p) => p.nome },
-  { titulo: "Departamento", valor: (p) => p.departamento },
+  { titulo: "Colaborador", valor: (p) => p.nome, inteiro: true },
+  // "Departamento 4" vira "Dep. 4" para sobrar largura para o nome inteiro;
+  // a busca segue pelo nome completo.
+  {
+    titulo: "Dep.",
+    valor: (p) => p.departamento.replace(/^departamento\b/i, "Dep."),
+    inteiro: true,
+  },
   { titulo: "Cargo", valor: (p) => p.cargo },
   {
     titulo: "Contrato",
@@ -723,10 +731,11 @@ const colunasPessoa: Coluna<CustoIndividual>[] = [
         className="rounded-full px-2 py-0.5 text-xs font-medium underline-offset-4 hover:underline"
       >
         {p.memoria.pendencias.length
-          ? `Ver (${p.memoria.pendencias.length} pendência${p.memoria.pendencias.length > 1 ? "s" : ""})`
+          ? `Ver (${p.memoria.pendencias.length} pend.)`
           : "Ver"}
       </AbreDetalhe>
     ),
+    inteiro: true,
   },
 ];
 
