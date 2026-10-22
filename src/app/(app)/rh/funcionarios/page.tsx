@@ -107,7 +107,7 @@ async function Lista() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Numero
           destaque
           titulo="Ativos"
@@ -123,11 +123,6 @@ async function Lista() {
           titulo="Desligados"
           valor={conta(["desligado"])}
           detalhe="mantidos para o histórico"
-        />
-        <Numero
-          titulo="Fora do Copiloto"
-          valor={conta(["fora_do_copiloto"])}
-          detalhe="só no ponto ou na folha, sem desligamento"
         />
       </div>
 
@@ -147,7 +142,6 @@ async function Lista() {
               opcoes: [
                 { valor: "ativos", rotulo: "Ativos e afastados" },
                 { valor: "desligados", rotulo: "Desligados" },
-                { valor: "fora", rotulo: "Fora do Copiloto" },
               ],
             },
             {
@@ -214,7 +208,7 @@ function Numero({
 function Esqueleto() {
   return (
     <TelaCarregando>
-      <IndicadoresCarregando quantidade={4} />
+      <IndicadoresCarregando quantidade={3} className="sm:grid-cols-3" />
       <CartaoCarregando altura="h-[40rem]" />
     </TelaCarregando>
   );
