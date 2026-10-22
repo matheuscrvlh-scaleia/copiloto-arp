@@ -1,4 +1,4 @@
-import { Maximize2 } from "lucide-react";
+import { FlaskConical, Maximize2 } from "lucide-react";
 import { TOM, type Tom } from "@/components/estilos";
 import { type Direcao, rotuloStatus, type Status } from "@/lib/indicadores";
 import { AbreDetalhe, type Detalhe } from "../modal-detalhe";
@@ -34,6 +34,16 @@ export function SeloStatus({
         {icone}
       </span>
       {rotulo ?? rotuloStatus(status, direcao)}
+    </span>
+  );
+}
+
+/** Valor de exemplo no lugar de um dado que ainda não chegou. */
+export function SeloIlustrativo({ texto }: { texto: string }) {
+  return (
+    <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-violet-400/20 px-2.5 py-1 text-xs font-medium text-violet-700">
+      <FlaskConical className="size-3.5 shrink-0" aria-hidden />
+      {texto}
     </span>
   );
 }

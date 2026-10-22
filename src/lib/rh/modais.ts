@@ -25,6 +25,7 @@ import {
   tabelaDoPonto,
   tabelaDoQuadro,
 } from "./detalhes";
+import type { Receita } from "./retorno";
 import { ROTULO_CONTRATO } from "./rubricas";
 import type { NumerosTurnover } from "./turnover";
 
@@ -883,6 +884,132 @@ export function origemDoCustoSobreReceita(
         valor: "Custo total ÷ faturamento bruto da mesma competência × 100",
       },
       { rotulo: "Meta", valor: "Configurável em Parâmetros (hoje até 10%)" },
+    ],
+    tabelas: [],
+    link: o.link,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Retorno sobre pessoal (receita por colaborador, índice, participação)
+// ---------------------------------------------------------------------------
+
+interface OpcoesRetorno {
+  competencia: string;
+  ficticia: boolean;
+  receita: Receita | null;
+  /** Meta de % do custo sobre a receita (base do faturamento ilustrativo). */
+  metaPct: number | null;
+  link?: Link;
+}
+
+function fonteDaReceita(o: OpcoesRetorno) {
+  if (!o.receita)
+    return "Pendente: lance o faturamento bruto em Cadastros > Faturamento do mês (ou defina a meta de % sobre a receita em Parâmetros para ver um ilustrativo)";
+  if (o.receita.ilustrativa)
+    return `Ilustrativo: custo total da ARP ÷ meta de ${formatarPct(o.metaPct)} (o faturamento que deixaria o custo na meta). Troca sozinho pelo real quando o faturamento do mês for lançado em Cadastros`;
+  return "Faturamento bruto lançado em Cadastros > Faturamento do mês (até a integração com o ENET)";
+}
+
+export function origemDaReceitaPorColaborador(
+  valor: number | null,
+  ativos: number,
+  o: OpcoesRetorno,
+): Detalhe {
+  return {
+    secao: "Custo de pessoal",
+    titulo: "Receita por colaborador",
+    subtitulo: `Competência ${formatarMes(o.competencia)}${o.receita?.ilustrativa ? " · dados ilustrativos" : ""}`,
+    resumo: [
+      { rotulo: "Receita por colaborador", valor: formatarMoeda(valor, 0) },
+      {
+        rotulo: "Faturamento bruto",
+        valor: o.receita ? moeda(o.receita.valor) : "Pendente",
+      },
+      { rotulo: "Colaboradores ativos", valor: formatarNumero(ativos) },
+    ],
+    fontes: [
+      { rotulo: "Faturamento", valor: fonteDaReceita(o) },
+      {
+        rotulo: "Colaboradores",
+        valor:
+          "Ativos no Copiloto RH no fim do mês (com vários meses, a soma: receita por pessoa e por mês)",
+      },
+      { rotulo: "Fórmula", valor: "Faturamento bruto ÷ colaboradores ativos" },
+    ],
+    tabelas: [],
+    link: o.link,
+  };
+}
+
+export function origemDoIndiceDeRetorno(
+  indice: number | null,
+  receitaPorPessoa: number | null,
+  custoMedio: number | null,
+  o: OpcoesRetorno,
+): Detalhe {
+  return {
+    secao: "Custo de pessoal",
+    titulo: "Índice de retorno sobre pessoal",
+    subtitulo: `Competência ${formatarMes(o.competencia)}${o.receita?.ilustrativa ? " · dados ilustrativos" : ""}`,
+    resumo: [
+      {
+        rotulo: "Cada R$ 1 de folha gera",
+        valor: indice === null ? "—" : `${formatarMoeda(indice)} de receita`,
+      },
+      {
+        rotulo: "Receita por colaborador",
+        valor: formatarMoeda(receitaPorPessoa, 0),
+      },
+      {
+        rotulo: "Custo médio por colaborador",
+        valor: formatarMoeda(custoMedio, 0),
+      },
+    ],
+    fontes: [
+      { rotulo: "Faturamento", valor: fonteDaReceita(o) },
+      { rotulo: "Custo", valor: FONTES.folha(o.competencia, o.ficticia) },
+      {
+        rotulo: "Fórmula",
+        valor: "Receita por colaborador ÷ custo médio por colaborador",
+      },
+    ],
+    tabelas: [],
+    link: o.link,
+  };
+}
+
+export function origemDaParticipacaoDaFolha(
+  pct: number | null,
+  custo: number,
+  custoDespesa: number | null,
+  o: Omit<OpcoesRetorno, "receita" | "metaPct">,
+): Detalhe {
+  return {
+    secao: "Custo de pessoal",
+    titulo: "Participação da folha no custo total",
+    subtitulo: `Competência ${formatarMes(o.competencia)}`,
+    resumo: [
+      { rotulo: "Participação", valor: formatarPct(pct) },
+      { rotulo: "Custo de pessoal", valor: moeda(custo) },
+      {
+        rotulo: "Custo + despesa total",
+        valor: custoDespesa === null ? "Pendente" : moeda(custoDespesa),
+      },
+    ],
+    fontes: [
+      { rotulo: "Custo", valor: FONTES.folha(o.competencia, o.ficticia) },
+      {
+        rotulo: "Custo + despesa total",
+        valor:
+          custoDespesa === null
+            ? "Pendente: lance em Cadastros > Faturamento do mês"
+            : "Lançado em Cadastros > Faturamento do mês (até a integração com o ENET)",
+      },
+      {
+        rotulo: "Fórmula",
+        valor: "Custo total de pessoal ÷ custo + despesa total do mês × 100",
+      },
     ],
     tabelas: [],
     link: o.link,

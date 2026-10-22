@@ -14,6 +14,9 @@ import { FiltroPeriodo } from "@/components/dashboard/filtro-periodo";
 import { type FatiaRosca, Rosca } from "@/components/dashboard/graficos";
 import {
   CartaoIndicador,
+  CartaoPendente,
+  SeloIlustrativo,
+  SeloStatus,
   type Variacao,
 } from "@/components/dashboard/indicador";
 import {
@@ -32,6 +35,7 @@ import {
 } from "@/components/modal-detalhe";
 import { EmConstrucao, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
+import { CONFIGURACOES_RH } from "@/config/navigation";
 import {
   formatarHoras,
   formatarMes,
@@ -39,7 +43,9 @@ import {
   formatarNumero,
   formatarPct,
 } from "@/lib/formato";
+import { status } from "@/lib/indicadores";
 import { competenciasDoPeriodo } from "@/lib/periodo";
+import { ativosEm } from "@/lib/rh/calculos";
 import {
   type CustoAgregado,
   custosPor,
@@ -49,21 +55,38 @@ import {
 import {
   COMPONENTES,
   type ComponenteCusto,
+  origemDaParticipacaoDaFolha,
+  origemDaReceitaPorColaborador,
   origemDoComponente,
   origemDoCustoMedio,
   origemDoCustoTotal,
+  origemDoIndiceDeRetorno,
 } from "@/lib/rh/modais";
+import {
+  indiceDeRetorno,
+  participacaoDaFolha,
+  receitaDoPeriodo,
+  receitaPorColaborador,
+  sobreReceita,
+} from "@/lib/rh/retorno";
 import { ROTULO_CONTRATO } from "@/lib/rh/rubricas";
 import { pode } from "@/server/auth";
 import {
   type CustoIndividual,
   cargos,
+  colaboradoresDoQuadro,
   custoAgregado,
   custosIndividuais,
+  dadosFinanceiros,
   faltasDoCusto,
   folhasDoCusto,
+  metaDe,
 } from "@/server/rh/dados";
-import { type Busca, lerFiltrosDoPeriodo } from "@/server/rh/filtros";
+import {
+  type Busca,
+  fimConsiderado,
+  lerFiltrosDoPeriodo,
+} from "@/server/rh/filtros";
 import { recalcularCustos } from "./actions";
 
 export const metadata: Metadata = { title: "Custo de pessoal" };
@@ -147,11 +170,15 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
       ? formatarMes(antes[0] as string)
       : `${formatarMes(antes[0] ?? mes)} a ${formatarMes(antes.at(-1) ?? mes)}`;
   const folha = folhas.find((f) => f.competencia === mes);
-  const [todas, listaCargos, pessoasTodas] = await Promise.all([
-    custoAgregado(antes[0] ?? (usados[0] as string), mes),
-    cargos(),
-    podeIndividual ? custosIndividuais(mes) : Promise.resolve(null),
-  ]);
+  const [todas, listaCargos, pessoasTodas, financeiros, metaReceita, quadro] =
+    await Promise.all([
+      custoAgregado(antes[0] ?? (usados[0] as string), mes),
+      cargos(),
+      podeIndividual ? custosIndividuais(mes) : Promise.resolve(null),
+      dadosFinanceiros(),
+      metaDe("rh.custo_sobre_receita", mes),
+      colaboradoresDoQuadro(),
+    ]);
   const doDep = <T extends { departamento_id: string | null }>(ls: T[]) =>
     departamento ? ls.filter((l) => l.departamento_id === departamento) : ls;
   const linhas = doDep(todas.filter((l) => usados.includes(l.competencia)));
@@ -172,6 +199,52 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   const nomeCargo = new Map(listaCargos.map((c) => [c.id, c.nome]));
   const comPendencia =
     pessoas?.filter((p) => p.memoria.pendencias.length) ?? [];
+
+  // Receita e custo total da ARP são da empresa inteira, mesmo com
+  // departamento no filtro. Sem o faturamento dos meses da folha, um
+  // ilustrativo (custo na meta) até ele ser lançado em Cadastros.
+  const tArp = somarCustos(todas.filter((l) => usados.includes(l.competencia)));
+  const financeiroDe = new Map(financeiros.map((f) => [f.competencia, f]));
+  const receita = receitaDoPeriodo(
+    usados.map((c) => financeiroDe.get(c)?.faturamento_bruto ?? null),
+    tArp.custo_total,
+    metaReceita?.meta ?? null,
+  );
+  const seloIlustrativo = receita?.ilustrativa ? (
+    <SeloIlustrativo texto="Dados ilustrativos – aguardando faturamento do mês" />
+  ) : null;
+  const ativos = usados.reduce(
+    (s, c) => s + ativosEm(quadro, fimConsiderado(c)).length,
+    0,
+  );
+  const porPessoa = receita
+    ? receitaPorColaborador(receita.valor, ativos)
+    : null;
+  const custoMedioArp = tArp.colaboradores
+    ? tArp.custo_total / tArp.colaboradores
+    : null;
+  const indice = indiceDeRetorno(porPessoa, custoMedioArp);
+  const custoDespesa = usados.map(
+    (c) => financeiroDe.get(c)?.custo_despesa_total ?? null,
+  );
+  const participacao = participacaoDaFolha(t.custo_total, custoDespesa);
+  const semFaturamento = usados.filter(
+    (c) => !financeiroDe.get(c)?.faturamento_bruto,
+  );
+  const semCustoDespesa = usados.filter(
+    (c) => !financeiroDe.get(c)?.custo_despesa_total,
+  );
+  const opcoesRetorno = {
+    competencia: mes,
+    ficticia: folha?.ficticia ?? false,
+    receita,
+    metaPct: metaReceita?.meta ?? null,
+    link: {
+      href: `${CONFIGURACOES_RH.cadastros}#financeiro`,
+      rotulo: "Abrir Faturamento do mês",
+    },
+  };
+  const daArp = departamento ? " · da ARP inteira" : "";
 
   // O que falta para o custo sair completo: sobe no canto ao abrir a tela.
   const avisos: AvisoDaPagina[] = [
@@ -264,6 +337,22 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     {
       titulo: "Custo médio",
       valor: (l) => moeda(l.totais.custo_total / l.totais.colaboradores),
+      numero: true,
+    },
+    {
+      titulo: "% sobre a receita",
+      valor: (l) => {
+        const pct = receita
+          ? sobreReceita(l.totais.custo_total, receita.valor)
+          : null;
+        if (pct === null) return "—";
+        return (
+          <span className="inline-flex items-center justify-end gap-2">
+            {formatarPct(pct)}
+            <SeloStatus status={status(pct, metaReceita)} />
+          </span>
+        );
+      },
       numero: true,
     },
   ];
@@ -361,6 +450,84 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
             detalhe="Valor do benefício − o que o funcionário paga"
             origem={origemDe.beneficios}
           />
+          {receita && porPessoa !== null ? (
+            <CartaoIndicador
+              titulo="Receita por colaborador"
+              valor={moeda(porPessoa)}
+              detalhe={`Faturamento bruto ÷ ${formatarNumero(ativos)} ativos no Copiloto RH${usados.length > 1 ? " (pessoas-mês)" : ""}${daArp}`}
+              origem={origemDaReceitaPorColaborador(
+                porPessoa,
+                ativos,
+                opcoesRetorno,
+              )}
+            >
+              {seloIlustrativo}
+            </CartaoIndicador>
+          ) : (
+            <CartaoPendente
+              titulo="Receita por colaborador"
+              motivo={
+                receita
+                  ? "Nenhum colaborador ativo no Copiloto RH no mês."
+                  : `Falta o faturamento de ${semFaturamento.map(formatarMes).join(", ")} (Cadastros > Faturamento do mês) ou a meta de % sobre a receita em Parâmetros.`
+              }
+              origem={origemDaReceitaPorColaborador(
+                null,
+                ativos,
+                opcoesRetorno,
+              )}
+            />
+          )}
+          {indice !== null ? (
+            <CartaoIndicador
+              titulo="Índice de retorno sobre pessoal"
+              valor={formatarMoeda(indice)}
+              detalhe={`Cada R$ 1 de folha gera ${formatarMoeda(indice)} de receita · receita por colaborador ÷ custo médio${daArp}`}
+              origem={origemDoIndiceDeRetorno(
+                indice,
+                porPessoa,
+                custoMedioArp,
+                opcoesRetorno,
+              )}
+            >
+              {seloIlustrativo}
+            </CartaoIndicador>
+          ) : (
+            <CartaoPendente
+              titulo="Índice de retorno sobre pessoal"
+              motivo="Depende da receita por colaborador e do custo médio."
+              origem={origemDoIndiceDeRetorno(
+                null,
+                porPessoa,
+                custoMedioArp,
+                opcoesRetorno,
+              )}
+            />
+          )}
+          {participacao !== null ? (
+            <CartaoIndicador
+              titulo="Participação da folha no custo total"
+              valor={formatarPct(participacao)}
+              detalhe={`Custo de pessoal ÷ custo + despesa total do mês${departamento ? " · só o departamento" : ""}`}
+              origem={origemDaParticipacaoDaFolha(
+                participacao,
+                t.custo_total,
+                custoDespesa.reduce<number>((s, v) => s + (v ?? 0), 0),
+                opcoesRetorno,
+              )}
+            />
+          ) : (
+            <CartaoPendente
+              titulo="Participação da folha no custo total"
+              motivo={`Falta o custo + despesa total de ${semCustoDespesa.map(formatarMes).join(", ")} (Cadastros > Faturamento do mês).`}
+              origem={origemDaParticipacaoDaFolha(
+                null,
+                t.custo_total,
+                null,
+                opcoesRetorno,
+              )}
+            />
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
@@ -403,7 +570,15 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
           </Secao>
         </div>
 
-        <Secao titulo="Por departamento">
+        <Secao
+          titulo="Por departamento"
+          descricao={
+            receita
+              ? "% sobre a receita: custo do departamento ÷ faturamento bruto da ARP, com o semáforo da meta de Parâmetros"
+              : undefined
+          }
+        >
+          {seloIlustrativo && <div className="mb-3">{seloIlustrativo}</div>}
           <Tabela
             colunas={colunasGrupo("Departamento")}
             linhas={porDepartamento}
@@ -417,13 +592,18 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
             tom="verde"
             className="flex h-[650px] flex-col"
           >
+            {seloIlustrativo && <div className="mb-3">{seloIlustrativo}</div>}
             <TabelaBusca
               placeholder="Buscar cargo…"
               {...paraBusca(
                 colunasGrupo("Cargo").filter((c) =>
-                  ["Cargo", "Pessoas", "Custo total", "Custo médio"].includes(
-                    c.titulo,
-                  ),
+                  [
+                    "Cargo",
+                    "Pessoas",
+                    "Custo total",
+                    "Custo médio",
+                    "% sobre a receita",
+                  ].includes(c.titulo),
                 ),
                 agrupar(
                   (l) => l.cargo_id,
@@ -605,7 +785,7 @@ function Esqueleto() {
   return (
     <TelaCarregando>
       <FiltrosCarregando />
-      <IndicadoresCarregando quantidade={4} />
+      <IndicadoresCarregando quantidade={7} />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <CartaoCarregando className="xl:col-span-3" altura="h-80" />
         <CartaoCarregando className="xl:col-span-2" altura="h-80" />
