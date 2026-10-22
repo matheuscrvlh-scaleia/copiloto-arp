@@ -6,17 +6,21 @@ export interface Receita {
   valor: number;
   /** true: faturamento ainda não lançado, valor só para ilustrar a conta. */
   ilustrativa: boolean;
+  /** De onde saiu o ilustrativo. */
+  base?: "outro_mes" | "meta";
 }
 
 /**
  * Faturamento bruto dos meses da folha. Com todos lançados, a soma deles.
- * Faltando algum, o ilustrativo: o faturamento que deixaria o custo da ARP
- * exatamente na meta de % sobre a receita (custo ÷ meta). Sem meta, nada.
+ * Faltando algum, o ilustrativo: o último faturamento lançado (de outro mês)
+ * repetido em cada mês; sem nenhum, o que deixaria o custo da ARP exatamente
+ * na meta de % sobre a receita (custo ÷ meta). Sem os dois, nada.
  */
 export function receitaDoPeriodo(
   lancados: (number | null)[],
   custoTotal: number,
   metaPct: number | null,
+  ultimoLancado: number | null = null,
 ): Receita | null {
   if (lancados.length && lancados.every((f) => f !== null && f > 0)) {
     return {
@@ -24,8 +28,19 @@ export function receitaDoPeriodo(
       ilustrativa: false,
     };
   }
+  if (ultimoLancado && ultimoLancado > 0) {
+    return {
+      valor: ultimoLancado * Math.max(lancados.length, 1),
+      ilustrativa: true,
+      base: "outro_mes",
+    };
+  }
   if (!metaPct || metaPct <= 0 || custoTotal <= 0) return null;
-  return { valor: custoTotal / (metaPct / 100), ilustrativa: true };
+  return {
+    valor: custoTotal / (metaPct / 100),
+    ilustrativa: true,
+    base: "meta",
+  };
 }
 
 /** Parte do faturamento que vai para o custo, em %. */

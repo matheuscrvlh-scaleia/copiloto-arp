@@ -56,6 +56,7 @@ import {
   COMPONENTES,
   type ComponenteCusto,
   origemDaParticipacaoDaFolha,
+  origemDaReceitaDoGrupo,
   origemDaReceitaPorColaborador,
   origemDoComponente,
   origemDoCustoMedio,
@@ -202,13 +203,16 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
 
   // Receita e custo total da ARP são da empresa inteira, mesmo com
   // departamento no filtro. Sem o faturamento dos meses da folha, um
-  // ilustrativo (custo na meta) até ele ser lançado em Cadastros.
+  // ilustrativo (o último faturamento lançado; sem nenhum, o custo na meta)
+  // até ele ser lançado em Cadastros.
   const tArp = somarCustos(todas.filter((l) => usados.includes(l.competencia)));
   const financeiroDe = new Map(financeiros.map((f) => [f.competencia, f]));
+  const exemplo = financeiros.find((f) => f.faturamento_bruto);
   const receita = receitaDoPeriodo(
     usados.map((c) => financeiroDe.get(c)?.faturamento_bruto ?? null),
     tArp.custo_total,
     metaReceita?.meta ?? null,
+    exemplo?.faturamento_bruto ?? null,
   );
   const seloIlustrativo = receita?.ilustrativa ? (
     <SeloIlustrativo texto="Dados ilustrativos – aguardando faturamento do mês" />
@@ -239,12 +243,17 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     ficticia: folha?.ficticia ?? false,
     receita,
     metaPct: metaReceita?.meta ?? null,
+    exemploDe: exemplo?.competencia ?? null,
     link: {
       href: `${CONFIGURACOES_RH.cadastros}#financeiro`,
       rotulo: "Abrir Faturamento do mês",
     },
   };
   const daArp = departamento ? " · da ARP inteira" : "";
+  const explicaReceita = (grupo: string) =>
+    receita
+      ? `% sobre a receita = custo do ${grupo} ÷ faturamento bruto total da ARP no mês (${moeda(receita.valor)}${receita.ilustrativa ? ", ilustrativo" : ""}) × 100 · semáforo pela meta de Parâmetros${metaReceita ? ` (até ${formatarPct(metaReceita.meta)})` : ""}`
+      : "% sobre a receita: falta o faturamento do mês em Cadastros";
 
   // O que falta para o custo sair completo: sobe no canto ao abrir a tela.
   const avisos: AvisoDaPagina[] = [
@@ -305,6 +314,30 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     { titulo, valor: (l) => l.nome },
     { titulo: "Pessoas", valor: (l) => l.totais.colaboradores, numero: true },
     {
+      titulo: "% sobre a receita",
+      valor: (l) => {
+        const pct = receita
+          ? sobreReceita(l.totais.custo_total, receita.valor)
+          : null;
+        if (pct === null) return "—";
+        return (
+          <AbreDetalhe
+            detalhe={origemDaReceitaDoGrupo(
+              l.nome,
+              l.totais.custo_total,
+              pct,
+              opcoesRetorno,
+            )}
+            className="inline-flex items-center justify-end gap-2 rounded-full underline-offset-4 hover:underline"
+          >
+            {formatarPct(pct)}
+            <SeloStatus status={status(pct, metaReceita)} />
+          </AbreDetalhe>
+        );
+      },
+      numero: true,
+    },
+    {
       titulo: "Remuneração",
       valor: (l) => moeda(l.totais.remuneracao),
       numero: true,
@@ -337,22 +370,6 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     {
       titulo: "Custo médio",
       valor: (l) => moeda(l.totais.custo_total / l.totais.colaboradores),
-      numero: true,
-    },
-    {
-      titulo: "% sobre a receita",
-      valor: (l) => {
-        const pct = receita
-          ? sobreReceita(l.totais.custo_total, receita.valor)
-          : null;
-        if (pct === null) return "—";
-        return (
-          <span className="inline-flex items-center justify-end gap-2">
-            {formatarPct(pct)}
-            <SeloStatus status={status(pct, metaReceita)} />
-          </span>
-        );
-      },
       numero: true,
     },
   ];
@@ -572,11 +589,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
 
         <Secao
           titulo="Por departamento"
-          descricao={
-            receita
-              ? "% sobre a receita: custo do departamento ÷ faturamento bruto da ARP, com o semáforo da meta de Parâmetros"
-              : undefined
-          }
+          descricao={explicaReceita("departamento")}
         >
           {seloIlustrativo && <div className="mb-3">{seloIlustrativo}</div>}
           <Tabela
@@ -589,6 +602,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <Secao
             titulo="Por cargo"
+            descricao={explicaReceita("cargo")}
             tom="verde"
             className="flex h-[650px] flex-col"
           >

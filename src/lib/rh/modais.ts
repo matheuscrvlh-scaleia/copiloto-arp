@@ -900,12 +900,16 @@ interface OpcoesRetorno {
   receita: Receita | null;
   /** Meta de % do custo sobre a receita (base do faturamento ilustrativo). */
   metaPct: number | null;
+  /** Mês do faturamento usado como ilustrativo, quando vem de outro mês. */
+  exemploDe?: string | null;
   link?: Link;
 }
 
 function fonteDaReceita(o: OpcoesRetorno) {
   if (!o.receita)
     return "Pendente: lance o faturamento bruto em Cadastros > Faturamento do mês (ou defina a meta de % sobre a receita em Parâmetros para ver um ilustrativo)";
+  if (o.receita.base === "outro_mes" && o.exemploDe)
+    return `Ilustrativo: o faturamento lançado de ${formatarMes(o.exemploDe)}, no lugar do mês da folha. Troca sozinho pelo real quando o faturamento do mês for lançado em Cadastros`;
   if (o.receita.ilustrativa)
     return `Ilustrativo: custo total da ARP ÷ meta de ${formatarPct(o.metaPct)} (o faturamento que deixaria o custo na meta). Troca sozinho pelo real quando o faturamento do mês for lançado em Cadastros`;
   return "Faturamento bruto lançado em Cadastros > Faturamento do mês (até a integração com o ENET)";
@@ -983,7 +987,7 @@ export function origemDaParticipacaoDaFolha(
   pct: number | null,
   custo: number,
   custoDespesa: number | null,
-  o: Omit<OpcoesRetorno, "receita" | "metaPct">,
+  o: Omit<OpcoesRetorno, "receita" | "metaPct" | "exemploDe">,
 ): Detalhe {
   return {
     secao: "Custo de pessoal",
@@ -1009,6 +1013,47 @@ export function origemDaParticipacaoDaFolha(
       {
         rotulo: "Fórmula",
         valor: "Custo total de pessoal ÷ custo + despesa total do mês × 100",
+      },
+    ],
+    tabelas: [],
+    link: o.link,
+  };
+}
+
+/** % sobre a receita de um departamento ou cargo (célula da tabela). */
+export function origemDaReceitaDoGrupo(
+  nome: string,
+  custo: number,
+  pct: number,
+  o: OpcoesRetorno,
+): Detalhe {
+  return {
+    secao: "Custo de pessoal sobre a receita",
+    titulo: nome,
+    subtitulo: `Competência ${formatarMes(o.competencia)}${o.receita?.ilustrativa ? " · dados ilustrativos" : ""}`,
+    resumo: [
+      { rotulo: "% sobre a receita", valor: formatarPct(pct) },
+      { rotulo: "Custo total", valor: moeda(custo) },
+      {
+        rotulo: "Faturamento bruto da ARP",
+        valor: o.receita ? moeda(o.receita.valor) : "Pendente",
+      },
+      ...(o.metaPct !== null
+        ? [{ rotulo: "Meta", valor: `até ${formatarPct(o.metaPct)}` }]
+        : []),
+    ],
+    fontes: [
+      { rotulo: "Custo", valor: FONTES.folha(o.competencia, o.ficticia) },
+      { rotulo: "Faturamento", valor: fonteDaReceita(o) },
+      {
+        rotulo: "Fórmula",
+        valor:
+          "Custo total do departamento (ou cargo) ÷ faturamento bruto total da ARP no mês × 100",
+      },
+      {
+        rotulo: "Semáforo",
+        valor:
+          "Mesma meta de “% do custo de pessoal sobre a receita” dos Parâmetros",
       },
     ],
     tabelas: [],

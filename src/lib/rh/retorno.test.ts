@@ -15,14 +15,24 @@ describe("receitaDoPeriodo", () => {
     });
   });
 
-  it("sem o faturamento de algum mês, usa o que deixaria o custo na meta", () => {
+  it("sem o faturamento de algum mês, repete o último lançado em cada mês", () => {
+    expect(receitaDoPeriodo([100_000, null], 30_000, 10, 80_000)).toEqual({
+      valor: 160_000,
+      ilustrativa: true,
+      base: "outro_mes",
+    });
+  });
+
+  it("sem nenhum faturamento lançado, usa o que deixaria o custo na meta", () => {
     expect(receitaDoPeriodo([100_000, null], 30_000, 10)).toEqual({
       valor: 300_000,
       ilustrativa: true,
+      base: "meta",
     });
-    expect(receitaDoPeriodo([], 30_000, 40)).toEqual({
+    expect(receitaDoPeriodo([], 30_000, 40, null)).toEqual({
       valor: 75_000,
       ilustrativa: true,
+      base: "meta",
     });
   });
 
