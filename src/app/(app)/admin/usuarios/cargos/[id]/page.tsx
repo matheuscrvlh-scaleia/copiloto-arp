@@ -1,14 +1,17 @@
+import { Power, Trash2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { FormAcao } from "@/components/form-acao";
-import { Carregando, PageHeader } from "@/components/page-header";
+import { AcaoRapida } from "@/components/admin/acao-rapida";
+import { Situacao } from "@/components/admin/ui";
+import { Carregando } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarNumero } from "@/lib/formato";
 import { cargos } from "@/server/admin/dados";
-import { apagarCargo } from "../../actions";
+import { alternarCargo, apagarCargo } from "../../actions";
 import { FormCargo } from "../form-cargo";
+import { confirmarExclusao, confirmarInativacao } from "../textos";
 
 export const metadata: Metadata = { title: "Cargo" };
 
@@ -41,27 +44,51 @@ async function Edicao({
   const quem =
     cargo.usuarios === 0
       ? "Nenhum usuário tem este cargo."
-      : `${formatarNumero(cargo.usuarios)} ${cargo.usuarios === 1 ? "usuário tem" : "usuários têm"} este cargo; as mudanças valem na hora.`;
+      : `${formatarNumero(cargo.usuarios)} ${cargo.usuarios === 1 ? "usuário tem" : "usuários têm"} este cargo.`;
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title={cargo.nome} description={quem} />
-      <FormCargo cargo={cargo} />
-      <FormAcao
-        acao={apagarCargo}
-        rotulo="Apagar cargo"
-        rotuloEnviando="Apagando…"
-        variante="perigo"
-        confirmar={`Apagar o cargo “${cargo.nome}”?${cargo.usuarios > 0 ? " Os usuários dele ficam só com as permissões individuais." : ""}`}
-        className="vidro flex flex-col gap-3 rounded-[1.75rem] p-6"
-      >
-        <input type="hidden" name="id" value={cargo.id} />
-        <p className="text-sm text-neutral-600">
-          {cargo.usuarios > 0
-            ? "Quem tem este cargo perde as permissões dele e fica só com as individuais."
-            : "O cargo não está em uso."}
+      <header className="flex flex-wrap items-center gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="flex flex-wrap items-center gap-3 text-4xl font-semibold tracking-tight md:text-5xl">
+            <span className="truncate">{cargo.nome}</span>
+            {cargo.ativo ? (
+              <Situacao tipo="ok">Ativo</Situacao>
+            ) : (
+              <Situacao tipo="neutro">Inativo</Situacao>
+            )}
+          </h1>
+          <p className="mt-2 text-sm text-neutral-500">{quem}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <AcaoRapida
+            acao={alternarCargo}
+            campos={{ id: cargo.id, ativo: String(!cargo.ativo) }}
+            rotulo={cargo.ativo ? "Inativar" : "Reativar"}
+            icone={<Power className="size-4" aria-hidden />}
+            confirmar={cargo.ativo ? confirmarInativacao(cargo) : undefined}
+            comTexto
+          />
+          <AcaoRapida
+            acao={apagarCargo}
+            campos={{ id: cargo.id }}
+            rotulo="Excluir"
+            icone={<Trash2 className="size-4" aria-hidden />}
+            confirmar={confirmarExclusao(cargo)}
+            perigo
+            comTexto
+          />
+        </div>
+      </header>
+
+      {!cargo.ativo && (
+        <p className="rounded-3xl bg-neutral-100 px-4 py-3 text-sm text-neutral-600">
+          Cargo inativo: não aparece na escolha e não dá nenhuma permissão a
+          quem ainda o tem. Reative para devolver o acesso.
         </p>
-      </FormAcao>
+      )}
+
+      <FormCargo cargo={cargo} />
     </div>
   );
 }

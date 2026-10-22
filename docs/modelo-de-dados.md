@@ -6,7 +6,7 @@ de verdade das colunas; este documento explica o desenho.
 | Fase | Schemas | Situação |
 |---|---|---|
 | 1 | `core`, `integracao`, `rh` | **Criado** (8 migrations, testadas em `supabase/tests`) |
-| 2 | `financeiro` | Proposta abaixo, ainda não criada |
+| 2 | `financeiro` | Começou pelo estacionamento (WPS); o resto é proposta abaixo |
 
 ## Decisões gerais
 
@@ -49,8 +49,8 @@ de verdade das colunas; este documento explica o desenho.
 |---|---|
 | `usuarios` | Perfil 1:1 com `auth.users`, criado por trigger no cadastro |
 | `permissoes` | Catálogo (igual a `src/lib/permissions.ts`; um teste confere) |
-| `usuario_permissoes` | Permissões individuais, somadas às do cargo. Só `admin.usuarios` concede |
-| `cargos`, `cargo_permissoes` | Cargo de acesso (não é o cargo da folha, `rh.cargos`): um conjunto de permissões dado a vários usuários (`usuarios.cargo_id`). `core.pode()` soma cargo + individuais; uma trava impede ficar sem administrador ativo |
+| `usuario_permissoes` | Permissões individuais, somadas às do cargo. Legado: a tela só remove; o acesso novo vem do cargo |
+| `cargos`, `cargo_permissoes` | Cargo de acesso (não é o cargo da folha, `rh.cargos`): um conjunto de permissões dado a vários usuários (`usuarios.cargo_id`). `core.pode()` soma cargo (se `ativo`) + individuais; uma trava impede ficar sem administrador ativo (inclusive ao inativar cargo ou excluir usuário). Usuário só é excluído por quem tem `admin.usuarios`, nunca a si mesmo, e a exclusão vai para a auditoria |
 | `empresa` | Uma linha: nome exibido, razão social, CNPJ, contato e endereço. Só `admin.empresa` edita |
 | `metas` | Meta e semáforo de qualquer indicador: direção, meta, limite de "Atenção", vigência |
 | `importacoes` | Todo arquivo enviado, com status `previa → confirmada → substituida/revertida`. Uma confirmada por tipo e competência; "voltar" reativa a anterior |
@@ -74,8 +74,8 @@ de verdade das colunas; este documento explica o desenho.
 |---|---|
 | `departamentos` | Nome + `codigo_folha` (2 a 6) + `secullum_id`: é o de-para entre folha e ponto |
 | `cargos` | Nome, código da folha, CBO |
-| `motivos_desligamento` | Vêm do Secullum; `tipo_turnover` configurável (ex.: voluntário) |
-| `colaboradores` | Identidade estável: matrícula, nome, nascimento, admissão, desligamento e motivo, tipo de contrato, departamento e cargo atuais. Para quem tem `copiloto_id`, nome, nascimento, contrato, admissão, desligamento, `situacao_copiloto` e `motivo_desligamento_copiloto` vêm do Copiloto RH; o resto (e quem não está ligado) vem do ponto e da folha. Quadro e turnover usam só os ligados ao Copiloto |
+| `motivos_desligamento` | Vêm do Secullum (descrição do motivo no perfil do funcionário). `tipo_turnover` não é mais usado: o turnover e o tipo de cada saída vêm do Copiloto RH |
+| `colaboradores` | Identidade estável: matrícula, nome, nascimento, admissão, desligamento e motivo, tipo de contrato, departamento e cargo atuais. Para quem tem `copiloto_id`, nome, nascimento, contrato, admissão, desligamento, `situacao_copiloto`, `motivo_desligamento_copiloto` e `decisao_desligamento_copiloto` vêm do Copiloto RH; o resto (e quem não está ligado) vem do ponto e da folha. Quadro e turnover usam só os ligados ao Copiloto |
 | `dependentes` | Nome, nascimento, se tem plano e odonto |
 
 ### Parâmetros (vigência + auditoria)
@@ -83,7 +83,7 @@ de verdade das colunas; este documento explica o desenho.
 | Tabela | Para quê |
 |---|---|
 | `parametros_empresa` | RAT, FAP (0,5–2,0), regime, ciclo e adicional do banco de horas |
-| `parametros_turnover` | Uma linha: fórmulas (geral, voluntário, involuntário, acordo), se o acordo soma no voluntário, no involuntário ou é à parte, e as listas de motivos voluntários e involuntários. Espelha a configuração de turnover do Copiloto RH (padrões de lá) |
+| `parametros_turnover` | Sem uso desde 21/10/2026: o turnover vem pronto da API do Copiloto. Sai depois do deploy |
 | `encargos_por_contrato` | Por tipo (CLT, aprendiz, estagiário, PJ, pró-labore): INSS patronal, Terceiros, FGTS, se aplica RAT, se provisiona 13º e férias, % da multa rescisória |
 | `jornadas` | Horas/mês em níveis: colaborador > cargo > departamento > empresa (nenhum id) |
 | `rubricas` | Código, descrição e grupo (como entra no custo). Rubrica nova entra como `nao_classificada` e gera aviso; `informativa` (ex.: FGTS de rescisão) não entra no custo |
@@ -106,6 +106,7 @@ de verdade das colunas; este documento explica o desenho.
 | `folha_colaboradores` 🔒 | Situação, tipo de contrato, departamento (original do arquivo e corrigido), cargo, horas/mês, salário, bases, FGTS, líquido |
 | `folha_rubricas` 🔒 | Cada rubrica de cada colaborador: provento, desconto ou informativa |
 | `ponto_mensal` | Totais do Secullum `/Calcular`: previstas, normais, faltas, atrasos, faltas em dias, abonos (separados até a Aline dizer o que é cada um), banco de horas |
+| `ponto_diario` | Cada dia do mesmo `/Calcular` (sem chamada a mais): batidas na posição da coluna Entrada/Saída (null onde faltou), justificativa no lugar delas (FOLGA, FERIADO, ATESTAD…), horas do dia e saldo corrente do banco. Alimenta o perfil em RH › Funcionários |
 | `afastamentos` | Do Secullum |
 | `custos_colaborador` 🔒 | Resultado do cálculo: remuneração, encargos, provisões, multa, benefícios, rescisão, reembolsos, custo total (check: fecha com as parcelas), custo/hora, salário/hora, memória de cálculo. Só o servidor grava |
 | `notas_pj` 🔒 | Custo do PJ pela nota. Manual até a integração com o ENET |
@@ -127,6 +128,9 @@ Funções (`security definer`, só somas):
   grava a tabela do plano, faixas e coparticipação e confirma a importação
   numa transação; a mesma vigência do mesmo benefício substitui a anterior.
   Exige `rh.beneficios`.
+- `rh.salvar_faixas_plano(tabela, faixas)`: troca as faixas de uma tabela já
+  gravada (correção na tela, sem nova planilha) numa transação; recusa faixas
+  sobrepostas. As faixas vão para a auditoria. Exige `rh.beneficios`.
 
 O cálculo fica em `src/lib/rh/custo.ts` (função pura, testada) e roda no
 servidor (`src/server/rh/custo.ts`) ao importar a folha, classificar
@@ -152,7 +156,8 @@ ela antes do primeiro fechamento.
 |---|---|---|
 | Cadastros, parâmetros, rubricas, benefícios, plano, folhas, afastamentos, dados financeiros | qualquer `rh.*` | `rh.parametros` / `rh.beneficios` / `rh.folha` |
 | `dependentes`, `colaborador_beneficios` | `rh.beneficios` | `rh.beneficios` |
-| `ponto_mensal` | `rh.jornada` ou `rh.painel` | — (sincronização) |
+| `ponto_mensal` | `rh.jornada`, `rh.painel` ou `rh.funcionarios` | — (sincronização) |
+| `ponto_diario` | `rh.jornada` ou `rh.funcionarios` | — (sincronização) |
 | `folha_colaboradores`, `folha_rubricas` | `rh.custo_pessoal.individual` | `rh.folha` (importação) |
 | `custos_colaborador` | `rh.custo_pessoal.individual` | — (servidor) |
 | `notas_pj` | `rh.custo_pessoal.individual` | `rh.parametros` |
@@ -160,6 +165,19 @@ ela antes do primeiro fechamento.
 | `integracao.*` | ninguém (sem permissão de uso do schema) | service role |
 
 ---
+
+## financeiro
+
+### Estacionamento (WPS) — criado
+
+Só a sincronização grava (`financeiro.gravar_estacionamento`, service role),
+trocando os dias informados inteiros. Veem quem tem `financeiro.painel`,
+`financeiro.fluxo_de_caixa` ou `financeiro.performance_capital`.
+
+| Tabela | Chave | O que guarda |
+|---|---|---|
+| `estacionamento_pagamentos` | `estacionamento_id`, `wps_codigo` | Um por pagamento único: dia, hora, tipo de cliente (rotativo, mensalista…), ticket, recibo, forma de pagamento, grupos da API, valor bruto, desconto e líquido (reais), terminal e tarifa. Sem placa nem operador |
+| `estacionamento_movimento` | `estacionamento_id`, `data`, `tipo_veiculo` | Entradas e saídas do dia por tipo de veículo |
 
 ## Fase 2: financeiro (proposta, não criada)
 
@@ -171,7 +189,6 @@ As tabelas do ENET seguem os campos da especificação do Financeiro (seção
 | Clientes e contratos | `clientes`, `cliente_contatos` 🔒 (e-mail e telefone, `financeiro.inadimplencia.contato`), `lucs`, `contratos`, `contrato_lucs`, `resumos_contratuais`, `parcelas` (faturamento e inadimplência na mesma tabela) |
 | Contas a pagar | `fornecedores`, `fichas_cp`, `cp_vencimentos`, `cp_pagamentos`, `setores`, `contas_orcamentarias` (plano "PO - ARP"), `cp_rateios` |
 | Performance & Capital | `realizado_anual` (relatório importado), `fechamento`, `dividas`, `dividas_eventos`, `regua_etapas` |
-| Estacionamento (WPS) | `estacionamento_pagamentos` (um por pagamento único, sem placa), `estacionamento_movimento` |
 
 Quando o Financeiro entrar:
 

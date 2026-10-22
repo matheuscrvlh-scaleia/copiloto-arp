@@ -4,11 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
+import { FiltroPeriodo } from "@/components/dashboard/filtro-periodo";
 import {
   AreaLinha,
   BarrasDivergentes,
-  Colunas,
   ColunasEspelhadas,
+  Faixas,
   Rosca,
 } from "@/components/dashboard/graficos";
 import {
@@ -26,13 +27,8 @@ import {
   ultimasCompetencias,
 } from "@/lib/formato";
 import { rotuloStatus, type Status, status } from "@/lib/indicadores";
-import {
-  ativosEm,
-  mesesDeCasa,
-  movimentoDoMes,
-  porSetor,
-  somarPonto,
-} from "@/lib/rh/calculos";
+import { paramsDoPeriodo } from "@/lib/periodo";
+import { ativosEm, mesesDeCasa, porSetor, somarPonto } from "@/lib/rh/calculos";
 import {
   movimentoEntre,
   tabelaDeHorasPerdidas,
@@ -41,18 +37,23 @@ import {
   tabelaDoPonto,
   tabelaDoQuadro,
 } from "@/lib/rh/detalhes";
+import { avisoDoPonto } from "@/lib/rh/ponto-periodo";
 import { empresa } from "@/server/admin/dados";
 import { usuarioAtual } from "@/server/auth";
 import { avisosDo } from "@/server/avisos";
 import {
   colaboradoresDoQuadro,
-  competenciasDoPonto,
-  configTurnover,
   folhasImportadas,
   metaDe,
-  pontoDoMes,
+  pontoDoPeriodo,
 } from "@/server/rh/dados";
-import { fimConsiderado, mesAnterior } from "@/server/rh/filtros";
+import {
+  type Busca,
+  type FiltrosDoPeriodo,
+  fimConsiderado,
+  lerFiltrosDoPeriodo,
+} from "@/server/rh/filtros";
+import { turnoverDoPeriodo } from "@/server/rh/turnover";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -76,10 +77,10 @@ const FAIXAS_TEMPO_DE_CASA = [
   { rotulo: "10+ anos", ate: Number.POSITIVE_INFINITY },
 ];
 
-export default function Page() {
+export default function Page({ searchParams }: PageProps<"/gestao">) {
   return (
     <Suspense fallback={<EsqueletoDashboard />}>
-      <Dashboard />
+      <Dashboard busca={searchParams} />
     </Suspense>
   );
 }
@@ -98,15 +99,16 @@ function PontoStatus({ s }: { s: Status }) {
   );
 }
 
-async function Dashboard() {
+async function Dashboard({ busca }: { busca: Promise<Busca> }) {
   const usuario = await usuarioAtual();
   const veRh = usuario.permissoes.some((p) => p.startsWith("rh."));
   const veFinanceiro = usuario.permissoes.some((p) =>
     p.startsWith("financeiro."),
   );
-  const [avisos, dadosEmpresa] = await Promise.all([
+  const [avisos, dadosEmpresa, filtros] = await Promise.all([
     avisosDo(usuario),
     empresa(),
+    busca.then((b) => lerFiltrosDoPeriodo(b)),
   ]);
   const primeiroNome = usuario.nome.split(/\s+/)[0];
 
@@ -126,8 +128,18 @@ async function Dashboard() {
         />
 
         {veRh && (
+          <FiltroPeriodo
+            de={filtros.periodo.de}
+            ate={filtros.periodo.ate}
+            atalho={filtros.periodo.atalho}
+            hoje={filtros.hoje}
+          />
+        )}
+
+        {veRh && (
           <Suspense fallback={<EsqueletoPessoas />}>
             <Pessoas
+              filtros={filtros}
               podeFolha={usuario.permissoes.includes("rh.folha")}
               pendencias={avisos.length}
               // Lista de pessoas só para quem já as vê nas telas do RH.
@@ -163,33 +175,27 @@ function variacao(
   return `${d > 0 ? "+" : ""}${formatarNumero(d, 1)} p.p.`;
 }
 
-/** Pessoas: o mês mais recente com ponto sincronizado. */
+/** Pessoas no período do filtro: quadro do Copiloto e ponto do Secullum. */
 async function Pessoas({
+  filtros,
   podeFolha,
   pendencias,
   veJornada,
   veQuadro,
 }: {
+  filtros: FiltrosDoPeriodo;
   podeFolha: boolean;
   pendencias: number;
   veJornada: boolean;
   veQuadro: boolean;
 }) {
-  const meses = await competenciasDoPonto();
-  const mes = meses[0];
-  if (!mes) {
-    return (
-      <section className="vidro rounded-[2rem] p-6 text-sm text-neutral-500">
-        O ponto ainda não foi sincronizado.
-      </section>
-    );
-  }
-  const anterior = mesAnterior(mes);
+  const { periodo, anterior, rotulo, mes } = filtros;
+  const doze = ultimasCompetencias(mes, 12);
   const [
     colaboradores,
     folhas,
-    ponto,
-    pontoAnt,
+    pontoP,
+    pontoAntP,
     metaAbs,
     metaBanco,
     metaTurnover,
@@ -197,22 +203,49 @@ async function Pessoas({
   ] = await Promise.all([
     colaboradoresDoQuadro(),
     podeFolha ? folhasImportadas() : Promise.resolve([]),
-    pontoDoMes(mes),
-    pontoDoMes(anterior),
+    pontoDoPeriodo(periodo.de, periodo.ate),
+    pontoDoPeriodo(anterior.de, anterior.ate),
     metaDe("rh.absenteismo", mes),
     metaDe("rh.banco_horas_positivo", mes),
     metaDe("rh.turnover", mes),
-    configTurnover(),
+    // Turnover: direto do Copiloto, no período e nos 12 meses até ele.
+    Promise.all([
+      turnoverDoPeriodo(periodo.de, periodo.ate),
+      turnoverDoPeriodo(doze[0] as string, fimConsiderado(mes)),
+    ]),
   ]);
 
+  const aviso = avisoDoPonto(pontoP);
+  const ponto = pontoP.linhas;
+  const efetivo = pontoP.efetivo ?? periodo;
   const totais = somarPonto(ponto);
-  const totaisAnt = pontoAnt.length ? somarPonto(pontoAnt) : null;
-  const ate = fimConsiderado(mes);
+  const totaisAnt =
+    pontoAntP.linhas.length && !avisoDoPonto(pontoAntP).parcial
+      ? somarPonto(pontoAntP.linhas)
+      : null;
+  const ate = periodo.ate;
   const ativosHoje = ativosEm(colaboradores, ate);
   const ativos = ativosHoje.length;
-  const ativosAnt = ativosEm(colaboradores, fimConsiderado(anterior)).length;
-  const movimento = movimentoDoMes(colaboradores, mes, turnover);
-  const doze = ultimasCompetencias(mes, 12);
+  const ativosAnt = ativosEm(colaboradores, anterior.ate).length;
+  const [doPeriodo, dozeMeses] = turnover;
+  const tv = doPeriodo.ok ? doPeriodo.dados : null;
+  const doHistorico = new Map(
+    dozeMeses.ok ? dozeMeses.dados.mensal.map((m) => [m.competencia, m]) : [],
+  );
+  // Sem o Copiloto, as contagens saem da lista de pessoas (o turnover não).
+  const contagem = (de: string, fim: string) => {
+    const m = movimentoEntre(colaboradores, de, fim);
+    return {
+      admissoes: m.admitidos.length,
+      desligamentos: m.desligados.length,
+    };
+  };
+  const movimento = tv ?? contagem(periodo.de, ate);
+  const qs = (dep?: string | null) =>
+    new URLSearchParams({
+      ...paramsDoPeriodo(periodo),
+      ...(dep ? { dep } : {}),
+    }).toString();
   const evolucao = doze.map((c) => {
     const n = ativosEm(colaboradores, fimConsiderado(c)).length;
     return {
@@ -225,7 +258,7 @@ async function Pessoas({
     };
   });
   const fluxo = doze.map((c) => {
-    const m = movimentoDoMes(colaboradores, c, turnover);
+    const m = doHistorico.get(c) ?? contagem(c, fimConsiderado(c));
     return {
       chave: c,
       rotulo: formatarMes(c).slice(0, 3),
@@ -256,7 +289,8 @@ async function Pessoas({
       rotulo: f.rotulo,
       valor: n,
       texto: String(n),
-      detalhe: `${formatarPct(tempos.length ? (n / tempos.length) * 100 : null)} do quadro`,
+      titulo: `${f.rotulo} de casa`,
+      detalhe: `${n === 1 ? "pessoa" : "pessoas"}, ${formatarPct(tempos.length ? (n / tempos.length) * 100 : null)} do quadro`,
     };
   });
   const medianaCasa = [...tempos].sort((a, b) => a - b)[
@@ -271,8 +305,7 @@ async function Pessoas({
   // cadastro e movimento: só com rh.quadro.
   const doSetor = (id: string | null) =>
     ponto.filter((l) => l.departamento_id === id);
-  const linkJornada = (dep?: string | null) =>
-    `/rh/jornada?mes=${mes.slice(0, 7)}${dep ? `&dep=${dep}` : ""}`;
+  const linkJornada = (dep?: string | null) => `/rh/jornada?${qs(dep)}`;
   const detalhesDoMes = (c: string): Detalhe => {
     const fim = fimConsiderado(c);
     const lista = ativosEm(colaboradores, fim);
@@ -281,16 +314,22 @@ async function Pessoas({
       c,
       fimDoMes(c),
     );
-    const m = movimentoDoMes(colaboradores, c, turnover);
+    const m = doHistorico.get(c);
     return {
       secao: "Quadro",
       titulo: `Pessoas em ${formatarMes(c)}`,
       subtitulo: `Copiloto RH em ${formatarData(fim)}`,
       resumo: [
         { rotulo: "Ativos", valor: String(lista.length) },
-        { rotulo: "Admissões", valor: String(m.admissoes) },
-        { rotulo: "Desligamentos", valor: String(m.desligamentos) },
-        { rotulo: "Turnover", valor: formatarPct(m.turnover) },
+        {
+          rotulo: "Admissões",
+          valor: String(m?.admissoes ?? admitidos.length),
+        },
+        {
+          rotulo: "Desligamentos",
+          valor: String(m?.desligamentos ?? desligados.length),
+        },
+        { rotulo: "Turnover", valor: formatarPct(m?.turnover ?? null) },
       ],
       tabelas: [
         {
@@ -319,7 +358,7 @@ async function Pessoas({
           {
             secao: "Pessoas por setor",
             titulo: s.departamento,
-            subtitulo: `Ponto de ${formatarData(mes)} a ${formatarData(ate)}, do maior absenteísmo para o menor`,
+            subtitulo: `Ponto de ${formatarData(efetivo.de)} a ${formatarData(efetivo.ate)}, do maior absenteísmo para o menor`,
             resumo: [
               { rotulo: "Pessoas", valor: String(s.colaboradores) },
               { rotulo: "Absenteísmo", valor: formatarPct(s.absenteismo) },
@@ -342,7 +381,7 @@ async function Pessoas({
           {
             secao: "Banco de horas",
             titulo: s.departamento,
-            subtitulo: `Saldo de cada pessoa em ${formatarMes(mes)}, de quem mais deve para quem mais tem crédito`,
+            subtitulo: `Saldo de cada pessoa em ${rotulo}, de quem mais deve para quem mais tem crédito`,
             resumo: [
               { rotulo: "Pessoas", valor: String(s.colaboradores) },
               {
@@ -374,7 +413,7 @@ async function Pessoas({
             subtitulo: `Ativos em ${formatarData(ate)}, de quem está há mais tempo`,
             tabelas: [tabelaDoQuadro(naFaixa(k), ate)],
             link: {
-              href: `/rh/quadro?mes=${mes.slice(0, 7)}`,
+              href: `/rh/quadro?${qs()}`,
               rotulo: "Abrir Quadro e turnover",
             },
           } satisfies Detalhe,
@@ -388,7 +427,7 @@ async function Pessoas({
           {
             secao: "Horas perdidas",
             titulo: motivo === "faltas" ? "Faltas" : "Atrasos",
-            subtitulo: `Quem teve ${motivo} em ${formatarMes(mes)}, da maior para a menor`,
+            subtitulo: `Quem teve ${motivo} em ${rotulo}, da maior para a menor`,
             resumo: [
               {
                 rotulo: "Total",
@@ -418,7 +457,7 @@ async function Pessoas({
     absenteismo: veJornada
       ? ({
           secao: "Absenteísmo",
-          titulo: `Absenteísmo de ${formatarMes(mes)}`,
+          titulo: `Absenteísmo de ${rotulo}`,
           subtitulo: "Faltas e atrasos ÷ horas previstas, por pessoa",
           resumo: [
             { rotulo: "Absenteísmo", valor: formatarPct(totais.absenteismo) },
@@ -434,7 +473,7 @@ async function Pessoas({
       ? ({
           secao: "Banco de horas",
           titulo: "Banco positivo",
-          subtitulo: `Quem tem horas a folgar ou receber em ${formatarMes(mes)}`,
+          subtitulo: `Quem tem horas a folgar ou receber em ${rotulo}`,
           resumo: [
             {
               rotulo: "Total",
@@ -452,13 +491,19 @@ async function Pessoas({
 
   return (
     <>
+      {(aviso.semDado || aviso.parcial) && (
+        <p className="vidro rounded-2xl px-5 py-3 text-sm text-neutral-600">
+          <span className="font-medium text-neutral-900">Ponto: </span>
+          {aviso.semDado ?? aviso.parcial}
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        {/* Visão geral: cartão de destaque com os números do mês. */}
+        {/* Visão geral: cartão de destaque com os números do período. */}
         <section className="destaque flex flex-col gap-6 rounded-[2rem] p-6 xl:col-span-5">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Visão geral</h2>
             <span className="ladrilho rounded-full px-3 py-1 text-xs">
-              {formatarMes(mes)}
+              {rotulo}
             </span>
           </div>
 
@@ -535,10 +580,16 @@ async function Pessoas({
                 Turnover
               </p>
               <p className="mt-1 text-2xl font-semibold">
-                {formatarPct(movimento.turnover)}
+                {formatarPct(tv?.turnover ?? null)}
               </p>
               <div className="mt-1 text-[rgb(255_255_255/0.75)]">
-                <PontoStatus s={status(movimento.turnover, metaTurnover)} />
+                {tv ? (
+                  <PontoStatus s={status(tv.turnover, metaTurnover)} />
+                ) : (
+                  <span className="text-xs">
+                    {doPeriodo.ok ? "" : doPeriodo.motivo}
+                  </span>
+                )}
               </div>
             </AbreDetalhe>
           </div>
@@ -556,7 +607,7 @@ async function Pessoas({
             <div className="flex flex-wrap gap-2 text-xs">
               <span className="rounded-full bg-neutral-900 px-3 py-1 text-white">
                 {ativos - ativosAnt >= 0 ? "+" : ""}
-                {ativos - ativosAnt} vs {formatarMes(anterior)}
+                {ativos - ativosAnt} vs {formatarData(anterior.ate)}
               </span>
               <span className="rounded-full border border-neutral-200 px-3 py-1 text-neutral-600">
                 {movimento.admissoes} admissões
@@ -668,7 +719,7 @@ async function Pessoas({
             <div>
               <h2 className="text-lg font-semibold">Banco de horas</h2>
               <p className="text-xs text-[rgb(255_255_255/0.6)]">
-                Saldos do ponto por setor em {formatarMes(mes)}
+                Saldos do ponto por setor em {rotulo}
               </p>
             </div>
             <span className="ladrilho rounded-full px-3 py-1 text-xs">
@@ -740,8 +791,8 @@ async function Pessoas({
                 : ""}
             </p>
           </div>
-          <Colunas
-            rotularTodas
+          <Faixas
+            className="flex-1"
             itens={tempoDeCasa}
             detalhes={detTempo}
             descricao="Colaboradores ativos por faixa de tempo de casa"
@@ -752,7 +803,7 @@ async function Pessoas({
           <div>
             <h2 className="text-lg font-semibold">Horas perdidas</h2>
             <p className="text-xs text-neutral-500">
-              O que forma o absenteísmo de {formatarMes(mes)}
+              O que forma o absenteísmo de {rotulo}
             </p>
           </div>
           <Rosca

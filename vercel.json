@@ -8,6 +8,10 @@
     {
       "path": "/api/sync/copiloto-rh",
       "schedule": "30 9 * * *"
+    },
+    {
+      "path": "/api/sync/wps",
+      "schedule": "0 10 * * *"
     }
   ]
 }

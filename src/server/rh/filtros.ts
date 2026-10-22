@@ -5,7 +5,14 @@ import {
   fimDoMes,
   isoLocal,
 } from "@/lib/formato";
-import { departamentos } from "./dados";
+import {
+  ateNoMaximo,
+  descreverPeriodo,
+  lerPeriodo,
+  type Periodo,
+  periodoAnterior,
+} from "@/lib/periodo";
+import { type Departamento, departamentos } from "./dados";
 
 export type Busca = Record<string, string | string[] | undefined>;
 
@@ -22,6 +29,43 @@ export async function lerFiltros(busca: Busca, meses: string[]) {
   const depPedido = typeof busca.dep === "string" ? busca.dep : null;
   const departamento = deps.some((d) => d.id === depPedido) ? depPedido : null;
   return { mes, departamento, departamentos: deps };
+}
+
+export interface FiltrosDoPeriodo {
+  periodo: Periodo;
+  /** Período anterior de mesmo tamanho, para as variações. */
+  anterior: Periodo;
+  /** "Esta semana (13/10 a 19/10/2026)", "out/2026"… */
+  rotulo: string;
+  /** Competência do fim do período (metas, gráficos de 12 meses, folha). */
+  mes: string;
+  /** Hoje (aaaa-mm-dd), limite das datas na tela. */
+  hoje: string;
+  departamento: string | null;
+  departamentos: Departamento[];
+}
+
+/**
+ * Lê ?periodo= ou ?de=&ate= (ou ?mes=, dos links antigos) e ?dep= da URL.
+ * Data no futuro vira hoje; departamento desconhecido vira "todos".
+ */
+export async function lerFiltrosDoPeriodo(
+  busca: Busca,
+  agora = new Date(),
+): Promise<FiltrosDoPeriodo> {
+  const deps = await departamentos();
+  const hoje = isoLocal(agora);
+  const periodo = ateNoMaximo(lerPeriodo(busca, agora), hoje);
+  const depPedido = typeof busca.dep === "string" ? busca.dep : null;
+  return {
+    periodo,
+    anterior: periodoAnterior(periodo),
+    rotulo: descreverPeriodo(periodo),
+    mes: `${periodo.ate.slice(0, 7)}-01`,
+    hoje,
+    departamento: deps.some((d) => d.id === depPedido) ? depPedido : null,
+    departamentos: deps,
+  };
 }
 
 /** Último dia considerado no mês: ontem, se for o mês corrente. */

@@ -7,6 +7,7 @@ export type Icone =
   | "custo"
   | "quadro"
   | "jornada"
+  | "funcionarios"
   | "endomarketing"
   | "folha"
   | "beneficios"
@@ -61,6 +62,18 @@ export const navigation: NavSection[] = [
     itens: [
       { href: "/rh", label: "Painel", icone: "painel", permissao: "rh.painel" },
       {
+        href: "/rh/funcionarios",
+        label: "Funcionários",
+        icone: "funcionarios",
+        permissao: "rh.funcionarios",
+      },
+      {
+        href: "/rh/jornada",
+        label: "Jornada",
+        icone: "jornada",
+        permissao: "rh.jornada",
+      },
+      {
         href: "/rh/custo-de-pessoal",
         label: "Custo de pessoal",
         icone: "custo",
@@ -71,12 +84,6 @@ export const navigation: NavSection[] = [
         label: "Quadro e turnover",
         icone: "quadro",
         permissao: "rh.quadro",
-      },
-      {
-        href: "/rh/jornada",
-        label: "Jornada",
-        icone: "jornada",
-        permissao: "rh.jornada",
       },
       {
         href: "/rh/endomarketing",

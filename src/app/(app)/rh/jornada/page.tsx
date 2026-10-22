@@ -6,7 +6,7 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
-import { Filtros } from "@/components/dashboard/filtros";
+import { FiltroPeriodo } from "@/components/dashboard/filtro-periodo";
 import {
   BarrasDivergentes,
   BarrasHorizontais,
@@ -21,20 +21,22 @@ import {
 import {
   type Coluna,
   Nota,
+  paraBusca,
   Secao,
   Tabela,
 } from "@/components/dashboard/tabela";
+import { TabelaBusca } from "@/components/dashboard/tabela-busca";
 import { type Detalhe, ProvedorDetalhe } from "@/components/modal-detalhe";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
   formatarData,
   formatarHoras,
-  formatarMes,
   formatarNumero,
   formatarPct,
 } from "@/lib/formato";
-import { status } from "@/lib/indicadores";
+import { rotuloStatus, status } from "@/lib/indicadores";
+import { descreverPeriodo } from "@/lib/periodo";
 import {
   absenteismo,
   colunasDeAbono,
@@ -44,6 +46,7 @@ import {
   somarPonto,
   type TotaisSetor,
 } from "@/lib/rh/calculos";
+import { saldosEmReais } from "@/lib/rh/custo";
 import {
   tabelaDeExtras,
   tabelaDeHorasPerdidas,
@@ -56,21 +59,23 @@ import {
   origemDoSetor,
   origemDosAbonos,
 } from "@/lib/rh/modais";
+import { avisoDoPonto } from "@/lib/rh/ponto-periodo";
 import { pode } from "@/server/auth";
 import {
   bancoHorasEmReais,
-  competenciasDoPonto,
   metaDe,
-  pontoDoMes,
+  pontoDoPeriodo,
+  valorDaHora,
 } from "@/server/rh/dados";
-import {
-  type Busca,
-  fimConsiderado,
-  lerFiltros,
-  mesAnterior,
-} from "@/server/rh/filtros";
+import { type Busca, lerFiltrosDoPeriodo } from "@/server/rh/filtros";
 
 export const metadata: Metadata = { title: "Jornada" };
+
+/** Valores distintos, em ordem, como opções de um filtro. */
+const opcoesDe = (valores: string[]) =>
+  [...new Set(valores)]
+    .sort((a, b) => a.localeCompare(b))
+    .map((v) => ({ valor: v, rotulo: v }));
 
 export default function Page({ searchParams }: PageProps<"/rh/jornada">) {
   return (
@@ -89,27 +94,50 @@ export default function Page({ searchParams }: PageProps<"/rh/jornada">) {
 }
 
 async function Jornada({ busca }: { busca: Promise<Busca> }) {
-  const meses = await competenciasDoPonto();
-  const { mes, departamento, departamentos } = await lerFiltros(
-    await busca,
-    meses,
-  );
-  const anterior = mesAnterior(mes);
-  const [todas, metaAbs, reais, todasAnt] = await Promise.all([
-    pontoDoMes(mes),
+  const { periodo, anterior, rotulo, mes, hoje, departamento, departamentos } =
+    await lerFiltrosDoPeriodo(await busca);
+  const rotuloAnt = descreverPeriodo(anterior);
+  const [pontoP, metaAbs, reais, pontoAntP, hora] = await Promise.all([
+    pontoDoPeriodo(periodo.de, periodo.ate),
     metaDe("rh.absenteismo", mes),
     pode("rh.custo_pessoal").then((p) => (p ? bancoHorasEmReais(mes) : null)),
-    pontoDoMes(anterior),
+    pontoDoPeriodo(anterior.de, anterior.ate),
+    // Banco em R$ por pessoa revela o salário: só com o custo individual.
+    pode("rh.custo_pessoal.individual").then((p) =>
+      p ? valorDaHora(mes) : null,
+    ),
   ]);
-  const linhas = departamento
-    ? todas.filter((l) => l.departamento_id === departamento)
-    : todas;
+  const filtros = (
+    <FiltroPeriodo
+      de={periodo.de}
+      ate={periodo.ate}
+      atalho={periodo.atalho}
+      hoje={hoje}
+      departamentos={departamentos}
+      departamento={departamento}
+    />
+  );
+  const aviso = avisoDoPonto(pontoP);
+  if (aviso.semDado)
+    return (
+      <div className="flex flex-col gap-6">
+        {filtros}
+        <Secao titulo="Sem ponto no período">
+          <p className="text-sm text-neutral-600">{aviso.semDado}</p>
+        </Secao>
+      </div>
+    );
+  const doDep = (ls: LinhaPonto[]) =>
+    departamento ? ls.filter((l) => l.departamento_id === departamento) : ls;
+  const linhas = doDep(pontoP.linhas);
 
   const totais = somarPonto(linhas);
-  const linhasAnt = departamento
-    ? todasAnt.filter((l) => l.departamento_id === departamento)
-    : todasAnt;
-  const totaisAnt = linhasAnt.length ? somarPonto(linhasAnt) : null;
+  const linhasAnt = doDep(pontoAntP.linhas);
+  const totaisAnt =
+    linhasAnt.length && !avisoDoPonto(pontoAntP).parcial
+      ? somarPonto(linhasAnt)
+      : null;
+  const efetivo = pontoP.efetivo ?? periodo;
   const setores = porSetor(linhas);
   const abonos = colunasDeAbono(linhas);
   const meta = metaAbs
@@ -117,8 +145,8 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
     : undefined;
   // De onde vem cada número (modal ao clicar). A tela já exige rh.jornada.
   const opcoes = {
-    mes,
-    ate: fimConsiderado(mes),
+    mes: efetivo.de,
+    ate: efetivo.ate,
     pessoas: true,
     meta: metaAbs ? `até ${formatarPct(metaAbs.meta)}` : undefined,
   };
@@ -136,7 +164,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
     if (antes === null || antes === undefined) return undefined;
     const d = atual - antes;
     return {
-      texto: `${d > 0 ? "+" : ""}${formato(d)} vs ${formatarMes(anterior)}`,
+      texto: `${d > 0 ? "+" : ""}${formato(d)} vs ${rotuloAnt}`,
       sentido: d === 0 ? "neutro" : d < 0 === menosEhMelhor ? "bom" : "ruim",
     };
   };
@@ -144,6 +172,9 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
   const doSetor = (id: string | null) =>
     linhas.filter((l) => l.departamento_id === id);
   const chaveSetor = (id: string | null) => id ?? "sem";
+  const bancoPorPessoa = hora
+    ? saldosEmReais(linhas, hora.salarioHora, hora.adicional)
+    : undefined;
 
   // Banco de horas: por setor e os extremos por pessoa.
   const detalheBancoSetor = Object.fromEntries(
@@ -152,7 +183,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
       {
         secao: "Banco de horas",
         titulo: s.departamento,
-        subtitulo: `Saldo de cada pessoa em ${formatarMes(mes)}, de quem mais deve para quem mais tem crédito`,
+        subtitulo: `Saldo de cada pessoa em ${rotulo}, de quem mais deve para quem mais tem crédito`,
         resumo: [
           { rotulo: "Pessoas", valor: String(s.colaboradores) },
           {
@@ -165,7 +196,9 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
           },
           { rotulo: "Saldo", valor: formatarHoras(s.banco_saldo_min) },
         ],
-        tabelas: [tabelaDoBanco(doSetor(s.departamento_id))],
+        tabelas: [
+          tabelaDoBanco(doSetor(s.departamento_id), undefined, bancoPorPessoa),
+        ],
       } satisfies Detalhe,
     ]),
   );
@@ -193,7 +226,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
   }));
   const detalheExtras: Detalhe = {
     secao: "Horas extras",
-    titulo: `Horas extras de ${formatarMes(mes)}`,
+    titulo: `Horas extras de ${rotulo}`,
     subtitulo: "Do ponto (Secullum), de quem fez mais para quem fez menos",
     resumo: [
       { rotulo: "Total", valor: formatarHoras(totais.extras_min) },
@@ -218,7 +251,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
       {
         secao: "Horas extras",
         titulo: tipo,
-        subtitulo: `Quem fez extras ${tipo === "Sem divisão por %" ? "sem divisão por percentual" : `a ${tipo.replace("Ex", "")}`} em ${formatarMes(mes)}`,
+        subtitulo: `Quem fez extras ${tipo === "Sem divisão por %" ? "sem divisão por percentual" : `a ${tipo.replace("Ex", "")}`} em ${rotulo}`,
         tabelas: [tabelaDeExtras(linhas, tipo)],
       } satisfies Detalhe,
     ]),
@@ -229,7 +262,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
       {
         secao: "Horas extras",
         titulo: s.departamento,
-        subtitulo: `Horas extras de cada pessoa em ${formatarMes(mes)}`,
+        subtitulo: `Horas extras de cada pessoa em ${rotulo}`,
         resumo: [
           { rotulo: "Extras", valor: formatarHoras(s.extras_min) },
           {
@@ -258,7 +291,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
       {
         secao: "Faltas",
         titulo: s.departamento,
-        subtitulo: `Quem teve faltas em ${formatarMes(mes)}`,
+        subtitulo: `Quem teve faltas em ${rotulo}`,
         resumo: [
           { rotulo: "Faltas", valor: formatarHoras(s.faltas_min) },
           { rotulo: "Dias", valor: formatarNumero(s.faltas_dias, 1) },
@@ -282,6 +315,9 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
       (absenteismo(b) ?? -1) - (absenteismo(a) ?? -1) ||
       a.nome.localeCompare(b.nome),
   );
+  // Absenteísmo de cada pessoa frente à meta (filtro da tabela).
+  const situacao = (l: LinhaPonto) =>
+    rotuloStatus(status(absenteismo(l), metaAbs));
 
   const colunasSetor: Coluna<TotaisSetor>[] = [
     { titulo: "Setor", valor: (s) => s.departamento },
@@ -379,12 +415,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
   return (
     <ProvedorDetalhe>
       <div className="flex flex-col gap-6">
-        <Filtros
-          meses={meses}
-          mes={mes}
-          departamentos={departamentos}
-          departamento={departamento}
-        />
+        {filtros}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <CartaoIndicador
@@ -454,6 +485,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
                       valor: reais.porDepartamento.get(departamento) ?? null,
                     }
                   : reais,
+              porPessoa: bancoPorPessoa,
             })}
           />
         </div>
@@ -461,7 +493,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
           <Secao
             titulo="Absenteísmo por setor"
-            descricao={`${formatarMes(mes)} · passe o mouse para ver faltas e atrasos`}
+            descricao={`${rotulo} · passe o mouse para ver faltas e atrasos`}
             className="xl:col-span-3"
           >
             <BarrasHorizontais
@@ -521,65 +553,89 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
           </Secao>
         </div>
 
+        {/* Mesma altura nos dois; as linhas que passarem dela rolam. */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <Secao
             titulo="Banco de horas por setor"
-            descricao={`Débitos ← zero → créditos em ${formatarMes(mes)}; clique para ver cada pessoa`}
+            descricao={`Débitos ← zero → créditos em ${rotulo}; clique para ver cada pessoa`}
+            className="flex flex-col xl:h-[28rem]"
           >
-            <BarrasDivergentes
-              descricao="Banco de horas por setor: débitos e créditos"
-              rotulos={{
-                negativo: "Débito (devem horas)",
-                positivo: "Crédito (a folgar ou pagar)",
-              }}
-              linhas={setores.map((s) => ({
-                chave: chaveSetor(s.departamento_id),
-                rotulo: s.departamento,
-                negativo: Math.abs(s.banco_negativo_min),
-                positivo: s.banco_positivo_min,
-                textoNegativo: formatarHoras(-Math.abs(s.banco_negativo_min)),
-                textoPositivo: `+${formatarHoras(s.banco_positivo_min)}`,
-                resumo: `saldo ${formatarHoras(s.banco_saldo_min)}`,
-                detalhe: `${s.colaboradores} pessoas`,
-              }))}
-              detalhes={detalheBancoSetor}
-            />
-            <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                {
-                  rotulo: "Créditos",
-                  valor: `+${formatarHoras(totais.banco_positivo_min)}`,
-                },
-                {
-                  rotulo: "Débitos",
-                  valor: formatarHoras(-Math.abs(totais.banco_negativo_min)),
-                },
-                {
-                  rotulo: "Devem horas",
-                  valor: `${linhas.filter((l) => l.banco_saldo_min < 0).length} pessoas`,
-                },
-                {
-                  rotulo: "Têm crédito",
-                  valor: `${linhas.filter((l) => l.banco_saldo_min > 0).length} pessoas`,
-                },
-              ].map((x) => (
-                <div
-                  key={x.rotulo}
-                  className="rounded-2xl bg-neutral-900/[0.04] px-4 py-3"
-                >
-                  <dt className="text-[11px] text-neutral-500">{x.rotulo}</dt>
-                  <dd className="mt-0.5 text-lg font-semibold tabular-nums">
-                    {x.valor}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            <div className="flex h-full flex-col gap-5">
+              <div className="min-h-0 flex-1">
+                <BarrasDivergentes
+                  rolar
+                  descricao="Banco de horas por setor: débitos e créditos"
+                  rotulos={{
+                    negativo: "Débito (devem horas)",
+                    positivo: "Crédito (a folgar ou pagar)",
+                  }}
+                  linhas={setores.map((s) => ({
+                    chave: chaveSetor(s.departamento_id),
+                    rotulo: s.departamento,
+                    negativo: Math.abs(s.banco_negativo_min),
+                    positivo: s.banco_positivo_min,
+                    textoNegativo: formatarHoras(
+                      -Math.abs(s.banco_negativo_min),
+                    ),
+                    textoPositivo: `+${formatarHoras(s.banco_positivo_min)}`,
+                    resumo: `saldo ${formatarHoras(s.banco_saldo_min)}`,
+                    detalhe: `${s.colaboradores} pessoas`,
+                  }))}
+                  detalhes={detalheBancoSetor}
+                />
+              </div>
+              <dl className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  {
+                    rotulo: "Créditos",
+                    valor: `+${formatarHoras(totais.banco_positivo_min)}`,
+                  },
+                  {
+                    rotulo: "Débitos",
+                    valor: formatarHoras(-Math.abs(totais.banco_negativo_min)),
+                  },
+                  {
+                    rotulo: "Devem horas",
+                    valor: String(
+                      linhas.filter((l) => l.banco_saldo_min < 0).length,
+                    ),
+                    unidade: "pessoas",
+                  },
+                  {
+                    rotulo: "Têm crédito",
+                    valor: String(
+                      linhas.filter((l) => l.banco_saldo_min > 0).length,
+                    ),
+                    unidade: "pessoas",
+                  },
+                ].map((x) => (
+                  <div
+                    key={x.rotulo}
+                    className="min-w-0 rounded-2xl bg-neutral-900/[0.04] px-4 py-3"
+                  >
+                    <dt className="truncate text-[11px] text-neutral-500">
+                      {x.rotulo}
+                    </dt>
+                    <dd className="mt-0.5 truncate text-lg font-semibold tabular-nums">
+                      {x.valor}
+                      {x.unidade && (
+                        <span className="ml-1 text-xs font-normal text-neutral-500">
+                          {x.unidade}
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
           </Secao>
           <Secao
             titulo="Banco de horas por pessoa"
             descricao="Quem mais deve horas e quem mais tem crédito"
+            className="flex flex-col xl:h-[28rem]"
           >
             <BarrasDivergentes
+              rolar
               descricao="Saldo do banco de horas: quem mais deve e quem mais tem crédito"
               rotulos={{ negativo: "Deve horas", positivo: "Tem crédito" }}
               linhas={extremosBanco.map((l) => ({
@@ -620,7 +676,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
           </Secao>
           <Secao
             titulo="Horas extras por setor"
-            descricao={`${formatarMes(mes)} · clique para ver cada pessoa`}
+            descricao={`${rotulo} · clique para ver cada pessoa`}
             className="xl:col-span-3"
           >
             <BarrasHorizontais
@@ -643,7 +699,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <Secao
             titulo="Quem mais fez horas extras"
-            descricao={`As 10 pessoas com mais extras em ${formatarMes(mes)}`}
+            descricao={`As 10 pessoas com mais extras em ${rotulo}`}
           >
             <BarrasHorizontais
               descricao="As 10 pessoas com mais horas extras"
@@ -663,7 +719,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
           </Secao>
           <Secao
             titulo="Quem mais faltou"
-            descricao={`As 10 pessoas com mais horas de falta em ${formatarMes(mes)}`}
+            descricao={`As 10 pessoas com mais horas de falta em ${rotulo}`}
           >
             <BarrasHorizontais
               descricao="As 10 pessoas com mais horas de falta"
@@ -681,7 +737,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
 
         <Secao
           titulo="Faltas por setor"
-          descricao={`Horas de falta em ${formatarMes(mes)}, com os dias e o DSR descontado; clique para ver cada pessoa`}
+          descricao={`Horas de falta em ${rotulo}, com os dias e o DSR descontado; clique para ver cada pessoa`}
         >
           <BarrasHorizontais
             descricao="Faltas por setor"
@@ -742,24 +798,70 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
 
         <Secao
           titulo="Por funcionário"
-          descricao="Do maior absenteísmo para o menor"
+          descricao={`${pessoas.length} pessoas, do maior absenteísmo para o menor`}
         >
-          <Tabela
-            colunas={colunasPessoa}
-            linhas={pessoas}
-            chave={(l) => l.colaborador_id}
+          <TabelaBusca
+            placeholder="Buscar pelo nome, matrícula ou setor…"
+            porPagina={10}
+            filtros={[
+              {
+                chave: "setor",
+                rotulo: "Setor",
+                todos: "Todos os setores",
+                opcoes: opcoesDe(pessoas.map((l) => l.departamento)),
+              },
+              ...(metaAbs
+                ? [
+                    {
+                      chave: "abs",
+                      rotulo: "Absenteísmo",
+                      todos: "Qualquer absenteísmo",
+                      opcoes: (["ok", "atencao", "fora", "sem_dado"] as const)
+                        .map((s) => rotuloStatus(s))
+                        .filter((r) => pessoas.some((l) => situacao(l) === r))
+                        .map((r) => ({ valor: r, rotulo: r })),
+                    },
+                  ]
+                : []),
+              {
+                chave: "banco",
+                rotulo: "Banco de horas",
+                todos: "Qualquer saldo",
+                opcoes: ["Deve horas", "Tem crédito", "Zerado"].map((v) => ({
+                  valor: v,
+                  rotulo: v,
+                })),
+              },
+            ]}
+            {...paraBusca(
+              colunasPessoa,
+              pessoas,
+              (l) => l.colaborador_id,
+              (l) => `${l.nome} ${l.matricula ?? ""} ${l.departamento}`,
+              (l) => ({
+                setor: l.departamento,
+                abs: situacao(l),
+                banco:
+                  l.banco_saldo_min < 0
+                    ? "Deve horas"
+                    : l.banco_saldo_min > 0
+                      ? "Tem crédito"
+                      : "Zerado",
+              }),
+            )}
           />
         </Secao>
 
         <Nota>
-          Fonte: ponto (Secullum) de {formatarData(mes)} a{" "}
-          {formatarData(fimConsiderado(mes))}. Absenteísmo = (faltas + atrasos)
-          ÷ horas previstas. Os abonos ({abonos.join(", ") || "nenhum"})
-          aparecem separados até a confirmação de qual coluna é atestado. Horas
-          extras: soma dos percentuais (Ex80%, Ex100%…) ou a coluna "Extras" nos
-          horários sem divisão; a parte noturna (ExNot) já está dentro e as
-          extras de intervalo (ExInt) ficam à parte até a confirmação. O valor
-          em R$ das extras vem da folha.
+          Fonte: ponto (Secullum) de {formatarData(efetivo.de)} a{" "}
+          {formatarData(efetivo.ate)} (o dia de hoje entra amanhã)
+          {aviso.parcial ? `; ${aviso.parcial}` : ""}. Absenteísmo = (faltas +
+          atrasos) ÷ horas previstas. Os abonos ({abonos.join(", ") || "nenhum"}
+          ) aparecem separados até a confirmação de qual coluna é atestado.
+          Horas extras: soma dos percentuais (Ex80%, Ex100%…) ou a coluna
+          "Extras" nos horários sem divisão; a parte noturna (ExNot) já está
+          dentro e as extras de intervalo (ExInt) ficam à parte até a
+          confirmação. O valor em R$ das extras vem da folha.
         </Nota>
       </div>
     </ProvedorDetalhe>

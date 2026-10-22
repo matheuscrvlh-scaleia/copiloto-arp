@@ -4,7 +4,6 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
 import { formatarMes, lerValorBr } from "@/lib/formato";
-import { TIPOS_TURNOVER } from "@/lib/rh/turnover";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { erroDoBanco, primeiroErro } from "@/server/acoes";
@@ -47,31 +46,6 @@ export async function salvarDepartamento(
 }
 
 // ---------------------------------------------------------------------------
-
-const motivo = z.object({
-  id: z.uuid(),
-  tipo_turnover: z.preprocess(
-    (v) => (v === "" ? null : v),
-    z.enum(TIPOS_TURNOVER).nullable(),
-  ),
-});
-
-export async function salvarMotivo(
-  _: EstadoAcao,
-  form: FormData,
-): Promise<EstadoAcao> {
-  if (!(await pode("rh.parametros"))) return SEM_PERMISSAO;
-  const m = motivo.safeParse(Object.fromEntries(form));
-  if (!m.success) return primeiroErro(m.error);
-  const { error } = await (await createClient())
-    .schema("rh")
-    .from("motivos_desligamento")
-    .update({ tipo_turnover: m.data.tipo_turnover })
-    .eq("id", m.data.id);
-  if (error) return erroDoBanco(error);
-  refresh();
-  return { ok: "Salvo." };
-}
 
 // ---------------------------------------------------------------------------
 // Benefícios (rh.beneficios). Mudam o custo: recalcula as folhas em aberto.
@@ -205,6 +179,30 @@ export async function vincularBeneficio(
   const { error } = await rh.from("colaborador_beneficios").insert(v.data);
   if (error) return erroDoBanco(error);
   return salvoERecalculado("Vinculado.");
+}
+
+const valorManual = z.object({ id: z.uuid(), valor_manual: reais });
+
+/** Valor manual de quem já recebe; vazio volta para a faixa (ou o padrão). */
+export async function salvarValorManual(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("rh.beneficios"))) return SEM_PERMISSAO_BENEFICIO;
+  const v = valorManual.safeParse(Object.fromEntries(form));
+  if (!v.success)
+    return primeiroErro(v.error, { valor_manual: "Valor manual" });
+  const { error } = await (await createClient())
+    .schema("rh")
+    .from("colaborador_beneficios")
+    .update({ valor_manual: v.data.valor_manual })
+    .eq("id", v.data.id);
+  if (error) return erroDoBanco(error);
+  return salvoERecalculado(
+    v.data.valor_manual === null
+      ? "Valor manual removido."
+      : "Valor manual salvo.",
+  );
 }
 
 export async function removerVinculo(

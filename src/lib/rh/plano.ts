@@ -3,6 +3,8 @@
 // (período em texto, % pago pelo colaborador, observações). Função pura: o
 // servidor lê o .xlsx e passa as abas como linhas.
 
+import { lerValorBr } from "@/lib/formato";
+
 export type Celula = string | number | boolean | Date | null;
 
 export interface AbaDaPlanilha {
@@ -111,6 +113,14 @@ function lerFaixas(a: AbaDaPlanilha, avisos: string[]): FaixaDoPlano[] {
   }
   if (!faixas.length)
     throw new ErroPlanilha(`A aba "${a.sheet}" não tem nenhuma faixa.`);
+  return conferirFaixas(faixas, avisos);
+}
+
+/** Ordena pela idade; sobreposição é erro, buraco entre faixas é aviso. */
+export function conferirFaixas(
+  faixas: FaixaDoPlano[],
+  avisos: string[],
+): FaixaDoPlano[] {
   faixas.sort((x, y) => x.idade_min - y.idade_min);
   for (let k = 1; k < faixas.length; k++) {
     const ant = faixas[k - 1] as FaixaDoPlano;
@@ -126,6 +136,55 @@ function lerFaixas(a: AbaDaPlanilha, avisos: string[]): FaixaDoPlano[] {
   }
   return faixas;
 }
+
+export interface LinhaDeFaixa {
+  idade_min: string;
+  idade_max: string;
+  mensalidade: string;
+}
+
+/**
+ * Faixas editadas na tela. Linha toda vazia é ignorada (apagar a linha tira
+ * a faixa); idade final vazia é "sem limite".
+ */
+export function faixasDoFormulario(linhas: LinhaDeFaixa[]): TabelaDoPlano {
+  const faixas: FaixaDoPlano[] = [];
+  const idade = (t: string) => (/^\d{1,3}$/.test(t) ? Number(t) : null);
+  for (const [i, l] of linhas.entries()) {
+    const [ini, fim, valor] = [l.idade_min, l.idade_max, l.mensalidade].map(
+      (t) => t.trim(),
+    ) as [string, string, string];
+    if (!ini && !fim && !valor) continue;
+    const linha = `Linha ${i + 1}`;
+    const min = idade(ini);
+    if (min === null)
+      throw new ErroPlanilha(`${linha}: informe a idade inicial (0 a 999).`);
+    const max = fim === "" ? null : idade(fim);
+    if (fim !== "" && max === null)
+      throw new ErroPlanilha(`${linha}: idade final inválida.`);
+    if (max !== null && max < min)
+      throw new ErroPlanilha(`${linha}: a idade final é menor que a inicial.`);
+    const mensalidade = lerValorBr(valor);
+    if (mensalidade === null || Number.isNaN(mensalidade) || mensalidade < 0)
+      throw new ErroPlanilha(`${linha}: informe a mensalidade.`);
+    faixas.push({
+      idade_min: min,
+      idade_max: max !== null && max >= SEM_LIMITE ? null : max,
+      mensalidade,
+    });
+  }
+  if (!faixas.length) throw new ErroPlanilha("Informe ao menos uma faixa.");
+  const avisos: string[] = [];
+  return {
+    faixas: conferirFaixas(faixas, avisos),
+    coparticipacao: [],
+    avisos,
+  };
+}
+
+/** "0 a 18 anos", "59 anos ou mais". */
+export const faixaTexto = (min: number, max: number | null) =>
+  max === null ? `${min} anos ou mais` : `${min} a ${max} anos`;
 
 function lerCoparticipacao(
   a: AbaDaPlanilha,

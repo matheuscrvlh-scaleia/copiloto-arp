@@ -1,7 +1,7 @@
 "use client";
 
-import { Eye, EyeOff, Wand2 } from "lucide-react";
-import { useState } from "react";
+import { Check, Copy, Eye, EyeOff, Wand2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 
 const ALFABETO =
@@ -13,18 +13,27 @@ function gerar(): string {
   return Array.from(bytes, (b) => ALFABETO[b % ALFABETO.length]).join("");
 }
 
-/** Campo de senha com "mostrar" e "gerar senha forte". */
+/** Campo de senha com "mostrar", "gerar senha forte" e "copiar". */
 export function CampoSenha({
   name = "senha",
   rotulo = "Senha inicial",
   ajuda = "Mínimo de 10 caracteres. Passe a senha ao usuário por um canal seguro.",
+  gerarAoAbrir = false,
 }: {
   name?: string;
   rotulo?: string;
   ajuda?: string;
+  /** Já abre com uma senha gerada (só no navegador, depois de montar). */
+  gerarAoAbrir?: boolean;
 }) {
   const [valor, setValor] = useState("");
   const [visivel, setVisivel] = useState(false);
+  const [copiada, setCopiada] = useState(false);
+  useEffect(() => {
+    if (!gerarAoAbrir) return;
+    setValor(gerar());
+    setVisivel(true);
+  }, [gerarAoAbrir]);
   return (
     <div className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
       <label htmlFor={`campo-${name}`}>{rotulo}</label>
@@ -65,6 +74,28 @@ export function CampoSenha({
         >
           <Wand2 className="size-4" aria-hidden />
           Gerar
+        </button>
+        <button
+          type="button"
+          disabled={!valor}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(valor);
+              setCopiada(true);
+              setTimeout(() => setCopiada(false), 2000);
+            } catch {
+              // Sem acesso à área de transferência: a senha está visível.
+              setVisivel(true);
+            }
+          }}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-sm text-neutral-700 transition hover:border-neutral-400 disabled:opacity-50"
+        >
+          {copiada ? (
+            <Check className="size-4 text-green-700" aria-hidden />
+          ) : (
+            <Copy className="size-4" aria-hidden />
+          )}
+          {copiada ? "Copiada" : "Copiar"}
         </button>
       </div>
       <span className="font-normal text-neutral-400">{ajuda}</span>

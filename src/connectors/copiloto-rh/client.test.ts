@@ -182,6 +182,57 @@ describe("copiloto rh", () => {
     expect(tokens).toBe(2);
   });
 
+  it("turnover: manda período e departamento e valida a resposta", async () => {
+    const chamadas: Chamada[] = [];
+    const contagens = {
+      terminations: 1,
+      voluntary: 1,
+      involuntary: 0,
+      agreement: 0,
+      hires: 2,
+      headcount_start: 30,
+      headcount_end: 31,
+    };
+    const client = createCopilotoRhClient({
+      ...config,
+      fetch: api(
+        {
+          "/public-api/v1/auth/token": token,
+          "/public-api/v1/turnover": () =>
+            json({
+              period: { from: "2026-10-01", to: "2026-10-21" },
+              filters: { unit_id: null, department_id: "d1" },
+              agreement_counts_as: "voluntary",
+              rates: {
+                general: 3.33,
+                voluntary: 3.33,
+                involuntary: 0,
+                agreement: null,
+              },
+              counts: contagens,
+              monthly: [],
+              by_department: [
+                { department: null, active: 1, terminations: 0, rate: 0 },
+              ],
+            }),
+        },
+        chamadas,
+      ),
+    });
+    const t = await client.turnover({
+      de: "2026-10-01",
+      ate: "2026-10-21",
+      departamentoId: "d1",
+    });
+    expect(t.rates.general).toBe(3.33);
+    const q = new URL(chamadas[1]?.url ?? "").searchParams;
+    expect([q.get("from"), q.get("to"), q.get("department_id")]).toEqual([
+      "2026-10-01",
+      "2026-10-21",
+      "d1",
+    ]);
+  });
+
   it("credencial errada vira erro do conector, sem repetir o login", async () => {
     const chamadas: Chamada[] = [];
     const client = createCopilotoRhClient({

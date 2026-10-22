@@ -14,6 +14,8 @@ export const PERMISSOES = {
     "Ver salário e custo individual, com memória de cálculo",
   "rh.quadro": "Ver quadro, admissões, desligamentos e turnover",
   "rh.jornada": "Ver absenteísmo, horas extras e banco de horas",
+  "rh.funcionarios":
+    "Ver a lista de funcionários e o perfil, com as batidas do ponto",
   "rh.endomarketing": "Ver gastos de endomarketing",
   "rh.folha": "Importar a folha mensal e classificar rubricas",
   "rh.beneficios": "Cadastrar benefícios, plano de saúde e dependentes",

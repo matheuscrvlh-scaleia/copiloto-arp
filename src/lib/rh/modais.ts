@@ -1,6 +1,5 @@
 import type { Detalhe, TabelaDetalhe } from "@/components/modal-detalhe";
 import {
-  fimDoMes,
   formatarData,
   formatarHoras,
   formatarMes,
@@ -8,11 +7,11 @@ import {
   formatarNumero,
   formatarPct,
 } from "@/lib/formato";
+import { descreverPeriodo } from "@/lib/periodo";
 import {
   ativosEm,
   type ColaboradorQuadro,
   type LinhaPonto,
-  movimentoDoMes,
   porSetor,
   somarPonto,
   type TotaisSetor,
@@ -27,7 +26,7 @@ import {
   tabelaDoQuadro,
 } from "./detalhes";
 import { ROTULO_CONTRATO } from "./rubricas";
-import { type ConfigTurnover, TURNOVER_PADRAO } from "./turnover";
+import type { NumerosTurnover } from "./turnover";
 
 // Modais "de onde vem este número" das telas do RH: fonte, fórmula e quem
 // forma o valor. Lista de pessoas só para quem já as vê nas telas (o
@@ -153,30 +152,37 @@ function tabelaDeQuadroPorSetor(
 
 export type FocoQuadro = "ativos" | "admissoes" | "desligamentos" | "turnover";
 
-/** Quadro de um mês: ativos no fim, admissões, desligamentos e turnover. */
+/**
+ * Quadro de um período (de `de` até `fim`): ativos no fim, admissões,
+ * desligamentos e turnover.
+ */
 export function origemDoQuadro(
   colaboradores: ColaboradorQuadro[],
-  competencia: string,
+  de: string,
   fim: string,
   opcoes: {
     foco?: FocoQuadro;
     pessoas: boolean;
     link?: Link;
-    /** Configuração do turnover (a do Copiloto); sem ela, a padrão. */
-    turnover?: ConfigTurnover;
+    /**
+     * Números do período vindos do Copiloto (GET /v1/turnover). Sem eles
+     * (API fora), as contagens saem da lista e o turnover fica em branco,
+     * com `semTurnover` explicando por quê.
+     */
+    numeros?: NumerosTurnover | null;
+    semTurnover?: string;
+    /** Nome do período nos títulos (ex.: "out/2026"); sem ele, as datas. */
+    rotulo?: string;
   },
 ): Detalhe {
   const foco = opcoes.foco ?? "ativos";
-  const config = opcoes.turnover ?? TURNOVER_PADRAO;
+  const n = opcoes.numeros ?? null;
+  const nome =
+    opcoes.rotulo ?? descreverPeriodo({ de, ate: fim, atalho: null });
   const ativos = ativosEm(colaboradores, fim).sort((a, b) =>
     a.nome.localeCompare(b.nome),
   );
-  const { admitidos, desligados } = movimentoEntre(
-    colaboradores,
-    competencia,
-    fimDoMes(competencia),
-  );
-  const m = movimentoDoMes(colaboradores, competencia, config);
+  const { admitidos, desligados } = movimentoEntre(colaboradores, de, fim);
 
   const tabelas: Record<
     "ativos" | "admissoes" | "desligamentos",
@@ -185,23 +191,23 @@ export function origemDoQuadro(
     ? {
         ativos: tabelaDoQuadro(ativos, fim, `Ativos em ${formatarData(fim)}`),
         admissoes: {
-          ...tabelaDoQuadro(admitidos, fim, "Admitidos no mês"),
-          vazio: "Nenhuma admissão no mês.",
+          ...tabelaDoQuadro(admitidos, fim, `Admitidos em ${nome}`),
+          vazio: "Nenhuma admissão no período.",
         },
         desligamentos: {
-          ...tabelaDeSaidas(desligados, "Desligados no mês"),
-          vazio: "Nenhum desligamento no mês.",
+          ...tabelaDeSaidas(desligados, `Desligados em ${nome}`),
+          vazio: "Nenhum desligamento no período.",
         },
       }
     : {
         ativos: tabelaDeQuadroPorSetor(ativos, "Ativos por setor"),
         admissoes: {
           ...tabelaDeQuadroPorSetor(admitidos, "Admissões por setor"),
-          vazio: "Nenhuma admissão no mês.",
+          vazio: "Nenhuma admissão no período.",
         },
         desligamentos: {
           ...tabelaDeQuadroPorSetor(desligados, "Desligamentos por setor"),
-          vazio: "Nenhum desligamento no mês.",
+          vazio: "Nenhum desligamento no período.",
         },
       };
   const ordem: ("ativos" | "admissoes" | "desligamentos")[] =
@@ -215,16 +221,17 @@ export function origemDoQuadro(
 
   const regra: Record<FocoQuadro, string> = {
     ativos: "Admitido até a data e sem desligamento até ela",
-    admissoes: "Data de admissão dentro do mês",
+    admissoes: "Data de admissão dentro do período",
     desligamentos:
-      "Data de desligamento dentro do mês; o tipo vem do motivo do desligamento no Copiloto",
-    turnover: `Fórmula do Copiloto: ${config.formulaGeral}`,
+      "Data de desligamento dentro do período; o tipo vem da decisão (ou do motivo) no Copiloto",
+    turnover:
+      "Calculado pelo Copiloto RH (Relatórios › Turnover), com as fórmulas configuradas lá; denominador: ativos no primeiro dia",
   };
   const titulos: Record<FocoQuadro, string> = {
     ativos: `Colaboradores ativos em ${formatarData(fim)}`,
-    admissoes: `Admissões de ${formatarMes(competencia)}`,
-    desligamentos: `Desligamentos de ${formatarMes(competencia)}`,
-    turnover: `Turnover de ${formatarMes(competencia)}`,
+    admissoes: `Admissões em ${nome}`,
+    desligamentos: `Desligamentos em ${nome}`,
+    turnover: `Turnover em ${nome}`,
   };
 
   return {
@@ -235,23 +242,29 @@ export function origemDoQuadro(
       : "Somas por setor (a lista de pessoas fica na tela Quadro e turnover)",
     resumo: [
       { rotulo: "Ativos no fim", valor: String(ativos.length) },
-      { rotulo: "Admissões", valor: String(m.admissoes) },
-      { rotulo: "Desligamentos", valor: String(m.desligamentos) },
-      ...m.taxas.map((t) => ({
-        rotulo: t.rotulo,
-        valor: formatarPct(t.valor),
-      })),
+      {
+        rotulo: "Admissões",
+        valor: String(n?.admissoes ?? admitidos.length),
+      },
+      {
+        rotulo: "Desligamentos",
+        valor: String(n?.desligamentos ?? desligados.length),
+      },
+      ...(n
+        ? n.taxas.map((t) => ({
+            rotulo: t.rotulo,
+            valor: formatarPct(t.valor),
+          }))
+        : [{ rotulo: "Turnover", valor: "—" }]),
     ],
     fontes: [
       { rotulo: "Fonte", valor: FONTES.cadastro },
       { rotulo: "Regra", valor: regra[foco] },
-      ...(foco === "turnover"
-        ? [
-            {
-              rotulo: "Ativos no início do mês",
-              valor: `${m.inicio} (total_colaboradores_inicio_mes)`,
-            },
-          ]
+      ...(foco === "turnover" && n
+        ? [{ rotulo: `Ativos em ${formatarData(de)}`, valor: String(n.inicio) }]
+        : []),
+      ...(!n && opcoes.semTurnover
+        ? [{ rotulo: "Turnover", valor: opcoes.semTurnover }]
         : []),
       {
         rotulo: "Atualização",
@@ -454,6 +467,8 @@ export function origemDoBanco(
     /** Só positivos (card "Banco positivo") ou todos os saldos. */
     soPositivo?: boolean;
     reais?: BancoEmReaisResumo | null;
+    /** Saldo em R$ de cada pessoa (só com rh.custo_pessoal.individual). */
+    porPessoa?: Map<string, number | null>;
   },
 ): Detalhe {
   const t = somarPonto(ponto);
@@ -490,11 +505,22 @@ export function origemDoBanco(
           "BSaldo do Secullum por pessoa; positivo soma só quem tem crédito",
       },
       ...(emReais ? [{ rotulo: "Valor em R$", valor: emReais }] : []),
+      ...(o.pessoas && o.porPessoa
+        ? [
+            {
+              rotulo: "Saldo em R$",
+              valor:
+                "Saldo × salário/hora da pessoa: positivo com o adicional, negativo (o que deve) pela hora simples",
+            },
+          ]
+        : []),
       ...(o.meta ? [{ rotulo: "Meta", valor: `${o.meta} (Parâmetros)` }] : []),
     ],
     tabelas: [
       tabelaDeBancoPorSetor(porSetor(ponto), r?.porDepartamento),
-      ...(o.pessoas ? [tabelaDePessoasNoBanco(ponto, !!o.soPositivo)] : []),
+      ...(o.pessoas
+        ? [tabelaDePessoasNoBanco(ponto, !!o.soPositivo, o.porPessoa)]
+        : []),
     ],
     link: o.link,
   };
@@ -504,11 +530,13 @@ export function origemDoBanco(
 function tabelaDePessoasNoBanco(
   ponto: LinhaPonto[],
   soPositivo: boolean,
+  emReais?: Map<string, number | null>,
 ): TabelaDetalhe {
-  if (!soPositivo) return tabelaDoBanco(ponto, "Por pessoa");
+  if (!soPositivo) return tabelaDoBanco(ponto, "Por pessoa", emReais);
   const t = tabelaDoBanco(
     ponto.filter((l) => l.banco_saldo_min > 0),
     "Por pessoa",
+    emReais,
   );
   return { ...t, linhas: [...t.linhas].reverse() };
 }

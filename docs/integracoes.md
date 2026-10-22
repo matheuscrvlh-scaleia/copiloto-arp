@@ -13,8 +13,8 @@ nenhum sistema, mesmo quando a API permite.
 | Secullum Ponto Web | RH: absenteísmo, banco de horas, afastamentos | API | **Funcionando** com o login do RH (conferido em 19/10/2026) | `src/connectors/secullum` |
 | Folha (Sousa e Couto) | RH: rubricas, salários, bases e encargos | Upload mensal (PDF ou Excel) | Extrato de 07/2026 recebido | — |
 | Copiloto RH | RH: nascimento, tipo de contrato, admissões, desligamentos, turnover | API (OAuth client_credentials) | **Funcionando**: fonte de colaboradores, nascimento, contrato, admissões, desligamentos e turnover (cálculo do Copiloto). A base da ARP não tem desligados | `src/connectors/copiloto-rh` |
-| WPS ParkingPlus | Estacionamento: entradas, saídas e pagamentos | API | Homologação funcionando | `src/connectors/wps` |
-| Diário de Obras | Obras: diários (RDO), mão de obra, atividades, ocorrências | API | Falta o token | `src/connectors/diario-de-obras` (só a validação do token) |
+| WPS ParkingPlus | Estacionamento: entradas, saídas e pagamentos | API, 1x por dia | **Sincronizando** (homologação; falta o acesso de produção) | `src/connectors/wps` |
+| Diário de Obras | Obras: diários (RDO), mão de obra, atividades, ocorrências | API | Falta o token. Cliente de todas as rotas pronto, sem sincronização (módulo não definido) | `src/connectors/diario-de-obras` |
 
 **Onde fica o acesso:** Administração › Integrações (Secullum, WPS, Diário
 de Obras e Copiloto RH). Cada credencial é testada ao salvar, só com leituras
@@ -76,7 +76,7 @@ login da ARP são do **Secullum Ponto Web**.
   | `Departamentos` | Id, Descricao, Nfolha |
   | `Funcionarios` | Nome, CPF, PIS, nascimento, admissão, demissão, departamento, função. Dado protegido pela LGPD: o administrador do ponto precisa autorizar |
   | `FuncionariosAfastamentos?dataInicio&dataFim` | Afastamentos com justificativa |
-  | `Calcular` (POST) | A mesma tabela de Relatórios › Cálculos: colunas, linhas por dia e totais (faltas, atrasos, banco de horas…) |
+  | `Calcular` (POST) | A mesma tabela de Relatórios › Cálculos: colunas, linhas por dia e totais (faltas, atrasos, banco de horas…). Guardamos os totais (`rh.ponto_mensal`) e cada dia (`rh.ponto_diario`) |
 
 - **Limites de /Calcular:** um funcionário por chamada, no máximo **um mês**
   por consulta e **100 requisições por hora por banco**. Com 47 pessoas, um
@@ -99,6 +99,11 @@ login da ARP são do **Secullum Ponto Web**.
     Ex100%, DSR, Not., BSaldo, BTotal, BCred., BDeb., FaltasDias e outras.
     Células vazias vêm como `null`. Dá para calcular absenteísmo
     (Faltas + Atras. ÷ Carga) e banco de horas sem planilha.
+  - Cada linha do `/Calcular` tem `Key` = data (`2026-09-01T00:00:00`) e a
+    coluna Data como `01/09/2026 - Ter`. As colunas Entrada 1…3 / Saída 1…3
+    trazem o horário (`08:02`) ou, sem expediente, a justificativa repetida
+    em todas (FOLGA, FERIADO, ATESTAD, EXTERNO, CBH, CIEE, FALTAAB…). BSaldo
+    na linha é o saldo corrente do banco; BCred./BDeb., o movimento do dia.
 - **Bom saber:**
   - Horas extras **não** vêm do ponto: vêm da folha (decisão de 16/10).
   - O token vale 1 hora (`expires_in: 3600`).
@@ -136,7 +141,8 @@ login da ARP são do **Secullum Ponto Web**.
 
 ## WPS ParkingPlus (estacionamento)
 
-API "BI" da WPS. Conferida no ambiente de homologação em 19/10/2026.
+API "BI" da WPS. Conferida no ambiente de homologação em 19/10/2026 e em
+60 dias de pagamentos (476 registros) em 21/10/2026.
 
 - **Base de homologação:** `https://demonstracao.parkingplus.com.br`
 - **Autenticação:** HTTP Basic.
@@ -153,24 +159,49 @@ API "BI" da WPS. Conferida no ambiente de homologação em 19/10/2026.
   - Dentro do grupo, aparece uma vez por RPS (nota) emitida.
   - No dia de exemplo, `quantidade: 7` correspondia a **3 pagamentos únicos**.
     Use sempre `pagamentosUnicos()`, que remove as repetições pelo `codigo`.
+- **Formato real (60 dias de homologação):**
+  - Valores em **reais** (há 117,33 e 2.188,05).
+  - Pagamento de **mensalidade** (`MENSALISTA`) vem sem `ticket`; `tarifa`
+    e partes do `terminal` às vezes não vêm. O schema aceita.
+  - Grupos vistos: `dinheiro`, `cartao_credito`, `cartao_debito`, `tag`,
+    `isento` e `desconto`. Campo `selo` (número) aparece em parte dos
+    registros, sem significado conhecido: não é guardado.
+- **Sincronização:** `/api/sync/wps`, todo dia às 10h UTC (`vercel.json`), ou
+  "Sincronizar agora" em Administração › Integrações.
+  - Relê os últimos 7 dias até ontem e troca cada dia inteiro no banco
+    (`financeiro.gravar_estacionamento`): estorno ou lançamento tardio entra
+    sozinho.
+  - Reprocessar um período (até 93 dias):
+    `GET /api/sync/wps?de=2026-09-01&ate=2026-09-30`.
+  - Grava em `financeiro.estacionamento_pagamentos` (um por pagamento único,
+    com os grupos em que apareceu) e `financeiro.estacionamento_movimento`
+    (entradas e saídas por tipo de veículo). O bruto de cada dia vai para
+    `integracao.registros_brutos` sem placa e sem operador.
+  - Dia que falhar fica como estava e vira aviso no histórico.
 - **Serve para:** receita diária do estacionamento. O fluxo de caixa do
   Financeiro avisa que "estacionamento não vem do ENET"; a WPS cobre essa
   lacuna. Também dá para tirar movimento e ticket médio.
 - **Pendente:** a documentação (`documentacao_api_bi 1.yaml`) está num
   SharePoint da WPS que pede login. Pedir o arquivo. Também falta a URL e o
   usuário de produção, o id do estacionamento da ARP e o significado de
-  `parcial` e do grupo `isento`.
+  `parcial`, `selo` e do grupo `isento`. Nenhuma tela usa os dados ainda.
 
 ---
 
 ## Diário de Obras
 
 App de diário de obra (RDO). Ainda **sem módulo definido** no Centralizador.
+O cliente cobre todas as rotas; falta decidir o que sincronizar.
 
-- **Documentação:** <https://api.diariodeobra.app/documentacao/>
+- **Documentação:** <https://api.diariodeobra.app/documentacao/> (página em
+  JavaScript, lida em 21/10/2026). Os schemas seguem os exemplos de lá:
+  conferir com o primeiro retorno real da ARP.
 - **Base:** `https://apiexterna.diariodeobra.app/v1`
-- **Autenticação:** header `token: <token da empresa>`.
-- **Limite:** 150 requisições por minuto por empresa (HTTP 429 quando passa).
+- **Autenticação:** header `token: <token da empresa>` (JWT), gerado no
+  Diário de Obras em Cadastros › Empresa › Gerar token.
+- **Limite:** 150 requisições por minuto por empresa, zerado a cada minuto
+  (HTTP 429 quando passa). O cliente espaça as chamadas (uma a cada 400 ms) e
+  não repete o 429: repetir em segundos não vence a janela.
 - **Rotas (todas GET):** `/empresa`, `/cadastros`, `/obras`,
   `/obras/{obra-id}`, `/obras/{obra-id}/relatorios`,
   `/obras/{obra-id}/relatorios/{relatorio-id}`,
@@ -179,11 +210,33 @@ App de diário de obra (RDO). Ainda **sem módulo definido** no Centralizador.
 - **Filtros de relatórios:** `limite`, `usuarioId`, `statusId`,
   `modeloDeRelatorioId`, `dataInicio` e `dataFim` (AAAA-MM-DD, os dois
   juntos), `ordem` (asc/desc).
-- **Traz:** obras com status, prazo e % realizado do cronograma; diários com
-  clima, mão de obra (com horas e presença), equipamentos, atividades (% e
-  produção), ocorrências com tags, materiais, comentários, fotos e PDF.
-- **Bom saber:** as datas vêm como texto `dd/mm/aaaa`; converter na entrada.
-- **Pendente:** token da ARP e definir para que módulo serve.
+- **Sem paginação:** `/obras` traz tudo; nos relatórios só há `limite`, e
+  a documentação não diz quantos vêm sem ele. Histórico: buscar por janelas
+  de `dataInicio`/`dataFim`.
+- **Incremental:** só a lista de obras e o detalhe do relatório têm
+  `modified`; a lista de relatórios não. Caminho: obras alteradas →
+  relatórios de uma janela recente → detalhe de cada um. Um RDO antigo
+  editado só volta se cair na janela relida. Cada diário custa uma chamada;
+  `GET /empresa` traz `log.totalRelatorios` para estimar a carga inicial.
+- **Traz:** obras com status e prazo (contratual, decorrido, a vencer, no
+  detalhe da obra) e % realizado (na lista de tarefas); diários com clima e
+  condição por turno, mão de obra, equipamentos, atividades (% e produção),
+  ocorrências com tags ("Chuva", "Dia parado"…), materiais e link do PDF.
+  **Não tem valores em dinheiro.**
+- **Mão de obra em dois modos** (`opcaoSelecionada`): `padrao` só tem
+  quantidade por função; `personalizada` tem nome, função, presença e horas,
+  e `registro` (matrícula) que costuma vir vazio. Cruzar com o ponto só por
+  nome seria frágil, e a mão de obra de obra tende a ser terceirizada.
+- **Formatos** (o schema converte na entrada): datas `dd/mm/aaaa` e
+  `dd/mm/aaaa hh:mm[:ss]` sem fuso; horas `hh:mm` (viram minutos);
+  percentuais do cronograma em texto (`"18.67"`); quantidade de material
+  em texto livre (`"5m"`), sem somar. Status: comparar pelo `id` (a
+  descrição muda entre rotas; os de relatório são 1, 3 e 4). Ocorrências e
+  atividades fora do cronograma têm id curto, único só dentro do relatório.
+- **Fora de propósito:** fotos, vídeos, anexos, comentários e e-mails de
+  usuários (dados pessoais e arquivos que não guardamos).
+- **Pendente:** token da ARP e definir para que módulo serve (andamento e
+  prazo, efetivo ou ocorrências).
 
 ---
 
@@ -213,7 +266,8 @@ rescisória sem dividir por 12).
   Endereço da API. Sem cadastro na tela, vale `COPILOTO_RH_BASE_URL`,
   `COPILOTO_RH_USUARIO` e `COPILOTO_RH_SENHA`.
 - **Escopos que a credencial precisa ter:** `organization:read`,
-  `employees:read` e `employees:personal:read` (nascimento). **Não marcar**
+  `employees:read`, `employees:personal:read` (nascimento) e `reports:read`
+  (turnover). **Não marcar**
   `employees:compensation:read` (salário: vem da folha), `jobs:read` nem
   `applications:read`. O teste de conexão lê `GET /v1/me` e diz quais
   escopos faltam.
@@ -225,7 +279,8 @@ rescisória sem dividir por 12).
   | `me` | Empresa, credencial e escopos do token |
   | `departments` | id, nome, unidade, gestores |
   | `positions` | id, título, cargo base (`parent_position_id`) |
-  | `employees` | id, matrícula (`code`), nome, situação (`pending`, `active`, `on_leave`, `terminated`), `employment_type`, `contract_type`, admissão, desligamento, `termination_reason`, departamento, cargo; com o escopo pessoal, nascimento |
+  | `employees` | id, matrícula (`code`), nome, situação, `employment_type`, `contract_type`, admissão, desligamento, `termination_reason`, `termination_decision`, departamento, cargo; com o escopo pessoal, nascimento |
+  | `turnover` | O relatório de turnover do Copiloto para `from`/`to` (até 36 meses) e, se pedido, `department_id`: taxas (Geral, Voluntário, Involuntário e, com o Acordo à parte, por Acordo), contagens (desligamentos por tipo, admissões, headcount no início e no fim), série mês a mês e turnover por departamento. Escopo `reports:read` |
 
   Do bloco `personal` o conector guarda só o nascimento; CPF, RG, contatos e
   endereço são descartados na leitura. O bloco `compensation` também.
@@ -235,29 +290,24 @@ rescisória sem dividir por 12).
 - **Erros:** `{"error": {"code", "message"}}`. `invalid_client` (401) é
   credencial errada; `invalid_token` (401) renova o token uma vez;
   `insufficient_scope` (403) é escopo faltando.
-- **O que a API não entrega:**
-  - **Turnover.** Não há rota de indicadores nem da configuração de turnover
-    da empresa. O Centralizador reproduz o cálculo do Copiloto (abaixo).
-  - `termination_decision` (pediu para sair / foi demitido), que o Copiloto
-    usa antes do motivo para classificar. Sem ele, vale só o motivo.
-- **Turnover como no Copiloto** (lido do app em 21/10/2026, tela Relatórios ›
-  Turnover; código em `src/lib/rh/turnover.ts`):
-  - Tipos: **Turnover Geral**, **Voluntário**, **Involuntário** e, se o
-    acordo for um tipo à parte, **por Acordo**.
-  - Variáveis: `total_colaboradores_inicio_mes` (ativos no 1º dia: admitido
-    até ele e não desligado nele), `desligamentos_voluntarios`,
-    `desligamentos_involuntarios`, `desligamentos_acordo`, `admissoes`.
-  - Fórmula geral padrão: `((voluntários + involuntários + acordo) ÷ ativos
-    no início) × 100`. Voluntário e involuntário usam a fórmula própria ou a
-    geral só com o seu tipo. Sem ninguém no início, 0%.
-  - Classificação: `acordo_mutuo` é acordo (soma no voluntário por padrão);
-    motivo da lista de voluntários (pedido de demissão, rescisão indireta,
-    antecipação pelo empregado, aposentadorias) é voluntário; o resto,
-    inclusive sem motivo, é involuntário.
-  - A configuração fica em `rh.parametros_turnover` com os padrões do
-    Copiloto. **Conferir com a tela "Configurações de Turnover" do Copiloto
-    da ARP** e ajustar a linha se a ARP tiver mudado algo lá (ainda não há
-    tela no Centralizador para editar).
+- **Turnover: vem pronto da API** (`GET /v1/turnover`, desde 21/10/2026),
+  calculado pelo mesmo código da tela Relatórios › Turnover e com as
+  fórmulas e a classificação que a ARP configurou no Copiloto. O
+  Centralizador **não recalcula** (especificação, etapa 5):
+  - Painel, Quadro e Gestão pedem o período do filtro e os 12 meses até ele
+    (série mensal). Com departamento no filtro, ele casa pelo nome com o
+    departamento do Copiloto; sem par, a tela diz que o turnover daquele
+    departamento não vem de lá.
+  - Se a API falhar, o turnover aparece em branco com o motivo (as contagens
+    de admissões e desligamentos ainda saem da lista de pessoas).
+  - O cliente da API fica guardado por instância do servidor por até 50 min
+    (`src/server/rh/turnover.ts`), para não gastar o login (10 por minuto).
+  - O tipo de cada pessoa nas listas segue a regra do Copiloto: acordo mútuo
+    é acordo; depois a decisão (`termination_decision`); sem ela, o motivo.
+    As contagens por tipo vêm da API, com o Acordo somado onde a ARP
+    configurou (`agreement_counts_as`).
+  - `rh.parametros_turnover` (a cópia da configuração) não é mais usada.
+    Fica até o deploy desta versão e sai numa migration depois.
 - **Conferido na base da ARP (21/10/2026):**
   - 37 colaboradores, **todos `active`**, mesmo pedindo `status=terminated`:
     o Copiloto da ARP não tem nenhum desligado (o Secullum tem 44). Por
@@ -273,14 +323,13 @@ rescisória sem dividir por 12).
   - Nascimento em 36 de 37; matrícula (`code`) em 34, todas batem com o
     Centralizador. 1 cadastro sem tipo, nascimento nem admissão (fica fora
     do quadro até ser completado no Copiloto).
-  - A credencial em uso tem escopos a mais (`employees:compensation:read`,
-    `jobs:read`, `applications:read`). O conector descarta salário, mas o
-    certo é tirar esses escopos da credencial.
+  - A credencial da ARP tem `organization:read`, `employees:read`,
+    `employees:personal:read` e `reports:read` (sem salário).
 - **Sincronização** (`src/server/sync/copiloto-rh.ts`, regras em
   `copiloto-rh-regras.ts`; rota `/api/sync/copiloto-rh`, Vercel Cron todo
   dia às 06h30 de Brasília; "Sincronizar agora" na tela roda na hora):
   - **O Copiloto é a fonte** (especificação 4.5) de nome, nascimento, tipo de
-    contrato, situação, admissão, desligamento e motivo de quem está ligado
+    contrato, situação, admissão, desligamento, motivo e decisão de quem está ligado
     (`copiloto_id`). O Secullum e a folha não sobrescrevem esses campos;
     o Secullum continua ligando o ponto à pessoa e trazendo o departamento,
     e a folha, o cargo.
@@ -295,14 +344,11 @@ rescisória sem dividir por 12).
     Integrações › Últimas sincronizações. O payload validado vai para
     `integracao.registros_brutos` (só o nascimento dos dados pessoais).
 - **Pendente:**
-  - ARP lançar no Copiloto os desligamentos (com data e motivo) e completar o
-    cadastro sem tipo, nascimento e admissão.
-  - Conferir a configuração de turnover do Copiloto da ARP e, se diferente
-    do padrão, ajustar `rh.parametros_turnover`; depois validar os números
-    com a tela de turnover do Copiloto (checklist da especificação).
-  - Rota de turnover (ou de configuração) na API pública do Copiloto, para
-    não depender da cópia do cálculo; e `termination_decision` na API.
-  - Tela de Configurações de turnover no Centralizador (se continuar a cópia).
+  - ARP lançar no Copiloto os desligamentos (com data, motivo e decisão) e
+    completar o cadastro sem tipo, nascimento e admissão.
+  - Validar o turnover com a tela do Copiloto (checklist da especificação):
+    agora são os mesmos números por construção.
+  - Depois do deploy: migration removendo `rh.parametros_turnover`.
 
 ---
 

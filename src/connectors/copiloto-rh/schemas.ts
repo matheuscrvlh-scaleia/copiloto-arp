@@ -65,6 +65,8 @@ export const colaboradorSchema = z.object({
   hire_date: z.string().nullish(),
   termination_date: z.string().nullish(),
   termination_reason: z.string().nullish(),
+  /** pediu_pra_sair, foi_demitido ou acordo_mutuo: vale antes do motivo. */
+  termination_decision: z.string().nullish(),
   department: z.object({ id: z.string(), name: z.string() }).nullish(),
   position: z
     .object({ id: z.string(), title: z.string(), level: z.string().nullish() })
@@ -74,4 +76,52 @@ export const colaboradorSchema = z.object({
 });
 
 export type Colaborador = z.infer<typeof colaboradorSchema>;
+
+// GET /v1/turnover (escopo reports:read), lido em 21/10/2026: os números da
+// tela Relatórios › Turnover, pelo mesmo código. A taxa por Acordo só vem
+// quando o Acordo é contado à parte (agreement_counts_as = "separate").
+
+const taxasSchema = z.object({
+  general: z.number(),
+  voluntary: z.number(),
+  involuntary: z.number(),
+  agreement: z.coerce.number().nullable(),
+});
+
+const contagensSchema = z.object({
+  terminations: z.number().int(),
+  voluntary: z.number().int(),
+  involuntary: z.number().int(),
+  agreement: z.number().int(),
+  hires: z.number().int(),
+  headcount_start: z.number().int(),
+  headcount_end: z.number().int(),
+});
+
+export const turnoverSchema = z.object({
+  period: z.object({ from: z.string(), to: z.string() }),
+  agreement_counts_as: z.enum(["voluntary", "involuntary", "separate"]),
+  rates: taxasSchema,
+  counts: contagensSchema,
+  monthly: z.array(
+    z.object({
+      month: z.string(),
+      from: z.string(),
+      to: z.string(),
+      rates: taxasSchema,
+      counts: contagensSchema,
+    }),
+  ),
+  by_department: z.array(
+    z.object({
+      // Colaboradores sem departamento vêm num grupo sem departamento.
+      department: z.object({ id: z.string(), name: z.string() }).nullish(),
+      active: z.number().int(),
+      terminations: z.number().int(),
+      rate: z.number(),
+    }),
+  ),
+});
+
+export type Turnover = z.infer<typeof turnoverSchema>;
 export type StatusColaborador = (typeof STATUS_COLABORADOR)[number];

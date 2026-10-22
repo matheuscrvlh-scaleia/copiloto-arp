@@ -30,6 +30,8 @@ export interface FiltroBusca {
   /** Rótulo da opção que não filtra (ex.: "Todos os departamentos"). */
   todos: string;
   opcoes: Opcao[];
+  /** Opção já escolhida ao abrir (ex.: só os ativos). */
+  inicial?: string;
 }
 
 const sem = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -53,7 +55,11 @@ export function TabelaBusca({
   vazio?: string;
 }) {
   const [busca, setBusca] = useState("");
-  const [escolhas, setEscolhas] = useState<Record<string, string>>({});
+  const [escolhas, setEscolhas] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      filtros.flatMap((f) => (f.inicial ? [[f.chave, f.inicial]] : [])),
+    ),
+  );
   const [pagina, setPagina] = useState(0);
   const termo = sem(busca.trim());
   const filtrando =
@@ -108,7 +114,8 @@ export function TabelaBusca({
           />
         ))}
       </div>
-      <div className="-mx-2 min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+      {/* Rola para o lado só se os números, que não quebram, não couberem. */}
+      <div className="-mx-2 min-h-0 flex-1 overflow-x-auto overflow-y-auto">
         {mostradas.length === 0 ? (
           <p className="px-2 py-6 text-sm text-neutral-500">
             {filtrando ? "Nada encontrado." : vazio}

@@ -23,7 +23,8 @@ const ABAS: (Aba & { permissoes: Permissao[] })[] = [
   {
     href: CONFIGURACOES_RH.parametros,
     rotulo: "Parâmetros",
-    descricao: "RAT/FAP, encargos, metas e histórico de alterações",
+    descricao:
+      "Jornada, encargos e provisões, banco de horas, metas e semáforo",
     permissoes: ["rh.parametros"],
   },
 ];

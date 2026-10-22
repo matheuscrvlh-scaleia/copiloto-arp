@@ -5,11 +5,10 @@ import {
   type CustoCalculado,
   calcularCusto,
   type FaixaEtaria,
-  idadeEm,
   jornadaDe,
-  mensalidadeDaFaixa,
   type PessoaDoMes,
   type RubricaDaFolha,
+  valorPelaFaixa,
   vigenteEm,
 } from "@/lib/rh/custo";
 import type { GrupoRubrica } from "@/lib/rh/rubricas";
@@ -173,19 +172,8 @@ function beneficiosPorPessoa(
         }))
       : null;
   };
-  const porFaixa = (
-    faixas: FaixaEtaria[] | null,
-    nascimento: string | null,
-  ): { valor: number | null; pendencia?: string } => {
-    if (!faixas)
-      return { valor: null, pendencia: "sem tabela de faixas vigente" };
-    if (!nascimento)
-      return { valor: null, pendencia: "falta a data de nascimento" };
-    const valor = mensalidadeDaFaixa(faixas, idadeEm(nascimento, competencia));
-    return valor === null
-      ? { valor: null, pendencia: "idade fora das faixas da tabela" }
-      : { valor };
-  };
+  const porFaixa = (faixas: FaixaEtaria[] | null, nascimento: string | null) =>
+    valorPelaFaixa(faixas, nascimento, competencia);
 
   const mapa = new Map<
     string,

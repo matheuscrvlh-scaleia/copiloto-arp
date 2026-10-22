@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { INICIO } from "@/config/navigation";
+import { ROTA_TROCAR_SENHA, temSenhaProvisoria } from "@/lib/senha-provisoria";
 import { supabasePublico } from "./config";
 
 const PUBLICAS = ["/login"];
@@ -45,6 +46,14 @@ export async function atualizarSessao(request: NextRequest) {
     destino.pathname = "/login";
     destino.search = "";
     if (pathname !== "/") destino.searchParams.set("next", pathname + search);
+    return NextResponse.redirect(destino);
+  }
+  // Senha provisória: nada abre antes de a pessoa definir a própria.
+  const trocando = pathname === ROTA_TROCAR_SENHA;
+  if (logado && temSenhaProvisoria(data?.claims) !== trocando) {
+    const destino = request.nextUrl.clone();
+    destino.pathname = trocando ? INICIO : ROTA_TROCAR_SENHA;
+    destino.search = "";
     return NextResponse.redirect(destino);
   }
   // Logado: "/" e "/login" levam direto para a primeira tela (Gestão).

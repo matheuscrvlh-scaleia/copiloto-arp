@@ -9,7 +9,9 @@ import {
   meSchema,
   paginaSchema,
   type StatusColaborador,
+  type Turnover,
   tokenSchema,
+  turnoverSchema,
 } from "./schemas";
 
 const SISTEMA = "copiloto_rh";
@@ -20,6 +22,7 @@ export const ESCOPOS_NECESSARIOS = [
   "organization:read",
   "employees:read",
   "employees:personal:read",
+  "reports:read",
 ] as const;
 
 export interface CopilotoRhConfig {
@@ -30,6 +33,15 @@ export interface CopilotoRhConfig {
   /** client_secret da credencial. */
   senha: string;
   fetch?: typeof fetch;
+}
+
+export interface FiltroTurnover {
+  /** aaaa-mm-dd */
+  de: string;
+  /** aaaa-mm-dd; período de até 36 meses. */
+  ate: string;
+  /** Departamento do Copiloto (UUID). */
+  departamentoId?: string;
 }
 
 export interface FiltroColaboradores {
@@ -127,6 +139,17 @@ export function createCopilotoRhClient(config: CopilotoRhConfig) {
 
     colaboradores: (f: FiltroColaboradores = {}): Promise<Colaborador[]> =>
       todas("employees", colaboradorSchema, filtro(f)),
+
+    /**
+     * Turnover do período como a tela Relatórios › Turnover do Copiloto:
+     * taxas, contagens, série mês a mês e por departamento.
+     */
+    turnover: (f: FiltroTurnover): Promise<Turnover> =>
+      get("turnover", turnoverSchema, {
+        from: f.de,
+        to: f.ate,
+        department_id: f.departamentoId,
+      }),
 
     /** Só o total (uma página de um item), para o teste de conexão. */
     async totalColaboradores(f: FiltroColaboradores = {}): Promise<number> {

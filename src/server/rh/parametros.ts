@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 
 // Leituras da tela de Parâmetros, com a sessão do usuário (RLS).
 
+export type NivelJornada = "empresa" | "departamento" | "cargo" | "colaborador";
+
 function falhar(erro: { message: string } | null): asserts erro is null {
   if (erro) throw new Error(`Falha ao ler o banco: ${erro.message}`);
 }
@@ -10,35 +12,56 @@ function falhar(erro: { message: string } | null): asserts erro is null {
 export async function dadosDosParametros() {
   const supabase = await createClient();
   const rh = supabase.schema("rh");
-  const [deps, motivos, empresa, encargos, rubricas, auditoria] =
-    await Promise.all([
-      rh
-        .from("departamentos")
-        .select("id, nome, codigo_folha, secullum_id, ativo")
-        .order("nome"),
-      rh
-        .from("motivos_desligamento")
-        .select("id, descricao, tipo_turnover")
-        .order("descricao"),
-      rh
-        .from("parametros_empresa")
-        .select("*")
-        .order("vigente_desde", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      rh
-        .from("encargos_por_contrato")
-        .select("*")
-        .order("vigente_desde", { ascending: false }),
-      rh.from("rubricas").select("codigo, descricao, grupo").order("codigo"),
-      supabase
-        .schema("core")
-        .from("auditoria")
-        .select("id, tabela, registro_id, acao, usuario_id, em")
-        .order("em", { ascending: false })
-        .limit(30),
-    ]);
-  for (const r of [deps, motivos, empresa, encargos, rubricas, auditoria])
+  const [
+    deps,
+    empresa,
+    encargos,
+    rubricas,
+    auditoria,
+    jornadas,
+    cargos,
+    colaboradores,
+  ] = await Promise.all([
+    rh
+      .from("departamentos")
+      .select("id, nome, codigo_folha, secullum_id, ativo")
+      .order("nome"),
+    rh
+      .from("parametros_empresa")
+      .select("*")
+      .order("vigente_desde", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    rh
+      .from("encargos_por_contrato")
+      .select("*")
+      .order("vigente_desde", { ascending: false }),
+    rh.from("rubricas").select("codigo, descricao, grupo").order("codigo"),
+    supabase
+      .schema("core")
+      .from("auditoria")
+      .select("id, tabela, registro_id, acao, usuario_id, em")
+      .order("em", { ascending: false })
+      .limit(30),
+    rh
+      .from("jornadas")
+      .select(
+        "departamento_id, cargo_id, colaborador_id, horas_mes_min, vigente_desde",
+      )
+      .order("vigente_desde", { ascending: false }),
+    rh.from("cargos").select("id, nome").order("nome"),
+    rh.from("colaboradores").select("id, nome, desligamento").order("nome"),
+  ]);
+  for (const r of [
+    deps,
+    empresa,
+    encargos,
+    rubricas,
+    auditoria,
+    jornadas,
+    cargos,
+    colaboradores,
+  ])
     falhar(r.error);
 
   // Nomes de quem alterou: o RLS só mostra os que o usuário pode ver.
@@ -65,11 +88,58 @@ export async function dadosDosParametros() {
     if (!vigentes.has(e.tipo_contrato)) vigentes.set(e.tipo_contrato, e);
   }
 
+  // Jornadas: a linha vigente de cada alvo (empresa, departamento, cargo ou
+  // funcionário), com o nome de quem ela cobre.
+  const nomeDe = new Map<string, string>([
+    ...(deps.data ?? []).map((d) => [`departamento:${d.id}`, d.nome] as const),
+    ...(cargos.data ?? []).map((c) => [`cargo:${c.id}`, c.nome] as const),
+    ...(colaboradores.data ?? []).map(
+      (c) => [`colaborador:${c.id}`, c.nome] as const,
+    ),
+  ]);
+  const jornadasVigentes = new Map<
+    string,
+    {
+      alvo: string;
+      nivel: NivelJornada;
+      nome: string;
+      horas_mes_min: number;
+      vigente_desde: string;
+    }
+  >();
+  for (const j of jornadas.data ?? []) {
+    const [nivel, id] = j.colaborador_id
+      ? (["colaborador", j.colaborador_id] as const)
+      : j.cargo_id
+        ? (["cargo", j.cargo_id] as const)
+        : j.departamento_id
+          ? (["departamento", j.departamento_id] as const)
+          : (["empresa", null] as const);
+    const alvo = id ? `${nivel}:${id}` : nivel;
+    if (jornadasVigentes.has(alvo)) continue;
+    jornadasVigentes.set(alvo, {
+      alvo,
+      nivel,
+      nome: id ? (nomeDe.get(alvo) ?? "—") : "Empresa (todos)",
+      horas_mes_min: j.horas_mes_min,
+      vigente_desde: j.vigente_desde,
+    });
+  }
+  const ordemNivel = ["empresa", "departamento", "cargo", "colaborador"];
+
   return {
     departamentos: deps.data ?? [],
-    motivos: motivos.data ?? [],
     empresa: empresa.data,
     encargos: [...vigentes.values()],
+    jornadas: [...jornadasVigentes.values()].sort(
+      (a, b) =>
+        ordemNivel.indexOf(a.nivel) - ordemNivel.indexOf(b.nivel) ||
+        a.nome.localeCompare(b.nome),
+    ),
+    cargos: cargos.data ?? [],
+    colaboradoresAtivos: (colaboradores.data ?? []).filter(
+      (c) => !c.desligamento,
+    ),
     rubricas: rubricas.data ?? [],
     auditoria: (auditoria.data ?? []).map((a) => ({
       ...a,

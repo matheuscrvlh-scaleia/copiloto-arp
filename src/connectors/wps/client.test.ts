@@ -38,6 +38,38 @@ describe("wps", () => {
     expect(r.subdetalhes.carro?.quantidade).toBe(r.quantidade);
   });
 
+  it("aceita mensalidade sem ticket, tarifa e terminal, com centavos", () => {
+    const dia = pagamentosDoDiaSchema.parse({
+      quantidade: 1,
+      subdetalhes: {
+        cartao_credito: {
+          quantidade: 1,
+          descricao: "cartao_credito",
+          detalhes: [
+            {
+              codigo: 1,
+              descricao: "MENSALISTA",
+              data: "2026-10-20 17:14:58",
+              recibo: "6",
+              valorBruto: 117.33,
+              valorLiquido: 117.33,
+              operador: "X",
+              parcial: 20,
+              terminal: {},
+              formaPagamento: {
+                codigo: 4,
+                codigoMapeado: 500,
+                descricao: "CRÉDITO MANUAL",
+                descricaoPagamentoBase: "CARTAO CREDITO POS",
+              },
+            },
+          ],
+        },
+      },
+    });
+    expect(pagamentosUnicos(dia)[0]?.valorLiquido).toBe(117.33);
+  });
+
   it("não conta o mesmo pagamento duas vezes", () => {
     const dia = pagamentosDoDiaSchema.parse(pagamentoDetalhe);
     // A API diz 7, mas são 3 pagamentos: um repetido em `desconto` e

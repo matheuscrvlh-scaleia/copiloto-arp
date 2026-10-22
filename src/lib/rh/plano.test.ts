@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ErroPlanilha,
+  faixasDoFormulario,
   lerTabelaDoPlano,
   mesesDoTexto,
   numeroDaCelula,
@@ -106,6 +107,39 @@ describe("tabela do plano", () => {
       },
     ]);
     expect(buraco.avisos[0]).toMatch(/19 a 23/);
+  });
+
+  it("faixas editadas na tela: ignora linha vazia, idade final vazia é sem limite", () => {
+    const vazia = { idade_min: "", idade_max: "", mensalidade: "" };
+    const t = faixasDoFormulario([
+      { idade_min: "19", idade_max: "", mensalidade: "1.535,58" },
+      vazia,
+      { idade_min: " 0 ", idade_max: "18", mensalidade: "256,36" },
+    ]);
+    expect(t.faixas).toEqual([
+      { idade_min: 0, idade_max: 18, mensalidade: 256.36 },
+      { idade_min: 19, idade_max: null, mensalidade: 1535.58 },
+    ]);
+    expect(t.avisos).toEqual([]);
+
+    expect(() => faixasDoFormulario([vazia])).toThrow(/ao menos uma/);
+    expect(() =>
+      faixasDoFormulario([
+        { idade_min: "10", idade_max: "5", mensalidade: "1" },
+      ]),
+    ).toThrow(/Linha 1: a idade final é menor/);
+    expect(() =>
+      faixasDoFormulario([
+        vazia,
+        { idade_min: "0", idade_max: "18", mensalidade: "abc" },
+      ]),
+    ).toThrow(/Linha 2: informe a mensalidade/);
+    expect(() =>
+      faixasDoFormulario([
+        { idade_min: "0", idade_max: "", mensalidade: "1" },
+        { idade_min: "30", idade_max: "40", mensalidade: "2" },
+      ]),
+    ).toThrow(/sobrepostas/);
   });
 
   it("apoio: números e meses", () => {

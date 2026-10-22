@@ -51,6 +51,7 @@ describe("regras do copiloto rh", () => {
           status: "terminated",
           termination_date: "2026-09-30",
           termination_reason: "pedido_demissao",
+          termination_decision: "pediu_pra_sair",
         }),
       ],
       [existente({ id: "a", matricula: 7, tipo_contrato: "aprendiz" })],
@@ -68,6 +69,7 @@ describe("regras do copiloto rh", () => {
         tipo_contrato: "clt",
         situacao_copiloto: "terminated",
         motivo_desligamento_copiloto: "pedido_demissao",
+        decisao_desligamento_copiloto: "pediu_pra_sair",
       },
     ]);
     expect(r.novos).toBe(0);

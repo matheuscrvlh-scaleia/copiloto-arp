@@ -1,12 +1,4 @@
-import { fimDoMes } from "@/lib/formato";
-import {
-  type ConfigTurnover,
-  type TaxaTurnover,
-  type TipoDesligamento,
-  TURNOVER_PADRAO,
-  taxasDeTurnover,
-  tipoDoDesligamento,
-} from "./turnover";
+import type { TipoDesligamento } from "./turnover";
 
 // ---------------------------------------------------------------------------
 // Jornada (ponto)
@@ -209,6 +201,8 @@ export interface ColaboradorQuadro {
   tipo_turnover: TipoDesligamento | null;
   /** Motivo do desligamento no Copiloto (`termination_reason`). */
   motivo_desligamento?: string | null;
+  /** Decisão no Copiloto (`termination_decision`): pediu para sair… */
+  decisao_desligamento?: string | null;
   // Opcionais: o cargo vem da folha; quem não está nela não tem.
   cargo?: string | null;
   tipo_contrato?: string | null;
@@ -224,68 +218,6 @@ export function ativosEm<
       c.admissao <= data &&
       (c.desligamento === null || c.desligamento > data),
   );
-}
-
-export interface MovimentoMes {
-  competencia: string;
-  /** Ativos no 1º dia do mês (admitidos até ele e não desligados nele). */
-  inicio: number;
-  fim: number;
-  admissoes: number;
-  desligamentos: number;
-  desligamentosPorTipo: Record<TipoDesligamento, number>;
-  /** Turnover Geral, pela fórmula configurada (a mesma do Copiloto). */
-  turnover: number;
-  /** Geral, Voluntário, Involuntário e (se separado) por Acordo. */
-  taxas: TaxaTurnover[];
-}
-
-/**
- * Movimento e turnover do mês como o Copiloto RH calcula: headcount no 1º
- * dia, admissões e desligamentos com data no mês, desligamento classificado
- * pelo motivo e taxas pelas fórmulas da configuração.
- */
-export function movimentoDoMes(
-  colaboradores: ColaboradorQuadro[],
-  competencia: string,
-  config: ConfigTurnover = TURNOVER_PADRAO,
-): MovimentoMes {
-  const fimMes = fimDoMes(competencia);
-  const inicio = ativosEm(colaboradores, competencia).length;
-  const fim = ativosEm(colaboradores, fimMes).length;
-  const noMes = (d: string | null) =>
-    d !== null && d >= competencia && d <= fimMes;
-
-  const admissoes = colaboradores.filter((c) => noMes(c.admissao)).length;
-  const saidas = colaboradores.filter((c) => noMes(c.desligamento));
-  const desligamentosPorTipo: Record<TipoDesligamento, number> = {
-    voluntario: 0,
-    involuntario: 0,
-    acordo: 0,
-  };
-  for (const c of saidas) {
-    const tipo =
-      c.tipo_turnover ??
-      tipoDoDesligamento(c.motivo_desligamento ?? null, config);
-    desligamentosPorTipo[tipo] += 1;
-  }
-  const taxas = taxasDeTurnover(
-    inicio,
-    admissoes,
-    desligamentosPorTipo,
-    config,
-  );
-
-  return {
-    competencia,
-    inicio,
-    fim,
-    admissoes,
-    desligamentos: saidas.length,
-    desligamentosPorTipo,
-    turnover: taxas[0]?.valor ?? 0,
-    taxas,
-  };
 }
 
 /** Meses completos de casa até `data`. */

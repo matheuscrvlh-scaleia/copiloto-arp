@@ -58,7 +58,7 @@ describe("modal do quadro", () => {
       pessoas: true,
     });
     expect(d.fontes?.[0]?.valor).toMatch(/Copiloto RH/);
-    expect(d.tabelas[0]?.titulo).toBe("Admitidos no mês");
+    expect(d.tabelas[0]?.titulo).toBe("Admitidos em 01/10/2026 a 19/10/2026");
     expect(d.tabelas[0]?.linhas.map((l) => l.celulas[0])).toEqual(["Bia"]);
     expect(d.resumo).toContainEqual({ rotulo: "Ativos no fim", valor: "2" });
   });
@@ -71,27 +71,58 @@ describe("modal do quadro", () => {
     expect(d.tabelas[0]?.linhas[0]?.celulas).toEqual(["Administração", "2"]);
   });
 
-  it("turnover: fórmula do Copiloto e todos os tipos no resumo", () => {
+  it("turnover: números do Copiloto no resumo; sem eles, diz por quê", () => {
+    const numeros = {
+      de: "2026-10-01",
+      ate: "2026-10-19",
+      taxas: [
+        { tipo: "geral" as const, rotulo: "Turnover Geral", valor: 50 },
+        {
+          tipo: "voluntario" as const,
+          rotulo: "Turnover Voluntário",
+          valor: 50,
+        },
+        {
+          tipo: "involuntario" as const,
+          rotulo: "Turnover Involuntário",
+          valor: 0,
+        },
+      ],
+      turnover: 50,
+      inicio: 2,
+      fim: 2,
+      admissoes: 1,
+      desligamentos: 1,
+      desligamentosPorTipo: { voluntario: 1, involuntario: 0, acordo: 0 },
+    };
     const d = origemDoQuadro(todos, "2026-10-01", "2026-10-19", {
       foco: "turnover",
       pessoas: true,
+      numeros,
     });
     expect(d.fontes?.find((f) => f.rotulo === "Regra")?.valor).toMatch(
-      /total_colaboradores_inicio_mes/,
+      /Calculado pelo Copiloto RH/,
     );
-    // Ana e Caio ativos em 01/10; Caio saiu: 1 ÷ 2 × 100.
-    expect(d.resumo).toContainEqual({
-      rotulo: "Turnover Geral",
-      valor: "50,0%",
-    });
-    expect(d.resumo?.map((r) => r.rotulo)).toEqual([
-      "Ativos no fim",
-      "Admissões",
-      "Desligamentos",
-      "Turnover Geral",
-      "Turnover Voluntário",
-      "Turnover Involuntário",
+    expect(d.resumo?.map((r) => [r.rotulo, r.valor])).toEqual([
+      ["Ativos no fim", "2"],
+      ["Admissões", "1"],
+      ["Desligamentos", "1"],
+      ["Turnover Geral", "50,0%"],
+      ["Turnover Voluntário", "50,0%"],
+      ["Turnover Involuntário", "0,0%"],
     ]);
+
+    const fora = origemDoQuadro(todos, "2026-10-01", "2026-10-19", {
+      foco: "turnover",
+      pessoas: true,
+      semTurnover: "Copiloto RH indisponível",
+    });
+    // Sem o Copiloto não há taxa calculada aqui: só o aviso.
+    expect(fora.resumo).toContainEqual({ rotulo: "Turnover", valor: "—" });
+    expect(fora.fontes).toContainEqual({
+      rotulo: "Turnover",
+      valor: "Copiloto RH indisponível",
+    });
   });
 });
 

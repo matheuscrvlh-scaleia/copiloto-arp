@@ -378,15 +378,48 @@ export interface FaixaEtaria {
   mensalidade: number;
 }
 
+export function faixaDaIdade(
+  faixas: FaixaEtaria[],
+  idade: number,
+): FaixaEtaria | null {
+  return (
+    faixas.find(
+      (f) =>
+        idade >= f.idade_min && (f.idade_max === null || idade <= f.idade_max),
+    ) ?? null
+  );
+}
+
 export function mensalidadeDaFaixa(
   faixas: FaixaEtaria[],
   idade: number,
 ): number | null {
-  const f = faixas.find(
-    (f) =>
-      idade >= f.idade_min && (f.idade_max === null || idade <= f.idade_max),
-  );
-  return f ? f.mensalidade : null;
+  return faixaDaIdade(faixas, idade)?.mensalidade ?? null;
+}
+
+export interface ValorDaFaixa {
+  valor: number | null;
+  /** Por que o valor não saiu. */
+  pendencia?: string;
+  idade?: number;
+  faixa?: FaixaEtaria;
+}
+
+/** Mensalidade pela idade no 1º dia da competência (tabela vigente nela). */
+export function valorPelaFaixa(
+  faixas: FaixaEtaria[] | null,
+  nascimento: string | null,
+  competencia: string,
+): ValorDaFaixa {
+  if (!faixas)
+    return { valor: null, pendencia: "sem tabela de faixas vigente" };
+  if (!nascimento)
+    return { valor: null, pendencia: "falta a data de nascimento" };
+  const idade = idadeEm(nascimento, competencia);
+  const faixa = faixaDaIdade(faixas, idade);
+  return faixa
+    ? { valor: faixa.mensalidade, idade, faixa }
+    : { valor: null, idade, pendencia: "idade fora das faixas da tabela" };
 }
 
 // ---------------------------------------------------------------------------
@@ -468,4 +501,60 @@ export interface CustoIndividual {
     linhas: { rotulo: string; valor: number; regra: string }[];
     pendencias: string[];
   };
+}
+
+// ---------------------------------------------------------------------------
+// Horas em R$ (banco e extras), pelo salário/hora da folha
+// ---------------------------------------------------------------------------
+
+/**
+ * Saldo do banco de horas em R$: positivo é o que a empresa paga (salário/hora
+ * × (1 + adicional)); negativo, o que a pessoa deve, pela hora simples.
+ * Null sem salário/hora ou, no positivo, sem o adicional configurado.
+ */
+export function valorDoBanco(
+  saldoMin: number,
+  salarioHora: number | null,
+  adicionalPct: number | null,
+): number | null {
+  if (salarioHora === null) return null;
+  if (saldoMin <= 0) return (saldoMin / 60) * salarioHora;
+  if (adicionalPct === null) return null;
+  return (saldoMin / 60) * salarioHora * (1 + adicionalPct / 100);
+}
+
+/** Saldo do banco em R$ de cada pessoa (ver valorDoBanco). */
+export function saldosEmReais(
+  linhas: { colaborador_id: string; banco_saldo_min: number }[],
+  salarioHora: Map<string, number | null>,
+  adicionalPct: number | null,
+): Map<string, number | null> {
+  return new Map(
+    linhas.map((l) => [
+      l.colaborador_id,
+      valorDoBanco(
+        l.banco_saldo_min,
+        salarioHora.get(l.colaborador_id) ?? null,
+        adicionalPct,
+      ),
+    ]),
+  );
+}
+
+/**
+ * Horas extras em R$: cada coluna por percentual do Secullum (Ex80% → +80%)
+ * × salário/hora. As que não dizem o percentual ficam de fora (foraMin).
+ */
+export function valorDasExtras(
+  porTipo: Record<string, number>,
+  salarioHora: number | null,
+): { valor: number | null; foraMin: number } {
+  let valor = 0;
+  let foraMin = 0;
+  for (const [tipo, min] of Object.entries(porTipo)) {
+    const pct = /^Ex(\d+)%$/.exec(tipo)?.[1];
+    if (pct === undefined) foraMin += min;
+    else valor += (min / 60) * (salarioHora ?? 0) * (1 + Number(pct) / 100);
+  }
+  return { valor: salarioHora === null ? null : valor, foraMin };
 }

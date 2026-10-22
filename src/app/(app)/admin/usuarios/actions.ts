@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
 import { PERMISSOES, type Permissao } from "@/lib/permissions";
+import { SENHA_PROVISORIA } from "@/lib/senha-provisoria";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { erroDoBanco, primeiroErro, valores } from "@/server/acoes";
@@ -12,7 +13,9 @@ import { pode, usuarioAtual } from "@/server/auth";
 
 // Usuários e cargos. Perfil, cargo e permissões passam pelo RLS
 // (admin.usuarios) e caem em core.auditoria; o que fica no Auth (criar,
-// senha, bloqueio) usa a service role depois de conferir a permissão.
+// senha, bloqueio, exclusão) usa a service role depois de conferir a
+// permissão. O acesso do usuário vem do cargo; as permissões individuais
+// antigas só podem ser removidas.
 
 const SEM_PERMISSAO: EstadoAcao = {
   erro: "Você não tem permissão para gerenciar usuários.",
@@ -38,6 +41,10 @@ const senha = z
   .string()
   .min(10, "mínimo de 10 caracteres")
   .max(72, "máximo de 72 caracteres");
+const alternancia = z.object({
+  id: z.uuid(),
+  ativo: z.enum(["true", "false"]).transform((v) => v === "true"),
+});
 
 /** Bloqueio no Auth: desativado não entra mais (o RLS já corta os dados). */
 const BLOQUEIO = "876000h";
@@ -53,46 +60,6 @@ function erroDoAuth(error: { code?: string; message: string }): EstadoAcao {
   return { erro: "O Auth recusou a operação. Tente de novo." };
 }
 
-/** Deixa as permissões individuais do usuário iguais a `novas`. */
-async function sincronizarPermissoes(
-  usuarioId: string,
-  novas: string[],
-): Promise<EstadoAcao | null> {
-  const supabase = await createClient();
-  const eu = await usuarioAtual();
-  const tabela = supabase.schema("core").from("usuario_permissoes");
-  const atual = await tabela.select("permissao").eq("usuario_id", usuarioId);
-  if (atual.error) return erroDoBanco(atual.error);
-  const tem = new Set(atual.data.map((p) => p.permissao));
-  const querer = new Set(novas);
-  // Concede antes de revogar: a trava do último administrador olha o resultado.
-  const conceder = [...querer].filter((p) => !tem.has(p));
-  const revogar = [...tem].filter((p) => !querer.has(p));
-  if (conceder.length) {
-    const { error } = await supabase
-      .schema("core")
-      .from("usuario_permissoes")
-      .insert(
-        conceder.map((permissao) => ({
-          usuario_id: usuarioId,
-          permissao,
-          concedida_por: eu.id,
-        })),
-      );
-    if (error) return erroDoBanco(error);
-  }
-  if (revogar.length) {
-    const { error } = await supabase
-      .schema("core")
-      .from("usuario_permissoes")
-      .delete()
-      .eq("usuario_id", usuarioId)
-      .in("permissao", revogar);
-    if (error) return erroDoBanco(error);
-  }
-  return null;
-}
-
 // ---------------------------------------------------------------------------
 
 const novoUsuario = z.object({
@@ -100,7 +67,6 @@ const novoUsuario = z.object({
   email: z.email("e-mail inválido").trim().toLowerCase(),
   senha,
   cargo_id: cargoId,
-  permissoes,
 });
 
 export async function criarUsuario(
@@ -108,10 +74,7 @@ export async function criarUsuario(
   form: FormData,
 ): Promise<EstadoAcao> {
   if (!(await pode("admin.usuarios"))) return SEM_PERMISSAO;
-  const d = novoUsuario.safeParse({
-    ...Object.fromEntries(form),
-    permissoes: valores(form, "permissoes"),
-  });
+  const d = novoUsuario.safeParse(Object.fromEntries(form));
   if (!d.success) return primeiroErro(d.error, ROTULOS);
 
   const auth = createAdminClient().auth.admin;
@@ -120,23 +83,21 @@ export async function criarUsuario(
     password: d.data.senha,
     email_confirm: true,
     user_metadata: { nome: d.data.nome },
+    app_metadata: { [SENHA_PROVISORIA]: true },
   });
   if (criado.error) return erroDoAuth(criado.error);
   const id = criado.data.user.id;
 
-  // O perfil nasce pelo trigger; cargo e permissões entram com a sessão de
-  // quem criou (auditoria). Se falhar, desfaz o usuário do Auth.
+  // O perfil nasce pelo trigger; o cargo entra com a sessão de quem criou
+  // (auditoria). Se falhar, desfaz o usuário do Auth.
   const { error } = await (await createClient())
     .schema("core")
     .from("usuarios")
     .update({ nome: d.data.nome, cargo_id: d.data.cargo_id })
     .eq("id", id);
-  const falha = error
-    ? erroDoBanco(error)
-    : await sincronizarPermissoes(id, d.data.permissoes);
-  if (falha) {
+  if (error) {
     await auth.deleteUser(id);
-    return falha;
+    return erroDoBanco(error);
   }
   redirect(`/admin/usuarios/${id}?criado=1`);
 }
@@ -147,8 +108,6 @@ const edicao = z.object({
   id: z.uuid(),
   nome: z.string().trim().min(2, "informe o nome"),
   cargo_id: cargoId,
-  ativo: z.preprocess((v) => v === "on", z.boolean()),
-  permissoes,
 });
 
 export async function salvarUsuario(
@@ -156,62 +115,95 @@ export async function salvarUsuario(
   form: FormData,
 ): Promise<EstadoAcao> {
   if (!(await pode("admin.usuarios"))) return SEM_PERMISSAO;
-  const d = edicao.safeParse({
-    ...Object.fromEntries(form),
-    permissoes: valores(form, "permissoes"),
-  });
+  const d = edicao.safeParse(Object.fromEntries(form));
   if (!d.success) return primeiroErro(d.error, ROTULOS);
-  const eu = await usuarioAtual();
-  if (d.data.id === eu.id && !d.data.ativo)
-    return { erro: "Você não pode desativar o seu próprio acesso." };
-
-  const supabase = await createClient();
-  const antes = await supabase
+  const { error } = await (await createClient())
     .schema("core")
     .from("usuarios")
-    .select("ativo")
-    .eq("id", d.data.id)
-    .maybeSingle();
-  if (antes.error) return erroDoBanco(antes.error);
-  if (!antes.data) return { erro: "Usuário não encontrado." };
-
-  // Permissões antes do cargo/situação: quem ganha algo não fica sem nada
-  // no meio do caminho.
-  const falha = await sincronizarPermissoes(d.data.id, d.data.permissoes);
-  if (falha) return falha;
-  const { error } = await supabase
-    .schema("core")
-    .from("usuarios")
-    .update({
-      nome: d.data.nome,
-      cargo_id: d.data.cargo_id,
-      ativo: d.data.ativo,
-    })
+    .update({ nome: d.data.nome, cargo_id: d.data.cargo_id })
     .eq("id", d.data.id);
   if (error) return erroDoBanco(error);
-
-  if (antes.data.ativo !== d.data.ativo) {
-    const r = await createAdminClient().auth.admin.updateUserById(d.data.id, {
-      ban_duration: d.data.ativo ? "none" : BLOQUEIO,
-    });
-    if (r.error) return erroDoAuth(r.error);
-  }
   refresh();
-  return {
-    ok:
-      antes.data.ativo === d.data.ativo
-        ? "Salvo."
-        : d.data.ativo
-          ? "Salvo. O acesso foi reativado."
-          : "Salvo. O acesso foi bloqueado.",
-  };
+  return { ok: "Salvo." };
+}
+
+/** Inativa (bloqueia o login; o histórico continua) ou reativa. */
+export async function alternarUsuario(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("admin.usuarios"))) return SEM_PERMISSAO;
+  const d = alternancia.safeParse(Object.fromEntries(form));
+  if (!d.success) return { erro: "Usuário inválido." };
+  if (d.data.id === (await usuarioAtual()).id && !d.data.ativo)
+    return { erro: "Você não pode inativar o seu próprio acesso." };
+
+  const { error } = await (await createClient())
+    .schema("core")
+    .from("usuarios")
+    .update({ ativo: d.data.ativo })
+    .eq("id", d.data.id);
+  if (error) return erroDoBanco(error);
+  const r = await createAdminClient().auth.admin.updateUserById(d.data.id, {
+    ban_duration: d.data.ativo ? "none" : BLOQUEIO,
+  });
+  if (r.error) return erroDoAuth(r.error);
+  refresh();
+  return { ok: d.data.ativo ? "Acesso reativado." : "Usuário inativado." };
+}
+
+/**
+ * Exclui de vez. O perfil sai com a sessão de quem excluiu (auditoria e
+ * trava do último administrador); depois sai do Auth. O que a pessoa fez
+ * continua no histórico, sem o nome.
+ */
+export async function excluirUsuario(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("admin.usuarios"))) return SEM_PERMISSAO;
+  const id = z.uuid().safeParse(form.get("id"));
+  if (!id.success) return { erro: "Usuário inválido." };
+  if (id.data === (await usuarioAtual()).id)
+    return { erro: "Você não pode excluir a si mesmo." };
+
+  const { data, error } = await (await createClient())
+    .schema("core")
+    .from("usuarios")
+    .delete()
+    .eq("id", id.data)
+    .select("id");
+  if (error) return erroDoBanco(error);
+  if (!data.length) return { erro: "Usuário não encontrado." };
+  const r = await createAdminClient().auth.admin.deleteUser(id.data);
+  if (r.error) return erroDoAuth(r.error);
+  redirect("/admin/usuarios");
+}
+
+/** Tira as permissões dadas direto à pessoa; fica só o que vem do cargo. */
+export async function removerIndividuais(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("admin.usuarios"))) return SEM_PERMISSAO;
+  const id = z.uuid().safeParse(form.get("id"));
+  if (!id.success) return { erro: "Usuário inválido." };
+  const { error } = await (await createClient())
+    .schema("core")
+    .from("usuario_permissoes")
+    .delete()
+    .eq("usuario_id", id.data);
+  if (error) return erroDoBanco(error);
+  refresh();
+  return { ok: "Removidas. O acesso agora vem só do cargo." };
 }
 
 // ---------------------------------------------------------------------------
 
+// Confirmação só para a própria senha; a provisória fica à vista na tela.
 const novaSenha = z
-  .object({ id: z.uuid(), senha, confirmacao: z.string() })
-  .refine((v) => v.senha === v.confirmacao, {
+  .object({ id: z.uuid(), senha, confirmacao: z.string().optional() })
+  .refine((v) => v.confirmacao === undefined || v.senha === v.confirmacao, {
     path: ["confirmacao"],
     message: "as senhas não conferem",
   });
@@ -223,12 +215,23 @@ export async function trocarSenha(
   if (!(await pode("admin.usuarios"))) return SEM_PERMISSAO;
   const d = novaSenha.safeParse(Object.fromEntries(form));
   if (!d.success) return primeiroErro(d.error, ROTULOS);
+  // A senha que o administrador conhece é provisória, menos a dele mesmo.
+  const provisoria = d.data.id !== (await usuarioAtual()).id;
+  if (!provisoria && d.data.confirmacao === undefined)
+    return { erro: "Confirmação: repita a nova senha." };
   const { error } = await createAdminClient().auth.admin.updateUserById(
     d.data.id,
-    { password: d.data.senha },
+    {
+      password: d.data.senha,
+      app_metadata: { [SENHA_PROVISORIA]: provisoria },
+    },
   );
   if (error) return erroDoAuth(error);
-  return { ok: "Senha trocada. Passe a nova senha ao usuário." };
+  return {
+    ok: provisoria
+      ? "Senha trocada. Passe a senha à pessoa; no próximo acesso ela define uma nova."
+      : "Senha trocada.",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -299,6 +302,24 @@ export async function salvarCargo(
   if (!d.data.id) redirect("/admin/usuarios/cargos");
   refresh();
   return { ok: "Salvo. Vale para todos os usuários deste cargo." };
+}
+
+/** Inativo: some da escolha e para de dar permissão a quem já o tem. */
+export async function alternarCargo(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("admin.usuarios"))) return SEM_PERMISSAO;
+  const d = alternancia.safeParse(Object.fromEntries(form));
+  if (!d.success) return { erro: "Cargo inválido." };
+  const { error } = await (await createClient())
+    .schema("core")
+    .from("cargos")
+    .update({ ativo: d.data.ativo })
+    .eq("id", d.data.id);
+  if (error) return erroDoBanco(error);
+  refresh();
+  return { ok: d.data.ativo ? "Cargo reativado." : "Cargo inativado." };
 }
 
 export async function apagarCargo(

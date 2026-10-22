@@ -41,6 +41,83 @@ function primeiroErro(e: z.ZodError): EstadoAcao {
 }
 
 // ---------------------------------------------------------------------------
+// Jornada em níveis (rh.jornadas). Muda o custo por hora: recalcula.
+// ---------------------------------------------------------------------------
+
+/** "empresa" ou "departamento:<id>", "cargo:<id>", "colaborador:<id>". */
+const alvoJornada = z.string().transform((v, ctx) => {
+  const ids = {
+    departamento_id: null as string | null,
+    cargo_id: null as string | null,
+    colaborador_id: null as string | null,
+  };
+  if (v === "empresa") return ids;
+  const [nivel, id] = v.split(":");
+  const campo = `${nivel}_id`;
+  if (!(campo in ids) || !z.uuid().safeParse(id).success) {
+    ctx.addIssue({ code: "custom", message: "escolha para quem vale" });
+    return z.NEVER;
+  }
+  return { ...ids, [campo]: id as string };
+});
+
+const jornada = z.object({
+  alvo: alvoJornada,
+  // Teto físico do mês (31 dias × 24 h), não uma regra de negócio.
+  horas: obrigatorio(decimal).refine(
+    (v) => v === undefined || (v > 0 && v <= 744),
+    "entre 0 e 744 horas",
+  ),
+});
+
+export async function salvarJornada(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("rh.parametros"))) return SEM_PERMISSAO;
+  const j = jornada.safeParse(Object.fromEntries(form));
+  if (!j.success) return primeiroErro(j.error);
+  const { error } = await (await createClient())
+    .schema("rh")
+    .from("jornadas")
+    .upsert(
+      {
+        ...j.data.alvo,
+        horas_mes_min: Math.round((j.data.horas as number) * 60),
+        vigente_desde: competenciaDe(new Date()),
+      },
+      { onConflict: "departamento_id,cargo_id,colaborador_id,vigente_desde" },
+    );
+  if (error) return erroDoBanco(error);
+  return salvoERecalculado();
+}
+
+/**
+ * Tira a jornada de um nível (todas as vigências): quem ele cobria passa a
+ * seguir o nível de cima. Meses fechados mantêm o custo já gravado.
+ */
+export async function removerJornada(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("rh.parametros"))) return SEM_PERMISSAO;
+  const a = alvoJornada.safeParse(form.get("alvo"));
+  if (!a.success) return primeiroErro(a.error);
+  const { departamento_id, cargo_id, colaborador_id } = a.data;
+  let apagar = (await createClient()).schema("rh").from("jornadas").delete();
+  apagar = departamento_id
+    ? apagar.eq("departamento_id", departamento_id)
+    : apagar.is("departamento_id", null);
+  apagar = cargo_id
+    ? apagar.eq("cargo_id", cargo_id)
+    : apagar.is("cargo_id", null);
+  apagar = colaborador_id
+    ? apagar.eq("colaborador_id", colaborador_id)
+    : apagar.is("colaborador_id", null);
+  const { error } = await apagar;
+  if (error) return erroDoBanco(error);
+  return salvoERecalculado();
+}
 
 // ---------------------------------------------------------------------------
 
@@ -143,7 +220,7 @@ export async function salvarEmpresa(
   return salvoERecalculado();
 }
 
-/** RAT/FAP e encargos mudam o custo: recalcula as folhas em aberto. */
+/** Jornada, RAT/FAP e encargos mudam o custo: recalcula as folhas em aberto. */
 async function salvoERecalculado(): Promise<EstadoAcao> {
   const ok = await tentarRecalcular(recalcularEmAberto);
   refresh();

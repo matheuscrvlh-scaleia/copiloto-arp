@@ -79,6 +79,7 @@ export type Database = {
       }
       cargos: {
         Row: {
+          ativo: boolean
           atualizado_em: string
           criado_em: string
           descricao: string | null
@@ -86,6 +87,7 @@ export type Database = {
           nome: string
         }
         Insert: {
+          ativo?: boolean
           atualizado_em?: string
           criado_em?: string
           descricao?: string | null
@@ -93,6 +95,7 @@ export type Database = {
           nome: string
         }
         Update: {
+          ativo?: boolean
           atualizado_em?: string
           criado_em?: string
           descricao?: string | null
@@ -450,6 +453,122 @@ export type Database = {
       [_ in never]: never
     }
   }
+  financeiro: {
+    Tables: {
+      estacionamento_movimento: {
+        Row: {
+          atualizado_em: string
+          data: string
+          entradas: number
+          estacionamento_id: number
+          saidas: number
+          sync_run_id: string | null
+          tipo_veiculo: string
+        }
+        Insert: {
+          atualizado_em?: string
+          data: string
+          entradas?: number
+          estacionamento_id: number
+          saidas?: number
+          sync_run_id?: string | null
+          tipo_veiculo: string
+        }
+        Update: {
+          atualizado_em?: string
+          data?: string
+          entradas?: number
+          estacionamento_id?: number
+          saidas?: number
+          sync_run_id?: string | null
+          tipo_veiculo?: string
+        }
+        Relationships: []
+      }
+      estacionamento_pagamentos: {
+        Row: {
+          atualizado_em: string
+          data: string
+          estacionamento_id: number
+          forma_pagamento: string
+          forma_pagamento_codigo: number
+          grupos: string[]
+          pago_em: string
+          parcial: number
+          recibo: string
+          sync_run_id: string | null
+          tarifa: string | null
+          terminal: string | null
+          ticket: string | null
+          tipo_cliente: string
+          valor_bruto: number
+          valor_desconto: number
+          valor_liquido: number
+          wps_codigo: number
+        }
+        Insert: {
+          atualizado_em?: string
+          data: string
+          estacionamento_id: number
+          forma_pagamento: string
+          forma_pagamento_codigo: number
+          grupos: string[]
+          pago_em: string
+          parcial?: number
+          recibo: string
+          sync_run_id?: string | null
+          tarifa?: string | null
+          terminal?: string | null
+          ticket?: string | null
+          tipo_cliente: string
+          valor_bruto: number
+          valor_desconto?: number
+          valor_liquido: number
+          wps_codigo: number
+        }
+        Update: {
+          atualizado_em?: string
+          data?: string
+          estacionamento_id?: number
+          forma_pagamento?: string
+          forma_pagamento_codigo?: number
+          grupos?: string[]
+          pago_em?: string
+          parcial?: number
+          recibo?: string
+          sync_run_id?: string | null
+          tarifa?: string | null
+          terminal?: string | null
+          ticket?: string | null
+          tipo_cliente?: string
+          valor_bruto?: number
+          valor_desconto?: number
+          valor_liquido?: number
+          wps_codigo?: number
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      gravar_estacionamento: {
+        Args: {
+          p_dias: Json
+          p_estacionamento_id: number
+          p_sync_run_id: string
+        }
+        Returns: number
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   integracao: {
     Tables: {
       credenciais: {
@@ -766,6 +885,7 @@ export type Database = {
           atualizado_em: string
           cargo_id: string | null
           copiloto_id: string | null
+          decisao_desligamento_copiloto: string | null
           criado_em: string
           departamento_id: string | null
           desligamento: string | null
@@ -784,6 +904,7 @@ export type Database = {
           atualizado_em?: string
           cargo_id?: string | null
           copiloto_id?: string | null
+          decisao_desligamento_copiloto?: string | null
           criado_em?: string
           departamento_id?: string | null
           desligamento?: string | null
@@ -802,6 +923,7 @@ export type Database = {
           atualizado_em?: string
           cargo_id?: string | null
           copiloto_id?: string | null
+          decisao_desligamento_copiloto?: string | null
           criado_em?: string
           departamento_id?: string | null
           desligamento?: string | null
@@ -1555,6 +1677,74 @@ export type Database = {
           },
         ]
       }
+      ponto_diario: {
+        Row: {
+          abonos_min: Json
+          atrasos_min: number
+          atualizado_em: string
+          banco_creditos_min: number
+          banco_debitos_min: number
+          banco_saldo_min: number
+          batidas: Json
+          colaborador_id: string
+          competencia: string
+          data: string
+          extras_min: Json
+          faltas_min: number
+          normais_min: number
+          noturnas_min: number
+          ocorrencia: string | null
+          previstas_min: number
+          sync_run_id: string | null
+        }
+        Insert: {
+          abonos_min?: Json
+          atrasos_min?: number
+          atualizado_em?: string
+          banco_creditos_min?: number
+          banco_debitos_min?: number
+          banco_saldo_min?: number
+          batidas?: Json
+          colaborador_id: string
+          competencia: string
+          data: string
+          extras_min?: Json
+          faltas_min?: number
+          normais_min?: number
+          noturnas_min?: number
+          ocorrencia?: string | null
+          previstas_min?: number
+          sync_run_id?: string | null
+        }
+        Update: {
+          abonos_min?: Json
+          atrasos_min?: number
+          atualizado_em?: string
+          banco_creditos_min?: number
+          banco_debitos_min?: number
+          banco_saldo_min?: number
+          batidas?: Json
+          colaborador_id?: string
+          competencia?: string
+          data?: string
+          extras_min?: Json
+          faltas_min?: number
+          normais_min?: number
+          noturnas_min?: number
+          ocorrencia?: string | null
+          previstas_min?: number
+          sync_run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ponto_diario_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ponto_mensal: {
         Row: {
           abonos_min: Json
@@ -1707,6 +1897,19 @@ export type Database = {
           p_reajuste_pct: number | null
         }
         Returns: string
+      }
+      salvar_faixas_plano: {
+        Args: { p_faixas: Json; p_tabela_id: string }
+        Returns: undefined
+      }
+      salvar_pessoa_folha: {
+        Args: {
+          p_colaborador_id: string
+          p_folha_id: string
+          p_pessoa: Json
+          p_rubricas: Json
+        }
+        Returns: undefined
       }
       importar_folha: {
         Args: {
@@ -1895,6 +2098,9 @@ export const Constants = {
       status_importacao: ["previa", "confirmada", "substituida", "revertida"],
       tipo_importacao: ["folha", "plano_saude"],
     },
+  },
+  financeiro: {
+    Enums: {},
   },
   integracao: {
     Enums: {

@@ -115,7 +115,7 @@ describe("estrutura", () => {
   it("liga o RLS em todas as tabelas", async () => {
     const { rows } =
       await db.query(`select schemaname || '.' || tablename as t from pg_tables
-      where schemaname in ('core', 'rh', 'integracao') and not rowsecurity`);
+      where schemaname in ('core', 'rh', 'integracao', 'financeiro') and not rowsecurity`);
     expect(rows).toEqual([]);
   });
 });
@@ -595,6 +595,83 @@ describe("administração: cargos de acesso", () => {
       `update core.usuarios set ativo = true, cargo_id = null where id = '${U.outro}'`,
     );
   });
+
+  it("cargo inativo não dá permissão; reativar devolve", async () => {
+    await db.exec(
+      `update core.usuarios set cargo_id = '${CARGO_QUADRO}' where id = '${U.outro}'`,
+    );
+    await como(U.gestora, () =>
+      db.query(
+        `update core.cargos set ativo = false where id = '${CARGO_QUADRO}'`,
+      ),
+    );
+    await como(U.outro, async () => {
+      expect(await linhas("select core.minhas_permissoes()")).toBe(0);
+      expect(await linhas("select * from rh.colaboradores")).toBe(0);
+    });
+    await como(U.gestora, () =>
+      db.query(
+        `update core.cargos set ativo = true where id = '${CARGO_QUADRO}'`,
+      ),
+    );
+    await como(U.outro, async () => {
+      expect(await linhas("select core.minhas_permissoes()")).toBe(1);
+    });
+    await db.exec(
+      `update core.usuarios set cargo_id = null where id = '${U.outro}'`,
+    );
+  });
+
+  it("não deixa inativar o cargo do último administrador", async () => {
+    const CARGO_ADMIN = "50000000-0000-0000-0000-000000000002";
+    await db.exec(`
+      insert into core.cargos (id, nome) values ('${CARGO_ADMIN}', 'Admin teste');
+      insert into core.cargo_permissoes (cargo_id, permissao) values ('${CARGO_ADMIN}', 'admin.usuarios');
+      update core.usuarios set cargo_id = '${CARGO_ADMIN}' where id = '${U.gestora}';
+      delete from core.usuario_permissoes where usuario_id = '${U.gestora}' and permissao = 'admin.usuarios';
+    `);
+    await como(U.gestora, async () => {
+      expect(
+        await erro(
+          `update core.cargos set ativo = false where id = '${CARGO_ADMIN}'`,
+        ),
+      ).toMatch(/pelo menos um administrador/);
+    });
+    await db.exec(`
+      insert into core.usuario_permissoes (usuario_id, permissao) values ('${U.gestora}', 'admin.usuarios');
+      update core.usuarios set cargo_id = null where id = '${U.gestora}';
+      delete from core.cargos where id = '${CARGO_ADMIN}';
+    `);
+  });
+
+  it("excluir: só o administrador, nunca a si mesmo, e fica na auditoria", async () => {
+    const TEMP = "00000000-0000-0000-0000-000000000009";
+    await db.query("insert into auth.users (id, email) values ($1, $2)", [
+      TEMP,
+      "temp@arp.test",
+    ]);
+    await como(U.analista, async () => {
+      await db.query(`delete from core.usuarios where id = '${TEMP}'`);
+    });
+    expect(
+      await linhas(`select 1 from core.usuarios where id = '${TEMP}'`),
+    ).toBe(1);
+    await como(U.gestora, async () => {
+      await db.query(`delete from core.usuarios where id = '${U.gestora}'`);
+      expect(
+        await linhas(`select 1 from core.usuarios where id = '${U.gestora}'`),
+      ).toBe(1);
+      await db.query(`delete from core.usuarios where id = '${TEMP}'`);
+    });
+    expect(
+      await linhas(`select 1 from core.usuarios where id = '${TEMP}'`),
+    ).toBe(0);
+    expect(
+      await linhas(
+        `select 1 from core.auditoria where tabela = 'core.usuarios' and acao = 'delete' and registro_id = '${TEMP}' and usuario_id = '${U.gestora}'`,
+      ),
+    ).toBe(1);
+  });
 });
 
 describe("administração: empresa", () => {
@@ -917,5 +994,371 @@ describe("tabela do plano (rh.importar_tabela_plano)", () => {
           "select 1 from rh.plano_coparticipacao where colaborador_valor_fixo = 57.5",
         ),
       ).toBe(1);
+    }));
+
+  describe("faixas editadas na tela (rh.salvar_faixas_plano)", () => {
+    const salvar = (faixas: string) =>
+      `select rh.salvar_faixas_plano(
+        (select id from rh.plano_tabelas where beneficio_id = '${PLANO}'), '${faixas}')`;
+    const faixas = async () =>
+      (
+        await db.query<{ idade_min: number; mensalidade: string }>(
+          "select idade_min, mensalidade from rh.plano_faixas_etarias order by idade_min",
+        )
+      ).rows.map((f) => [f.idade_min, Number(f.mensalidade)]);
+
+    it("sem rh.beneficios não edita", () =>
+      como(U.analista, async () => {
+        expect(
+          await erro(
+            salvar('[{"idade_min":0,"idade_max":null,"mensalidade":1}]'),
+          ),
+        ).toMatch(/permissão/);
+      }));
+
+    it("troca as faixas, recusa sobreposição sem mexer em nada e audita", () =>
+      como(U.gestora, async () => {
+        expect(
+          await erro(
+            salvar(
+              '[{"idade_min":0,"idade_max":30,"mensalidade":90},{"idade_min":31,"idade_max":null,"mensalidade":300}]',
+            ),
+          ),
+        ).toBeNull();
+        expect(await faixas()).toEqual([
+          [0, 90],
+          [31, 300],
+        ]);
+
+        expect(
+          await erro(
+            salvar(
+              '[{"idade_min":0,"idade_max":30,"mensalidade":1},{"idade_min":25,"idade_max":null,"mensalidade":2}]',
+            ),
+          ),
+        ).toMatch(/sobrepostas/);
+        expect(await erro(salvar("[]"))).toMatch(/ao menos uma faixa/);
+        expect(await faixas()).toEqual([
+          [0, 90],
+          [31, 300],
+        ]);
+      }).then(async () => {
+        expect(
+          await linhas(
+            "select 1 from core.auditoria where tabela = 'rh.plano_faixas_etarias' and registro_id like '%:31'",
+          ),
+        ).toBe(1);
+      }));
+  });
+});
+
+describe("folha editada na tela (rh.salvar_pessoa_folha)", () => {
+  const F_REAL = "41000000-0000-0000-0000-000000000001";
+  const F_FICTICIA = "41000000-0000-0000-0000-000000000002";
+  const pessoa = (salario: number) =>
+    JSON.stringify({
+      tipo_contrato: "pj",
+      departamento_id: DEP,
+      cargo_id: null,
+      horas_mes_min: 6000,
+      salario,
+    });
+  const salvar = (folha: string, salario: number, rubricas: string) =>
+    `select rh.salvar_pessoa_folha('${folha}', '${COLAB}', '${pessoa(salario)}', '${rubricas}')`;
+  const SALARIO_2000 = `{"codigo":8781,"natureza":"provento","referencia":null,"valor":2000}`;
+
+  beforeAll(async () => {
+    await db.exec(`
+      insert into rh.folhas (id, competencia, ficticia) values
+        ('${F_REAL}', '2026-04-01', false), ('${F_FICTICIA}', '2026-05-01', true);
+      insert into rh.folha_colaboradores (folha_id, colaborador_id, situacao, tipo_contrato, horas_mes_min, salario)
+        values ('${F_REAL}', '${COLAB}', 'trabalhando', 'clt', 13200, 3000),
+               ('${F_FICTICIA}', '${COLAB}', 'trabalhando', 'clt', 13200, 2000);
+      insert into rh.folha_rubricas (folha_id, colaborador_id, rubrica_codigo, natureza, valor)
+        values ('${F_REAL}', '${COLAB}', 8781, 'provento', 3000),
+               ('${F_FICTICIA}', '${COLAB}', 8781, 'provento', 2000);
+    `);
+  });
+
+  it("sem rh.folha não edita", () =>
+    como(U.analista, async () => {
+      expect(await erro(salvar(F_REAL, 3000, "[]"))).toMatch(/permissão/);
+    }));
+
+  it("troca dados e rubricas da pessoa, recalcula o líquido e audita sem valores", async () => {
+    await como(U.gestora, async () => {
+      expect(
+        await erro(
+          salvar(
+            F_REAL,
+            3100,
+            `[{"codigo":8781,"natureza":"provento","referencia":30,"valor":3100},
+              {"codigo":307,"natureza":"desconto","referencia":null,"valor":100}]`,
+          ),
+        ),
+      ).toBeNull();
+      expect(
+        await erro(
+          salvar(
+            F_REAL,
+            3100,
+            `[{"codigo":999999,"natureza":"provento","valor":1}]`,
+          ),
+        ),
+      ).toMatch(/999999 não está cadastrada/);
+    });
+    const { rows } = await db.query<{
+      tipo_contrato: string;
+      horas_mes_min: number;
+      salario: string;
+      liquido: string;
+      rubricas: string;
+    }>(
+      `select tipo_contrato, horas_mes_min, salario, liquido,
+         (select count(*) from rh.folha_rubricas r where r.folha_id = c.folha_id and r.colaborador_id = c.colaborador_id) rubricas
+       from rh.folha_colaboradores c where folha_id = '${F_REAL}'`,
+    );
+    expect(
+      rows.map((r) => [
+        r.tipo_contrato,
+        r.horas_mes_min,
+        Number(r.salario),
+        Number(r.liquido),
+        Number(r.rubricas),
+      ]),
+    ).toEqual([["pj", 6000, 3100, 3000, 2]]);
+    const { rows: aud } = await db.query<{ depois: string }>(
+      `select depois::text from core.auditoria where registro_id = '${F_REAL}:${COLAB}'`,
+    );
+    expect(aud).toHaveLength(1);
+    expect(aud[0]?.depois).toContain('"rubricas": [307, 8781]');
+    expect(aud[0]?.depois).not.toContain("3100");
+  });
+
+  it("no protótipo o salário não muda; o resto muda", () =>
+    como(U.gestora, async () => {
+      expect(await erro(salvar(F_FICTICIA, 5000, `[${SALARIO_2000}]`))).toMatch(
+        /protótipo/,
+      );
+      expect(
+        await erro(
+          salvar(
+            F_FICTICIA,
+            2000,
+            `[{"codigo":8781,"natureza":"provento","referencia":null,"valor":5000}]`,
+          ),
+        ),
+      ).toMatch(/protótipo/);
+      expect(await erro(salvar(F_FICTICIA, 2000, "[]"))).toMatch(/protótipo/);
+      expect(
+        await erro(
+          salvar(
+            F_FICTICIA,
+            2000,
+            `[${SALARIO_2000}, {"codigo":307,"natureza":"desconto","referencia":null,"valor":80}]`,
+          ),
+        ),
+      ).toBeNull();
+    }));
+
+  it("folha fechada não é editada", async () => {
+    await db.exec(
+      `update rh.folhas set status = 'fechada', fechada_em = now() where id = '${F_REAL}'`,
+    );
+    await como(U.gestora, async () => {
+      expect(await erro(salvar(F_REAL, 3100, "[]"))).toMatch(/fechada/);
+    });
+  });
+});
+
+describe("ponto do dia (rh.ponto_diario)", () => {
+  const FUNCIONARIOS = "00000000-0000-0000-0000-000000000004";
+  const dia = (data: string, competencia = "2026-10-01") =>
+    `insert into rh.ponto_diario (colaborador_id, data, competencia, batidas, previstas_min)
+     values ('${COLAB}', '${data}', '${competencia}', '["08:00", null, "13:00", "17:00"]', 480)`;
+
+  beforeAll(async () => {
+    await db.exec(dia("2026-10-01"));
+    await db.query("insert into auth.users (id, email) values ($1, $2)", [
+      FUNCIONARIOS,
+      "funcionarios@arp.test",
+    ]);
+    await db.exec(
+      `insert into core.usuario_permissoes (usuario_id, permissao) values ('${FUNCIONARIOS}', 'rh.funcionarios')`,
+    );
+  });
+
+  it("quem vê a jornada ou os funcionários vê o dia e o mês; os outros, não", async () => {
+    await como(U.analista, async () => {
+      expect(await linhas("select * from rh.ponto_diario")).toBe(1);
+    });
+    await como(FUNCIONARIOS, async () => {
+      expect(await linhas("select * from rh.ponto_diario")).toBe(1);
+      expect(await linhas("select * from rh.ponto_mensal")).toBeGreaterThan(0);
+    });
+    await como(U.outro, async () => {
+      expect(await linhas("select * from rh.ponto_diario")).toBe(0);
+    });
+  });
+
+  it("quem tem só o Painel também vê o dia (filtro de período)", async () => {
+    const PAINEL = "00000000-0000-0000-0000-000000000005";
+    await db.query("insert into auth.users (id, email) values ($1, $2)", [
+      PAINEL,
+      "painel@arp.test",
+    ]);
+    await db.exec(
+      `insert into core.usuario_permissoes (usuario_id, permissao) values ('${PAINEL}', 'rh.painel')`,
+    );
+    await como(PAINEL, async () => {
+      expect(await linhas("select * from rh.ponto_diario")).toBe(1);
+    });
+  });
+
+  it("ninguém grava pela aplicação, nem a Gestora", () =>
+    como(U.gestora, async () => {
+      expect(await erro(dia("2026-10-02"))).toMatch(/permission denied/);
+    }));
+
+  it("o dia fica na competência do próprio mês", async () => {
+    expect(await erro(dia("2026-10-03", "2026-09-01"))).toMatch(
+      /check constraint/,
+    );
+  });
+
+  it("os cargos que viam a jornada ganham os funcionários", async () => {
+    const { rows } = await db.query<{ nome: string }>(
+      `select c.nome from core.cargos c
+       join core.cargo_permissoes cp on cp.cargo_id = c.id
+       where cp.permissao = 'rh.funcionarios' order by c.nome`,
+    );
+    expect(rows.map((r) => r.nome)).toEqual([
+      "Administrador",
+      "Diretoria",
+      "Gestão de RH",
+    ]);
+  });
+});
+
+describe("estacionamento (financeiro.gravar_estacionamento)", () => {
+  const FINANCEIRO = "00000000-0000-0000-0000-000000000006";
+  const pagamento = (codigo: number, liquido = 10) => ({
+    wps_codigo: codigo,
+    pago_em: "2026-10-15 16:46:07",
+    tipo_cliente: "ROTATIVO",
+    ticket: `T${codigo}`,
+    recibo: `R${codigo}`,
+    forma_pagamento: "CRÉDITO MASTERCARD",
+    forma_pagamento_codigo: 302,
+    grupos: ["cartao_credito", "desconto"],
+    valor_bruto: 15,
+    valor_desconto: 5,
+    valor_liquido: liquido,
+    parcial: 0,
+    terminal: "MOBILE",
+    tarifa: "M ALLOS MOB",
+  });
+  const dia = (data: string, pagamentos: unknown[]) => ({
+    data,
+    pagamentos,
+    movimento: [{ tipo_veiculo: "carro", entradas: 13, saidas: 10 }],
+  });
+  const gravar = (dias: unknown[]) =>
+    db.query<{ n: number }>(
+      "select financeiro.gravar_estacionamento(1, $1, null) as n",
+      [JSON.stringify(dias)],
+    );
+
+  beforeAll(async () => {
+    await db.query("insert into auth.users (id, email) values ($1, $2)", [
+      FINANCEIRO,
+      "financeiro@arp.test",
+    ]);
+    await db.exec(
+      `insert into core.usuario_permissoes (usuario_id, permissao) values ('${FINANCEIRO}', 'financeiro.fluxo_de_caixa')`,
+    );
+  });
+
+  it("grava os dias e devolve quantos pagamentos", async () => {
+    const { rows } = await gravar([
+      dia("2026-10-15", [pagamento(1), pagamento(2)]),
+      dia("2026-10-16", [pagamento(3)]),
+    ]);
+    expect(rows[0]?.n).toBe(3);
+    const { rows: p } = await db.query<{
+      grupos: string[];
+      valor_liquido: string;
+    }>(
+      "select grupos, valor_liquido from financeiro.estacionamento_pagamentos where wps_codigo = 1",
+    );
+    expect(p[0]).toEqual({
+      grupos: ["cartao_credito", "desconto"],
+      valor_liquido: "10.00",
+    });
+    expect(
+      await linhas(
+        "select * from financeiro.estacionamento_movimento where estacionamento_id = 1",
+      ),
+    ).toBe(2);
+  });
+
+  it("regravar um dia troca o dia inteiro e não mexe nos outros", async () => {
+    await gravar([dia("2026-10-15", [pagamento(1, 7)])]);
+    const { rows } = await db.query<{
+      wps_codigo: string;
+      data: string;
+      valor_liquido: string;
+    }>(
+      `select wps_codigo::text, data::text, valor_liquido::text
+       from financeiro.estacionamento_pagamentos order by wps_codigo`,
+    );
+    expect(rows).toEqual([
+      { wps_codigo: "1", data: "2026-10-15", valor_liquido: "7.00" },
+      { wps_codigo: "3", data: "2026-10-16", valor_liquido: "10.00" },
+    ]);
+    expect(
+      await linhas(
+        "select * from financeiro.estacionamento_movimento where estacionamento_id = 1",
+      ),
+    ).toBe(2);
+  });
+
+  it("pagamento que muda de dia sai do dia antigo", async () => {
+    await gravar([dia("2026-10-17", [pagamento(3)])]);
+    const { rows } = await db.query<{ data: string }>(
+      "select data::text from financeiro.estacionamento_pagamentos where wps_codigo = 3",
+    );
+    expect(rows).toEqual([{ data: "2026-10-17" }]);
+  });
+
+  it("quem tem tela do Financeiro vê; RH e sem permissão, não", async () => {
+    await como(FINANCEIRO, async () => {
+      expect(
+        await linhas("select * from financeiro.estacionamento_pagamentos"),
+      ).toBe(2);
+      expect(
+        await linhas("select * from financeiro.estacionamento_movimento"),
+      ).toBe(3);
+    });
+    for (const u of [U.gestora, U.outro]) {
+      await como(u, async () => {
+        expect(
+          await linhas("select * from financeiro.estacionamento_pagamentos"),
+        ).toBe(0);
+        expect(
+          await linhas("select * from financeiro.estacionamento_movimento"),
+        ).toBe(0);
+      });
+    }
+  });
+
+  it("ninguém grava pela aplicação", () =>
+    como(FINANCEIRO, async () => {
+      expect(
+        await erro("delete from financeiro.estacionamento_pagamentos"),
+      ).toMatch(/permission denied/);
+      expect(
+        await erro("select financeiro.gravar_estacionamento(1, '[]', null)"),
+      ).toMatch(/permission denied/);
     }));
 });

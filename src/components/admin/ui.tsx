@@ -72,6 +72,32 @@ export function Situacao({
   );
 }
 
+/**
+ * Bloco de formulário: título e explicação à esquerda, campos à direita.
+ * Vários seguidos ficam separados por uma linha.
+ */
+export function Secao({
+  titulo,
+  descricao,
+  children,
+}: {
+  titulo: string;
+  descricao?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid grid-cols-1 gap-4 border-neutral-200/70 py-6 not-first-of-type:border-t first-of-type:pt-0 md:grid-cols-[15rem_minmax(0,1fr)] md:gap-8">
+      <div>
+        <h2 className="text-sm font-semibold text-neutral-900">{titulo}</h2>
+        {descricao && (
+          <p className="mt-1 text-xs text-neutral-500">{descricao}</p>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-col gap-4">{children}</div>
+    </section>
+  );
+}
+
 /** Botão-link preto em pílula (ação principal da tela). */
 export function BotaoLink({
   href,

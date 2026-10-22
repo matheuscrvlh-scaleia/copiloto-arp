@@ -60,6 +60,17 @@ describe("tabelas do modal de detalhe", () => {
   it("banco: de quem mais deve para quem mais tem crédito", () => {
     const t = tabelaDoBanco([ponto("1", 0, 0, 90), ponto("2", 0, 0, -120)]);
     expect(t.linhas.map((l) => l.celulas[4])).toEqual(["-2h00", "1h30"]);
+    expect(t.colunas).toHaveLength(5);
+  });
+
+  it("banco em R$: coluna no fim só quando vem o valor de cada pessoa", () => {
+    const t = tabelaDoBanco(
+      [ponto("1", 0, 0, 90), ponto("2", 0, 0, -120)],
+      undefined,
+      new Map([["1", 22.5]]),
+    );
+    expect(t.colunas.at(-1)?.titulo).toBe("Saldo em R$");
+    expect(t.linhas.map((l) => l.celulas.at(-1))).toEqual(["—", "R$ 22,50"]);
   });
 
   it("horas perdidas: só quem tem, e dias de falta só nas faltas", () => {

@@ -1,0 +1,200 @@
+{
+  "_id": "5eb2e71a33984c2ff3184b02",
+  "data": "01/01/2023",
+  "dataFim": null,
+  "diaDaSemana": "Domingo",
+  "numero": 35,
+  "prazo": { "contratual": 214, "decorrido": 35, "aVencer": 179 },
+  "status": { "id": 1, "descricao": "Preenchendo Relatório" },
+  "horarioDeTrabalho": {
+    "expedienteInicio": "08:00",
+    "expedienteFim": "17:00",
+    "intervaloInicio": "12:00",
+    "intervaloFim": "13:00",
+    "horasTrabalhadas": "08:00"
+  },
+  "clima": {
+    "manha": { "clima": "Nublado", "condicao": "Impraticável", "ativo": true },
+    "tarde": { "clima": "Claro", "condicao": "Praticável", "ativo": true },
+    "noite": { "clima": "Claro", "condicao": "Praticável", "ativo": false },
+    "indicePluviometrico": null
+  },
+  "maoDeObra": {
+    "opcaoSelecionada": "personalizada",
+    "padrao": [
+      {
+        "_id": "5ea4a9ee1cab5d1b693f95d1",
+        "descricao": "Engenheiro",
+        "quantidade": 1,
+        "categoria": {
+          "_id": "5ea4a9ee1cab5d1b693f95ca",
+          "descricao": "Mão de Obra Direta"
+        }
+      }
+    ],
+    "personalizada": [
+      {
+        "_id": "5ea4a9ee1cab5d1b693f95de",
+        "registro": null,
+        "nome": "Trabalhador A",
+        "funcao": "Servente",
+        "presenca": true,
+        "horaInicio": "08:00",
+        "horaFim": "17:00",
+        "horasIntervalo": "01:00",
+        "horasTrabalhadas": "08:00",
+        "ativo": null,
+        "categoria": {
+          "_id": "5ea4a9ee1cab5d1b693f95ca",
+          "descricao": "Mão de Obra Direta"
+        }
+      },
+      {
+        "_id": "5ea4a9ee1cab5d1b693f95e1",
+        "registro": null,
+        "nome": "Trabalhador B",
+        "funcao": "Pedreiro",
+        "presenca": false,
+        "horaInicio": "",
+        "horaFim": "",
+        "horasIntervalo": "",
+        "horasTrabalhadas": "",
+        "ativo": null,
+        "categoria": {
+          "_id": "5ea4a9ee1cab5d1b693f95ca",
+          "descricao": "Mão de Obra Direta"
+        }
+      }
+    ]
+  },
+  "equipamentos": [
+    {
+      "_id": "5ea4a9ee1cab5d1b693f95b7",
+      "descricao": "Betoneira",
+      "quantidade": 3
+    }
+  ],
+  "atividades": [
+    {
+      "maisOpcoes": false,
+      "cronograma": false,
+      "tarefaId": "5c61c392",
+      "item": null,
+      "descricao": "Preparação das armaduras e formas dos pilares",
+      "observacao": "",
+      "porcentagem": 100,
+      "porcentagemAnterior": 80,
+      "controleDeProducao": {
+        "ativo": false,
+        "unidade": null,
+        "quantidade": null,
+        "realizado": null,
+        "realizadoAnterior": null,
+        "acumulado": null
+      },
+      "status": { "id": 3, "descricao": "Concluída" },
+      "etapa": { "_id": null, "item": null, "descricao": null },
+      "horario": {
+        "inicio": null,
+        "fim": null,
+        "total": null,
+        "segundos": 0,
+        "descricao": null
+      },
+      "fotos": [],
+      "ocorrencias": [],
+      "videos": []
+    },
+    {
+      "maisOpcoes": true,
+      "cronograma": true,
+      "tarefaId": "5cc21c9c33e38246132b9a44",
+      "item": "4.1",
+      "descricao": "Contrapiso com argamassa regularizadora",
+      "observacao": null,
+      "porcentagem": 10,
+      "porcentagemAnterior": 0,
+      "controleDeProducao": {
+        "ativo": true,
+        "unidade": "m",
+        "quantidade": 100,
+        "realizado": 10,
+        "realizadoAnterior": 0,
+        "acumulado": 10
+      },
+      "status": { "id": 2, "descricao": "Em Andamento" },
+      "etapa": {
+        "_id": "5cc21c9c33e38246132b9a43",
+        "posicao": 1,
+        "item": "4",
+        "descricao": "CONTRAPISOS E REVESTIMENTOS"
+      },
+      "horario": {
+        "inicio": "10:00",
+        "fim": "16:00",
+        "total": "06:00",
+        "segundos": 21600,
+        "descricao": "6h"
+      },
+      "fotos": [{ "arquivo": "a.jpeg", "url": "https://exemplo.test/a.jpeg" }],
+      "ocorrencias": [],
+      "videos": []
+    }
+  ],
+  "ocorrencias": [
+    {
+      "_id": "51132000",
+      "descricao": "Chuva forte, frente parada",
+      "tags": [
+        {
+          "_id": "62d841cd27cf461435010782",
+          "descricao": "Chuva",
+          "checked": true
+        },
+        {
+          "_id": "5ea4a9ee1cab5d1b693f95aa",
+          "descricao": "Dia parado",
+          "checked": true
+        }
+      ],
+      "maisOpcoes": false,
+      "horario": {
+        "inicio": null,
+        "fim": null,
+        "total": null,
+        "segundos": null,
+        "descricao": null
+      },
+      "tarefa": { "_id": null, "descricao": null },
+      "fotos": [],
+      "videos": []
+    }
+  ],
+  "controleDeMaterial": {
+    "recebido": [{ "descricao": "Cimento", "quantidade": "50" }],
+    "utilizado": [{ "descricao": "Brita", "quantidade": "5m" }]
+  },
+  "comentarios": [
+    {
+      "descricao": "Comentário",
+      "dataHora": "01/01/2023 00:00",
+      "usuario": {
+        "_id": "57fa4eebffd18769058b456b",
+        "nome": "Usuário",
+        "perfilCliente": false
+      }
+    }
+  ],
+  "galeriaDeFotos": [],
+  "videos": [],
+  "anexos": [],
+  "vinculo": {},
+  "empresa": {},
+  "obra": {},
+  "modeloDeRelatorio": {},
+  "logomarca": {},
+  "log": {},
+  "linkPdf": "https://diariodeobras.net/",
+  "created": "01/01/2023 00:00:00",
+  "modified": "14/01/2023 00:00:00"
+}

@@ -23,6 +23,7 @@ export interface LinhaCopiloto {
   tipo_contrato: TipoContrato | null;
   situacao_copiloto: string;
   motivo_desligamento_copiloto: string | null;
+  decisao_desligamento_copiloto: string | null;
 }
 
 // Valores de contract_type do Copiloto (rótulos da tela de lá: CLT, PJ,
@@ -141,6 +142,7 @@ export function planejarCopiloto(
       tipo_contrato: tipo,
       situacao_copiloto: c.status,
       motivo_desligamento_copiloto: c.termination_reason ?? null,
+      decisao_desligamento_copiloto: c.termination_decision ?? null,
     });
   }
 

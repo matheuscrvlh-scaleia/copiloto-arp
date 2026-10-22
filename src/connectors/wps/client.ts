@@ -52,6 +52,8 @@ export function createWpsClient(config: WpsConfig) {
   };
 
   return {
+    estacionamentoId: config.estacionamentoId,
+
     async pagamentos(data: Date): Promise<PagamentosDoDia> {
       const json = await requestJson(
         SISTEMA,

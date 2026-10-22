@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import type { EstadoAcao } from "@/components/form-acao";
 import { Selecao } from "@/components/selecao";
 import { formatarMes, formatarMoeda, formatarNumero } from "@/lib/formato";
+import { faixaTexto } from "@/lib/rh/plano";
 import type { EstadoPlano } from "./actions-plano";
 
 type Ler = (anterior: EstadoPlano, form: FormData) => Promise<EstadoPlano>;
@@ -15,8 +16,6 @@ const campo =
   "w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5";
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 
-const faixaTexto = (min: number, max: number | null) =>
-  max === null ? `${min} anos ou mais` : `${min} a ${max} anos`;
 const mesesTexto = (min: number, max: number | null) => {
   const t = (m: number) =>
     m < 12

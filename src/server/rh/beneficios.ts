@@ -49,6 +49,8 @@ export interface Vinculo {
   colaborador_id: string;
   nome: string;
   matricula: number | null;
+  /** Do cadastro (Copiloto RH): a faixa do plano sai da idade. */
+  nascimento: string | null;
   desde: string;
   ate: string | null;
   valor_manual: number | null;
@@ -75,7 +77,7 @@ export const vinculosDeBeneficio = cache(async (): Promise<Vinculo[]> => {
   const { data, error } = await (await rh())
     .from("colaborador_beneficios")
     .select(
-      "id, beneficio_id, colaborador_id, desde, ate, valor_manual, colaborador:colaboradores(nome, matricula)",
+      "id, beneficio_id, colaborador_id, desde, ate, valor_manual, colaborador:colaboradores(nome, matricula, nascimento)",
     )
     .order("desde", { ascending: false });
   falhar(error);
@@ -86,6 +88,7 @@ export const vinculosDeBeneficio = cache(async (): Promise<Vinculo[]> => {
       colaborador_id: v.colaborador_id,
       nome: v.colaborador?.nome ?? "—",
       matricula: v.colaborador?.matricula ?? null,
+      nascimento: v.colaborador?.nascimento ?? null,
       desde: v.desde,
       ate: v.ate,
       valor_manual: v.valor_manual === null ? null : Number(v.valor_manual),
@@ -106,6 +109,7 @@ export const colaboradoresAtivos = cache(async () => {
 
 export interface TabelaCadastrada {
   id: string;
+  beneficio_id: string;
   beneficio: string;
   vigente_desde: string;
   reajuste_pct: number | null;
@@ -121,7 +125,7 @@ export const tabelasDoPlano = cache(async (): Promise<TabelaCadastrada[]> => {
   const { data, error } = await (await rh())
     .from("plano_tabelas")
     .select(
-      `id, vigente_desde, reajuste_pct,
+      `id, beneficio_id, vigente_desde, reajuste_pct,
        beneficio:beneficios(nome),
        faixas:plano_faixas_etarias(idade_min, idade_max, mensalidade),
        regras:plano_coparticipacao(meses_min)`,
@@ -130,6 +134,7 @@ export const tabelasDoPlano = cache(async (): Promise<TabelaCadastrada[]> => {
   falhar(error);
   return (data ?? []).map((t) => ({
     id: t.id,
+    beneficio_id: t.beneficio_id,
     beneficio: t.beneficio?.nome ?? "—",
     vigente_desde: t.vigente_desde,
     reajuste_pct: t.reajuste_pct === null ? null : Number(t.reajuste_pct),

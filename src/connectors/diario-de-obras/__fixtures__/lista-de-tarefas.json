@@ -1,0 +1,46 @@
+{
+  "totalTarefas": 429,
+  "totalTarefasNaoIniciada": 342,
+  "totalTarefasEmAndamento": 5,
+  "totalTarefasConcluida": 82,
+  "realizado": "18.67",
+  "cronograma": [
+    {
+      "_id": "5cf67d4109ea2b071e153a47",
+      "posicao": 2,
+      "item": "2.0",
+      "descricao": "Subsolo",
+      "porcentagem": "83.33",
+      "tarefas": [
+        {
+          "_id": "5cf67d4109ea2b071e153a48",
+          "posicao": 1,
+          "item": "2.1",
+          "descricao": "Tubulação seca Laje",
+          "porcentagem": 100,
+          "controleDeProducao": {
+            "ativo": false,
+            "unidade": null,
+            "quantidade": null,
+            "realizado": null
+          },
+          "totalFotos": 0
+        },
+        {
+          "_id": "5cf67d4109ea2b071e153a4a",
+          "posicao": 3,
+          "item": "2.3",
+          "descricao": "Fiação",
+          "porcentagem": 50,
+          "controleDeProducao": {
+            "ativo": false,
+            "unidade": null,
+            "quantidade": null,
+            "realizado": null
+          },
+          "totalFotos": 0
+        }
+      ]
+    }
+  ]
+}

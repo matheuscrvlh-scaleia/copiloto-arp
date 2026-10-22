@@ -1,11 +1,13 @@
 import { z } from "zod";
 
-// Formato conferido com a API de homologação (demonstracao.parkingplus.com.br) em 19/10/2026.
+// Formato conferido com a API de homologação (demonstracao.parkingplus.com.br)
+// em 19/10/2026 e em 60 dias de pagamentos (476 registros) em 21/10/2026.
+// Valores em reais (há valores como 117.33).
 
 const terminal = z.object({
-  codigo: z.number(),
-  descricao: z.string(),
-  tipo: z.string(),
+  codigo: z.number().optional(),
+  descricao: z.string().optional(),
+  tipo: z.string().optional(),
 });
 
 const formaPagamento = z.object({
@@ -26,11 +28,12 @@ const rps = z.object({
 export const pagamentoSchema = z.object({
   /** Identificador do pagamento. Repete quando há mais de uma RPS. */
   codigo: z.number(),
-  /** Tipo de cliente/convênio, ex.: ROTATIVO. */
+  /** Tipo de cliente/convênio, ex.: ROTATIVO, MENSALISTA. */
   descricao: z.string(),
   /** "aaaa-mm-dd hh:mm:ss", horário local. */
   data: z.string(),
-  ticket: z.string(),
+  /** Não vem no pagamento de mensalidade. */
+  ticket: z.string().optional(),
   placa: z.string().optional(),
   recibo: z.string(),
   valorBruto: z.number(),
@@ -43,7 +46,7 @@ export const pagamentoSchema = z.object({
   autorizacaotef: z.string().optional(),
   terminal,
   formaPagamento,
-  tarifa: z.string(),
+  tarifa: z.string().optional(),
   externo: z
     .object({ codigo: z.number(), data: z.string(), ticket: z.string() })
     .optional(),

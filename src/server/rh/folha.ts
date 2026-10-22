@@ -202,3 +202,108 @@ export function montarPrevia(
       : null,
   };
 }
+
+export interface PessoaParaEditar {
+  colaborador_id: string;
+  nome: string;
+  matricula: number | null;
+  situacao: string;
+  tipo_contrato: string;
+  departamento_id: string | null;
+  cargo_id: string | null;
+  horas_mes_min: number | null;
+  salario: number | null;
+  liquido: number | null;
+  rubricas: {
+    codigo: number;
+    descricao: string;
+    grupo: string;
+    natureza: string;
+    referencia: number | null;
+    valor: number;
+  }[];
+}
+
+const PAGINA = 1000;
+
+/**
+ * Uma folha inteira para conferir e corrigir na tela: pessoas, rubricas e as
+ * opções dos campos. Lê com a sessão de quem pediu (RLS: valores individuais).
+ */
+export async function folhaParaEditar(id: string) {
+  const rh = (await createClient()).schema("rh");
+  const { data: folha, error } = await rh
+    .from("folhas")
+    .select("id, competencia, status, ficticia")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Falha ao ler o banco: ${error.message}`);
+  if (!folha) return null;
+
+  const [pessoas, departamentos, cargos, rubricas] = await Promise.all([
+    rh
+      .from("folha_colaboradores")
+      .select(
+        "colaborador_id, situacao, tipo_contrato, departamento_id, cargo_id, horas_mes_min, salario, liquido, colaborador:colaboradores(nome, matricula)",
+      )
+      .eq("folha_id", id),
+    rh.from("departamentos").select("id, nome").order("nome"),
+    rh.from("cargos").select("id, nome").order("nome"),
+    rh.from("rubricas").select("codigo, descricao, grupo").order("codigo"),
+  ]);
+  for (const r of [pessoas, departamentos, cargos, rubricas])
+    if (r.error) throw new Error(`Falha ao ler o banco: ${r.error.message}`);
+
+  const linhas: {
+    colaborador_id: string;
+    rubrica_codigo: number;
+    natureza: string;
+    referencia: number | null;
+    valor: number;
+  }[] = [];
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error: e } = await rh
+      .from("folha_rubricas")
+      .select("colaborador_id, rubrica_codigo, natureza, referencia, valor")
+      .eq("folha_id", id)
+      .order("id")
+      .range(de, de + PAGINA - 1);
+    if (e) throw new Error(`Falha ao ler o banco: ${e.message}`);
+    linhas.push(...(data ?? []));
+    if (!data || data.length < PAGINA) break;
+  }
+
+  const catalogo = new Map((rubricas.data ?? []).map((r) => [r.codigo, r]));
+  const porPessoa = Map.groupBy(linhas, (l) => l.colaborador_id);
+  const num = (v: number | null) => (v === null ? null : Number(v));
+  return {
+    folha,
+    departamentos: departamentos.data ?? [],
+    cargos: cargos.data ?? [],
+    rubricas: rubricas.data ?? [],
+    pessoas: (pessoas.data ?? [])
+      .map(
+        (p): PessoaParaEditar => ({
+          colaborador_id: p.colaborador_id,
+          nome: p.colaborador?.nome ?? "—",
+          matricula: p.colaborador?.matricula ?? null,
+          situacao: p.situacao,
+          tipo_contrato: p.tipo_contrato,
+          departamento_id: p.departamento_id,
+          cargo_id: p.cargo_id,
+          horas_mes_min: p.horas_mes_min,
+          salario: num(p.salario),
+          liquido: num(p.liquido),
+          rubricas: (porPessoa.get(p.colaborador_id) ?? []).map((r) => ({
+            codigo: r.rubrica_codigo,
+            descricao: catalogo.get(r.rubrica_codigo)?.descricao ?? "",
+            grupo: catalogo.get(r.rubrica_codigo)?.grupo ?? "nao_classificada",
+            natureza: r.natureza,
+            referencia: num(r.referencia),
+            valor: Number(r.valor),
+          })),
+        }),
+      )
+      .sort((a, b) => a.nome.localeCompare(b.nome)),
+  };
+}

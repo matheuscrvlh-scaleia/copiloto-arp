@@ -44,6 +44,7 @@ function Dica({
   valor,
   detalhe,
   clicavel = false,
+  abaixo = false,
 }: {
   x: number;
   y: number;
@@ -52,6 +53,8 @@ function Dica({
   detalhe?: string;
   /** Mostra o convite para abrir o detalhe. */
   clicavel?: boolean;
+  /** Abre para baixo do ponto (ex.: no topo de uma área com rolagem). */
+  abaixo?: boolean;
 }) {
   const lado = x < 18 ? "-8%" : x > 82 ? "-92%" : "-50%";
   return (
@@ -60,7 +63,7 @@ function Dica({
       style={{
         left: `${x}%`,
         top: `${y}%`,
-        transform: `translate(${lado}, calc(-100% - 12px))`,
+        transform: `translate(${lado}, ${abaixo ? "12px" : "calc(-100% - 12px)"})`,
         // Mais escura que o fumê comum: precisa ler bem sobre o vidro claro.
         backgroundColor: "rgb(14 14 14 / 0.86)",
       }}
@@ -519,6 +522,120 @@ export function Colunas({
 }
 
 // ---------------------------------------------------------------------------
+// Faixas: distribuição de um total em poucas faixas
+// ---------------------------------------------------------------------------
+
+/** Parte de um total em %, com uma casa abaixo de 10%. */
+function parteDe(v: number, total: number): string {
+  const p = total > 0 ? (v / total) * 100 : 0;
+  return `${formatarNumero(p, p > 0 && p < 10 ? 1 : 0)}%`;
+}
+
+/**
+ * Colunas largas que ocupam a altura do cartão, uma por faixa (ex.: tempo de
+ * casa), com a quantidade e a parte do total escritas em cima de cada uma.
+ */
+export function Faixas({
+  itens,
+  descricao,
+  className = "",
+  detalhes,
+}: {
+  itens: ItemGrafico[];
+  descricao: string;
+  className?: string;
+  /** Quem forma cada item, pela chave (abre o modal ao clicar). */
+  detalhes?: Record<string, Detalhe>;
+}) {
+  const [ativo, setAtivo] = useState<number | null>(null);
+  const det = useDetalhes(detalhes);
+  const montado = useMontado();
+  const total = itens.reduce((s, i) => s + Math.max(i.valor, 0), 0);
+  const max = Math.max(...itens.map((i) => i.valor), 0);
+  // Até 72% do trilho: sobra espaço para o número em cima da maior.
+  const altura = (v: number) => (max > 0 ? Math.max((v / max) * 72, 1.5) : 1.5);
+
+  return (
+    <div className={`flex min-h-64 flex-col gap-3 ${className}`}>
+      <div
+        className={`relative flex flex-1 gap-2 sm:gap-3 ${ANEL_FOCO}`}
+        onPointerLeave={() => setAtivo(null)}
+      >
+        {itens.map((i, k) => {
+          const h = altura(i.valor);
+          const aceso = ativo === k;
+          const apagado = ativo !== null && !aceso;
+          return (
+            <div
+              key={i.chave}
+              className={`relative flex-1 rounded-2xl bg-neutral-900/[0.06] transition-opacity duration-200 ${det.tem(i.chave) ? "cursor-pointer" : ""}`}
+              style={{ opacity: apagado ? 0.45 : 1 }}
+              onPointerEnter={() => setAtivo(k)}
+              onPointerUp={() => det.abrir(i.chave)}
+              onPointerDown={() => setAtivo(k)}
+            >
+              <span
+                className={`absolute inset-x-0 bottom-0 rounded-2xl motion-reduce:transition-none ${aceso ? "bg-neutral-900" : "bg-neutral-900/80"}`}
+                style={{
+                  height: montado ? `${h}%` : "0%",
+                  transition: `height 700ms cubic-bezier(.2,.8,.2,1) ${k * 50}ms, background-color 200ms`,
+                }}
+              />
+              {!aceso && (
+                <span
+                  className="absolute inset-x-0 text-center transition-opacity duration-500"
+                  style={{
+                    bottom: `calc(${h}% + 8px)`,
+                    opacity: montado ? 1 : 0,
+                  }}
+                >
+                  <span className="block text-2xl leading-none font-semibold tracking-tight tabular-nums text-neutral-900">
+                    {i.texto}
+                  </span>
+                  <span className="mt-1 block text-xs tabular-nums text-neutral-500">
+                    {parteDe(i.valor, total)}
+                  </span>
+                </span>
+              )}
+              {aceso && (
+                <Dica
+                  x={50}
+                  y={100 - h}
+                  titulo={i.titulo ?? i.rotulo}
+                  valor={i.texto}
+                  detalhe={i.detalhe}
+                  clicavel={det.tem(i.chave)}
+                />
+              )}
+            </div>
+          );
+        })}
+        <Explorar
+          itens={itens}
+          ativo={ativo}
+          padrao={0}
+          setAtivo={setAtivo}
+          descricao={descricao}
+          aoEscolher={
+            det.clicavel ? (k) => det.abrir(itens[k]?.chave) : undefined
+          }
+        />
+      </div>
+      <div className="flex gap-2 sm:gap-3" aria-hidden>
+        {itens.map((i, k) => (
+          <span
+            key={i.chave}
+            className={`flex-1 truncate text-center text-xs ${k === ativo ? "font-medium text-neutral-900" : "text-neutral-600"}`}
+          >
+            {i.rotulo}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Barras deitadas
 // ---------------------------------------------------------------------------
 
@@ -688,10 +805,7 @@ export function Rosca({
     return arco;
   });
   const fatia = ativo === null ? undefined : fatias[ativo];
-  const parte = (v: number) => {
-    const p = (v / total) * 100;
-    return `${formatarNumero(p, p < 10 ? 1 : 0)}%`;
-  };
+  const parte = (v: number) => parteDe(v, total);
 
   return (
     // Lado a lado só quando o quadro do gráfico tem largura (container query).
@@ -1106,6 +1220,7 @@ export function BarrasDivergentes({
   rotulos,
   descricao,
   escuro = false,
+  rolar = false,
   detalhes,
 }: {
   linhas: LinhaDivergente[];
@@ -1113,12 +1228,30 @@ export function BarrasDivergentes({
   descricao: string;
   /** Desenhado sobre o cartão escuro de destaque. */
   escuro?: boolean;
+  /**
+   * Ocupa a altura do quadro e rola as linhas por dentro (a legenda fica
+   * presa embaixo). O quadro precisa ter altura definida.
+   */
+  rolar?: boolean;
   /** Quem forma cada item, pela chave (abre o modal ao clicar). */
   detalhes?: Record<string, Detalhe>;
 }) {
   const [ativo, setAtivo] = useState<number | null>(null);
+  // Linha encostada no topo da rolagem: a dica abre para baixo.
+  const [abaixo, setAbaixo] = useState(false);
+  const lista = useRef<HTMLUListElement>(null);
   const det = useDetalhes(detalhes);
   const montado = useMontado();
+  function acender(k: number | null, linha?: Element) {
+    setAtivo(k);
+    const topo = lista.current?.getBoundingClientRect().top;
+    setAbaixo(
+      rolar &&
+        topo !== undefined &&
+        linha !== undefined &&
+        linha.getBoundingClientRect().top - topo < 80,
+    );
+  }
   const max = Math.max(...linhas.flatMap((l) => [l.negativo, l.positivo]), 1);
   const metade = (v: number) => (Math.max(v, 0) / max) * 100;
   const corNeg = escuro ? DIVERGENTE_ESCURO.negativo : "var(--div-negativo)";
@@ -1131,9 +1264,10 @@ export function BarrasDivergentes({
   const linhaZero = escuro ? "bg-[rgb(255_255_255/0.35)]" : "bg-neutral-900/30";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={`flex flex-col gap-4 ${rolar ? "h-full min-h-0" : ""}`}>
       <ul
-        className={`relative flex flex-col gap-4 ${ANEL_FOCO}`}
+        ref={lista}
+        className={`relative flex flex-col gap-4 ${rolar ? "-mr-2 min-h-0 flex-1 overflow-y-auto pr-2" : ""} ${ANEL_FOCO}`}
         onPointerLeave={() => setAtivo(null)}
       >
         {linhas.map((l, k) => {
@@ -1145,9 +1279,9 @@ export function BarrasDivergentes({
               key={l.chave}
               className={`grid grid-cols-1 gap-2 transition-opacity duration-200 sm:grid-cols-[minmax(7rem,10rem)_1fr] sm:items-center sm:gap-4 ${det.tem(l.chave) ? "cursor-pointer" : ""}`}
               style={{ opacity: apagado ? 0.45 : 1 }}
-              onPointerEnter={() => setAtivo(k)}
+              onPointerEnter={(e) => acender(k, e.currentTarget)}
               onPointerUp={() => det.abrir(l.chave)}
-              onPointerDown={() => setAtivo(k)}
+              onPointerDown={(e) => acender(k, e.currentTarget)}
             >
               <span className="min-w-0">
                 <span className={`block truncate text-sm font-medium ${forte}`}>
@@ -1203,7 +1337,8 @@ export function BarrasDivergentes({
                 {ativo === k && (
                   <Dica
                     x={50}
-                    y={0}
+                    y={abaixo ? 100 : 0}
+                    abaixo={abaixo}
                     titulo={l.rotulo}
                     valor={l.resumo}
                     detalhe={l.detalhe}
@@ -1221,7 +1356,13 @@ export function BarrasDivergentes({
           }))}
           ativo={ativo}
           padrao={0}
-          setAtivo={setAtivo}
+          setAtivo={(k) => {
+            // Pelo teclado, a linha da vez entra na área visível.
+            const linha =
+              k === null ? undefined : lista.current?.children.item(k);
+            if (rolar) linha?.scrollIntoView({ block: "nearest" });
+            acender(k, linha ?? undefined);
+          }}
           descricao={descricao}
           aoEscolher={
             det.clicavel ? (k) => det.abrir(linhas[k]?.chave) : undefined

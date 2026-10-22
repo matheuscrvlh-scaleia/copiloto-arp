@@ -5,17 +5,21 @@ import { FormAcao } from "@/components/form-acao";
 import { Selecao } from "@/components/selecao";
 import { CONFIGURACOES_RH } from "@/config/navigation";
 import {
+  competenciaDe,
   formatarData,
   formatarMes,
   formatarMoeda,
   formatarNumero,
 } from "@/lib/formato";
+import { valorPelaFaixa, vigenteEm } from "@/lib/rh/custo";
+import { faixaTexto } from "@/lib/rh/plano";
 import { ROTULO_CONTRATO } from "@/lib/rh/rubricas";
 import {
   type Beneficio,
   beneficiosCadastrados,
   colaboradoresAtivos,
   REGRAS_DEPENDENTE,
+  type TabelaCadastrada,
   TIPOS_BENEFICIO,
   tabelasDoPlano,
   type Vinculo,
@@ -25,6 +29,7 @@ import { folhasDoCusto } from "@/server/rh/dados";
 import {
   removerVinculo,
   salvarBeneficio,
+  salvarValorManual,
   vincularBeneficio,
   vincularPelaFolha,
 } from "./actions";
@@ -44,6 +49,7 @@ export async function Beneficios() {
     ]);
   // Vínculo novo começa no mês da última folha, para entrar no custo dela.
   const desdeSugerido = folhas[0]?.competencia ?? null;
+  const mesAtual = competenciaDe(new Date());
   const opcoesColaborador = colaboradores.map((c) => ({
     valor: c.id,
     rotulo: c.nome,
@@ -83,7 +89,8 @@ export async function Beneficios() {
             key={b.id}
             beneficio={b}
             vinculos={vinculos.filter((v) => v.beneficio_id === b.id)}
-            temTabela={tabelas.some((t) => t.beneficio === b.nome)}
+            tabelas={tabelas.filter((t) => t.beneficio_id === b.id)}
+            mesAtual={mesAtual}
             opcoesColaborador={opcoesColaborador}
             desdeSugerido={desdeSugerido}
           />
@@ -102,21 +109,73 @@ export async function Beneficios() {
   );
 }
 
+/**
+ * Valor do mês como o custo calcula: manual > padrão > faixa pela idade. Com
+ * valor manual, mostra também o que sairia sem ele, para conferir.
+ */
+function ValorDoMes({
+  beneficio: b,
+  vinculo: v,
+  faixas,
+  mes,
+}: {
+  beneficio: Beneficio;
+  vinculo: Vinculo;
+  faixas: TabelaCadastrada["faixas"] | null;
+  mes: string;
+}) {
+  let automatico: React.ReactNode;
+  if (b.valor_padrao !== null) {
+    automatico = `padrão ${formatarMoeda(b.valor_padrao)}`;
+  } else {
+    const r = valorPelaFaixa(faixas, v.nascimento, mes);
+    automatico =
+      r.valor !== null && r.faixa && r.idade !== undefined ? (
+        <>
+          {r.idade} anos · faixa{" "}
+          {faixaTexto(r.faixa.idade_min, r.faixa.idade_max)} ·{" "}
+          <span className="tabular-nums text-neutral-900">
+            {formatarMoeda(r.valor)}
+          </span>
+        </>
+      ) : (
+        <span className="text-amber-700">
+          {r.idade !== undefined ? `${r.idade} anos · ` : ""}
+          {r.pendencia}
+        </span>
+      );
+  }
+  if (v.valor_manual === null) return automatico;
+  return (
+    <>
+      <span className="font-medium tabular-nums text-neutral-900">
+        {formatarMoeda(v.valor_manual)} manual
+      </span>{" "}
+      <span className="text-neutral-400">(sem ele: {automatico})</span>
+    </>
+  );
+}
+
 function CartaoBeneficio({
   beneficio: b,
   vinculos,
-  temTabela,
+  tabelas,
+  mesAtual,
   opcoesColaborador,
   desdeSugerido,
 }: {
   beneficio: Beneficio;
   vinculos: Vinculo[];
-  temTabela: boolean;
+  tabelas: TabelaCadastrada[];
+  /** Competência do valor mostrado em cada pessoa (aaaa-mm-01). */
+  mesAtual: string;
   opcoesColaborador: { valor: string; rotulo: string; descricao: string }[];
   desdeSugerido: string | null;
 }) {
   const ativos = vinculos.filter((v) => v.ate === null);
   const pelaFaixa = b.valor_padrao === null;
+  const temTabela = tabelas.length > 0;
+  const faixas = vigenteEm(tabelas, mesAtual)?.faixas ?? null;
   return (
     <details className="rounded-2xl bg-white/50 px-4 py-3 ring-1 ring-neutral-900/[0.06]">
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1">
@@ -159,35 +218,64 @@ function CartaoBeneficio({
           {vinculos.length === 0 ? (
             <p className="text-sm text-neutral-500">Ninguém vinculado ainda.</p>
           ) : (
-            <ul className="flex flex-col divide-y divide-neutral-900/[0.06] text-sm">
-              {vinculos.map((v) => (
-                <li
-                  key={v.id}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2"
-                >
-                  <span className="min-w-40 flex-1 font-medium">{v.nome}</span>
-                  <span className="text-xs text-neutral-500">
-                    desde {formatarData(v.desde)}
-                    {v.ate ? ` até ${formatarData(v.ate)}` : ""}
-                  </span>
-                  <span className="w-32 text-right text-xs tabular-nums text-neutral-600">
-                    {v.valor_manual !== null
-                      ? `${formatarMoeda(v.valor_manual)} (manual)`
-                      : ""}
-                  </span>
-                  <FormAcao
-                    acao={removerVinculo}
-                    rotulo="Remover"
-                    rotuloEnviando="Removendo…"
-                    variante="perigo"
-                    confirmar={`Remover ${v.nome} de ${b.nome}?`}
-                    className="flex items-center gap-2"
+            <>
+              <p className="text-xs text-neutral-500">
+                Valor de {formatarMes(mesAtual)}
+                {pelaFaixa
+                  ? ", pela idade de cada pessoa na tabela vigente"
+                  : ""}
+                . O valor manual vale no lugar dele; apague e salve para voltar
+                {pelaFaixa ? " à faixa" : " ao padrão"}.
+              </p>
+              <ul className="flex flex-col divide-y divide-neutral-900/[0.06] text-sm">
+                {vinculos.map((v) => (
+                  <li
+                    key={v.id}
+                    className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2"
                   >
-                    <input type="hidden" name="id" value={v.id} />
-                  </FormAcao>
-                </li>
-              ))}
-            </ul>
+                    <div className="min-w-56 flex-1">
+                      <p className="font-medium">{v.nome}</p>
+                      <p className="text-xs text-neutral-500">
+                        desde {formatarData(v.desde)}
+                        {v.ate ? ` até ${formatarData(v.ate)}` : ""} ·{" "}
+                        <ValorDoMes
+                          beneficio={b}
+                          vinculo={v}
+                          faixas={faixas}
+                          mes={mesAtual}
+                        />
+                      </p>
+                    </div>
+                    <FormAcao
+                      acao={salvarValorManual}
+                      rotulo="Salvar"
+                      variante="secundario"
+                      className="flex items-center gap-2"
+                    >
+                      <input type="hidden" name="id" value={v.id} />
+                      <input
+                        name="valor_manual"
+                        inputMode="decimal"
+                        aria-label={`Valor manual de ${v.nome} (R$)`}
+                        defaultValue={valorBr(v.valor_manual)}
+                        placeholder={pelaFaixa ? "pela faixa" : "padrão"}
+                        className={`${classeCampo} w-32`}
+                      />
+                    </FormAcao>
+                    <FormAcao
+                      acao={removerVinculo}
+                      rotulo="Remover"
+                      rotuloEnviando="Removendo…"
+                      variante="perigo"
+                      confirmar={`Remover ${v.nome} de ${b.nome}?`}
+                      className="flex items-center gap-2"
+                    >
+                      <input type="hidden" name="id" value={v.id} />
+                    </FormAcao>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
 
           <FormAcao

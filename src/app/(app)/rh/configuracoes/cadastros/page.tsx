@@ -5,14 +5,12 @@ import { Secao, Tabela } from "@/components/dashboard/tabela";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { SemAcesso } from "@/components/protegido";
-import { Selecao } from "@/components/selecao";
 import { competenciaDe, formatarMes, formatarMoeda } from "@/lib/formato";
 import { GRUPOS_RUBRICA } from "@/lib/rh/rubricas";
-import { ROTULO_TURNOVER, TIPOS_TURNOVER } from "@/lib/rh/turnover";
 import { pode } from "@/server/auth";
 import { dadosFinanceiros } from "@/server/rh/dados";
 import { dadosDosParametros } from "@/server/rh/parametros";
-import { salvarDepartamento, salvarFinanceiro, salvarMotivo } from "./actions";
+import { salvarDepartamento, salvarFinanceiro } from "./actions";
 import { Beneficios } from "./beneficios";
 
 export const metadata: Metadata = { title: "Cadastros do RH" };
@@ -42,7 +40,6 @@ async function Cadastros() {
       ? [
           ["financeiro", "Faturamento do mês"],
           ["departamentos", "Departamentos"],
-          ["motivos", "Motivos de desligamento"],
           ["rubricas", "Rubricas"],
         ]
       : []),
@@ -160,7 +157,7 @@ async function Financeiro() {
   );
 }
 
-/** Departamentos, motivos de desligamento e rubricas (vieram de Parâmetros). */
+/** Departamentos e rubricas (vieram de Parâmetros). */
 async function Estrutura() {
   const dados = await dadosDosParametros();
   return (
@@ -202,38 +199,6 @@ async function Estrutura() {
                   value={d.secullum_id ?? "—"}
                   disabled
                   className={classeCampo}
-                />
-              </label>
-            </FormAcao>
-          ))}
-        </div>
-      </Secao>
-      <Secao
-        id="motivos"
-        titulo="Motivos de desligamento"
-        descricao="Vêm do Secullum. A classificação decide como cada saída entra no turnover."
-      >
-        <div className="flex flex-col divide-y divide-neutral-100">
-          {dados.motivos.map((m) => (
-            <FormAcao
-              key={m.id}
-              acao={salvarMotivo}
-              className="grid items-end gap-3 py-4 first:pt-0 sm:grid-cols-[1fr_16rem_auto]"
-            >
-              <input type="hidden" name="id" value={m.id} />
-              <p className="text-sm">{m.descricao}</p>
-              <label className={rotulo}>
-                Tipo de turnover
-                <Selecao
-                  name="tipo_turnover"
-                  valorInicial={m.tipo_turnover ?? ""}
-                  opcoes={[
-                    { valor: "", rotulo: "Sem classificação" },
-                    ...TIPOS_TURNOVER.map((t) => ({
-                      valor: t,
-                      rotulo: ROTULO_TURNOVER[t] ?? t,
-                    })),
-                  ]}
                 />
               </label>
             </FormAcao>

@@ -8,7 +8,7 @@ import { formatarMes } from "@/lib/formato";
 
 /**
  * Mês e departamento numa linha só, guardados na URL (?mes=2026-10&dep=…),
- * para o link da tela levar os filtros junto.
+ * para o link da tela levar os filtros junto. Sem `departamentos`, só o mês.
  */
 export function Filtros({
   meses,
@@ -19,8 +19,8 @@ export function Filtros({
   /** Competências "aaaa-mm-01", da mais recente para a mais antiga. */
   meses: string[];
   mes: string;
-  departamentos: { id: string; nome: string }[];
-  departamento: string | null;
+  departamentos?: { id: string; nome: string }[];
+  departamento?: string | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -50,18 +50,20 @@ export function Filtros({
           rotulo: formatarMes(m),
         }))}
       />
-      <Selecao
-        variante="pilula"
-        rotulo="Departamento"
-        icone={<Building2 className="size-4" />}
-        className="w-64 max-w-full"
-        valor={departamento ?? ""}
-        aoMudar={(v) => trocar("dep", v)}
-        opcoes={[
-          { valor: "", rotulo: "Todos os departamentos" },
-          ...departamentos.map((d) => ({ valor: d.id, rotulo: d.nome })),
-        ]}
-      />
+      {departamentos && (
+        <Selecao
+          variante="pilula"
+          rotulo="Departamento"
+          icone={<Building2 className="size-4" />}
+          className="w-64 max-w-full"
+          valor={departamento ?? ""}
+          aoMudar={(v) => trocar("dep", v)}
+          opcoes={[
+            { valor: "", rotulo: "Todos os departamentos" },
+            ...departamentos.map((d) => ({ valor: d.id, rotulo: d.nome })),
+          ]}
+        />
+      )}
       {carregando && (
         <span className="flex items-center gap-1.5 text-xs text-neutral-500">
           <Loader

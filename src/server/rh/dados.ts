@@ -4,13 +4,22 @@ import type { AvisoDaPagina } from "@/components/avisos-da-pagina";
 import { CONFIGURACOES_RH } from "@/config/navigation";
 import type { Meta } from "@/lib/indicadores";
 import { metaVigente } from "@/lib/indicadores";
+import { diaAnterior, ultimoDiaFechado } from "@/lib/periodo";
 import type { ColaboradorQuadro, LinhaPonto } from "@/lib/rh/calculos";
-import type { CustoAgregado, CustoIndividual } from "@/lib/rh/custo";
 import {
-  type ConfigTurnover,
-  TURNOVER_PADRAO,
-  tipoDoDesligamento,
-} from "@/lib/rh/turnover";
+  type CustoAgregado,
+  type CustoIndividual,
+  vigenteEm,
+} from "@/lib/rh/custo";
+import {
+  type DiaDoPonto,
+  juntarPonto,
+  type PontoDoPeriodo,
+  planejarPonto,
+  somarDias,
+  type TrechoDoPonto,
+} from "@/lib/rh/ponto-periodo";
+import { tipoDoDesligamento } from "@/lib/rh/turnover";
 
 export type { CustoIndividual };
 
@@ -84,25 +93,79 @@ export const pontoDoMes = cache(
   },
 );
 
-/** Configuração do turnover (a mesma do Copiloto RH da ARP). */
-export const configTurnover = cache(async (): Promise<ConfigTurnover> => {
-  const { data, error } = await (await rh())
-    .from("parametros_turnover")
-    .select("*")
-    .maybeSingle();
-  falhar(error);
-  if (!data) return TURNOVER_PADRAO;
-  return {
-    formulaGeral: data.formula_geral,
-    formulaVoluntario: data.formula_voluntario,
-    formulaInvoluntario: data.formula_involuntario,
-    formulaAcordo: data.formula_acordo,
-    acordoContaComo:
-      data.acordo_conta_como as ConfigTurnover["acordoContaComo"],
-    motivosVoluntarios: data.motivos_voluntarios,
-    motivosInvoluntarios: data.motivos_involuntarios,
-  };
-});
+/** Dias do ponto de um trecho (rh.ponto_diario), com nome e departamento. */
+const diasDoTrecho = cache(
+  async (de: string, ate: string): Promise<DiaDoPonto[]> => {
+    const { data, error } = await (await rh())
+      .from("ponto_diario")
+      .select(
+        `colaborador_id, data, ocorrencia, previstas_min, faltas_min, atrasos_min,
+         abonos_min, extras_min, noturnas_min,
+         banco_saldo_min, banco_creditos_min, banco_debitos_min,
+         colaborador:colaboradores(nome, matricula, departamento_id,
+           departamento:departamentos(nome))`,
+      )
+      .gte("data", de)
+      .lte("data", ate);
+    falhar(error);
+    return (data ?? []).map((d) => ({
+      colaborador_id: d.colaborador_id,
+      data: d.data,
+      ocorrencia: d.ocorrencia,
+      nome: d.colaborador?.nome ?? "—",
+      matricula: d.colaborador?.matricula ?? null,
+      departamento_id: d.colaborador?.departamento_id ?? null,
+      departamento: d.colaborador?.departamento?.nome ?? "Sem departamento",
+      previstas_min: d.previstas_min,
+      faltas_min: d.faltas_min,
+      atrasos_min: d.atrasos_min,
+      abonos_min: (d.abonos_min ?? {}) as Record<string, number>,
+      extras_min: (d.extras_min ?? {}) as Record<string, number>,
+      noturnas_min: d.noturnas_min,
+      banco_saldo_min: d.banco_saldo_min,
+      banco_creditos_min: d.banco_creditos_min,
+      banco_debitos_min: d.banco_debitos_min,
+    }));
+  },
+);
+
+export type { PontoDoPeriodo };
+
+/**
+ * Ponto de um período: meses inteiros pelo total do mês, pedaços de mês
+ * pela soma dos dias (regras em lib/rh/ponto-periodo.ts).
+ */
+export const pontoDoPeriodo = cache(
+  async (de: string, ate: string): Promise<PontoDoPeriodo> => {
+    const plano = planejarPonto({ de, ate }, ultimoDiaFechado());
+    const semDias: TrechoDoPonto[] = [];
+    const pedacos = await Promise.all([
+      ...plano.meses.map(async (c) => ({
+        chave: c,
+        linhas: await pontoDoMes(c),
+      })),
+      ...plano.trechos.map(async (t) => {
+        const dias = await diasDoTrecho(t.de, t.ate);
+        // Dias guardados só a partir de quando o ponto do dia começou a ser
+        // gravado: o que vem antes fica de fora (e a tela avisa).
+        const primeiro = dias.reduce<string | null>(
+          (m, d) => (m === null || d.data < m ? d.data : m),
+          null,
+        );
+        if (primeiro === null) semDias.push(t);
+        else if (primeiro > t.de)
+          semDias.push({ ...t, ate: diaAnterior(primeiro) });
+        return { chave: t.de, linhas: somarDias(dias) };
+      }),
+    ]);
+    pedacos.sort((a, b) => a.chave.localeCompare(b.chave));
+    return {
+      linhas: juntarPonto(pedacos.map((p) => p.linhas)),
+      efetivo: plano.efetivo,
+      semDias: semDias.sort((a, b) => a.de.localeCompare(b.de)),
+    };
+  },
+);
 
 /**
  * Quadro e turnover: só quem veio do Copiloto RH (fonte da especificação para
@@ -111,19 +174,17 @@ export const configTurnover = cache(async (): Promise<ConfigTurnover> => {
  */
 export const colaboradoresDoQuadro = cache(
   async (): Promise<ColaboradorQuadro[]> => {
-    const [{ data, error }, config] = await Promise.all([
-      (await rh())
-        .from("colaboradores")
-        .select(
-          `id, nome, matricula, departamento_id, admissao, desligamento,
-           tipo_contrato, motivo_desligamento_copiloto,
-           departamento:departamentos(nome),
-           cargo:cargos(nome)`,
-        )
-        .not("copiloto_id", "is", null)
-        .order("nome"),
-      configTurnover(),
-    ]);
+    const { data, error } = await (await rh())
+      .from("colaboradores")
+      .select(
+        `id, nome, matricula, departamento_id, admissao, desligamento,
+         tipo_contrato, motivo_desligamento_copiloto,
+         decisao_desligamento_copiloto,
+         departamento:departamentos(nome),
+         cargo:cargos(nome)`,
+      )
+      .not("copiloto_id", "is", null)
+      .order("nome");
     falhar(error);
     return (data ?? []).map((c) => ({
       id: c.id,
@@ -134,8 +195,12 @@ export const colaboradoresDoQuadro = cache(
       admissao: c.admissao,
       desligamento: c.desligamento,
       motivo_desligamento: c.motivo_desligamento_copiloto,
+      decisao_desligamento: c.decisao_desligamento_copiloto,
       tipo_turnover: c.desligamento
-        ? tipoDoDesligamento(c.motivo_desligamento_copiloto, config)
+        ? tipoDoDesligamento(
+            c.decisao_desligamento_copiloto,
+            c.motivo_desligamento_copiloto,
+          )
         : null,
       cargo: c.cargo?.nome ?? null,
       tipo_contrato: c.tipo_contrato,
@@ -365,6 +430,66 @@ export const bancoHorasEmReais = cache(
           : Number(data[0].adicional_pct),
       porDepartamento: new Map(
         data.map((d, i) => [d.departamento_id, valores[i] ?? null]),
+      ),
+    };
+  },
+);
+
+/**
+ * Adicional do banco de horas vigente no mês (Parâmetros); sem nenhum
+ * vigente, o da primeira configuração (como rh.banco_horas_em_reais).
+ */
+export const adicionalDoBanco = cache(
+  async (competencia: string): Promise<number | null> => {
+    const { data, error } = await (await rh())
+      .from("parametros_empresa")
+      .select("vigente_desde, banco_horas_adicional_pct")
+      .order("vigente_desde");
+    falhar(error);
+    const p = vigenteEm(data ?? [], competencia) ?? data?.[0];
+    return p ? Number(p.banco_horas_adicional_pct) : null;
+  },
+);
+
+export interface ValorDaHora {
+  /** Folha de onde vem o salário/hora: a última calculada até o mês. */
+  folha: string | null;
+  adicional: number | null;
+  salarioHora: Map<string, number | null>;
+}
+
+/**
+ * Salário/hora de cada pessoa e adicional do banco, para mostrar horas em R$
+ * por pessoa (o RLS exige rh.custo_pessoal.individual).
+ */
+export const valorDaHora = cache(
+  async (competencia: string): Promise<ValorDaHora> => {
+    const [ultima, adicional] = await Promise.all([
+      (await rh())
+        .from("custos_colaborador")
+        .select("competencia")
+        .lte("competencia", competencia)
+        .order("competencia", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      adicionalDoBanco(competencia),
+    ]);
+    falhar(ultima.error);
+    const folha = ultima.data?.competencia ?? null;
+    if (!folha) return { folha, adicional, salarioHora: new Map() };
+    const { data, error } = await (await rh())
+      .from("custos_colaborador")
+      .select("colaborador_id, salario_hora")
+      .eq("competencia", folha);
+    falhar(error);
+    return {
+      folha,
+      adicional,
+      salarioHora: new Map(
+        (data ?? []).map((c) => [
+          c.colaborador_id,
+          c.salario_hora === null ? null : Number(c.salario_hora),
+        ]),
       ),
     };
   },

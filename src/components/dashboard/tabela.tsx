@@ -7,19 +7,28 @@ export interface Coluna<T> {
   numero?: boolean;
 }
 
-/** Tabela com rolagem lateral dentro do quadro (nunca a página). */
+/**
+ * Tabela com rolagem lateral dentro do quadro (nunca a página). Com `rolar`,
+ * ocupa a altura do quadro e rola também na vertical, com o cabeçalho preso.
+ */
 export function Tabela<T>({
   colunas,
   linhas,
   chave,
   rodape,
   vazio = "Nenhum registro.",
+  rolar = false,
+  classeDaLinha,
 }: {
   colunas: Coluna<T>[];
   linhas: T[];
   chave: (linha: T) => string;
   rodape?: React.ReactNode[];
   vazio?: string;
+  /** Rola por dentro; o quadro precisa ter altura definida. */
+  rolar?: boolean;
+  /** Classe extra de uma linha (ex.: fim de semana mais apagado). */
+  classeDaLinha?: (linha: T) => string;
 }) {
   if (linhas.length === 0) {
     return <p className="py-6 text-sm text-neutral-500">{vazio}</p>;
@@ -27,9 +36,11 @@ export function Tabela<T>({
   const alinhar = (c: Coluna<T>) =>
     c.numero ? "text-right tabular-nums" : "text-left";
   return (
-    <div className="-mx-2 overflow-x-auto">
+    <div className={`-mx-2 overflow-x-auto ${rolar ? "h-full" : ""}`}>
       <table className="w-full min-w-max border-collapse text-sm">
-        <thead>
+        <thead
+          className={rolar ? "sticky top-0 z-10 bg-white/90 backdrop-blur" : ""}
+        >
           <tr className="border-b border-neutral-200 text-xs text-neutral-500">
             {colunas.map((c) => (
               <th
@@ -45,7 +56,7 @@ export function Tabela<T>({
           {linhas.map((l) => (
             <tr
               key={chave(l)}
-              className="border-b border-neutral-900/[0.06] transition-colors last:border-0 hover:bg-white/50"
+              className={`border-b border-neutral-900/[0.06] transition-colors last:border-0 hover:bg-white/50 ${classeDaLinha?.(l) ?? ""}`}
             >
               {colunas.map((c) => (
                 <td key={c.titulo} className={`px-2 py-2 ${alinhar(c)}`}>

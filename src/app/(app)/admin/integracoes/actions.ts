@@ -16,6 +16,7 @@ import {
 } from "@/server/integracoes";
 import { sincronizarCopiloto } from "@/server/sync/copiloto-rh";
 import { sincronizarSecullum } from "@/server/sync/secullum";
+import { sincronizarWps } from "@/server/sync/wps";
 
 // Credenciais das integrações. O segredo é cifrado aqui, antes de ir para o
 // banco; as funções do banco conferem admin.integracoes e registram na
@@ -154,6 +155,7 @@ export async function sincronizarAgora(
   const sistema = await sistemaDoForm(form);
   if (ehErro(sistema)) return sistema;
   if (sistema === "copiloto_rh") return sincronizarCopilotoAgora();
+  if (sistema === "wps") return sincronizarWpsAgora();
   if (sistema !== "secullum")
     return { erro: "A sincronização desta integração ainda não existe." };
   try {
@@ -182,6 +184,20 @@ async function sincronizarCopilotoAgora(): Promise<EstadoAcao> {
     const avisos = r.avisos.length ? ` · ${r.avisos.length} avisos` : "";
     return {
       ok: `${r.colaboradores} colaboradores do Copiloto (${r.ativos} ativos, ${r.desligados} desligados)${r.novos ? ` · ${r.novos} novos` : ""}${avisos}.`,
+    };
+  } catch (erro) {
+    return { erro: erro instanceof Error ? erro.message : "Falhou." };
+  }
+}
+
+/** A semana do estacionamento sai em segundos: roda na hora. */
+async function sincronizarWpsAgora(): Promise<EstadoAcao> {
+  try {
+    const r = await sincronizarWps();
+    refresh();
+    const avisos = r.avisos.length ? ` · ${r.avisos.length} avisos` : "";
+    return {
+      ok: `${r.dias} dias do estacionamento ${r.estacionamento}: ${r.pagamentos} pagamentos, ${r.entradas} entradas e ${r.saidas} saídas${avisos}.`,
     };
   } catch (erro) {
     return { erro: erro instanceof Error ? erro.message : "Falhou." };

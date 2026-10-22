@@ -33,6 +33,9 @@ const ESTILO = {
     "vidro rounded-full py-2 pr-3 pl-4 hover:border-neutral-400 data-[aberta=true]:border-neutral-900",
   campo:
     "rounded-xl border border-neutral-200 bg-white py-2 pr-2.5 pl-3 hover:border-neutral-400 data-[aberta=true]:border-neutral-900 data-[aberta=true]:ring-4 data-[aberta=true]:ring-neutral-900/5",
+  /** Dentro de uma barra de vidro (filtros): sem borda própria. */
+  embutida:
+    "rounded-full py-2 pr-3 pl-3.5 hover:bg-white/70 data-[aberta=true]:bg-white/90 dark:hover:bg-white/10 dark:data-[aberta=true]:bg-white/15",
 } as const;
 
 export function Selecao({

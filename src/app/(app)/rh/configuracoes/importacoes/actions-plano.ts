@@ -9,6 +9,7 @@ import {
   type CoparticipacaoDoPlano,
   ErroPlanilha,
   type FaixaDoPlano,
+  faixasDoFormulario,
 } from "@/lib/rh/plano";
 import { createClient } from "@/lib/supabase/server";
 import { pode, usuarioAtual } from "@/server/auth";
@@ -211,5 +212,61 @@ export async function confirmarTabelaPlano(
   refresh();
   return {
     ok: `Tabela gravada: ${tabela.faixas.length} faixas, vigente desde ${formatarMes(imp.referencia)}.${calculado ? " Custo de pessoal recalculado." : ""}`,
+  };
+}
+
+/** Correção das faixas de uma tabela já gravada, sem enviar outra planilha. */
+export async function salvarFaixasPlano(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("rh.beneficios")))
+    return { erro: "Você não tem permissão para editar a tabela do plano." };
+  const tabelaId = z.uuid().safeParse(form.get("tabela_id"));
+  if (!tabelaId.success) return { erro: "Tabela inválida." };
+
+  const campo = (nome: string) => form.getAll(nome).map(String);
+  const [minimas, maximas, mensalidades] = [
+    campo("idade_min"),
+    campo("idade_max"),
+    campo("mensalidade"),
+  ];
+  let tabela: ReturnType<typeof faixasDoFormulario>;
+  try {
+    tabela = faixasDoFormulario(
+      minimas.map((idade_min, i) => ({
+        idade_min,
+        idade_max: maximas[i] ?? "",
+        mensalidade: mensalidades[i] ?? "",
+      })),
+    );
+  } catch (e) {
+    if (e instanceof ErroPlanilha) return { erro: e.message };
+    throw e;
+  }
+
+  const { error } = await (await createClient())
+    .schema("rh")
+    .rpc("salvar_faixas_plano", {
+      p_tabela_id: tabelaId.data,
+      p_faixas: tabela.faixas.map((f) => ({ ...f })),
+    });
+  if (error) {
+    if (error.code === "P0001" || error.code === "42501")
+      return { erro: `${error.message}.` };
+    console.error("salvar_faixas_plano", error);
+    return { erro: "Não foi possível gravar as faixas. Nada foi alterado." };
+  }
+
+  const calculado = await tentarRecalcular(recalcularEmAberto);
+  refresh();
+  return {
+    ok: [
+      `Faixas salvas (${tabela.faixas.length}).`,
+      ...tabela.avisos,
+      calculado ? "Custo de pessoal recalculado." : "",
+    ]
+      .filter(Boolean)
+      .join(" "),
   };
 }

@@ -10,6 +10,9 @@ import {
   type PessoaDoMes,
   type RubricaDaFolha,
   somarCustos,
+  valorDasExtras,
+  valorDoBanco,
+  valorPelaFaixa,
   vigenteEm,
 } from "./custo";
 import type { GrupoRubrica } from "./rubricas";
@@ -332,6 +335,23 @@ describe("apoio", () => {
     expect(mensalidadeDaFaixa(faixas, 36)).toBe(417.05);
     expect(mensalidadeDaFaixa(faixas, 80)).toBe(1535.58);
     expect(mensalidadeDaFaixa(faixas, 40)).toBeNull();
+
+    expect(valorPelaFaixa(faixas, "1990-07-15", "2026-07-01")).toEqual({
+      valor: 417.05,
+      idade: 35,
+      faixa: faixas[0],
+    });
+    expect(valorPelaFaixa(faixas, "1986-01-01", "2026-07-01")).toEqual({
+      valor: null,
+      idade: 40,
+      pendencia: "idade fora das faixas da tabela",
+    });
+    expect(valorPelaFaixa(faixas, null, "2026-07-01").pendencia).toMatch(
+      /nascimento/,
+    );
+    expect(valorPelaFaixa(null, "1990-07-15", "2026-07-01").pendencia).toMatch(
+      /sem tabela/,
+    );
   });
 });
 
@@ -361,5 +381,28 @@ describe("somas", () => {
       { chave: "b", totais: { custo_total: 300.2 } },
       { chave: "a", totais: { colaboradores: 2, custo_total: 100.3 } },
     ]);
+  });
+});
+
+describe("horas em R$", () => {
+  it("banco: positivo com o adicional, negativo pela hora simples", () => {
+    expect(valorDoBanco(19 * 60, 10, 50)).toBeCloseTo(285, 6);
+    expect(valorDoBanco(-90, 10, 50)).toBeCloseTo(-15, 6);
+    expect(valorDoBanco(-90, 10, null)).toBeCloseTo(-15, 6);
+    expect(valorDoBanco(60, 10, null)).toBeNull();
+    expect(valorDoBanco(60, null, 50)).toBeNull();
+  });
+
+  it("extras: pelo percentual de cada coluna; sem percentual fica de fora", () => {
+    expect(
+      valorDasExtras(
+        { "Ex80%": 60, "Ex100%": 30, "Sem divisão por %": 45 },
+        10,
+      ),
+    ).toEqual({ valor: 18 + 10, foraMin: 45 });
+    expect(valorDasExtras({ "Ex80%": 60 }, null)).toEqual({
+      valor: null,
+      foraMin: 0,
+    });
   });
 });

@@ -1,0 +1,44 @@
+{
+  "_id": "5c4f206f33e3821f9e559902",
+  "nome": "Obra Exemplo",
+  "fotoUrl": "https://exemplo.test/foto.jpg",
+  "status": { "id": 3, "descricao": "Em Andamento" },
+  "grupo": { "_id": "5ea4a9ee1cab5d1b693f95a4", "descricao": "Todas as obras" },
+  "endereco": "Cidade, UF",
+  "numeroContrato": "0036",
+  "dataInicio": "01/04/2020",
+  "dataFim": "31/12/2022",
+  "prazo": { "contratual": 1005, "decorrido": 1005, "aVencer": 0 },
+  "responsavel": "Responsável",
+  "tipoContratanteContratada": "Contratante",
+  "cliente": "Cliente",
+  "clienteLogoUrl": null,
+  "observacao": "",
+  "visaoGeral": {
+    "total": {
+      "relatorios": 35,
+      "fotos": 23,
+      "atividades": 91,
+      "ocorrencias": 16,
+      "comentarios": 13,
+      "anexosRelatorio": 3,
+      "maoDeObra": 0,
+      "equipamentos": 0,
+      "usuariosAcesso": 6,
+      "anexosObra": 8,
+      "tarefasCronograma": 429,
+      "videos": 7
+    },
+    "ultimasFotos": [],
+    "ultimosRelatorios": [],
+    "ultimosVideos": []
+  },
+  "modelosDeRelatorios": [
+    {
+      "_id": "5ea4a9ee1cab5d1b693f9627",
+      "descricao": "Relatório Diário de Obra (RDO)"
+    }
+  ],
+  "created": "29/09/2022 00:00:00",
+  "modified": "14/06/2023 00:00:00"
+}

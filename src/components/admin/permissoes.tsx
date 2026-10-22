@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Lock } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Selecao } from "@/components/selecao";
 import { PERMISSOES, type Permissao } from "@/lib/permissions";
@@ -117,21 +118,29 @@ export function CaixasDePermissao({
   );
 }
 
-/** Cargo + permissões individuais: trocar o cargo atualiza as travadas. */
-export function CargoEPermissoes({
+interface CargoNaEscolha {
+  id: string;
+  nome: string;
+  ativo: boolean;
+  permissoes: Permissao[];
+}
+
+/**
+ * Escolha do cargo, com o resumo do que ele dá. As permissões em si são
+ * editadas só no cargo. Inativos só aparecem se já são o cargo da pessoa.
+ */
+export function EscolhaDeCargo({
   cargos,
   cargoInicial,
-  marcadas,
 }: {
-  cargos: { id: string; nome: string; permissoes: Permissao[] }[];
+  cargos: CargoNaEscolha[];
   cargoInicial: string | null;
-  marcadas: Permissao[];
 }) {
   const [cargo, setCargo] = useState(cargoInicial ?? "");
-  const herdadas = cargos.find((c) => c.id === cargo)?.permissoes ?? [];
+  const escolhido = cargos.find((c) => c.id === cargo);
   return (
-    <div className="flex flex-col gap-4">
-      <label className="flex max-w-sm flex-col gap-1 text-xs font-medium text-neutral-600">
+    <div className="flex flex-col gap-3">
+      <label className="flex w-full max-w-sm flex-col gap-1 text-xs font-medium text-neutral-600">
         Cargo
         <Selecao
           name="cargo_id"
@@ -141,23 +150,61 @@ export function CargoEPermissoes({
             {
               valor: "",
               rotulo: "Sem cargo",
-              descricao: "Só as permissões individuais",
+              descricao: "Entra, mas não vê nenhuma tela",
             },
-            ...cargos.map((c) => ({
-              valor: c.id,
-              rotulo: c.nome,
-              descricao: `${c.permissoes.length} permissões`,
-            })),
+            ...cargos
+              .filter((c) => c.ativo || c.id === cargoInicial)
+              .map((c) => ({
+                valor: c.id,
+                rotulo: c.ativo ? c.nome : `${c.nome} (inativo)`,
+                descricao: `${c.permissoes.length} permissões`,
+              })),
           ]}
         />
       </label>
-      <div>
-        <p className="mb-3 text-xs text-neutral-500">
-          Permissões travadas vêm do cargo. Marque outras para dar acesso só a
-          esta pessoa.
-        </p>
-        <CaixasDePermissao marcadas={marcadas} herdadas={herdadas} />
-      </div>
+      <ResumoDoCargo cargo={escolhido} />
+    </div>
+  );
+}
+
+function ResumoDoCargo({ cargo }: { cargo?: CargoNaEscolha }) {
+  if (!cargo)
+    return (
+      <p className="text-xs text-neutral-500">
+        Sem cargo, a pessoa não vê nenhuma tela.
+      </p>
+    );
+  if (!cargo.ativo)
+    return (
+      <p className="rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        Este cargo está inativo e não dá nenhuma permissão. Escolha outro ou
+        reative o cargo.
+      </p>
+    );
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+      <span>Dá acesso a</span>
+      {MODULOS.map((m) => {
+        const n = cargo.permissoes.filter((p) =>
+          p.startsWith(m.prefixo),
+        ).length;
+        if (n === 0) return null;
+        return (
+          <span
+            key={m.prefixo}
+            className="rounded-full border border-neutral-200 bg-white/70 px-2.5 py-1 text-neutral-700"
+          >
+            {m.titulo} · {n}
+          </span>
+        );
+      })}
+      {cargo.permissoes.length === 0 && <span>nada ainda</span>}
+      <Link
+        href={`/admin/usuarios/cargos/${cargo.id}`}
+        className="ml-1 underline-offset-2 hover:text-neutral-900 hover:underline"
+      >
+        Ver o cargo →
+      </Link>
     </div>
   );
 }

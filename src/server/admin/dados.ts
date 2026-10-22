@@ -16,6 +16,8 @@ export interface Cargo {
   id: string;
   nome: string;
   descricao: string | null;
+  /** Inativo continua nos usuários, mas não dá permissão. */
+  ativo: boolean;
   permissoes: Permissao[];
   usuarios: number;
 }
@@ -35,7 +37,7 @@ export interface UsuarioAdmin {
 export const cargos = cache(async (): Promise<Cargo[]> => {
   const core = (await createClient()).schema("core");
   const [lista, perms, usuarios] = await Promise.all([
-    core.from("cargos").select("id, nome, descricao").order("nome"),
+    core.from("cargos").select("id, nome, descricao, ativo").order("nome"),
     core.from("cargo_permissoes").select("cargo_id, permissao"),
     core.from("usuarios").select("cargo_id").not("cargo_id", "is", null),
   ]);

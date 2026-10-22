@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { ConnectorError, mensagemSegura } from "@/connectors/http";
-import { totaisDoCalculo } from "@/connectors/secullum/calculo";
+import { diasDoCalculo, totaisDoCalculo } from "@/connectors/secullum/calculo";
 import {
   LIMITE_CALCULAR_POR_HORA,
   type Periodo,
@@ -43,8 +43,8 @@ export interface ResultadoSecullum {
 
 /**
  * Traz do Secullum: departamentos, motivos de desligamento, colaboradores,
- * afastamentos e os totais do ponto por competência. O CPF é usado só em
- * memória, para chamar o /Calcular.
+ * afastamentos e o ponto por competência (totais e cada dia). O CPF é usado
+ * só em memória, para chamar o /Calcular.
  */
 export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
   const admin = createAdminClient();
@@ -222,7 +222,7 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
       afastamentos.map((a) => ({ chave: String(a.Id), payload: a })),
     );
 
-    // Ponto: totais do /Calcular de quem esteve ativo em cada competência.
+    // Ponto: totais e dias do /Calcular de quem esteve ativo em cada competência.
     // A API aceita 100 cálculos por hora: desconta o que já foi gasto na
     // última hora e, no primeiro 429, para e deixa o resto para depois.
     const usados = await calculosNaUltimaHora(admin);
@@ -259,6 +259,7 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
       });
 
       const linhas = [];
+      const dias = [];
       const brutos = [];
       for (const [i, r] of resultados.entries()) {
         const f = daVez[i];
@@ -282,11 +283,27 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
           ...r.value.totais,
           sync_run_id: runId,
         });
+        try {
+          for (const dia of diasDoCalculo(r.value.calculo)) {
+            dias.push({
+              colaborador_id: colaborador.id,
+              competencia,
+              ...dia,
+              sync_run_id: runId,
+            });
+          }
+        } catch (erro) {
+          // Os totais do mês continuam valendo sem os dias.
+          avisos.push(
+            `${competencia}: dias do Secullum id ${f.Id} não lidos (${mensagemSegura(erro).slice(0, 200)})`,
+          );
+        }
         brutos.push({
           chave: `${competencia}:${f.Id}`,
           payload: {
             periodo,
             Colunas: r.value.calculo.Colunas,
+            Linhas: r.value.calculo.Linhas,
             Totais: r.value.calculo.Totais,
           },
         });
@@ -295,6 +312,12 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
         const { error } = await rh
           .from("ponto_mensal")
           .upsert(lote, { onConflict: "competencia,colaborador_id" });
+        if (error) throw error;
+      }
+      for (const lote of emLotes(dias, 500)) {
+        const { error } = await rh
+          .from("ponto_diario")
+          .upsert(lote, { onConflict: "colaborador_id,data" });
         if (error) throw error;
       }
       await guardarBrutos(admin, SISTEMA, "calculo_mensal", runId, brutos);

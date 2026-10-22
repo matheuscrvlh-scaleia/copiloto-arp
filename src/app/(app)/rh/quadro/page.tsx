@@ -6,7 +6,7 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
-import { Filtros } from "@/components/dashboard/filtros";
+import { FiltroPeriodo } from "@/components/dashboard/filtro-periodo";
 import {
   BarrasHorizontais,
   Colunas,
@@ -15,7 +15,10 @@ import {
   type ItemGrafico,
   Rosca,
 } from "@/components/dashboard/graficos";
-import { CartaoIndicador } from "@/components/dashboard/indicador";
+import {
+  CartaoIndicador,
+  CartaoPendente,
+} from "@/components/dashboard/indicador";
 import {
   type Coluna,
   Nota,
@@ -28,8 +31,6 @@ import { ProvedorDetalhe } from "@/components/modal-detalhe";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
-  competenciaDe,
-  fimDoMes,
   formatarData,
   formatarMes,
   formatarNumero,
@@ -41,9 +42,7 @@ import {
   ativosEm,
   type ColaboradorQuadro,
   formatarTempoDeCasa,
-  type MovimentoMes,
   mesesDeCasa,
-  movimentoDoMes,
 } from "@/lib/rh/calculos";
 import {
   agrupar,
@@ -60,13 +59,18 @@ import {
   origemDeSaidasPorTipo,
   origemDoQuadro,
 } from "@/lib/rh/modais";
-import { ROTULO_TURNOVER } from "@/lib/rh/turnover";
 import {
-  colaboradoresDoQuadro,
-  configTurnover,
-  metaDe,
-} from "@/server/rh/dados";
-import { type Busca, fimConsiderado, lerFiltros } from "@/server/rh/filtros";
+  type NumerosTurnover,
+  ROTULO_TURNOVER,
+  type TipoDesligamento,
+} from "@/lib/rh/turnover";
+import { colaboradoresDoQuadro, metaDe } from "@/server/rh/dados";
+import {
+  type Busca,
+  fimConsiderado,
+  lerFiltrosDoPeriodo,
+} from "@/server/rh/filtros";
+import { turnoverDoPeriodo } from "@/server/rh/turnover";
 
 export const metadata: Metadata = { title: "Quadro e turnover" };
 
@@ -93,34 +97,32 @@ const opcoesDe = (valores: string[]) =>
     .map((v) => ({ valor: v, rotulo: v }));
 
 async function Quadro({ busca }: { busca: Promise<Busca> }) {
-  const meses = ultimasCompetencias(competenciaDe(new Date()), 24).reverse();
-  const { mes, departamento, departamentos } = await lerFiltros(
-    await busca,
-    meses,
-  );
-  const [todos, metaTurnover, turnover] = await Promise.all([
+  const { periodo, rotulo, mes, hoje, departamento, departamentos } =
+    await lerFiltrosDoPeriodo(await busca);
+  // Turnover e movimento: direto do Copiloto (período e 12 meses até ele).
+  const [todos, metaTurnover, doPeriodo, dozeMeses] = await Promise.all([
     colaboradoresDoQuadro(),
     metaDe("rh.turnover", mes),
-    configTurnover(),
+    turnoverDoPeriodo(periodo.de, periodo.ate, departamento),
+    turnoverDoPeriodo(
+      ultimasCompetencias(mes, 12)[0] as string,
+      fimConsiderado(mes),
+      departamento,
+    ),
   ]);
+  const tv = doPeriodo.ok ? doPeriodo.dados : null;
+  const semTurnover = doPeriodo.ok ? undefined : doPeriodo.motivo;
   const cs = departamento
     ? todos.filter((c) => c.departamento_id === departamento)
     : todos;
 
-  const ate = fimConsiderado(mes);
+  const ate = periodo.ate;
   const ativos = ativosEm(cs, ate).sort((a, b) => a.nome.localeCompare(b.nome));
-  const movimento = movimentoDoMes(cs, mes, turnover);
-  const historico = ultimasCompetencias(mes, 12).map((c) =>
-    movimentoDoMes(cs, c, turnover),
-  );
+  type Mes = NumerosTurnover & { competencia: string };
+  const historico: Mes[] = dozeMeses.ok ? dozeMeses.dados.mensal : [];
+  const doHistorico = new Map(historico.map((m) => [m.competencia, m]));
 
-  const saidasPorTipo: Record<string, number> = {};
-  for (const m of historico) {
-    for (const [tipo, n] of Object.entries(m.desligamentosPorTipo)) {
-      saidasPorTipo[tipo] = (saidasPorTipo[tipo] ?? 0) + n;
-    }
-  }
-  const tipos = Object.entries(saidasPorTipo)
+  const tipos = Object.entries(tv?.desligamentosPorTipo ?? {})
     .filter(([, n]) => n > 0)
     .sort((a, b) => b[1] - a[1]);
   // Cor presa ao tipo (mesma ordem sempre), nunca à posição no ranking.
@@ -129,7 +131,7 @@ async function Quadro({ busca }: { busca: Promise<Busca> }) {
     involuntario: 2,
     acordo: 3,
   };
-  const serie = (valor: (m: MovimentoMes) => number): ItemGrafico[] =>
+  const serie = (valor: (m: Mes) => number): ItemGrafico[] =>
     historico.map((m) => ({
       chave: m.competencia,
       rotulo: formatarMes(m.competencia).slice(0, 3),
@@ -139,23 +141,37 @@ async function Quadro({ busca }: { busca: Promise<Busca> }) {
       destaque: m.competencia === mes,
     }));
   // De onde vem cada número (modal ao clicar). A tela já exige rh.quadro.
-  const doMes = (foco: FocoQuadro, c = mes) =>
-    origemDoQuadro(cs, c, fimConsiderado(c), {
-      foco,
-      pessoas: true,
-      turnover,
-    });
-  const janela = ultimasCompetencias(mes, 12);
-  const inicioJanela = janela[0] as string;
-  const periodo = `Desligamentos de ${formatarMes(inicioJanela)} a ${formatarMes(mes)}`;
+  // Sem competência: o período do filtro; com ela, aquele mês do gráfico.
+  const doMes = (foco: FocoQuadro, c?: string) =>
+    c
+      ? origemDoQuadro(cs, c, fimConsiderado(c), {
+          foco,
+          pessoas: true,
+          numeros: doHistorico.get(c) ?? null,
+          semTurnover,
+          rotulo: formatarMes(c),
+        })
+      : origemDoQuadro(cs, periodo.de, ate, {
+          foco,
+          pessoas: true,
+          numeros: tv,
+          semTurnover,
+          rotulo,
+        });
+  // O Acordo entra no tipo onde a ARP configurou no Copiloto.
+  const tipoNaConta = (t: TipoDesligamento | null) =>
+    t === "acordo" && tv && tv.acordoContaComo !== "separado"
+      ? tv.acordoContaComo
+      : t;
+  const tituloSaidas = `Desligamentos em ${rotulo}`;
   const saidasDoTipo = (tipo: string) =>
     cs
       .filter(
         (c) =>
           c.desligamento !== null &&
-          c.desligamento >= inicioJanela &&
-          c.desligamento <= fimDoMes(mes) &&
-          (c.tipo_turnover ?? "nao_classificado") === tipo,
+          c.desligamento >= periodo.de &&
+          c.desligamento <= ate &&
+          (tipoNaConta(c.tipo_turnover) ?? "nao_classificado") === tipo,
       )
       .sort((a, b) =>
         (b.desligamento ?? "").localeCompare(a.desligamento ?? ""),
@@ -203,15 +219,15 @@ async function Quadro({ busca }: { busca: Promise<Busca> }) {
   const admissoes12 = historico.reduce((s, m) => s + m.admissoes, 0);
   const desligamentos12 = historico.reduce((s, m) => s + m.desligamentos, 0);
 
-  const colunasMes: Coluna<MovimentoMes>[] = [
+  const colunasMes: Coluna<Mes>[] = [
     { titulo: "Mês", valor: (m) => formatarMes(m.competencia) },
     { titulo: "Início", valor: (m) => m.inicio, numero: true },
     { titulo: "Admissões", valor: (m) => m.admissoes, numero: true },
     { titulo: "Desligamentos", valor: (m) => m.desligamentos, numero: true },
     { titulo: "Fim", valor: (m) => m.fim, numero: true },
     // Todos os tipos do Copiloto (Geral, Voluntário, Involuntário, Acordo).
-    ...movimento.taxas.map(
-      (t, i): Coluna<MovimentoMes> => ({
+    ...(tv?.taxas ?? historico[0]?.taxas ?? []).map(
+      (t, i): Coluna<Mes> => ({
         titulo: t.rotulo,
         valor: (m) => formatarPct(m.taxas[i]?.valor ?? null),
         numero: true,
@@ -240,9 +256,11 @@ async function Quadro({ busca }: { busca: Promise<Busca> }) {
   return (
     <ProvedorDetalhe>
       <div className="flex flex-col gap-6">
-        <Filtros
-          meses={meses}
-          mes={mes}
+        <FiltroPeriodo
+          de={periodo.de}
+          ate={periodo.ate}
+          atalho={periodo.atalho}
+          hoje={hoje}
           departamentos={departamentos}
           departamento={departamento}
         />
@@ -257,38 +275,45 @@ async function Quadro({ busca }: { busca: Promise<Busca> }) {
             origem={doMes("ativos")}
           />
           <CartaoIndicador
-            titulo="Admissões no mês"
-            valor={String(movimento.admissoes)}
-            detalhe={`${admissoes12} nos últimos 12 meses`}
+            titulo="Admissões"
+            valor={tv ? String(tv.admissoes) : "—"}
+            detalhe={`${rotulo} · ${admissoes12} nos últimos 12 meses`}
             serie={serie((m) => m.admissoes)}
             origem={doMes("admissoes")}
           />
           <CartaoIndicador
-            titulo="Desligamentos no mês"
-            valor={String(movimento.desligamentos)}
-            detalhe={`${desligamentos12} nos últimos 12 meses`}
+            titulo="Desligamentos"
+            valor={tv ? String(tv.desligamentos) : "—"}
+            detalhe={`${rotulo} · ${desligamentos12} nos últimos 12 meses`}
             serie={serie((m) => m.desligamentos)}
             origem={doMes("desligamentos")}
           />
-          <CartaoIndicador
-            titulo="Turnover Geral do mês"
-            tom="verde"
-            valor={formatarPct(movimento.turnover)}
-            status={status(movimento.turnover, metaTurnover)}
-            meta={
-              metaTurnover
-                ? `Meta: até ${formatarPct(metaTurnover.meta)}`
-                : "Defina a meta em Parâmetros"
-            }
-            detalhe={movimento.taxas
-              .slice(1)
-              .map(
-                (t) =>
-                  `${t.rotulo.replace("Turnover ", "")} ${formatarPct(t.valor)}`,
-              )
-              .join(" · ")}
-            origem={doMes("turnover")}
-          />
+          {tv ? (
+            <CartaoIndicador
+              titulo="Turnover Geral"
+              tom="verde"
+              valor={formatarPct(tv.turnover)}
+              status={status(tv.turnover, metaTurnover)}
+              meta={
+                metaTurnover
+                  ? `Meta: até ${formatarPct(metaTurnover.meta)}`
+                  : "Defina a meta em Parâmetros"
+              }
+              detalhe={`${tv.taxas
+                .slice(1)
+                .map(
+                  (t) =>
+                    `${t.rotulo.replace("Turnover ", "")} ${formatarPct(t.valor)}`,
+                )
+                .join(" · ")} · Copiloto RH`}
+              origem={doMes("turnover")}
+            />
+          ) : (
+            <CartaoPendente
+              titulo="Turnover Geral"
+              motivo={semTurnover ?? "Sem dados do Copiloto RH."}
+            />
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -415,9 +440,14 @@ async function Quadro({ busca }: { busca: Promise<Busca> }) {
           />
         </Secao>
 
+        {/* Altura fixa nos dois: o que passar dela rola dentro do cartão. */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <Secao titulo="Mês a mês" className="lg:col-span-2">
+          <Secao
+            titulo="Mês a mês"
+            className="flex h-[32rem] flex-col lg:col-span-2"
+          >
             <Tabela
+              rolar
               colunas={colunasMes}
               linhas={[...historico].reverse()}
               chave={(m) => m.competencia}
@@ -426,16 +456,16 @@ async function Quadro({ busca }: { busca: Promise<Busca> }) {
           <Secao
             titulo="Desligamentos por tipo"
             tom="escuro"
-            descricao="Últimos 12 meses, pelo motivo do desligamento no Copiloto"
-            className="flex flex-col"
+            descricao={`${rotulo}, como o Copiloto classifica (decisão, depois motivo)`}
+            className="flex h-[32rem] flex-col"
           >
-            <div className="flex h-full flex-col justify-center">
+            <div className="-mr-2 flex h-full flex-col overflow-y-auto pr-2 [&>*]:my-auto">
               <Rosca
-                descricao="Desligamentos dos últimos 12 meses por tipo"
-                vazio="Nenhum desligamento nos últimos 12 meses."
+                descricao={`Desligamentos por tipo em ${rotulo}`}
+                vazio={semTurnover ?? "Nenhum desligamento no período."}
                 centro={{
                   valor: String(tipos.reduce((soma, [, n]) => soma + n, 0)),
-                  rotulo: "saídas em 12 meses",
+                  rotulo: "saídas no período",
                 }}
                 fatias={tipos
                   .sort(([a], [b]) => (COR_TIPO[a] ?? 5) - (COR_TIPO[b] ?? 5))
@@ -452,7 +482,7 @@ async function Quadro({ busca }: { busca: Promise<Busca> }) {
                     origemDeSaidasPorTipo(
                       saidasDoTipo(tipo),
                       ROTULO_TURNOVER[tipo] ?? tipo,
-                      periodo,
+                      tituloSaidas,
                       true,
                     ),
                   ]),
@@ -461,6 +491,34 @@ async function Quadro({ busca }: { busca: Promise<Busca> }) {
             </div>
           </Secao>
         </div>
+
+        {tv && (
+          <Secao
+            titulo="Turnover por departamento"
+            descricao={`${rotulo}, pelos departamentos do Copiloto RH`}
+          >
+            <Tabela
+              colunas={[
+                { titulo: "Departamento", valor: (d) => d.nome },
+                { titulo: "Ativos", valor: (d) => d.ativos, numero: true },
+                {
+                  titulo: "Desligamentos",
+                  valor: (d) => d.desligamentos,
+                  numero: true,
+                },
+                {
+                  titulo: "Taxa",
+                  valor: (d) => formatarPct(d.taxa),
+                  numero: true,
+                },
+              ]}
+              linhas={[...tv.porDepartamento].sort(
+                (a, b) => b.taxa - a.taxa || b.ativos - a.ativos,
+              )}
+              chave={(d) => d.nome}
+            />
+          </Secao>
+        )}
 
         <Secao
           titulo={`Ativos em ${formatarData(ate)}`}
@@ -517,8 +575,8 @@ function Esqueleto() {
       <IndicadoresCarregando quantidade={4} />
       <CartaoCarregando altura="h-80" />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <CartaoCarregando className="lg:col-span-2" altura="h-[28rem]" />
-        <CartaoCarregando altura="h-[28rem]" />
+        <CartaoCarregando className="lg:col-span-2" altura="h-[32rem]" />
+        <CartaoCarregando altura="h-[32rem]" />
       </div>
       <CartaoCarregando altura="h-96" />
     </TelaCarregando>

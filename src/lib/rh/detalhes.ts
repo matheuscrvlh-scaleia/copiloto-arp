@@ -2,6 +2,7 @@ import type { TabelaDetalhe } from "@/components/modal-detalhe";
 import {
   formatarData,
   formatarHoras,
+  formatarMoeda,
   formatarNumero,
   formatarPct,
 } from "@/lib/formato";
@@ -18,7 +19,8 @@ import { MOTIVO_DESLIGAMENTO, ROTULO_TURNOVER } from "./turnover";
 
 // Tabelas do modal "quem forma este número". Cada célula vem formatada para
 // leitura e "ordem" guarda o valor cru (minutos, %, datas) para ordenar.
-// Nada de salário: só ponto e cadastro.
+// Nada de salário: só ponto e cadastro (o banco em R$ chega pronto de quem
+// chama, e só para quem vê o custo individual).
 
 const PESSOA = { titulo: "Colaborador", pessoa: true } as const;
 
@@ -63,14 +65,19 @@ export function tabelaDoPonto(
   };
 }
 
-/** Banco de horas por pessoa, de quem mais deve para quem mais tem crédito. */
+/**
+ * Banco de horas por pessoa, de quem mais deve para quem mais tem crédito.
+ * Com `emReais` (saldo em R$ por colaborador), uma coluna a mais no fim.
+ */
 export function tabelaDoBanco(
   linhas: LinhaPonto[],
   titulo?: string,
+  emReais?: Map<string, number | null>,
 ): TabelaDetalhe {
   const ordenadas = [...linhas].sort(
     (a, b) => a.banco_saldo_min - b.banco_saldo_min,
   );
+  const reais = (l: LinhaPonto) => emReais?.get(l.colaborador_id) ?? null;
   return {
     titulo,
     colunas: [
@@ -79,6 +86,7 @@ export function tabelaDoBanco(
       { titulo: "Créditos", numero: true },
       { titulo: "Débitos", numero: true },
       { titulo: "Saldo", numero: true },
+      ...(emReais ? [{ titulo: "Saldo em R$", numero: true }] : []),
     ],
     linhas: ordenadas.map((l) => ({
       chave: l.colaborador_id,
@@ -88,6 +96,7 @@ export function tabelaDoBanco(
         `+${formatarHoras(l.banco_creditos_min)}`,
         formatarHoras(-Math.abs(l.banco_debitos_min)),
         formatarHoras(l.banco_saldo_min),
+        ...(emReais ? [formatarMoeda(reais(l))] : []),
       ],
       ordem: [
         l.nome,
@@ -95,6 +104,7 @@ export function tabelaDoBanco(
         l.banco_creditos_min,
         -Math.abs(l.banco_debitos_min),
         l.banco_saldo_min,
+        ...(emReais ? [reais(l)] : []),
       ],
     })),
     vazio: "Ninguém com banco de horas neste período.",

@@ -70,9 +70,15 @@ Modelo de dados: [docs/modelo-de-dados.md](docs/modelo-de-dados.md).
 
 - Login por e-mail e senha (Supabase Auth). **Não existe cadastro público**:
   o administrador cria o usuário em Administração › Usuários e cargos, com
-  um cargo (conjunto de permissões) e, se quiser, permissões individuais.
-  Desativar um usuário bloqueia o login e corta o acesso aos dados; o
-  histórico continua. O banco não deixa tirar o último administrador.
+  um cargo (conjunto de permissões). As permissões se editam só no cargo;
+  as individuais antigas aparecem no usuário só para serem removidas.
+  A senha que o administrador define (ao criar ou ao trocar) é provisória:
+  fica marcada no `app_metadata` do Auth e o `proxy` só deixa a pessoa
+  em `/trocar-senha` até ela escolher a própria.
+  Inativar um usuário bloqueia o login e corta o acesso aos dados; o
+  histórico continua. Excluir apaga o usuário de vez (fica na auditoria).
+  Cargo inativo some da escolha e não dá permissão a quem ainda o tem.
+  O banco não deixa tirar o último administrador nem excluir a si mesmo.
 - Dados da empresa: Administração › Empresa.
 - O `proxy` (`src/proxy.ts`) renova a sessão e manda para `/login` quem
   não está logado. A permissão de cada tela é conferida no servidor

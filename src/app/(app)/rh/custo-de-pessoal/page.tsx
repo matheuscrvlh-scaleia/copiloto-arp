@@ -10,7 +10,7 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
-import { Filtros } from "@/components/dashboard/filtros";
+import { FiltroPeriodo } from "@/components/dashboard/filtro-periodo";
 import { type FatiaRosca, Rosca } from "@/components/dashboard/graficos";
 import {
   CartaoIndicador,
@@ -39,6 +39,7 @@ import {
   formatarNumero,
   formatarPct,
 } from "@/lib/formato";
+import { competenciasDoPeriodo } from "@/lib/periodo";
 import {
   type CustoAgregado,
   custosPor,
@@ -62,7 +63,7 @@ import {
   faltasDoCusto,
   folhasDoCusto,
 } from "@/server/rh/dados";
-import { type Busca, lerFiltros, mesAnterior } from "@/server/rh/filtros";
+import { type Busca, lerFiltrosDoPeriodo } from "@/server/rh/filtros";
 import { recalcularCustos } from "./actions";
 
 export const metadata: Metadata = { title: "Custo de pessoal" };
@@ -100,25 +101,72 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     );
   }
 
-  const meses = folhas.map((f) => f.competencia);
-  const { mes, departamento, departamentos } = await lerFiltros(
-    await busca,
-    meses,
+  // Folha é mensal: o período usa as folhas dos meses que toca (soma); sem
+  // nenhuma, a última folha antes dele.
+  const meses = folhas.map((f) => f.competencia).sort();
+  const { periodo, hoje, departamento, departamentos } =
+    await lerFiltrosDoPeriodo(await busca);
+  const doPeriodo = competenciasDoPeriodo(periodo);
+  const comFolha = meses.filter((c) => doPeriodo.includes(c));
+  const anteriores = meses.filter((c) => c < (doPeriodo[0] as string));
+  const usados = comFolha.length ? comFolha : anteriores.slice(-1);
+  const filtros = (
+    <FiltroPeriodo
+      de={periodo.de}
+      ate={periodo.ate}
+      atalho={periodo.atalho}
+      hoje={hoje}
+      departamentos={departamentos}
+      departamento={departamento}
+    />
   );
+  if (!usados.length) {
+    return (
+      <div className="flex flex-col gap-6">
+        {filtros}
+        <Secao titulo="Sem folha no período">
+          <p className="text-sm text-neutral-600">
+            Nenhuma folha importada até{" "}
+            {formatarMes(doPeriodo.at(-1) as string)}. A primeira é de{" "}
+            {formatarMes(meses[0] as string)}.
+          </p>
+        </Secao>
+      </div>
+    );
+  }
+  const mes = usados.at(-1) as string;
+  const antes = meses
+    .filter((c) => c < (usados[0] as string))
+    .slice(-usados.length);
+  const rotuloFolhas =
+    usados.length === 1
+      ? `folha de ${formatarMes(mes)}`
+      : `folhas de ${formatarMes(usados[0] as string)} a ${formatarMes(mes)}`;
+  const rotuloAntes =
+    antes.length === 1
+      ? formatarMes(antes[0] as string)
+      : `${formatarMes(antes[0] ?? mes)} a ${formatarMes(antes.at(-1) ?? mes)}`;
   const folha = folhas.find((f) => f.competencia === mes);
-  const anterior = meses.find((m) => m < mes) ?? mesAnterior(mes);
   const [todas, listaCargos, pessoasTodas] = await Promise.all([
-    custoAgregado(anterior, mes),
+    custoAgregado(antes[0] ?? (usados[0] as string), mes),
     cargos(),
     podeIndividual ? custosIndividuais(mes) : Promise.resolve(null),
   ]);
   const doDep = <T extends { departamento_id: string | null }>(ls: T[]) =>
     departamento ? ls.filter((l) => l.departamento_id === departamento) : ls;
-  const linhas = doDep(todas.filter((l) => l.competencia === mes));
-  const linhasAnt = doDep(todas.filter((l) => l.competencia === anterior));
+  const linhas = doDep(todas.filter((l) => usados.includes(l.competencia)));
+  const linhasAnt =
+    antes.length === usados.length
+      ? doDep(todas.filter((l) => antes.includes(l.competencia)))
+      : [];
   const pessoas = pessoasTodas ? doDep(pessoasTodas) : null;
 
+  // Com vários meses, "colaboradores" soma pessoas-mês: o custo médio sai
+  // por pessoa e por mês. Pessoas na tela = as da última folha.
   const t = somarCustos(linhas);
+  const pessoasUltima = somarCustos(
+    linhas.filter((l) => l.competencia === mes),
+  ).colaboradores;
   const tAnt = linhasAnt.length ? somarCustos(linhasAnt) : null;
   const nomeDep = new Map(departamentos.map((d) => [d.id, d.nome]));
   const nomeCargo = new Map(listaCargos.map((c) => [c.id, c.nome]));
@@ -133,7 +181,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
             id: `prototipo-${mes}`,
             tipo: "prototipo" as const,
             titulo: "Valores fictícios",
-            texto: `Todo salário da folha de ${formatarMes(mes)} foi gravado como R$ 2.000,00. Os totais mostram a conta, não o custo real.`,
+            texto: `Todo salário da ${rotuloFolhas} foi gravado como R$ 2.000,00. Os totais mostram a conta, não o custo real.`,
           },
         ]
       : []),
@@ -158,7 +206,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   ): Variacao | undefined =>
     ant
       ? {
-          texto: `${atual >= ant ? "+" : ""}${formatarNumero(((atual - ant) / ant) * 100, 1)}% vs ${formatarMes(anterior)}`,
+          texto: `${atual >= ant ? "+" : ""}${formatarNumero(((atual - ant) / ant) * 100, 1)}% vs ${rotuloAntes}`,
           sentido: "neutro",
         }
       : undefined;
@@ -246,12 +294,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   return (
     <ProvedorDetalhe>
       <div className="flex flex-col gap-6">
-        <Filtros
-          meses={meses}
-          mes={mes}
-          departamentos={departamentos}
-          departamento={departamento}
-        />
+        {filtros}
 
         <AvisosDaPagina avisos={avisos} />
 
@@ -261,7 +304,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
             tom="escuro"
             valor={moeda(t.custo_total)}
             variacao={variacao(t.custo_total, tAnt?.custo_total)}
-            detalhe={`${t.colaboradores} pessoas na folha de ${formatarMes(mes)}`}
+            detalhe={`${pessoasUltima} pessoas na ${rotuloFolhas}${usados.length > 1 ? " (última) · soma dos meses" : ""}${comFolha.length ? "" : " · sem folha no período: a última antes dele"}`}
             origem={origemDoCustoTotal(t, opcoes)}
           />
           <CartaoIndicador
@@ -277,7 +320,11 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
                   )
                 : undefined
             }
-            detalhe="Custo total ÷ pessoas na folha"
+            detalhe={
+              usados.length > 1
+                ? "Custo total ÷ pessoas, por mês (média dos meses)"
+                : "Custo total ÷ pessoas na folha"
+            }
             origem={origemDoCustoMedio(t, opcoes)}
           />
           <CartaoIndicador
@@ -290,7 +337,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
             }
             origem={{
               ...origemDe.encargos,
-              titulo: `Encargos e provisões de ${formatarMes(mes)}`,
+              titulo: `Encargos e provisões: ${rotuloFolhas}`,
               fontes: [
                 ...(origemDe.encargos.fontes ?? []),
                 { rotulo: "Provisões", valor: COMPONENTES.provisoes.regra },
@@ -319,7 +366,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
           <Secao
             titulo="Composição"
-            descricao={`${formatarMes(mes)} · clique numa parte para ver de onde vem`}
+            descricao={`${rotuloFolhas[0]?.toUpperCase()}${rotuloFolhas.slice(1)} · clique numa parte para ver de onde vem`}
             className="xl:col-span-3"
           >
             <Rosca
@@ -417,7 +464,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
           <div id="por-funcionario" className="scroll-mt-6">
             <Secao
               titulo="Por funcionário"
-              descricao="Custo mensal e por hora; clique em Ver para a memória de cálculo"
+              descricao={`Custo mensal e por hora na folha de ${formatarMes(mes)}${usados.length > 1 ? " (último mês do período)" : ""}; clique em Ver para a memória de cálculo`}
               className="flex h-[650px] flex-col"
             >
               <TabelaBusca
@@ -461,7 +508,9 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
           × 4/3) com todos os encargos; multa rescisória = % do FGTS do mês.
           Férias e 13º pagos consomem a provisão e não entram de novo. O custo é
           recalculado ao importar a folha, classificar rubrica e salvar encargos
-          ou RAT/FAP; folha fechada não muda.
+          ou RAT/FAP; folha fechada não muda. A folha é mensal: um período
+          dentro do mês mostra o mês inteiro, e vários meses são somados (o
+          custo médio é por pessoa e por mês).
         </Nota>
       </div>
     </ProvedorDetalhe>

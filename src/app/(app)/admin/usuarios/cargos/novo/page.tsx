@@ -18,7 +18,7 @@ export default function Page() {
       </Link>
       <PageHeader
         title="Novo cargo"
-        description="Dê um nome e marque o que quem tiver este cargo pode ver e fazer."
+        description="Um cargo é um conjunto de permissões. Depois é só escolher o cargo ao criar ou editar um usuário."
       />
       <Suspense fallback={<Carregando />}>
         <Protegido permissao="admin.usuarios">

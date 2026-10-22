@@ -270,7 +270,9 @@ function CartaoIntegracao({
             >
               <input type="hidden" name="sistema" value={i.sistema} />
             </FormAcao>
-            {(i.sistema === "secullum" || i.sistema === "copiloto_rh") &&
+            {(i.sistema === "secullum" ||
+              i.sistema === "copiloto_rh" ||
+              i.sistema === "wps") &&
               i.ativa && (
                 <FormAcao
                   acao={sincronizarAgora}
