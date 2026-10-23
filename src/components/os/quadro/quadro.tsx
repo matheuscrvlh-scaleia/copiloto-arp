@@ -265,7 +265,10 @@ function Conteudo({
           },
         }}
       >
-        <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 md:mx-0 md:px-0">
+        {/* Só rola de lado: com overflow-x, o eixo vertical também viraria
+            "auto" e o quadro rolaria por dentro, escondendo o cabeçalho das
+            colunas. A altura é a da janela; cada coluna rola os seus cartões. */}
+        <div className="-mx-4 flex h-[calc(100dvh-12rem)] min-h-[26rem] snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain px-4 pb-3 md:mx-0 md:h-[calc(100dvh-17rem)] md:px-0">
           {COLUNAS_QUADRO.map((s) =>
             s === "fechado" && !fechadoAberto && !comFechados ? (
               <ColunaRecolhida
@@ -343,7 +346,7 @@ function Coluna({
     <section
       ref={setNodeRef}
       aria-label={`${STATUS[status]}: ${cartoes.length} ${cartoes.length === 1 ? "chamado" : "chamados"}`}
-      className={`vidro flex w-[85vw] max-w-80 shrink-0 snap-start flex-col rounded-[1.75rem] p-2.5 transition sm:w-72 ${recusa ? "opacity-45" : ""} ${isOver && !recusa ? "ring-2 ring-marca" : ""} ${isOver && recusa ? "ring-2 ring-red-500/60" : ""}`}
+      className={`vidro flex h-full min-h-0 w-[85vw] max-w-80 shrink-0 snap-start flex-col rounded-[1.75rem] p-2.5 transition sm:w-72 ${recusa ? "opacity-45" : ""} ${isOver && !recusa ? "ring-2 ring-marca" : ""} ${isOver && recusa ? "ring-2 ring-red-500/60" : ""}`}
     >
       <header className="flex items-center gap-2 px-2 pt-1 pb-2.5">
         <span
@@ -372,7 +375,7 @@ function Coluna({
           Não aceita este chamado
         </p>
       )}
-      <ul className="flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto md:max-h-[calc(100dvh-20rem)]">
+      <ul className="-mr-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain pr-1">
         {cartoes.map((c) => (
           <li key={c.id}>
             <CartaoDoQuadro
@@ -408,7 +411,7 @@ function ColunaRecolhida({
     <section
       ref={setNodeRef}
       aria-label="Fechado (recolhida)"
-      className={`vidro flex w-16 shrink-0 snap-start flex-col items-center gap-3 rounded-[1.75rem] py-3 transition ${aceita === false ? "opacity-45" : ""} ${isOver && aceita !== false ? "ring-2 ring-marca" : ""}`}
+      className={`vidro flex h-full w-16 shrink-0 snap-start flex-col items-center gap-3 rounded-[1.75rem] py-3 transition ${aceita === false ? "opacity-45" : ""} ${isOver && aceita !== false ? "ring-2 ring-marca" : ""}`}
     >
       <button
         type="button"

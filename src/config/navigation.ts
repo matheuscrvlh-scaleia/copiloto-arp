@@ -177,7 +177,15 @@ export const navigation: NavSection[] = [
   },
   {
     titulo: "Tickets",
+    // Painéis no topo; depois o dia a dia (o que é meu, do setor, o que pedi,
+    // quadro e calendário), as áreas de Operações e, por último, a configuração.
     itens: [
+      {
+        href: "/os/paineis",
+        label: "Painéis",
+        icone: "paineis",
+        permissao: ["os.painel_setor", "os.painel_geral"],
+      },
       {
         href: "/os",
         label: "Minha caixa",
@@ -231,12 +239,6 @@ export const navigation: NavSection[] = [
         label: "Portal e agenda",
         icone: "portal",
         permissao: ["os.portal", "os.portal_agenda"],
-      },
-      {
-        href: "/os/paineis",
-        label: "Painéis",
-        icone: "paineis",
-        permissao: ["os.painel_setor", "os.painel_geral"],
       },
       {
         href: "/os/configuracoes",
