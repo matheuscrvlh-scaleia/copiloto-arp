@@ -61,7 +61,7 @@ export const CONFIGURACOES_RH = {
   parametros: "/rh/configuracoes/parametros",
 } as const;
 
-/** Abas de Chamados e OS › Configurações (cada uma com a sua permissão). */
+/** Abas de Tickets › Configurações (cada uma com a sua permissão). */
 export const CONFIGURACOES_OS = {
   catalogo: "/os/configuracoes/catalogo",
   setores: "/os/configuracoes/setores",
@@ -176,7 +176,7 @@ export const navigation: NavSection[] = [
     ],
   },
   {
-    titulo: "Chamados e OS",
+    titulo: "Tickets",
     itens: [
       {
         href: "/os",

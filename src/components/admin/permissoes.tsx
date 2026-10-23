@@ -10,7 +10,7 @@ const MODULOS = [
   { prefixo: "admin.", titulo: "Administração" },
   { prefixo: "rh.", titulo: "RH" },
   { prefixo: "financeiro.", titulo: "Financeiro" },
-  { prefixo: "os.", titulo: "Chamados e OS" },
+  { prefixo: "os.", titulo: "Tickets" },
 ] as const;
 
 const TODAS = Object.keys(PERMISSOES) as Permissao[];

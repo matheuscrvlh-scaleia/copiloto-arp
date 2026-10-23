@@ -15,6 +15,7 @@ import { AcoesDoLink } from "@/components/os/portal/acoes-link";
 import { Atualizado, CartaoFiltro } from "@/components/os/portal/cartao-filtro";
 import { ListaBusca } from "@/components/os/portal/lista-busca";
 import { SeloExemplo } from "@/components/os/selos";
+import { tonsDaTela } from "@/components/os/tons";
 import { SemAcesso } from "@/components/protegido";
 import { formatarData, formatarNumero } from "@/lib/formato";
 import { paraBrasilia } from "@/lib/os/tempo";
@@ -26,6 +27,8 @@ import {
   resumoDoPortal,
 } from "@/server/os/portal";
 import { gerarLinksEmLote } from "./actions";
+
+const TONS = tonsDaTela("portal");
 
 export const metadata: Metadata = { title: "Portal e agenda" };
 
@@ -96,14 +99,15 @@ async function Links({
       <Atualizado agora={agora} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <CartaoFiltro
+          tom={TONS[0]}
           href={alternar("com_link")}
           ativo={f === "com_link"}
           titulo="Lojas com link"
           valor={formatarNumero(r.comLink)}
           detalhe={`de ${formatarNumero(r.linhas.length)} lojas vigentes`}
-          tom="verde"
         />
         <CartaoFiltro
+          tom={TONS[1]}
           href={alternar("sem_link")}
           ativo={f === "sem_link"}
           titulo="Sem link"
@@ -113,6 +117,7 @@ async function Links({
           }
         />
         <CartaoFiltro
+          tom={TONS[2]}
           href={alternar("pedidos")}
           ativo={f === "pedidos"}
           titulo="Pedidos do portal no mês"
@@ -120,6 +125,7 @@ async function Links({
           detalhe="viraram chamados nos setores"
         />
         <CartaoFiltro
+          tom={TONS[3]}
           href={alternar("avaliadas")}
           ativo={f === "avaliadas"}
           titulo="Avaliação média"

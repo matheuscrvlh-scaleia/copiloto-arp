@@ -7,7 +7,7 @@ de verdade das colunas; este documento explica o desenho.
 |---|---|---|
 | 1 | `core`, `integracao`, `rh` | **Criado** (8 migrations, testadas em `supabase/tests`) |
 | 2 | `financeiro` | Começou pelo estacionamento (WPS); o resto é proposta abaixo |
-| 3 | `os` | **Criado**: Chamados, OS e Ativos (3 migrations de 23/10/2026, testadas em `supabase/tests/os.test.ts`) |
+| 3 | `os` | **Criado**: Tickets (chamados, OS e ativos) (3 migrations de 23/10/2026, testadas em `supabase/tests/os.test.ts`) |
 
 ## Decisões gerais
 
@@ -184,7 +184,7 @@ trocando os dias informados inteiros. Veem quem tem `financeiro.painel`,
 | `estacionamento_pagamentos` | `estacionamento_id`, `wps_codigo` | Um por pagamento único: dia, hora, tipo de cliente (rotativo, mensalista…), ticket, recibo, forma de pagamento, grupos da API, valor bruto, desconto e líquido (reais), terminal e tarifa. Sem placa nem operador |
 | `estacionamento_movimento` | `estacionamento_id`, `data`, `tipo_veiculo` | Entradas e saídas do dia por tipo de veículo |
 
-## os — Chamados, OS e Ativos
+## os — Tickets (chamados, OS e ativos)
 
 Diferente do RH e do Financeiro, os dados nascem aqui: o usuário cria e
 edita. Tudo é um chamado (Tarefa, Solicitação, OS ou Aviso); tempo e custo,

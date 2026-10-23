@@ -19,7 +19,7 @@ import {
 } from "@/lib/os/rotulos";
 import { prazoRelativo } from "@/lib/os/texto";
 
-// Selos do módulo Chamados e OS. A cor nunca vem sozinha: sempre com texto
+// Selos do módulo Tickets. A cor nunca vem sozinha: sempre com texto
 // (e ícone, quando ajuda). Servem em componentes de servidor e de cliente.
 
 const PILULA =

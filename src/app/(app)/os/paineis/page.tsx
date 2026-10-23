@@ -21,7 +21,7 @@ export default function Page({
     <>
       <PageHeader
         title="Painéis"
-        description="Chamados e OS em números: em aberto, atrasados, fechados no prazo e o que importa para cada setor. Todo número abre a lista que o forma."
+        description="Tickets em números: em aberto, atrasados, fechados no prazo e o que importa para cada setor. Todo número abre a lista que o forma."
       />
       <Suspense fallback={<EsqueletoDoPainel />}>
         <Geral busca={searchParams} />

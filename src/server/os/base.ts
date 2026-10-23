@@ -8,7 +8,7 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { type Usuario, usuarioAtual } from "@/server/auth";
 
-// Base do módulo Chamados e OS: quem é o usuário no módulo, parâmetros,
+// Base do módulo Tickets: quem é o usuário no módulo, parâmetros,
 // catálogo, pessoas, a consulta padrão de chamados, a linha do tempo, as
 // notificações e os arquivos. Tudo o que é lido em nome do usuário passa
 // pelo RLS; a service role só grava o que é do sistema (notificações,

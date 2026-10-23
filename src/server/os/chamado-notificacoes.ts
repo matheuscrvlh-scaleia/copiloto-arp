@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { usuarioAtual } from "@/server/auth";
 
-// Sininho: as notificações do módulo Chamados e OS (os.notificacoes). O
+// Sininho: as notificações do módulo Tickets (os.notificacoes). O
 // sino do menu busca daqui ao carregar e ao abrir, e marca como lida. O RLS
 // só deixa ler e marcar as do próprio usuário.
 

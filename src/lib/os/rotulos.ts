@@ -1,4 +1,4 @@
-// Rótulos de tela dos enums do módulo Chamados e OS. As chaves são os valores
+// Rótulos de tela dos enums do módulo Tickets. As chaves são os valores
 // gravados no banco; mudar uma chave aqui exige migration.
 
 export const TIPOS = {

@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { rodarRotinas } from "@/server/os/rotinas";
 
-// Rotinas do módulo Chamados e OS, de hora em hora. Chamada pelo Vercel Cron
+// Rotinas do módulo Tickets, uma vez por dia. Chamada pelo Vercel Cron
 // (vercel.json), que envia "Authorization: Bearer <CRON_SECRET>". Aceite
 // automático, avisos de prazo, lembretes recorrentes, modelos de entrada e
 // saída, planos preventivos e cobrança do terceirizado.

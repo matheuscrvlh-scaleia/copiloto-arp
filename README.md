@@ -13,7 +13,7 @@ monta à mão.
 - **Financeiro**: inadimplência por cliente, faturamento e recebimentos,
   contas a pagar, fluxo de caixa, plano orçamentário e o Performance &
   Capital do Pedro. Quem valida: Milena, Taiane e Pedro.
-- **Chamados e OS**: tudo o que é pedido, avisado ou cobrado entre setores,
+- **Tickets**: tudo o que é pedido, avisado ou cobrado entre setores,
   lojistas e terceirizados vira um chamado (Tarefa, Solicitação, Ordem de
   Serviço ou Aviso), com catálogo por setor, ciclo com confirmação de quem
   pediu, OS com tempo, minuto-homem, custo e rateio, link para o
@@ -103,7 +103,7 @@ Modelo de dados: [docs/modelo-de-dados.md](docs/modelo-de-dados.md).
 |---|---|---|
 | Secullum (ponto) | `/api/sync/secullum` | Vercel Cron, todo dia às 06h de Brasília (`vercel.json`) |
 
-| Rotinas de Chamados e OS | `/api/cron/os` | Todo dia às 07h30 de Brasília (de hora em hora no plano Pro da Vercel; "Rodar rotinas agora" em Modelos e lembretes): aceite automático, avisos de prazo, lembretes recorrentes, preventivas, modelos de entrada e saída, cobrança do terceirizado |
+| Rotinas de Tickets | `/api/cron/os` | Todo dia às 07h30 de Brasília (de hora em hora no plano Pro da Vercel; "Rodar rotinas agora" em Modelos e lembretes): aceite automático, avisos de prazo, lembretes recorrentes, preventivas, modelos de entrada e saída, cobrança do terceirizado |
 
 As rotas de sincronização e de rotinas exigem `Authorization: Bearer <CRON_SECRET>`.
 

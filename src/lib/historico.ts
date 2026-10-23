@@ -10,7 +10,7 @@ export const MODULOS = {
   admin: "Administração",
   rh: "RH",
   financeiro: "Financeiro",
-  os: "Chamados e OS",
+  os: "Tickets",
   integracoes: "Integrações",
 } as const;
 export type Modulo = keyof typeof MODULOS;

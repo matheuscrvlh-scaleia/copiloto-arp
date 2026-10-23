@@ -12,6 +12,7 @@ import { Nota } from "@/components/dashboard/tabela";
 import { BlocoDoPainel } from "@/components/os/paineis/blocos";
 import { FiltrosDoPainel } from "@/components/os/paineis/filtros";
 import { CartaoLista, ProvedorPainel } from "@/components/os/paineis/provedor";
+import { tonsDaTela, tonsDosBlocos } from "@/components/os/tons";
 import { slugDoSetor } from "@/lib/os/indicadores-setor";
 import { ROTAS_OS } from "@/lib/os/rotas";
 import { paramsDoPeriodo } from "@/lib/periodo";
@@ -45,6 +46,10 @@ export async function Painel({
   ]);
   const painel = await montarPainel(f, agora);
   const exportar = ctx.pode("os.exportar");
+  // Cada painel (geral e de cada setor) com a sua mistura de tons.
+  const chaveTons = `painel:${setor?.id ?? "geral"}`;
+  const tonsCartoes = tonsDaTela(chaveTons, painel.cartoes.length);
+  const tonsBlocos = tonsDosBlocos(chaveTons, painel.blocos.length);
 
   // Os links das abas levam o período e a pessoa (a categoria é do setor).
   const qs = new URLSearchParams({
@@ -153,16 +158,19 @@ export async function Painel({
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {painel.cartoes.map((c) => (
-            <CartaoLista key={c.titulo} cartao={c} />
+          {painel.cartoes.map((c, i) => (
+            <CartaoLista
+              key={c.titulo}
+              cartao={{ ...c, tom: tonsCartoes[i] ?? c.tom }}
+            />
           ))}
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-flow-row-dense xl:grid-cols-12">
-          {painel.blocos.map((b) => (
+          {painel.blocos.map((b, i) => (
             <BlocoDoPainel
               key={b.id}
-              bloco={b}
+              bloco={{ ...b, tom: b.tom ?? tonsBlocos[i] }}
               exportar={exportar}
               filtros={textoFiltros}
             />

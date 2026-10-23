@@ -12,6 +12,7 @@ import { CartaoIndicador } from "@/components/dashboard/indicador";
 import { type Coluna, Secao, Tabela } from "@/components/dashboard/tabela";
 import { BotaoExportar } from "@/components/os/exportar";
 import { SeloExemplo } from "@/components/os/selos";
+import { CLASSE_MARCADO, tonsDaTela } from "@/components/os/tons";
 import { FiltrosVistorias } from "@/components/os/vistorias/filtros";
 import {
   SeloSituacaoVistoria,
@@ -37,6 +38,8 @@ import {
 import { dataValida } from "@/lib/periodo";
 import { contexto } from "@/server/os/base";
 import { listarVistorias, type VistoriaResumo } from "@/server/os/vistorias";
+
+const TONS = tonsDaTela("vistorias");
 
 export const metadata: Metadata = { title: "Vistorias" };
 
@@ -296,19 +299,19 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {(Object.keys(CARTOES) as Cartao[]).map((c) => (
+        {(Object.keys(CARTOES) as Cartao[]).map((c, i) => (
           <Link
             key={c}
             href={link(sp, { cartao: f.cartao === c ? "" : c })}
             scroll={false}
             aria-current={f.cartao === c ? "true" : undefined}
-            className="flex rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca *:flex-1"
+            className={`flex rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca *:flex-1 ${f.cartao === c ? CLASSE_MARCADO : ""}`}
           >
             <CartaoIndicador
               titulo={CARTOES[c]}
               valor={formatarNumero(conta(c))}
               detalhe={detalhes[c]}
-              tom={f.cartao === c ? "escuro" : "claro"}
+              tom={TONS[i]}
             />
           </Link>
         ))}

@@ -10,7 +10,7 @@ import {
   somarDias,
 } from "./tempo";
 
-// Indicadores dos painéis de Chamados e OS (spec 4.13). Funções puras: o
+// Indicadores dos painéis de Tickets (spec 4.13). Funções puras: o
 // servidor lê os chamados uma vez e tudo o que os painéis mostram sai daqui,
 // sempre com a lista de quem forma cada número (o modal abre exatamente
 // essa lista). Metas e prazos vêm do banco; aqui só as regras.

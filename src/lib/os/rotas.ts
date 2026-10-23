@@ -1,4 +1,4 @@
-// Endereços das telas do módulo Chamados e OS (um lugar só, para os links
+// Endereços das telas do módulo Tickets (um lugar só, para os links
 // das notificações, do WhatsApp e das telas não se perderem).
 
 export const ROTAS_OS = {

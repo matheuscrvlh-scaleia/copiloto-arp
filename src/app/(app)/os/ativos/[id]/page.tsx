@@ -40,6 +40,7 @@ import {
   SeloStatusChamado,
   SeloTipo,
 } from "@/components/os/selos";
+import { tonsDaTela } from "@/components/os/tons";
 import { SemAcesso } from "@/components/protegido";
 import {
   formatarData,
@@ -421,6 +422,8 @@ function Cabecalho({
   );
 }
 
+const TONS = tonsDaTela("ficha-do-ativo");
+
 function Indicadores({ ficha }: { ficha: Ficha }) {
   const { resumo, sinal, faixas, ativo: a } = ficha;
   const corretivas = sinal.criterios.corretivas;
@@ -428,6 +431,7 @@ function Indicadores({ ficha }: { ficha: Ficha }) {
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {ficha.verCustos ? (
         <CartaoIndicador
+          tom={TONS[0]}
           titulo="Custo de manutenção em 12 meses"
           valor={formatarMoeda(resumo.custo12m)}
           detalhe={
@@ -438,12 +442,14 @@ function Indicadores({ ficha }: { ficha: Ficha }) {
         />
       ) : (
         <CartaoIndicador
+          tom={TONS[0]}
           titulo="Peso da manutenção"
           valor={sinal.pesoPct === null ? "—" : formatarPct(sinal.pesoPct, 0)}
           detalhe="custo de 12 meses ÷ valor de reposição"
         />
       )}
       <CartaoIndicador
+        tom={TONS[1]}
         titulo="Corretivas em 12 meses"
         valor={formatarNumero(resumo.corretivas12m)}
         detalhe={`${resumo.preventivas12m} preventivas no mesmo período`}
@@ -457,11 +463,13 @@ function Indicadores({ ficha }: { ficha: Ficha }) {
         meta={`Avaliar a partir de ${faixas.corretivasAvaliar}, trocar a partir de ${faixas.corretivasTrocar}`}
       />
       <CartaoIndicador
+        tom={TONS[2]}
         titulo="Dias parado em 12 meses"
         valor={formatarNumero(ficha.diasParado12m, 1)}
         detalhe="em Parado ou Em manutenção"
       />
       <CartaoIndicador
+        tom={TONS[3]}
         titulo="Sinal"
         valor={
           {
@@ -486,7 +494,6 @@ function Indicadores({ ficha }: { ficha: Ficha }) {
             : "o pior de peso, corretivas e idade"
         }
         meta="Clique para ver os três critérios"
-        tom={sinal.sinal === "trocar" ? "escuro" : "claro"}
         origem={detalheDoSinal({
           nome: a.nome,
           sinal,

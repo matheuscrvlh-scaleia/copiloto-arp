@@ -4,7 +4,7 @@ import type { Permissao } from "@/lib/permissions";
 import { usuarioAtual } from "@/server/auth";
 import type { Aba } from "./abas";
 
-// O que configura o módulo Chamados e OS (spec 4.5 e 4.15). Cada aba aparece
+// O que configura o módulo Tickets (spec 4.5 e 4.15). Cada aba aparece
 // para quem tem ao menos uma das permissões dela; dentro, cada bloco confere
 // a sua.
 

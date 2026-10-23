@@ -14,7 +14,9 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
+import { TOM } from "@/components/estilos";
 import { Atualizado, PainelDaLista } from "@/components/os/lista/topo";
+import { CLASSE_MARCADO, tonsDaTela } from "@/components/os/tons";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarNumero } from "@/lib/formato";
@@ -173,6 +175,8 @@ const DETALHE: Record<CartaoOS, string> = {
   finalizadas_mes: "fechadas neste mês",
 };
 
+const TONS = tonsDaTela("ordens");
+
 /** Os quatro cartões; clicar filtra a lista (de novo, volta para todas). */
 function Cartoes({
   f,
@@ -186,7 +190,7 @@ function Cartoes({
       aria-label="Filtrar pelos indicadores"
       className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4"
     >
-      {(Object.keys(CARTOES_OS) as CartaoOS[]).map((c) => {
+      {(Object.keys(CARTOES_OS) as CartaoOS[]).map((c, i) => {
         const Icone = ICONES[c];
         const marcado = f.cartao === c;
         return (
@@ -195,12 +199,10 @@ function Cartoes({
             href={urlDosFiltros(CAMINHO, f, { cartao: marcado ? null : c })}
             aria-current={marcado ? "true" : undefined}
             scroll={false}
-            className={`flutua flex min-h-32 flex-col gap-2 rounded-[1.75rem] p-4 outline-none transition focus-visible:ring-2 focus-visible:ring-marca md:p-5 ${marcado ? "destaque" : "vidro"}`}
+            className={`flutua flex min-h-32 flex-col gap-2 rounded-[1.75rem] p-4 outline-none transition focus-visible:ring-2 focus-visible:ring-marca md:p-5 ${TOM[TONS[i] ?? "claro"]} ${marcado ? CLASSE_MARCADO : ""}`}
           >
             <span className="flex items-start justify-between gap-2">
-              <span
-                className={`text-sm font-medium ${marcado ? "text-[rgb(255_255_255/0.8)]" : "text-neutral-600"}`}
-              >
+              <span className="text-sm font-medium text-neutral-600">
                 {CARTOES_OS[c]}
               </span>
               <Icone className="size-4 shrink-0 opacity-60" aria-hidden />
@@ -208,9 +210,7 @@ function Cartoes({
             <span className="mt-auto text-3xl font-semibold tracking-tight tabular-nums">
               {formatarNumero(contagem[c])}
             </span>
-            <span
-              className={`text-xs ${marcado ? "text-[rgb(255_255_255/0.6)]" : "text-neutral-500"}`}
-            >
+            <span className="text-xs text-neutral-500">
               {marcado ? "Filtrando · toque para ver todas" : DETALHE[c]}
             </span>
           </Link>

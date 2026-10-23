@@ -14,6 +14,7 @@ import { Nota, Secao } from "@/components/dashboard/tabela";
 import { FiltrosAtivos } from "@/components/os/ativos/filtros";
 import { DecisaoDeTroca, TabelaAtivos } from "@/components/os/ativos/lista";
 import { BotaoExportar } from "@/components/os/exportar";
+import { CLASSE_MARCADO, tonsDaTela } from "@/components/os/tons";
 import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { formatarNumero, formatarPct } from "@/lib/formato";
@@ -24,6 +25,8 @@ import { SINAIS, type Sinal } from "@/lib/os/sinal";
 import { hojeEmBrasilia, paraBrasilia } from "@/lib/os/tempo";
 import { type AtivoNaLista, listarAtivos } from "@/server/os/ativos";
 import { contexto } from "@/server/os/base";
+
+const TONS = tonsDaTela("ativos");
 
 export const metadata: Metadata = { title: "Ativos" };
 
@@ -293,19 +296,19 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {cartoes.map((c) => (
+        {cartoes.map((c, i) => (
           <Link
             key={c.titulo}
             href={c.href}
             scroll={false}
             aria-current={c.ativo ? "true" : undefined}
-            className="flex rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca *:flex-1"
+            className={`flex rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca *:flex-1 ${c.ativo ? CLASSE_MARCADO : ""}`}
           >
             <CartaoIndicador
               titulo={c.titulo}
               valor={c.valor}
               detalhe={c.detalhe}
-              tom={c.ativo ? "escuro" : "claro"}
+              tom={TONS[i]}
             />
           </Link>
         ))}

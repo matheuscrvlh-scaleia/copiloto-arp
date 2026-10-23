@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CartaoIndicador } from "@/components/dashboard/indicador";
 import type { Tom } from "@/components/estilos";
+import { CLASSE_MARCADO } from "@/components/os/tons";
 import { paraBrasilia } from "@/lib/os/tempo";
 
 // Cartão de indicador que filtra a lista ao clicar (de novo: tira o filtro)
@@ -26,7 +27,7 @@ export function CartaoFiltro({
       href={href}
       scroll={false}
       aria-current={ativo ? "true" : undefined}
-      className={`flex rounded-[1.75rem] outline-none transition *:flex-1 focus-visible:ring-4 focus-visible:ring-neutral-900/15 ${ativo ? "ring-2 ring-neutral-900" : ""}`}
+      className={`flex rounded-[1.75rem] outline-none transition *:flex-1 focus-visible:ring-4 focus-visible:ring-neutral-900/15 ${ativo ? CLASSE_MARCADO : ""}`}
     >
       <CartaoIndicador
         titulo={titulo}

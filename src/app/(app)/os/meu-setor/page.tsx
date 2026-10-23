@@ -76,7 +76,7 @@ async function Setor({ busca }: { busca: Promise<Busca> }) {
       <Cartao>
         <p className="text-sm text-neutral-600">
           Você ainda não faz parte de nenhum setor. Peça ao administrador para
-          incluir você em Chamados e OS › Configurações › Setores.
+          incluir você em Tickets › Configurações › Setores.
         </p>
       </Cartao>
     );

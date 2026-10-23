@@ -1338,7 +1338,7 @@ export function gerarExemplo(e: EntradaExemplo): DadosExemplo {
   };
 
   // Corretivas do dia a dia.
-  for (let i = 0; i < 180; i++) {
+  for (let i = 0; i < 450; i++) {
     const cat = s.escolher(categoriasOS);
     const raiz =
       e.categorias.find((c) => c.id === cat.pai_id)?.nome ?? cat.nome;
@@ -1442,7 +1442,7 @@ export function gerarExemplo(e: EntradaExemplo): DadosExemplo {
 
   // --- OS terceirizadas ---------------------------------------------------
   const periodos: Periodo[] = ["manha", "tarde", "noite"];
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 110; i++) {
     const id = s.uuid();
     const cat = s.escolher(categoriasOS);
     const emp = s.escolher(empresas);
@@ -1624,7 +1624,7 @@ export function gerarExemplo(e: EntradaExemplo): DadosExemplo {
   const telhadoCat = categoria("Acesso ao telhado");
   if (telhadoCat && e.agendaTelhadoId) {
     const porDia = new Map<string, Set<number>>();
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 35; i++) {
       let dia = somarDias(hoje, s.int(-60, 20));
       while (!ehDiaUtil(dia, e.cal)) dia = somarDias(dia, 1);
       const ocupados = porDia.get(dia) ?? new Set<number>();
@@ -1676,7 +1676,7 @@ export function gerarExemplo(e: EntradaExemplo): DadosExemplo {
   // --- Tarefas ------------------------------------------------------------
   const entrevista = categoria("Entrevista de cliente");
   const portalCat = categoria("Portal do lojista");
-  for (let i = 0; i < 20 && entrevista; i++) {
+  for (let i = 0; i < 35 && entrevista; i++) {
     const loja = s.escolher(recentes.concat(vigentes.slice(0, 40)));
     novoChamado({
       tipo: "tarefa",
@@ -1687,7 +1687,7 @@ export function gerarExemplo(e: EntradaExemplo): DadosExemplo {
       loja,
     });
   }
-  for (let i = 0; i < 15 && portalCat; i++) {
+  for (let i = 0; i < 30 && portalCat; i++) {
     const loja = s.escolher(vigentes);
     novoChamado({
       tipo: "tarefa",
@@ -1705,7 +1705,7 @@ export function gerarExemplo(e: EntradaExemplo): DadosExemplo {
     "Revisar a escala do fim de semana",
     "Responder o e-mail do condomínio",
   ];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 60; i++) {
     const quem = pessoa()?.id ?? null;
     novoChamado({
       tipo: "tarefa",
