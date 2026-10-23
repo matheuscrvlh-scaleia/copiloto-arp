@@ -1,0 +1,78 @@
+"use client";
+
+import { Loader, Tag, UserRound } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useTransition } from "react";
+import { Selecao } from "@/components/selecao";
+
+/**
+ * Categoria e pessoa (responsável) do painel, na URL (?categoria=&pessoa=),
+ * ao lado do filtro de período padrão do sistema.
+ */
+export function FiltrosDoPainel({
+  categorias,
+  categoria,
+  pessoas,
+  pessoa,
+}: {
+  categorias: { id: string; nome: string; grupo?: string }[];
+  categoria: string | null;
+  pessoas: { id: string; nome: string }[];
+  pessoa: string | null;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const [carregando, iniciar] = useTransition();
+
+  function trocar(nome: "categoria" | "pessoa", valor: string) {
+    const novos = new URLSearchParams(params);
+    if (valor) novos.set(nome, valor);
+    else novos.delete(nome);
+    iniciar(() =>
+      router.replace(`${pathname}?${novos.toString()}`, { scroll: false }),
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" aria-busy={carregando}>
+      <Selecao
+        variante="pilula"
+        rotulo="Categoria"
+        icone={<Tag className="size-4" />}
+        className="w-64 max-w-full"
+        valor={categoria ?? ""}
+        aoMudar={(v) => trocar("categoria", v)}
+        opcoes={[
+          { valor: "", rotulo: "Todas as categorias" },
+          ...categorias.map((c) => ({
+            valor: c.id,
+            rotulo: c.nome,
+            descricao: c.grupo,
+          })),
+        ]}
+      />
+      <Selecao
+        variante="pilula"
+        rotulo="Pessoa responsável"
+        icone={<UserRound className="size-4" />}
+        className="w-64 max-w-full"
+        valor={pessoa ?? ""}
+        aoMudar={(v) => trocar("pessoa", v)}
+        opcoes={[
+          { valor: "", rotulo: "Todas as pessoas" },
+          ...pessoas.map((p) => ({ valor: p.id, rotulo: p.nome })),
+        ]}
+      />
+      {carregando && (
+        <span className="flex items-center gap-1.5 text-xs text-neutral-500">
+          <Loader
+            className="size-3.5 animate-spin motion-reduce:animate-none"
+            aria-hidden
+          />
+          Atualizando…
+        </span>
+      )}
+    </div>
+  );
+}

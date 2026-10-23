@@ -10,6 +10,7 @@ const MODULOS = [
   { prefixo: "admin.", titulo: "Administração" },
   { prefixo: "rh.", titulo: "RH" },
   { prefixo: "financeiro.", titulo: "Financeiro" },
+  { prefixo: "os.", titulo: "Chamados e OS" },
 ] as const;
 
 const TODAS = Object.keys(PERMISSOES) as Permissao[];
@@ -32,7 +33,7 @@ export function CaixasDePermissao({
   const herdou = new Set(herdadas);
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-4">
       {MODULOS.map((m) => {
         const doModulo = TODAS.filter((p) => p.startsWith(m.prefixo));
         const livres = doModulo.filter((p) => !herdou.has(p));

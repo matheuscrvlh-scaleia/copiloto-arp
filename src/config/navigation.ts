@@ -23,7 +23,17 @@ export type Icone =
   | "empresa"
   | "integracoes"
   | "historico"
-  | "configuracoes";
+  | "configuracoes"
+  | "caixa"
+  | "setor"
+  | "enviados"
+  | "quadro_kanban"
+  | "calendario"
+  | "ordens"
+  | "ativos"
+  | "vistorias"
+  | "portal"
+  | "paineis";
 
 export interface NavItem {
   href: string;
@@ -49,6 +59,18 @@ export const CONFIGURACOES_RH = {
   importacoes: "/rh/configuracoes/importacoes",
   cadastros: "/rh/configuracoes/cadastros",
   parametros: "/rh/configuracoes/parametros",
+} as const;
+
+/** Abas de Chamados e OS › Configurações (cada uma com a sua permissão). */
+export const CONFIGURACOES_OS = {
+  catalogo: "/os/configuracoes/catalogo",
+  setores: "/os/configuracoes/setores",
+  modelos: "/os/configuracoes/modelos",
+  terceirizados: "/os/configuracoes/terceirizados",
+  parametros: "/os/configuracoes/parametros",
+  importacao: "/os/configuracoes/importacao",
+  lixeira: "/os/configuracoes/lixeira",
+  historico: "/os/configuracoes/historico",
 } as const;
 
 export const navigation: NavSection[] = [
@@ -150,6 +172,85 @@ export const navigation: NavSection[] = [
         label: "Importação e parâmetros",
         icone: "importacao",
         permissao: "financeiro.importacao_parametros",
+      },
+    ],
+  },
+  {
+    titulo: "Chamados e OS",
+    itens: [
+      {
+        href: "/os",
+        label: "Minha caixa",
+        icone: "caixa",
+        permissao: "os.acessar",
+      },
+      {
+        href: "/os/meu-setor",
+        label: "Meu setor",
+        icone: "setor",
+        permissao: "os.meu_setor",
+      },
+      {
+        href: "/os/abertos-por-mim",
+        label: "Abertos por mim",
+        icone: "enviados",
+        permissao: "os.acessar",
+      },
+      {
+        href: "/os/quadro",
+        label: "Quadro",
+        icone: "quadro_kanban",
+        permissao: "os.acessar",
+      },
+      {
+        href: "/os/calendario",
+        label: "Calendário",
+        icone: "calendario",
+        permissao: "os.acessar",
+      },
+      {
+        href: "/os/ordens",
+        label: "Ordens de serviço",
+        icone: "ordens",
+        permissao: "os.acessar",
+      },
+      {
+        href: "/os/ativos",
+        label: "Ativos",
+        icone: "ativos",
+        permissao: ["os.ativos", "os.ativos_gerenciar"],
+      },
+      {
+        href: "/os/vistorias",
+        label: "Vistorias",
+        icone: "vistorias",
+        permissao: "os.vistorias",
+      },
+      {
+        href: "/os/portal",
+        label: "Portal e agenda",
+        icone: "portal",
+        permissao: ["os.portal", "os.portal_agenda"],
+      },
+      {
+        href: "/os/paineis",
+        label: "Painéis",
+        icone: "paineis",
+        permissao: ["os.painel_setor", "os.painel_geral"],
+      },
+      {
+        href: "/os/configuracoes",
+        label: "Configurações",
+        icone: "configuracoes",
+        permissao: [
+          "os.catalogo",
+          "os.modelos",
+          "os.terceirizados",
+          "os.parametros",
+          "os.importacao",
+          "os.excluir",
+          "os.historico",
+        ],
       },
     ],
   },

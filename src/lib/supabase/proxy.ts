@@ -4,7 +4,9 @@ import { INICIO } from "@/config/navigation";
 import { ROTA_TROCAR_SENHA, temSenhaProvisoria } from "@/lib/senha-provisoria";
 import { supabasePublico } from "./config";
 
-const PUBLICAS = ["/login"];
+// Portal do lojista e link da OS do terceirizado: abrem só pelo token do
+// link, sem login (a página confere o token no servidor).
+const PUBLICAS = ["/login", "/portal", "/ordem"];
 
 /**
  * Renova a sessão a cada requisição e manda para /login quem não está

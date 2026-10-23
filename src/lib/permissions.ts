@@ -34,6 +34,35 @@ export const PERMISSOES = {
   "financeiro.importacao_parametros":
     "Importar o relatório do ENET e editar dívida, metas e faixas da régua",
   "financeiro.exportar": "Exportar Excel e PDF das telas liberadas",
+
+  "os.acessar":
+    "Abrir chamados e ver Minha caixa, Abertos por mim, Quadro e Calendário do que é seu",
+  "os.meu_setor": "Ver a tela Meu setor e todos os chamados do seu setor",
+  "os.todos_setores": "Ver os chamados de todos os setores",
+  "os.gerenciar_setor":
+    "Trocar responsável, prazo e prioridade e cancelar chamados do setor",
+  "os.excluir": "Mandar chamados para a lixeira e restaurar",
+  "os.catalogo":
+    "Configurar setores, categorias, prazos, campos extras e o que aparece no portal",
+  "os.modelos":
+    "Configurar os modelos de entrada e saída de cliente e os lembretes",
+  "os.custos":
+    "Ver valor por minuto, mão de obra, materiais, custo total e rateio",
+  "os.terceirizados":
+    "Cadastrar terceirizados e enviar ou cancelar o link da OS",
+  "os.ativos": "Ver ativos, ficha e histórico de manutenção",
+  "os.ativos_gerenciar":
+    "Cadastrar, editar e dar baixa em ativos, planos preventivos e etiquetas",
+  "os.vistorias": "Criar, editar e emitir o laudo de vistoria",
+  "os.portal": "Gerar, reenviar e cancelar o link do portal de cada loja",
+  "os.portal_agenda": "Configurar horários, limites e bloqueios das agendas",
+  "os.painel_setor": "Ver o painel do seu setor",
+  "os.painel_geral": "Ver o painel geral e o de qualquer setor",
+  "os.exportar": "Exportar Excel e PDF das telas de chamados e OS",
+  "os.parametros":
+    "Editar técnicos e valor por minuto, rateio, faixas do sinal, prazos e metas",
+  "os.importacao": "Rodar e desfazer a importação do sistema de OS atual",
+  "os.historico": "Ver quem alterou o quê e quando nos chamados e parâmetros",
 } as const;
 
 export type Permissao = keyof typeof PERMISSOES;

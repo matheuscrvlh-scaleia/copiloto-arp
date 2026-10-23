@@ -7,8 +7,8 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Tudo, menos arquivos estáticos, imagens da marca e as rotas de
-  // sincronização (protegidas por CRON_SECRET).
+  // sincronização e rotinas (protegidas por CRON_SECRET).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|brand/|api/sync/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|brand/|api/sync/|api/cron/).*)",
   ],
 };

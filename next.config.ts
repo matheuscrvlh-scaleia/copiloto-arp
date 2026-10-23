@@ -8,9 +8,11 @@ const securityHeaders = [
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
   },
+  // Geolocalização só no próprio site: o terceirizado registra onde estava
+  // ao tocar "Cheguei" e "Terminei" no link da OS (se ele permitir).
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=()",
+    value: "camera=(), microphone=(), geolocation=(self)",
   },
 ];
 

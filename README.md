@@ -13,6 +13,14 @@ monta à mão.
 - **Financeiro**: inadimplência por cliente, faturamento e recebimentos,
   contas a pagar, fluxo de caixa, plano orçamentário e o Performance &
   Capital do Pedro. Quem valida: Milena, Taiane e Pedro.
+- **Chamados e OS**: tudo o que é pedido, avisado ou cobrado entre setores,
+  lojistas e terceirizados vira um chamado (Tarefa, Solicitação, Ordem de
+  Serviço ou Aviso), com catálogo por setor, ciclo com confirmação de quem
+  pediu, OS com tempo, minuto-homem, custo e rateio, link para o
+  terceirizado, ativos com plano preventivo e sinal de troca, vistorias com
+  laudo em PDF, portal do lojista com agenda do telhado e painéis por setor.
+  Substitui o sistema de OS atual (O.S Arp 4.42). Quem valida: Operações
+  (Fernando e Alexandre), cada responsável de setor e Paulo.
 
 As especificações completas estão na pasta do projeto ARP (fora do repo).
 Integrações: [docs/integracoes.md](docs/integracoes.md).
@@ -95,7 +103,13 @@ Modelo de dados: [docs/modelo-de-dados.md](docs/modelo-de-dados.md).
 |---|---|---|
 | Secullum (ponto) | `/api/sync/secullum` | Vercel Cron, todo dia às 06h de Brasília (`vercel.json`) |
 
-As rotas de sincronização exigem `Authorization: Bearer <CRON_SECRET>`.
+| Rotinas de Chamados e OS | `/api/cron/os` | Todo dia às 07h30 de Brasília (de hora em hora no plano Pro da Vercel; "Rodar rotinas agora" em Modelos e lembretes): aceite automático, avisos de prazo, lembretes recorrentes, preventivas, modelos de entrada e saída, cobrança do terceirizado |
+
+As rotas de sincronização e de rotinas exigem `Authorization: Bearer <CRON_SECRET>`.
+
+O portal do lojista (`/portal/<token>`) e o link da OS do terceirizado
+(`/ordem/<token>`) abrem sem login: o servidor confere o token a cada acesso
+e o link para de funcionar quando é cancelado (ou quando a OS fecha).
 Cada execução fica registrada em `integracao.sync_runs`.
 
 O acesso a cada sistema (usuário, senha, token) é cadastrado em
@@ -126,5 +140,9 @@ Aplicar migrations no banco: `npx supabase db push --db-url "$SUPABASE_DB_URL"`.
    `CRON_SECRET`, que o Vercel Cron envia automaticamente, e
    `INTEGRACOES_CHAVE`, que cifra as credenciais das integrações; trocar
    essa chave obriga a cadastrar as credenciais de novo).
-2. No Supabase (Authentication › URL Configuration), trocar o Site URL de
+2. No Supabase (Project Settings › API › Exposed schemas), incluir `os`
+   junto de `core`, `rh`, `financeiro` e `integracao`.
+3. Cadastrar `NEXT_PUBLIC_SITE_URL` com o domínio de produção (links do
+   WhatsApp para o portal e o terceirizado).
+4. No Supabase (Authentication › URL Configuration), trocar o Site URL de
    `http://localhost:3000` para o domínio de produção.

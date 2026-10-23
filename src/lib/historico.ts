@@ -10,6 +10,7 @@ export const MODULOS = {
   admin: "Administração",
   rh: "RH",
   financeiro: "Financeiro",
+  os: "Chamados e OS",
   integracoes: "Integrações",
 } as const;
 export type Modulo = keyof typeof MODULOS;
@@ -46,6 +47,30 @@ export const TABELAS: Record<string, string> = {
   "rh.folha_colaboradores": "Folha (pessoa editada)",
   "rh.dados_financeiros_mensais": "Faturamento e dados financeiros",
   "rh.orcamento_endomarketing": "Orçamento de endomarketing",
+  "os.setores": "Setores (chamados)",
+  "os.setor_membros": "Pessoas do setor",
+  "os.parametros": "Parâmetros de chamados e OS",
+  "os.feriados": "Feriados",
+  "os.metas": "Metas dos painéis",
+  "os.agendas": "Agenda",
+  "os.agenda_bloqueios": "Bloqueio de agenda",
+  "os.categorias": "Categoria do catálogo",
+  "os.lojas": "Loja (contrato)",
+  "os.tecnicos": "Técnico",
+  "os.tecnico_valores": "Valor por minuto",
+  "os.empresas": "Empresa terceirizada",
+  "os.profissionais": "Profissional terceirizado",
+  "os.contatos": "Contato salvo",
+  "os.ativo_categorias": "Categoria de ativo",
+  "os.ativos": "Ativo",
+  "os.planos_preventivos": "Plano preventivo",
+  "os.modelos": "Modelo de entrada/saída",
+  "os.modelo_itens": "Item de modelo",
+  "os.vistorias": "Vistoria",
+  "os.chamados": "Chamado",
+  "os.os_custos": "Custo da OS",
+  "os.material_valores": "Valor de material",
+  "os.importacoes": "Importação do sistema de OS",
 };
 
 const ACOES_ALTERACAO: Record<string, string> = {
@@ -71,6 +96,15 @@ export const EVENTOS = {
   integracao_testada: "Testou a conexão",
   sincronizacao_pedida: "Pediu sincronização",
   custo_recalculado: "Recalculou o custo",
+  os_exemplo_gerado: "Gerou os dados de exemplo de chamados",
+  os_exemplo_apagado: "Apagou os dados de exemplo de chamados",
+  os_importacao_confirmada: "Confirmou a importação do sistema de OS",
+  os_importacao_desfeita: "Desfez a importação do sistema de OS",
+  os_link_portal: "Gerou ou cancelou link do portal",
+  os_link_terceirizado: "Enviou ou cancelou link de terceirizado",
+  os_modelo_disparado: "Disparou modelo de entrada ou saída",
+  os_rotina: "Rodou a rotina de chamados",
+  os_papel_timbrado: "Trocou ou removeu o papel timbrado dos PDFs",
 } as const;
 export type Evento = keyof typeof EVENTOS;
 

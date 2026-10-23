@@ -1,0 +1,628 @@
+import {
+  ArrowUpRight,
+  CircleAlert,
+  CirclePause,
+  Lightbulb,
+  RotateCcw,
+  Star,
+  Trash2,
+  XCircle,
+} from "lucide-react";
+import Link from "next/link";
+import { Suspense } from "react";
+import { CartaoCarregando } from "@/components/carregando";
+import { dadosDoFormulario } from "@/components/os/novo/dados";
+import { BlocoOS } from "@/components/os/ordem/bloco-os";
+import {
+  SeloExemplo,
+  SeloPrazo,
+  SeloPrioridade,
+  SeloSetor,
+  SeloStatusChamado,
+  SeloTipo,
+} from "@/components/os/selos";
+import { formatarDataHora } from "@/lib/formato";
+import { mensagemDoChamado, textoDoCampo } from "@/lib/os/chamado";
+import { statusAoConcluir } from "@/lib/os/ciclo";
+import { formatarNumeroChamado } from "@/lib/os/numeros";
+import { descreverRecorrencia, type Recorrencia } from "@/lib/os/recorrencia";
+import { rotaAtivo, rotaChamado, rotaVistoria } from "@/lib/os/rotas";
+import { MOTIVOS_AGUARDANDO, ORIGENS, STATUS, TIPOS } from "@/lib/os/rotulos";
+import { tempoAtras } from "@/lib/os/texto";
+import { pessoas, urlDoSistema } from "@/server/os/base";
+import {
+  carregarDetalhe,
+  contatosSalvos,
+  type DetalheChamado as Detalhe,
+} from "@/server/os/chamado-detalhe";
+import { AcoesDoChamado } from "./acoes";
+import { Checklist } from "./checklist";
+import { Comentario } from "./comentario";
+import { Destinos } from "./destinos";
+import { Ferramentas } from "./ferramentas";
+import { Gestao } from "./gestao";
+import { LinhaDoTempo } from "./linha-do-tempo";
+
+// Detalhe do chamado: uma tela com tudo o que aconteceu. Serve à página
+// /os/chamados/[id] e à janela lateral das listas (compacto: uma coluna).
+
+const CARTAO = "vidro rounded-[1.75rem] p-5 md:p-6";
+const TITULO_SECAO =
+  "mb-4 text-xs font-semibold tracking-[0.14em] text-neutral-500 uppercase";
+
+export async function DetalheChamado({
+  id,
+  compacto = false,
+}: {
+  id: string;
+  compacto?: boolean;
+}) {
+  const d = await carregarDetalhe(id);
+  if (!d)
+    return (
+      <div className={CARTAO}>
+        <p className="text-sm text-neutral-600">
+          Chamado não encontrado, ou você não tem acesso a ele.
+        </p>
+      </div>
+    );
+  const { ch } = d;
+  const agora = new Date();
+  const emAberto = ["aberto", "em_andamento", "aguardando"].includes(ch.status);
+  const podeGestao = {
+    responsavel:
+      d.pode.gerenciar || (d.papel.solicitante && ch.status === "aberto"),
+    prazo: d.pode.editarPrazo && emAberto,
+    setor: d.pode.gerenciar || (d.papel.solicitante && ch.status === "aberto"),
+  };
+  const comGestao =
+    emAberto &&
+    (podeGestao.responsavel || podeGestao.prazo || podeGestao.setor);
+  const [formulario, contatos, gente] = await Promise.all([
+    comGestao ? dadosDoFormulario() : null,
+    contatosSalvos(),
+    pessoas(),
+  ]);
+  const nome = (u: string | null) => (u ? (d.nomes[u] ?? "—") : null);
+  const ehOS = ch.tipo === "os";
+  const registraTempo = ehOS || Boolean(d.categoria?.registrar_tempo);
+
+  const topo = (
+    <header className="flex min-w-0 flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-neutral-900 px-2.5 py-1 font-mono text-xs font-semibold text-white">
+          {formatarNumeroChamado(ch.numero)}
+        </span>
+        <SeloTipo tipo={ch.tipo} />
+        <SeloStatusChamado status={ch.status} aguardando={ch.aguardando_tipo} />
+        <SeloPrioridade prioridade={ch.prioridade} />
+        <SeloPrazo
+          prazo={ch.prazo}
+          status={ch.status}
+          agora={agora}
+          avisoHoras={d.avisoHoras}
+        />
+        {ch.exemplo && <SeloExemplo />}
+      </div>
+      {compacto ? (
+        <h2 className="text-2xl font-semibold tracking-tight break-words">
+          {ch.titulo}
+        </h2>
+      ) : (
+        <h1 className="text-3xl font-semibold tracking-tight break-words md:text-4xl">
+          {ch.titulo}
+        </h1>
+      )}
+      <p className="text-sm text-neutral-500">
+        {quemPediu(d)} · {tempoAtras(ch.criado_em, agora)} · Responsável:{" "}
+        <span className="font-medium text-neutral-800">
+          {nome(ch.responsavel_id) ?? `Fila de ${d.setor?.nome ?? "setor"}`}
+        </span>
+      </p>
+      {(d.acoes.length > 0 || comGestao) && (
+        <div className="flex flex-wrap items-start gap-2">
+          <AcoesDoChamado
+            id={ch.id}
+            acoes={d.acoes}
+            bloqueio={d.bloqueio}
+            ehOS={ehOS}
+            causasFalha={d.causasFalha}
+            fechaAoConcluir={statusAoConcluir(ch) === "fechado"}
+          />
+          {comGestao && formulario && (
+            <Gestao
+              id={ch.id}
+              atual={{
+                responsavelId: ch.responsavel_id,
+                prazo: ch.prazo,
+                prioridade: ch.prioridade,
+                setorId: ch.setor_id,
+                categoriaId: ch.categoria_id,
+              }}
+              pode={podeGestao}
+              opcoes={{
+                pessoas: formulario.pessoas,
+                setores: formulario.setores,
+                categorias: formulario.categorias.map((c) => ({
+                  id: c.id,
+                  setorId: c.setorId,
+                  nome: c.nome,
+                  paiId: c.paiId,
+                })),
+              }}
+            />
+          )}
+        </div>
+      )}
+    </header>
+  );
+
+  const informacoes = <Informacoes d={d} agora={agora} />;
+  const ferramentas = (
+    <Ferramentas
+      id={ch.id}
+      links={{
+        imprimir: ehOS
+          ? `/os/ordens/pdf?ids=${ch.id}`
+          : `${rotaChamado(ch.id)}/imprimir`,
+        converter: d.pode.converter ? `/os/novo?converter=${ch.id}` : null,
+        duplicar: `/os/novo?duplicar=${ch.id}`,
+        vinculado: `/os/novo?vinculado=${ch.id}`,
+        historico: d.pode.historico
+          ? `/os/configuracoes/historico?registro=${ch.id}`
+          : null,
+      }}
+      sigo={d.sigo}
+      naLixeira={!!ch.lixeira_em}
+      pode={{ excluir: d.pode.excluir }}
+      whatsapp={{
+        mensagem: mensagemDoChamado(d.modeloMensagem, {
+          numero: formatarNumeroChamado(ch.numero),
+          titulo: ch.titulo,
+          status: STATUS[ch.status],
+          prazo: ch.prazo ? formatarDataHora(ch.prazo) : "Sem prazo",
+          tipo: TIPOS[ch.tipo],
+          setor: d.setor?.nome ?? "",
+          descricao: ch.descricao ?? "",
+          link: urlDoSistema(rotaChamado(ch.id)),
+        }),
+        sugeridos: [
+          ...(ch.solicitante_telefone
+            ? [
+                {
+                  rotulo: ch.solicitante_nome ?? "Solicitante",
+                  telefone: ch.solicitante_telefone,
+                  descricao: "solicitante",
+                },
+              ]
+            : []),
+          ...(d.loja?.telefone
+            ? [
+                {
+                  rotulo: d.loja.nome,
+                  telefone: d.loja.telefone,
+                  descricao: "loja",
+                },
+              ]
+            : []),
+        ],
+        contatos: contatos.map((c) => ({
+          rotulo: c.nome,
+          telefone: c.telefone,
+          descricao: c.empresa ?? undefined,
+        })),
+      }}
+    />
+  );
+
+  const corpo = (
+    <div className="flex min-w-0 flex-col gap-5">
+      <Avisos d={d} />
+      {(ch.descricao || d.campos.length > 0) && (
+        <section className={CARTAO}>
+          <h3 className={TITULO_SECAO}>Descrição</h3>
+          {ch.descricao ? (
+            <p className="text-sm break-words whitespace-pre-wrap text-neutral-900">
+              {ch.descricao}
+            </p>
+          ) : (
+            <p className="text-sm text-neutral-500">Sem descrição.</p>
+          )}
+          {d.campos.length > 0 && (
+            <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {d.campos.map((c) => (
+                <div
+                  key={c.chave}
+                  className="rounded-2xl bg-neutral-900/[0.03] px-4 py-3"
+                >
+                  <dt className="text-xs text-neutral-500">{c.rotulo}</dt>
+                  <dd className="mt-0.5 text-sm font-medium break-words">
+                    {textoDoCampo(
+                      c,
+                      (ch.campos as Record<string, unknown>)[c.chave],
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </section>
+      )}
+      {d.checklist.length > 0 && (
+        <section className={CARTAO}>
+          <h3 className={TITULO_SECAO}>Checklist</h3>
+          <Checklist
+            id={ch.id}
+            itens={d.checklist}
+            nomes={d.nomes}
+            editavel={d.pode.editar && emAberto}
+          />
+        </section>
+      )}
+      {d.andamento && (
+        <section className={CARTAO}>
+          <h3 className={TITULO_SECAO}>Andamento de cada destino</h3>
+          <Destinos
+            linhas={d.destinos.map((x) => ({
+              id: x.id,
+              nome: x.nome,
+              pessoa: !!x.usuario_id,
+              titulo: x.titulo,
+              status: x.status,
+              prazo: x.prazo,
+              lidoEm: x.lido_em,
+              concluidoEm: x.concluido_em,
+              concluidoPor: x.concluido_por,
+              meu: x.meu,
+            }))}
+            andamento={d.andamento}
+            nomes={d.nomes}
+            encerrado={!emAberto && ch.status !== "concluido"}
+          />
+        </section>
+      )}
+      {registraTempo && (
+        <Suspense fallback={<CartaoCarregando altura="h-48" />}>
+          <BlocoOS chamadoId={ch.id} compacto={compacto} />
+        </Suspense>
+      )}
+      <section className={CARTAO} aria-labelledby={`conversa-${ch.id}`}>
+        <h3 id={`conversa-${ch.id}`} className={TITULO_SECAO}>
+          Conversa e histórico
+        </h3>
+        <LinhaDoTempo
+          eventos={d.eventos}
+          anexos={d.anexos}
+          nomes={d.nomes}
+          comLoja={!!ch.loja_id}
+          agora={agora}
+        />
+        <div className="mt-5">
+          <Comentario
+            id={ch.id}
+            pessoas={gente}
+            comLoja={!!ch.loja_id}
+            podeAnexar={d.pode.editar}
+          />
+        </div>
+      </section>
+    </div>
+  );
+
+  if (compacto)
+    return (
+      <article className="flex min-w-0 flex-col gap-5">
+        {topo}
+        <section className={CARTAO}>{informacoes}</section>
+        {corpo}
+        <section className={CARTAO}>
+          <h3 className={TITULO_SECAO}>Ferramentas</h3>
+          {ferramentas}
+        </section>
+      </article>
+    );
+
+  return (
+    <article className="flex min-w-0 flex-col gap-6">
+      {topo}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        {corpo}
+        <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-5 lg:self-start">
+          <section className={CARTAO}>
+            <h3 className={TITULO_SECAO}>Informações</h3>
+            {informacoes}
+          </section>
+          <section className={CARTAO}>
+            <h3 className={TITULO_SECAO}>Ferramentas</h3>
+            {ferramentas}
+          </section>
+        </aside>
+      </div>
+    </article>
+  );
+}
+
+function quemPediu(d: Detalhe): string {
+  const { ch } = d;
+  if (ch.origem === "portal")
+    return `Portal – ${d.loja?.nome ?? ch.solicitante_nome ?? "lojista"}`;
+  const nome = ch.aberto_por ? d.nomes[ch.aberto_por] : null;
+  return `Aberto por ${nome ?? ch.solicitante_nome ?? ORIGENS[ch.origem]}`;
+}
+
+/** Faixas do momento: aguardando, concluído, cancelado, lixeira, reaberto. */
+function Avisos({ d }: { d: Detalhe }) {
+  const { ch } = d;
+  const faixas: {
+    chave: string;
+    Icone: typeof Star;
+    classe: string;
+    texto: React.ReactNode;
+  }[] = [];
+  const amarelo = "bg-amber-50 text-amber-900";
+  const neutro = "bg-neutral-900/[0.05] text-neutral-800";
+  if (ch.lixeira_em)
+    faixas.push({
+      chave: "lixeira",
+      Icone: Trash2,
+      classe: "bg-red-50 text-red-700",
+      texto: `Na lixeira desde ${formatarDataHora(ch.lixeira_em)}.`,
+    });
+  if (ch.status === "aguardando" && ch.aguardando_tipo)
+    faixas.push({
+      chave: "aguardando",
+      Icone: CirclePause,
+      classe: amarelo,
+      texto: `Aguardando ${MOTIVOS_AGUARDANDO[ch.aguardando_tipo].toLowerCase()}${ch.aguardando_motivo ? `: ${ch.aguardando_motivo}` : ""}. O relógio do prazo está parado.`,
+    });
+  if (ch.status === "concluido")
+    faixas.push({
+      chave: "concluido",
+      Icone: CircleAlert,
+      classe: amarelo,
+      texto: d.papel.solicitante
+        ? "Foi concluído. Confira e confirme, ou reabra com o motivo."
+        : "Concluído. Aguardando a confirmação de quem pediu.",
+    });
+  if (ch.status === "cancelado" && ch.motivo_cancelamento)
+    faixas.push({
+      chave: "cancelado",
+      Icone: XCircle,
+      classe: neutro,
+      texto: `Cancelado: ${ch.motivo_cancelamento}`,
+    });
+  if (
+    ch.reaberto_vezes > 0 &&
+    ch.ultimo_motivo_reabertura &&
+    ch.status !== "fechado"
+  )
+    faixas.push({
+      chave: "reaberto",
+      Icone: RotateCcw,
+      classe: neutro,
+      texto: `Reaberto ${ch.reaberto_vezes === 1 ? "uma vez" : `${ch.reaberto_vezes} vezes`}. Último motivo: ${ch.ultimo_motivo_reabertura}`,
+    });
+  if (d.convertidoEm)
+    faixas.push({
+      chave: "convertido",
+      Icone: ArrowUpRight,
+      classe: neutro,
+      texto: (
+        <>
+          Convertido na Ordem de Serviço{" "}
+          <Link
+            href={rotaChamado(d.convertidoEm.id)}
+            className="font-semibold underline"
+          >
+            {formatarNumeroChamado(d.convertidoEm.numero)}
+          </Link>
+          .
+        </>
+      ),
+    });
+  if (ch.solucao && ["concluido", "fechado"].includes(ch.status))
+    faixas.push({
+      chave: "solucao",
+      Icone: Lightbulb,
+      classe: "bg-green-50 text-green-700",
+      texto: `Solução: ${ch.solucao}${ch.causa_falha ? ` · Causa: ${ch.causa_falha}` : ""}`,
+    });
+  if (!faixas.length) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {faixas.map((f) => (
+        <p
+          key={f.chave}
+          className={`flex items-start gap-2.5 rounded-2xl px-4 py-3 text-sm break-words ${f.classe}`}
+        >
+          <f.Icone className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span className="min-w-0">{f.texto}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function Linha({
+  rotulo,
+  children,
+}: {
+  rotulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-xs text-neutral-500">{rotulo}</dt>
+      <dd className="min-w-0 text-sm break-words text-neutral-900">
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+const LINK =
+  "font-medium underline decoration-neutral-900/20 underline-offset-2 hover:decoration-neutral-900";
+
+function Informacoes({ d, agora }: { d: Detalhe; agora: Date }) {
+  const { ch } = d;
+  const recorrencia = ch.recorrencia as Recorrencia | null;
+  return (
+    <dl className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-1">
+      <Linha rotulo="Setor e categoria">
+        <span className="flex flex-wrap items-center gap-1.5">
+          {d.setor && <SeloSetor nome={d.setor.nome} cor={d.setor.cor} />}
+          {d.categoria && (
+            <span>
+              {d.categoriaPai ? `${d.categoriaPai.nome} › ` : ""}
+              {d.categoria.nome}
+            </span>
+          )}
+        </span>
+      </Linha>
+      <Linha rotulo="Quem pediu">
+        {quemPediu(d).replace(/^Aberto por /, "")}
+        {ch.solicitante_nome && ch.origem === "portal" && (
+          <span className="block text-xs text-neutral-500">
+            {ch.solicitante_nome}
+            {ch.solicitante_telefone ? ` · ${ch.solicitante_telefone}` : ""}
+          </span>
+        )}
+      </Linha>
+      <Linha rotulo="Prazo">
+        {ch.prazo ? formatarDataHora(ch.prazo) : "Sem prazo"}
+        {ch.aguardando_min > 0 && (
+          <span className="block text-xs text-neutral-500">
+            Já empurrado pelo tempo em Aguardando.
+          </span>
+        )}
+      </Linha>
+      <Linha rotulo="Aberto em">
+        {formatarDataHora(ch.criado_em)}
+        {ch.primeira_resposta_em && (
+          <span className="block text-xs text-neutral-500">
+            1ª resposta {tempoAtras(ch.primeira_resposta_em, agora)}
+          </span>
+        )}
+      </Linha>
+      {ch.etiquetas.length > 0 && (
+        <Linha rotulo="Etiquetas">
+          <span className="flex flex-wrap gap-1">
+            {ch.etiquetas.map((e) => (
+              <span
+                key={e}
+                className="rounded-full bg-neutral-900/[0.06] px-2 py-0.5 text-xs"
+              >
+                {e}
+              </span>
+            ))}
+          </span>
+        </Linha>
+      )}
+      {recorrencia?.frequencia && (
+        <Linha rotulo="Repete">{descreverRecorrencia(recorrencia)}</Linha>
+      )}
+      {ch.origem !== "sistema" && (
+        <Linha rotulo="Origem">{ORIGENS[ch.origem]}</Linha>
+      )}
+      {d.loja && (
+        <Linha rotulo="Loja">
+          {d.loja.luc} · {d.loja.nome}
+        </Linha>
+      )}
+      {d.ativo && (
+        <Linha rotulo="Ativo">
+          {d.pode.verAtivo ? (
+            <Link href={rotaAtivo(d.ativo.id)} className={LINK}>
+              {d.ativo.codigo} · {d.ativo.nome}
+            </Link>
+          ) : (
+            `${d.ativo.codigo} · ${d.ativo.nome}`
+          )}
+          {d.ativo.local && (
+            <span className="block text-xs text-neutral-500">
+              {d.ativo.local}
+            </span>
+          )}
+        </Linha>
+      )}
+      {ch.vistoria_id && (
+        <Linha rotulo="Vistoria">
+          {d.vistoria ? (
+            <Link href={rotaVistoria(d.vistoria.id)} className={LINK}>
+              Laudo {d.vistoria.codigo}
+            </Link>
+          ) : (
+            "Vistoria vinculada"
+          )}
+        </Linha>
+      )}
+      {[
+        { rotulo: "Ligado ao chamado", c: d.vinculado },
+        { rotulo: "Criado a partir de", c: d.convertidoDe },
+      ].map(
+        ({ rotulo, c }) =>
+          c && (
+            <Linha key={rotulo} rotulo={rotulo}>
+              <Link href={rotaChamado(c.id)} className={LINK}>
+                {formatarNumeroChamado(c.numero)} {c.titulo}
+              </Link>
+              <span className="block text-xs text-neutral-500">
+                {TIPOS[c.tipo]} · {STATUS[c.status]}
+              </span>
+            </Linha>
+          ),
+      )}
+      {ch.avaliacao && (
+        <Linha rotulo="Avaliação do lojista">
+          <span
+            className="flex items-center gap-0.5"
+            title={`${ch.avaliacao} de 5`}
+          >
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Star
+                key={n}
+                aria-hidden
+                className={`size-4 ${n <= (ch.avaliacao ?? 0) ? "fill-amber-400 text-amber-500" : "text-neutral-300"}`}
+              />
+            ))}
+            <span className="ml-1.5 text-xs text-neutral-600">
+              {ch.avaliacao} de 5
+            </span>
+          </span>
+          {ch.avaliacao_comentario && (
+            <span className="mt-1 block text-xs text-neutral-600">
+              “{ch.avaliacao_comentario}”
+            </span>
+          )}
+        </Linha>
+      )}
+    </dl>
+  );
+}
+
+/** Esqueleto do detalhe (página e janela lateral). */
+export function DetalheCarregando({
+  compacto = false,
+}: {
+  compacto?: boolean;
+}) {
+  return (
+    <output className="flex flex-col gap-5">
+      <span className="sr-only">Carregando o chamado…</span>
+      <div aria-hidden className="flex flex-col gap-3">
+        <span className="carregando h-7 w-72 max-w-full rounded-full" />
+        <span className="carregando h-10 w-full max-w-xl rounded-2xl" />
+        <span className="carregando h-11 w-64 max-w-full rounded-full" />
+      </div>
+      <div
+        className={`grid grid-cols-1 gap-5 ${compacto ? "" : "lg:grid-cols-[minmax(0,1fr)_20rem]"}`}
+      >
+        <div className="flex flex-col gap-5">
+          <CartaoCarregando altura="h-40" />
+          <CartaoCarregando altura="h-96" />
+        </div>
+        {!compacto && <CartaoCarregando altura="h-96" />}
+      </div>
+    </output>
+  );
+}

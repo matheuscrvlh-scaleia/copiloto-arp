@@ -7,6 +7,7 @@ de verdade das colunas; este documento explica o desenho.
 |---|---|---|
 | 1 | `core`, `integracao`, `rh` | **Criado** (8 migrations, testadas em `supabase/tests`) |
 | 2 | `financeiro` | Começou pelo estacionamento (WPS); o resto é proposta abaixo |
+| 3 | `os` | **Criado**: Chamados, OS e Ativos (3 migrations de 23/10/2026, testadas em `supabase/tests/os.test.ts`) |
 
 ## Decisões gerais
 
@@ -182,6 +183,56 @@ trocando os dias informados inteiros. Veem quem tem `financeiro.painel`,
 |---|---|---|
 | `estacionamento_pagamentos` | `estacionamento_id`, `wps_codigo` | Um por pagamento único: dia, hora, tipo de cliente (rotativo, mensalista…), ticket, recibo, forma de pagamento, grupos da API, valor bruto, desconto e líquido (reais), terminal e tarifa. Sem placa nem operador |
 | `estacionamento_movimento` | `estacionamento_id`, `data`, `tipo_veiculo` | Entradas e saídas do dia por tipo de veículo |
+
+## os — Chamados, OS e Ativos
+
+Diferente do RH e do Financeiro, os dados nascem aqui: o usuário cria e
+edita. Tudo é um chamado (Tarefa, Solicitação, OS ou Aviso); tempo e custo,
+ativo, vistoria, portal e agenda são recursos que a categoria do catálogo
+liga. O ENET entra só como consulta (`os.lojas`). Migrations:
+`20261023120000_os.sql` (tabelas), `20261023120100_os_regras.sql`
+(funções, gatilhos, RLS) e `20261023120200_os_dados_iniciais.sql`
+(permissões, setores, catálogo de partida, agenda do telhado, modelos,
+feriados e textos do laudo).
+
+### Tabelas
+
+| Grupo | Tabelas |
+|---|---|
+| Setores e configuração | `setores`, `setor_membros` (quem é de cada setor; `gestor` recebe os vencidos), `parametros` (uma linha: ciclo, almoço, teto do terceirizado, faixas do sinal, textos do laudo, mensagens do WhatsApp…), `feriados`, `metas` (% no prazo e tempo médio por setor/categoria), `agendas`, `agenda_bloqueios` |
+| Catálogo | `categorias` (por setor, um nível de subcategoria: tipo, responsável, prioridade e prazo padrão, SLA de resposta, confirmação, recursos, campos extras, checklist, portal) |
+| Chamados | `chamados` (comuns + ciclo + campos da OS + portal + recorrência + lixeira + importação), `destinatarios` (vários setores/pessoas, cada um com andamento), `participantes` (citados e quem segue), `eventos` (linha do tempo: só cresce), `anexos` (bucket privado `os`) |
+| Ordem de Serviço | `sessoes` + `sessao_tecnicos` (tempo), `materiais`, `material_valores` 🔒, `os_custos` 🔒 (terceirizado, rateio e o cálculo gravado pelo servidor), `tecnicos`, `tecnico_valores` 🔒 (valor por minuto com vigência), `empresas`, `profissionais`, `chamado_profissionais`, `terceirizado_links` (link sem login) |
+| Ativos | `ativo_categorias`, `ativos`, `ativo_situacoes` (períodos, por gatilho), `planos_preventivos` |
+| Vistorias | `vistorias` (código ARP01…), `vistoria_ambientes` |
+| Portal e modelos | `lojas` (contrato do ENET, uma linha por contrato), `portal_links`, `agendamentos`, `modelos`, `modelo_itens`, `disparos` (uma vez por modelo e loja) |
+| Sistema | `notificacoes` (sininho; só o servidor grava), `contatos` (WhatsApp), `importacoes` (importação única do sistema atual, com desfazer) |
+
+### Regras no banco
+
+- **Quem vê um chamado** (`os.ve_chamado`): quem abriu, o responsável, os
+  destinatários e citados, a fila do próprio setor (sem responsável) e, com
+  permissão, o setor inteiro (`os.meu_setor`, `os.painel_setor`) ou todos
+  (`os.todos_setores`, `os.painel_geral`). As tabelas filhas seguem o
+  chamado (`os.pode_ver_chamado`, `os.pode_editar_chamado`).
+- **Ciclo** (`os.ciclo_do_chamado`): transições permitidas (as mesmas de
+  `src/lib/os/ciclo.ts`), datas de cada etapa e Aguardando que pausa o prazo
+  (ao sair, o prazo é empurrado pelo tempo parado e o tempo vai para
+  `aguardando_min`, descontado dos indicadores).
+- **Quem pode** (`os.validar_chamado`): prazo e prioridade só quem pediu ou
+  quem gerencia o setor; responsável só o gestor (ou assumir a fila, devolver
+  o próprio); confirmar e reabrir só quem pediu ou o gestor; cancelar só quem
+  pediu ou o gestor; lixeira só com `os.excluir`. A service role e as
+  rotinas não passam por esta trava.
+- **Vários destinatários** (`os.sincronizar_destinos`): o chamado anda junto
+  com os destinos e só conclui quando todos concluírem.
+- **Agenda** (`os.reservar_horario`): limite por dia, choque e bloqueio numa
+  transação; bloqueio manda os marcados para "Remarcar".
+- **Custo da OS**: calculado em `src/lib/os/calculos.ts` (regras exatas do
+  sistema atual, centavo a centavo) e gravado por `os.gravar_calculo_os`
+  (só service role). Cada sessão usa o valor por minuto vigente na data dela.
+- Auditoria (`core.auditar`) em cadastros, parâmetros e chamados;
+  `core.auditoria` de `os.*` é visível com `os.historico`.
 
 ## Fase 2: financeiro (proposta, não criada)
 
