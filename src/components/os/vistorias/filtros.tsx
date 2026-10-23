@@ -42,6 +42,8 @@ export function FiltrosVistorias({
 
   function trocar(mudancas: Record<string, string>) {
     const novos = new URLSearchParams(params);
+    // Filtro novo, lista nova: volta à página 1.
+    novos.delete("pagina");
     for (const [k, v] of Object.entries(mudancas)) {
       if (v) novos.set(k, v);
       else novos.delete(k);

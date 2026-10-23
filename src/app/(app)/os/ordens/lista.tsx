@@ -3,57 +3,33 @@
 import { Printer, Timer, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { BotaoExportar } from "@/components/os/exportar";
 import { SeloExemplo, SeloStatusChamado } from "@/components/os/selos";
 import { formatarMoeda, formatarNumero } from "@/lib/formato";
 import { formatarDuracao } from "@/lib/os/calculos";
 import { MAXIMO_LOTE_PDF, rotaPdfOS } from "@/lib/os/ordem";
-import type {
-  Execucao,
-  MotivoAguardando,
-  StatusChamado,
-} from "@/lib/os/rotulos";
-import { STATUS } from "@/lib/os/rotulos";
+import type { LinhaOSTela } from "./tabela";
 
 // Lista das OS: tabela no computador, cartões no celular. Marcar várias
 // imprime o lote (uma OS por folha); clicar abre o detalhe ao lado.
 
-export interface LinhaOSTela {
-  id: string;
-  numero: number;
-  titulo: string;
-  status: StatusChamado;
-  aguardando: MotivoAguardando | null;
-  execucao: Execucao | null;
-  tipoServico: string;
-  local: string;
-  tecnicos: string;
-  periodos: string;
-  minutos: number;
-  duracao: string;
-  minutoHomem: number;
-  hh: string;
-  rodando: boolean;
-  rateio: boolean;
-  /** null: quem vê não tem os.custos. */
-  valor: number | null;
-  valorRateio: number | null;
-  exemplo: boolean;
-  /** A mesma tela com ?c=<id> (janela lateral). */
-  href: string;
-}
+export type { LinhaOSTela } from "./tabela";
 
 export function ListaOrdens({
   linhas,
+  total,
   comCustos,
-  exportar,
-  limitado,
+  acoes,
+  paginacao,
 }: {
+  /** As OS desta página. */
   linhas: LinhaOSTela[];
+  /** Quantas OS o filtro tem (todas as páginas). */
+  total: number;
   comCustos: boolean;
-  exportar: { titulo: string; filtros: string } | null;
-  /** A consulta bateu no limite: há OS mais antigas fora da lista. */
-  limitado: boolean;
+  /** Botões do topo (exportar). */
+  acoes?: React.ReactNode;
+  /** Navegação entre as páginas (vai no topo e no pé). */
+  paginacao?: React.ReactNode;
 }) {
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
   const [comFotos, setComFotos] = useState(true);
@@ -87,7 +63,7 @@ export function ListaOrdens({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-neutral-600">
           <span className="font-semibold text-neutral-900 tabular-nums">
-            {formatarNumero(linhas.length)}
+            {formatarNumero(total)}
           </span>{" "}
           OS
           {selecionadas.length > 0 &&
@@ -128,50 +104,11 @@ export function ListaOrdens({
                 </a>
               </>
             )}
-          {exportar && (
-            <BotaoExportar
-              titulo={exportar.titulo}
-              filtros={exportar.filtros}
-              nomeArquivo="ordens-de-servico"
-              colunas={[
-                { titulo: "Nº", numero: true },
-                { titulo: "Título" },
-                { titulo: "Tipo" },
-                { titulo: "Status" },
-                { titulo: "Local" },
-                { titulo: "Técnicos" },
-                { titulo: "Períodos" },
-                { titulo: "Duração" },
-                { titulo: "H.H." },
-                { titulo: "Rateio" },
-                ...(comCustos
-                  ? [
-                      { titulo: "Valor", numero: true, formato: "#,##0.00" },
-                      {
-                        titulo: "Valor com rateio",
-                        numero: true,
-                        formato: "#,##0.00",
-                      },
-                    ]
-                  : []),
-              ]}
-              linhas={linhas.map((l) => [
-                l.numero,
-                l.titulo,
-                l.tipoServico,
-                STATUS[l.status],
-                l.local,
-                l.tecnicos,
-                l.periodos,
-                l.duracao,
-                l.hh,
-                l.rateio ? "Sim" : "Não",
-                ...(comCustos ? [l.valor, l.valorRateio] : []),
-              ])}
-            />
-          )}
+          {acoes}
         </div>
       </div>
+
+      {total > linhas.length && paginacao}
 
       {linhas.length === 0 ? (
         <p className="py-8 text-center text-sm text-neutral-500">
@@ -338,7 +275,8 @@ export function ListaOrdens({
               <tfoot>
                 <tr className="border-t border-neutral-300 font-semibold">
                   <td className="px-2 py-2" colSpan={7}>
-                    Total
+                    {/* Somar o filtro inteiro pediria todas as sessões: a soma é da página. */}
+                    {total > linhas.length ? "Total nesta página" : "Total"}
                   </td>
                   <td className="px-2 py-2 text-right tabular-nums">
                     {formatarDuracao(totais.minutos)}
@@ -362,12 +300,7 @@ export function ListaOrdens({
           </div>
         </>
       )}
-      {limitado && (
-        <p className="text-xs text-neutral-500">
-          Mostrando as 1.000 OS mais recentes. Use o período para ver as
-          anteriores.
-        </p>
-      )}
+      {paginacao}
     </section>
   );
 }

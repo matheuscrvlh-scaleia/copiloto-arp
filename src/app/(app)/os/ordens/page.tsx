@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import {
   CartaoCarregando,
@@ -15,52 +16,43 @@ import {
   TelaCarregando,
 } from "@/components/carregando";
 import { TOM } from "@/components/estilos";
+import { BotaoExportar } from "@/components/os/exportar";
 import { Atualizado, PainelDaLista } from "@/components/os/lista/topo";
+import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import { CLASSE_MARCADO, tonsDaTela } from "@/components/os/tons";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarNumero } from "@/lib/formato";
 import {
-  descreverPeriodos,
-  formatarDuracao,
-  minutoHomem,
-  minutosDaOS,
-} from "@/lib/os/calculos";
-import {
   CARTOES_OS,
   type CartaoOS,
-  contarCartoes,
-  FILTROS_STATUS,
+  extrasAtivos,
   type FiltrosOS,
   lerFiltrosOS,
-  localConfere,
-  noCartao,
-  statusDoFiltro,
   urlDosFiltros,
 } from "@/lib/os/ordem-lista";
+import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
 import { PARAM_PAINEL } from "@/lib/os/rotas";
-import { EXECUCOES } from "@/lib/os/rotulos";
 import { paraBrasilia } from "@/lib/os/tempo";
 import { contexto } from "@/server/os/base";
 import {
-  type Cadastros,
   cadastros,
-  consultarOS,
-  type LinhaOS,
-  localDa,
-  sessoesDa,
-  tecnicosDa,
-  tipoServicoDa,
-  valoresDa,
+  contarCartoesOS,
+  filtroDaListaOS,
+  paginaDeOS,
 } from "@/server/os/ordem-consulta";
+import { exportarOrdens } from "./actions";
 import { FiltrosOrdens } from "./filtros";
-import { type LinhaOSTela, ListaOrdens } from "./lista";
+import { ListaOrdens } from "./lista";
+import {
+  CAMINHO_ORDENS as CAMINHO,
+  descreverFiltros,
+  opcoesDeCategoria,
+  paraTela,
+} from "./montar";
 import { Relatorios } from "./relatorios";
 
 export const metadata: Metadata = { title: "Ordens de serviço" };
-
-const CAMINHO = "/os/ordens";
-const LIMITE = 1000;
 
 type Busca = Record<string, string | string[] | undefined>;
 
@@ -87,47 +79,31 @@ export default function Page({
 async function Ordens({ busca }: { busca: Promise<Busca> }) {
   const params = await busca;
   const f = lerFiltrosOS(params);
-  const [ctx, cad, todas] = await Promise.all([
-    contexto(),
-    cadastros(),
-    consultarOS({
-      status: statusDoFiltro(f.status),
-      execucao: f.execucao,
-      categoria: f.categoria,
-      empresa: f.empresa,
-      rateio: f.rateio,
-      de: f.de,
-      ate: f.ate,
-      limite: LIMITE,
-    }),
-  ]);
+  const pagina = paginaDaUrl(params.pagina);
   const agora = new Date();
+  const [ctx, cad] = await Promise.all([contexto(), cadastros()]);
+  // Só a página mostrada vem do banco; os cartões são contagens.
+  const filtro = filtroDaListaOS(f, cad, agora);
+  const [{ linhas: pag, total }, contagem] = await Promise.all([
+    paginaDeOS(filtro, f.cartao, pagina, agora),
+    contarCartoesOS(filtro, agora),
+  ]);
+  const ultima = totalDePaginas(total);
+  if (pagina > ultima) redirect(hrefDaPagina(CAMINHO, params, ultima));
   const comCustos = ctx.pode("os.custos");
-
-  // Técnico e local não são colunas do chamado: filtram aqui.
-  const filtradas = todas.filter(
-    (o) =>
-      (!f.tecnico ||
-        o.sessoes.some((s) =>
-          s.sessao_tecnicos.some((t) => t.tecnico_id === f.tecnico),
-        )) &&
-      localConfere(localDa(o, cad), f.local),
-  );
-  const contagem = contarCartoes(
-    filtradas.map((o) => ({ ...o, sessoes: sessoesDa(o) })),
-    agora,
-  );
-  const visiveis = f.cartao
-    ? filtradas.filter((o) =>
-        noCartao({ ...o, sessoes: sessoesDa(o) }, f.cartao as CartaoOS, agora),
-      )
-    : filtradas;
-  const linhas = visiveis.map((o) => paraTela(o, cad, comCustos, params));
+  const linhas = pag.map((o) => paraTela(o, cad, comCustos, params));
+  // A exportação relê o filtro inteiro no clique (sem a página e a janela).
+  const filtros: Record<string, string> = {};
+  for (const [k, v] of Object.entries(params))
+    if (typeof v === "string" && k !== "pagina" && k !== PARAM_PAINEL)
+      filtros[k] = v;
 
   return (
     <div className="flex flex-col gap-5">
       <Atualizado hora={paraBrasilia(agora).hora} />
       <FiltrosOrdens
+        f={f}
+        extras={extrasAtivos(f)}
         categorias={opcoesDeCategoria(cad)}
         tecnicos={[...cad.tecnicos.values()].map((t) => ({
           valor: t.id,
@@ -141,17 +117,28 @@ async function Ordens({ busca }: { busca: Promise<Busca> }) {
       />
       <Cartoes f={f} contagem={contagem} />
       <ListaOrdens
+        key={pagina}
         linhas={linhas}
+        total={total}
         comCustos={comCustos}
-        exportar={
-          ctx.pode("os.exportar")
-            ? {
-                titulo: "Ordens de serviço",
-                filtros: descreverFiltros(f, cad),
-              }
-            : null
+        acoes={
+          ctx.pode("os.exportar") && (
+            <BotaoExportar
+              titulo="Ordens de serviço"
+              filtros={descreverFiltros(f, cad)}
+              nomeArquivo="ordens-de-servico"
+              total={total}
+              carregar={exportarOrdens.bind(null, filtros)}
+            />
+          )
         }
-        limitado={todas.length >= LIMITE}
+        paginacao={
+          <Paginacao
+            pagina={pagina}
+            total={total}
+            href={(p) => hrefDaPagina(CAMINHO, params, p)}
+          />
+        }
       />
       {ctx.pode("os.exportar") && (
         <Relatorios hoje={paraBrasilia(agora).data} comCustos={comCustos} />
@@ -218,76 +205,6 @@ function Cartoes({
       })}
     </nav>
   );
-}
-
-function paraTela(
-  o: LinhaOS,
-  cad: Cadastros,
-  comCustos: boolean,
-  params: Busca,
-): LinhaOSTela {
-  const sessoes = sessoesDa(o);
-  const minutos = minutosDaOS(sessoes);
-  const mh = minutoHomem(sessoes);
-  const v = comCustos ? valoresDa(o) : { valor: null, valorRateio: null };
-  const painel = new URLSearchParams();
-  for (const [k, x] of Object.entries(params))
-    if (k !== PARAM_PAINEL && typeof x === "string") painel.set(k, x);
-  painel.set(PARAM_PAINEL, o.id);
-  return {
-    id: o.id,
-    numero: o.numero,
-    titulo: o.titulo,
-    status: o.status,
-    aguardando: o.aguardando_tipo,
-    execucao: o.execucao,
-    tipoServico: tipoServicoDa(o, cad),
-    local: localDa(o, cad),
-    tecnicos:
-      o.execucao === "terceirizada" && o.empresa_id
-        ? [cad.empresas.get(o.empresa_id)?.nome, ...tecnicosDa(o, cad)]
-            .filter(Boolean)
-            .join(", ")
-        : tecnicosDa(o, cad).join(", "),
-    periodos: descreverPeriodos(sessoes),
-    minutos,
-    duracao: formatarDuracao(minutos),
-    minutoHomem: mh,
-    hh: formatarDuracao(mh),
-    rodando: sessoes.some((s) => s.fim === null),
-    rateio: o.rateio,
-    valor: comCustos ? (v.valor ?? 0) : null,
-    valorRateio: comCustos ? (v.valorRateio ?? 0) : null,
-    exemplo: o.exemplo,
-    href: `${CAMINHO}?${painel.toString()}`,
-  };
-}
-
-function opcoesDeCategoria(cad: Cadastros) {
-  return [...cad.categorias.values()]
-    .filter((c) => c.tipo_padrao === "os" || c.registrar_tempo)
-    .map((c) => ({
-      valor: c.id,
-      rotulo: c.nome,
-      descricao: c.pai_id ? cad.categorias.get(c.pai_id)?.nome : undefined,
-    }));
-}
-
-/** Linha de filtros do arquivo exportado. */
-function descreverFiltros(f: FiltrosOS, cad: Cadastros): string {
-  const partes = [
-    f.status && `Status: ${FILTROS_STATUS[f.status]}`,
-    f.execucao && `Execução: ${EXECUCOES[f.execucao]}`,
-    f.categoria && `Tipo: ${cad.categorias.get(f.categoria)?.nome ?? "—"}`,
-    f.tecnico && `Técnico: ${cad.tecnicos.get(f.tecnico)?.nome ?? "—"}`,
-    f.empresa && `Empresa: ${cad.empresas.get(f.empresa)?.nome ?? "—"}`,
-    f.rateio !== null && `Rateio: ${f.rateio ? "Sim" : "Não"}`,
-    (f.de || f.ate) &&
-      `Criadas: ${f.de ? f.de.split("-").reverse().join("/") : "início"} a ${f.ate ? f.ate.split("-").reverse().join("/") : "hoje"}`,
-    f.local && `Local: ${f.local}`,
-    f.cartao && CARTOES_OS[f.cartao],
-  ].filter(Boolean);
-  return partes.length ? partes.join(" · ") : "Todas as OS";
 }
 
 function Esqueleto() {

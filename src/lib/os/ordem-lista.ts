@@ -1,6 +1,6 @@
-import type { Sessao } from "./calculos";
+import { limitesDoMes } from "./filtro-postgrest";
 import type { Execucao, StatusChamado } from "./rotulos";
-import { paraBrasilia } from "./tempo";
+import { paraBrasilia, somarDias } from "./tempo";
 
 // Tela "Ordens de serviço" (a central de Operações): filtros da URL, os
 // quatro cartões e o que cada cartão conta. Regras puras; a consulta fica
@@ -25,6 +25,14 @@ export const CARTOES_OS = {
 } as const;
 export type CartaoOS = keyof typeof CARTOES_OS;
 
+/** Atalhos do período (data de criação); sem atalho nem datas, todas. */
+export const PERIODOS_OS = {
+  mes: "Este mês",
+  "30d": "Últimos 30 dias",
+  ano: "Este ano",
+} as const;
+export type PeriodoOS = keyof typeof PERIODOS_OS;
+
 export interface FiltrosOS {
   status: FiltroStatus | null;
   execucao: Execucao | null;
@@ -32,13 +40,26 @@ export interface FiltrosOS {
   tecnico: string | null;
   empresa: string | null;
   rateio: boolean | null;
-  /** Criadas de / até (aaaa-mm-dd). */
+  /** Atalho do período; com ele, `de` e `ate` são ignorados. */
+  periodo: PeriodoOS | null;
+  /** Criadas de / até (aaaa-mm-dd), no período personalizado. */
   de: string | null;
   ate: string | null;
   /** Texto no local (loja, bloco, ponto). */
   local: string | null;
+  /** Busca no número, título e descrição. */
+  q: string | null;
   cartao: CartaoOS | null;
 }
+
+/** Filtros que ficam no painel "Filtros" (o resto está na barra). */
+export const FILTROS_EXTRAS = [
+  "categoria",
+  "tecnico",
+  "empresa",
+  "rateio",
+  "local",
+] as const satisfies readonly (keyof FiltrosOS)[];
 
 type Busca = Record<string, string | string[] | undefined>;
 
@@ -51,12 +72,13 @@ const uuid = (v: string | null) =>
 const data = (v: string | null) =>
   v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
 function deLista<T extends string>(v: string | null, lista: object): T | null {
-  return v && v in lista ? (v as T) : null;
+  return v && Object.hasOwn(lista, v) ? (v as T) : null;
 }
 
 /** Filtros da URL; o que não vale é ignorado. */
 export function lerFiltrosOS(b: Busca): FiltrosOS {
   const rateio = um(b.rateio);
+  const periodo = deLista<PeriodoOS>(um(b.periodo), PERIODOS_OS);
   return {
     status: deLista<FiltroStatus>(um(b.status), FILTROS_STATUS),
     execucao: deLista<Execucao>(um(b.execucao), {
@@ -67,56 +89,78 @@ export function lerFiltrosOS(b: Busca): FiltrosOS {
     tecnico: uuid(um(b.tecnico)),
     empresa: uuid(um(b.empresa)),
     rateio: rateio === "sim" ? true : rateio === "nao" ? false : null,
-    de: data(um(b.de)),
-    ate: data(um(b.ate)),
+    periodo,
+    de: periodo ? null : data(um(b.de)),
+    ate: periodo ? null : data(um(b.ate)),
     local: um(b.local)?.slice(0, 80) ?? null,
+    q: um(b.q)?.slice(0, 80) ?? null,
     cartao: deLista<CartaoOS>(um(b.cartao), CARTOES_OS),
   };
+}
+
+/** Datas de criação (aaaa-mm-dd, inclusive) pedidas pelo período. */
+export function criadasEntre(
+  f: Pick<FiltrosOS, "periodo" | "de" | "ate">,
+  agora: Date,
+): { de: string | null; ate: string | null } {
+  const hoje = paraBrasilia(agora).data;
+  switch (f.periodo) {
+    case "mes":
+      return { de: `${hoje.slice(0, 7)}-01`, ate: hoje };
+    case "30d":
+      return { de: somarDias(hoje, -29), ate: hoje };
+    case "ano":
+      return { de: `${hoje.slice(0, 4)}-01-01`, ate: hoje };
+    default:
+      return { de: f.de, ate: f.ate };
+  }
+}
+
+/** Quantos filtros do painel "Filtros" estão em uso (o número do botão). */
+export function extrasAtivos(f: FiltrosOS): number {
+  return FILTROS_EXTRAS.filter((k) => f[k] !== null).length;
 }
 
 /** Status que a consulta pede ao banco pelo filtro escolhido. */
 export function statusDoFiltro(f: FiltroStatus | null): StatusChamado[] {
   if (!f) return [];
-  if (f === "em_aberto") return ["aberto", "em_andamento", "aguardando"];
+  if (f === "em_aberto") return [...EM_ABERTO];
   return [f];
 }
 
-const EM_ABERTO: StatusChamado[] = ["aberto", "em_andamento", "aguardando"];
+export const EM_ABERTO: StatusChamado[] = [
+  "aberto",
+  "em_andamento",
+  "aguardando",
+];
 
-export interface OSParaCartao {
-  status: StatusChamado;
-  execucao: Execucao | null;
-  fechado_em: string | null;
-  sessoes: Pick<Sessao, "fim">[];
+/**
+ * O que cada cartão acrescenta à consulta (a contagem e a lista do cartão
+ * clicado são feitas no banco). "Em execução" é a OS com sessão aberta.
+ */
+export interface CriterioDoCartao {
+  status?: StatusChamado[];
+  execucao?: Execucao;
+  /** Fechada neste intervalo (instantes ISO, fim exclusivo). */
+  fechadoEntre?: { de: string; ate: string };
+  /** Só as OS com o cronômetro rodando. */
+  rodando?: true;
 }
 
-/** Se a OS entra no cartão. */
-export function noCartao(o: OSParaCartao, c: CartaoOS, agora: Date): boolean {
+export function criterioDoCartao(c: CartaoOS, agora: Date): CriterioDoCartao {
   switch (c) {
     case "abertas":
-      return EM_ABERTO.includes(o.status);
+      return { status: EM_ABERTO };
     case "em_execucao":
-      return o.sessoes.some((s) => s.fim === null);
+      return { rodando: true };
     case "terceirizadas":
-      return o.execucao === "terceirizada" && EM_ABERTO.includes(o.status);
+      return { status: EM_ABERTO, execucao: "terceirizada" };
     case "finalizadas_mes":
-      return (
-        o.status === "fechado" &&
-        !!o.fechado_em &&
-        paraBrasilia(new Date(o.fechado_em)).data.slice(0, 7) ===
-          paraBrasilia(agora).data.slice(0, 7)
-      );
+      return {
+        status: ["fechado"],
+        fechadoEntre: limitesDoMes(paraBrasilia(agora).data),
+      };
   }
-}
-
-export function contarCartoes(
-  oss: OSParaCartao[],
-  agora: Date,
-): Record<CartaoOS, number> {
-  const chaves = Object.keys(CARTOES_OS) as CartaoOS[];
-  return Object.fromEntries(
-    chaves.map((c) => [c, oss.filter((o) => noCartao(o, c, agora)).length]),
-  ) as Record<CartaoOS, number>;
 }
 
 const semAcento = (t: string) =>
@@ -127,7 +171,7 @@ export function localConfere(local: string, busca: string | null): boolean {
   return !busca || semAcento(local).includes(semAcento(busca));
 }
 
-/** Parâmetros da URL com uma troca (e sem a janela lateral). */
+/** Parâmetros da URL com uma troca (e sem a janela lateral nem a página). */
 export function urlDosFiltros(
   caminho: string,
   f: FiltrosOS,
@@ -141,9 +185,11 @@ export function urlDosFiltros(
     tecnico: f.tecnico,
     empresa: f.empresa,
     rateio: f.rateio === null ? null : f.rateio ? "sim" : "nao",
+    periodo: f.periodo,
     de: f.de,
     ate: f.ate,
     local: f.local,
+    q: f.q,
     cartao: f.cartao,
     ...troca,
   };

@@ -2,6 +2,12 @@ import "server-only";
 import { cache } from "react";
 import { z } from "zod";
 import { formatarData } from "@/lib/formato";
+import {
+  buscaNoOr,
+  type Filtravel,
+  totalForaDoIntervalo,
+} from "@/lib/os/filtro-postgrest";
+import { intervalo } from "@/lib/os/paginacao";
 import { rotaVistoria } from "@/lib/os/rotas";
 import { TIPOS_VISTORIA, type TipoVistoria } from "@/lib/os/rotulos";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
@@ -18,6 +24,15 @@ import {
   MENSAGEM_LAUDO_PADRAO,
   type TextosDoTipo,
 } from "@/lib/os/vistoria-regras";
+import {
+  CARTOES_VISTORIA,
+  type CartaoVistoria,
+  type CriterioVistoria,
+  criterioDoCartaoVistoria,
+  ehUuid,
+  type FiltroVistorias,
+  vistoriadorDe,
+} from "@/lib/os/vistorias-lista";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   baixarArquivo,
@@ -172,37 +187,179 @@ export type VistoriaResumo = Pick<
 const ehOsDaVistoria = (c: { tipo: string; ambiente_id: string | null }) =>
   c.tipo === "os" || c.ambiente_id !== null;
 
-export async function listarVistorias(): Promise<VistoriaResumo[]> {
-  const db = await os();
-  const [vistorias, chamados] = await Promise.all([
-    emPaginas((de, ate) =>
-      db
-        .from("vistorias")
-        .select(COLUNAS_LISTA)
-        .order("data", { ascending: false })
-        .order("codigo", { ascending: false })
-        .order("id")
-        .range(de, ate),
-    ),
-    emPaginas((de, ate) =>
-      db
-        .from("chamados")
-        .select("vistoria_id, tipo, ambiente_id")
-        .not("vistoria_id", "is", null)
-        .is("lixeira_em", null)
-        .order("id")
-        .range(de, ate),
-    ),
-  ]);
+/**
+ * "Com OS gerada" no banco: um segundo embutido dos chamados, com !inner,
+ * deixa só as vistorias com OS (ou chamado de ambiente) fora da lixeira.
+ */
+const comOS = (colunas: string, cartao: CriterioVistoria | null) =>
+  cartao?.comOS ? `${colunas}, osv:chamados!inner(id)` : colunas;
+
+function filtrarVistorias<Q extends Filtravel<Q>>(
+  q: Q,
+  f: FiltroVistorias | null,
+  c: CriterioVistoria | null,
+): Q {
+  let r = q;
+  if (f) {
+    if (f.tipo) r = r.eq("tipo", f.tipo);
+    if (f.status) r = r.eq("status", f.status);
+    if (f.vistoriador)
+      r = ehUuid(f.vistoriador)
+        ? r.eq("vistoriador_id", f.vistoriador)
+        : r.is("vistoriador_id", null).eq("vistoriador_nome", f.vistoriador);
+    if (f.bloco === "sem") r = r.or("bloco.is.null,bloco.eq.");
+    else if (f.bloco) r = r.eq("bloco", f.bloco);
+    if (f.de) r = r.gte("data", f.de);
+    if (f.ate) r = r.lte("data", f.ate);
+    const busca = buscaNoOr(f.q, ["codigo", "locatario", "bloco", "unidade"]);
+    if (busca) r = r.or(busca);
+  }
+  if (c) {
+    if (c.status) r = r.eq("status", c.status);
+    if (c.semStatus) r = r.not("status", "in", `(${c.semStatus.join(",")})`);
+    if (c.legadoNulo) r = r.is("legado_id", null);
+    if (c.ou) r = r.or(c.ou);
+    if (c.dataEntre)
+      r = r.gte("data", c.dataEntre.de).lt("data", c.dataEntre.ate);
+    if (c.comOS)
+      r = r
+        .is("osv.lixeira_em", null)
+        .or("tipo.eq.os,ambiente_id.not.is.null", { referencedTable: "osv" });
+  }
+  return r;
+}
+
+/** Quantas OS cada vistoria da página gerou (só as da página). */
+async function ordensDasVistorias(ids: string[]): Promise<Map<string, number>> {
   const ordens = new Map<string, number>();
+  if (ids.length === 0) return ordens;
+  const db = await os();
+  const chamados = await emPaginas((de, ate) =>
+    db
+      .from("chamados")
+      .select("vistoria_id, tipo, ambiente_id")
+      .in("vistoria_id", ids)
+      .is("lixeira_em", null)
+      .order("id")
+      .range(de, ate),
+  );
   for (const c of chamados) {
     if (!c.vistoria_id || !ehOsDaVistoria(c)) continue;
     ordens.set(c.vistoria_id, (ordens.get(c.vistoria_id) ?? 0) + 1);
   }
-  return vistorias.map((v) => ({
-    ...v,
-    ordens: ordens.get(v.id) ?? 0,
-  }));
+  return ordens;
+}
+
+async function comOrdens(
+  lista: Omit<VistoriaResumo, "ordens">[],
+): Promise<VistoriaResumo[]> {
+  const ordens = await ordensDasVistorias(lista.map((v) => v.id));
+  return lista.map((v) => ({ ...v, ordens: ordens.get(v.id) ?? 0 }));
+}
+
+/** Uma página da lista (a mais recente primeiro) e o total do filtro. */
+export async function paginaDeVistorias(
+  f: FiltroVistorias,
+  pagina: number,
+  hoje: string,
+): Promise<{ vistorias: VistoriaResumo[]; total: number }> {
+  const db = await os();
+  const c = f.cartao ? criterioDoCartaoVistoria(f.cartao, hoje) : null;
+  const { de, ate } = intervalo(pagina);
+  const { data, error, count } = await filtrarVistorias(
+    db
+      .from("vistorias")
+      .select(comOS(COLUNAS_LISTA, c) as typeof COLUNAS_LISTA, {
+        count: "exact",
+      }),
+    f,
+    c,
+  )
+    .order("data", { ascending: false })
+    .order("codigo", { ascending: false })
+    .order("id")
+    .range(de, ate);
+  if (error) {
+    const total = totalForaDoIntervalo(error);
+    if (total !== null) return { vistorias: [], total };
+    falhar(error);
+  }
+  return { vistorias: await comOrdens(data ?? []), total: count ?? 0 };
+}
+
+/** Todas as vistorias do filtro (exportar, no clique). */
+export async function vistoriasDoFiltro(
+  f: FiltroVistorias,
+  hoje: string,
+): Promise<VistoriaResumo[]> {
+  const db = await os();
+  const c = f.cartao ? criterioDoCartaoVistoria(f.cartao, hoje) : null;
+  const lista = await emPaginas((de, ate) =>
+    filtrarVistorias(
+      db
+        .from("vistorias")
+        .select(comOS(COLUNAS_LISTA, c) as typeof COLUNAS_LISTA),
+      f,
+      c,
+    )
+      .order("data", { ascending: false })
+      .order("codigo", { ascending: false })
+      .order("id")
+      .range(de, ate),
+  );
+  // As OS de todas, de 100 em 100 ids (vão na URL).
+  const resultado: VistoriaResumo[] = [];
+  for (let i = 0; i < lista.length; i += 100)
+    resultado.push(...(await comOrdens(lista.slice(i, i + 100))));
+  return resultado;
+}
+
+/** Os cartões do topo (todas as vistorias, como antes): contagens no banco. */
+export async function contarCartoesVistoria(
+  hoje: string,
+): Promise<Record<CartaoVistoria, number>> {
+  const db = await os();
+  const chaves = Object.keys(CARTOES_VISTORIA) as CartaoVistoria[];
+  const contagens = await Promise.all(
+    chaves.map(async (cartao) => {
+      const c = criterioDoCartaoVistoria(cartao, hoje);
+      const { count, error } = await filtrarVistorias(
+        db
+          .from("vistorias")
+          .select(comOS("id", c) as "id", { count: "exact", head: true }),
+        null,
+        c,
+      );
+      falhar(error);
+      return [cartao, count ?? 0] as const;
+    }),
+  );
+  return Object.fromEntries(contagens) as Record<CartaoVistoria, number>;
+}
+
+/**
+ * Opções dos filtros de vistoriador e bloco: só essas três colunas de
+ * todas as vistorias (o banco não devolve valores distintos sem uma função).
+ */
+export async function opcoesDosFiltrosDeVistoria(): Promise<{
+  vistoriadores: Map<string, string>;
+  blocos: string[];
+}> {
+  const db = await os();
+  const lista = await emPaginas((de, ate) =>
+    db
+      .from("vistorias")
+      .select("vistoriador_id, vistoriador_nome, bloco")
+      .order("id")
+      .range(de, ate),
+  );
+  const vistoriadores = new Map<string, string>();
+  for (const v of lista)
+    vistoriadores.set(vistoriadorDe(v), v.vistoriador_nome);
+  const blocos = [...new Set(lista.map((v) => v.bloco.trim() || "sem"))].sort(
+    (a, b) => a.localeCompare(b, "pt-BR"),
+  );
+  return { vistoriadores, blocos };
 }
 
 // ---------------------------------------------------------------------------

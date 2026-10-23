@@ -15,21 +15,30 @@ import { VisaoLista } from "@/components/os/lista/visao-lista";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
-import { type Busca, descreverFiltros } from "@/lib/os/lista";
-import { buscarChamados } from "@/server/os/base";
 import {
-  apoio,
-  filtrosDaTela,
+  type Busca,
+  CARTOES_DA_TELA,
+  type ChaveCartao,
+  COLUNAS_DA_TELA,
+  descreverFiltros,
+} from "@/lib/os/lista";
+import {
+  contarCartoes,
+  estadoDaLista,
   horaDaVisita,
   nomesDosFiltros,
   opcoesDeCategoria,
-  paraConsulta,
-  paraLinha,
+  paginaDaLista,
   pessoasPorSetor,
-  semRepetir,
 } from "@/server/os/visoes";
 
 export const metadata: Metadata = { title: "Minha caixa" };
+
+const DETALHES: Partial<Record<ChaveCartao, string>> = {
+  atrasados: "passaram do prazo",
+  vence_hoje: "até o fim do dia",
+  aguardando_confirmacao: "pedidos seus já concluídos",
+};
 
 export default function Page({
   searchParams,
@@ -56,21 +65,13 @@ export default function Page({
 
 async function Caixa({ busca }: { busca: Promise<Busca> }) {
   const params = await busca;
-  const [a, { filtros, lembrados }] = await Promise.all([
-    apoio(),
-    filtrosDaTela("caixa", params),
+  const e = await estadoDaLista("caixa", params);
+  const { a, filtros } = e;
+  // Só a página e os números dos cartões (contados no banco), em paralelo.
+  const [pagina, valores] = await Promise.all([
+    paginaDaLista(e),
+    contarCartoes(e),
   ]);
-  const consulta = paraConsulta(filtros, "minha_caixa");
-  const [minhas, paraConfirmar] = await Promise.all([
-    buscarChamados(consulta),
-    // Pedidos meus que já foram concluídos: esperam a minha confirmação.
-    buscarChamados({
-      ...consulta,
-      recorte: "abertos_por_mim",
-      status: ["concluido"],
-    }),
-  ]);
-  const linhas = semRepetir(paraConfirmar, minhas).map((c) => paraLinha(c, a));
   const setores = a.setores.filter((s) => s.ativo);
 
   return (
@@ -79,11 +80,13 @@ async function Caixa({ busca }: { busca: Promise<Busca> }) {
       <BarraFiltros
         tela="caixa"
         valores={filtros}
-        lembrados={lembrados}
-        etiqueta
+        lembrados={e.lembrados}
+        busca={{ placeholder: "Buscar por número, título ou descrição…" }}
         campos={[
-          campoTipo,
-          campoSetor(setores),
+          { ...campoTipo, largura: "w-44" },
+          { ...campoSetor(setores), largura: "w-48" },
+        ]}
+        extras={[
           {
             chave: "categoria",
             rotulo: "Categoria",
@@ -92,34 +95,36 @@ async function Caixa({ busca }: { busca: Promise<Busca> }) {
               a,
               filtros.setor ? [filtros.setor] : null,
             ),
-            largura: "w-52",
           },
           campoPrioridade,
         ]}
+        etiqueta
       />
       <VisaoLista
-        linhas={linhas}
-        cartoes={[
-          { chave: "atrasados", detalhe: "passaram do prazo" },
-          { chave: "vence_hoje", detalhe: "até o fim do dia" },
-          {
-            chave: "aguardando_confirmacao",
-            detalhe: "pedidos seus já concluídos",
-          },
-          { chave: "em_andamento" },
-        ]}
-        agrupamento="caixa"
-        colunas={{ setor: true, solicitante: true }}
+        linhas={pagina.linhas}
+        total={pagina.total}
+        pagina={pagina.pagina}
+        cartoes={CARTOES_DA_TELA.caixa.map((chave) => ({
+          chave,
+          detalhe: DETALHES[chave],
+          valor: valores[chave] ?? 0,
+        }))}
+        cartao={e.cartao}
+        ordem={e.ordem}
+        busca={e.q}
+        agrupamento={e.modo}
+        colunas={COLUNAS_DA_TELA.caixa}
         agora={a.agora.toISOString()}
         eu={a.ctx.usuario.id}
         avisoHoras={a.avisoHoras}
         pessoasPorSetor={pessoasPorSetor(
           a,
-          linhas.filter((l) => l.podeAtribuir).map((l) => l.setorId),
+          pagina.linhas.filter((l) => l.podeAtribuir).map((l) => l.setorId),
         )}
         exportar={
           a.ctx.pode("os.exportar")
             ? {
+                tela: "caixa",
                 titulo: "Minha caixa",
                 filtros: descreverFiltros(
                   "caixa",

@@ -3,6 +3,12 @@ import {
   aoSoltar,
   type CartaoNoQuadro,
   colunaAceita,
+  escreverMais,
+  lerMais,
+  limiteDaColuna,
+  MAXIMO_POR_COLUNA,
+  maisUmaPagina,
+  POR_COLUNA,
   passosDoMovimento,
 } from "./quadro";
 
@@ -105,5 +111,40 @@ describe("aoSoltar", () => {
     expect(colunaAceita(cartao({ status: "cancelado" }), "concluido")).toBe(
       false,
     );
+  });
+});
+
+describe("mostrar mais por coluna", () => {
+  it("lê só colunas e quantidades válidas da URL", () => {
+    expect(lerMais("aberto:25,concluido:50")).toEqual({
+      aberto: 25,
+      concluido: 50,
+    });
+    expect(lerMais("cancelado:25,aberto:-3,em_andamento:x,:4")).toEqual({});
+    expect(lerMais(["aguardando:25"])).toEqual({ aguardando: 25 });
+    expect(lerMais(undefined)).toEqual({});
+    expect(lerMais("aberto:99999")).toEqual({
+      aberto: MAXIMO_POR_COLUNA - POR_COLUNA,
+    });
+  });
+
+  it("cada clique traz mais uma leva, até o teto", () => {
+    const um = maisUmaPagina({}, "aberto");
+    expect(um).toEqual({ aberto: POR_COLUNA });
+    expect(limiteDaColuna(um, "aberto")).toBe(2 * POR_COLUNA);
+    expect(limiteDaColuna(um, "concluido")).toBe(POR_COLUNA);
+    expect(
+      limiteDaColuna(
+        maisUmaPagina({ aberto: MAXIMO_POR_COLUNA }, "aberto"),
+        "aberto",
+      ),
+    ).toBe(MAXIMO_POR_COLUNA);
+  });
+
+  it("escreve na ordem das colunas, sem as zeradas", () => {
+    expect(escreverMais({ concluido: 50, aberto: 25, aguardando: 0 })).toBe(
+      "aberto:25,concluido:50",
+    );
+    expect(lerMais(escreverMais({ fechado: 25 }))).toEqual({ fechado: 25 });
   });
 });

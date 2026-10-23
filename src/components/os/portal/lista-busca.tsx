@@ -1,102 +1,101 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
-import { useState } from "react";
+import { Loader, Search } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 
-// Lista em cartões empilhados com busca (melhor que tabela no celular). Os
-// itens chegam prontos do servidor; a busca procura no texto de cada um.
+// Lista em cartões empilhados com busca (melhor que tabela no celular). A
+// busca vai para a URL (?q=) e o servidor devolve só a página pedida; a
+// paginação vem de fora (componente Paginacao).
 
 export interface ItemBusca {
   chave: string;
-  busca: string;
   conteudo: React.ReactNode;
 }
 
-const sem = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const ESPERA_MS = 350;
 
 export function ListaBusca({
   itens,
+  busca,
   placeholder = "Buscar…",
   vazio = "Nada por aqui.",
-  porPagina = 25,
+  paginacao,
 }: {
+  /** Os itens desta página. */
   itens: ItemBusca[];
+  /** O texto buscado agora (da URL). */
+  busca: string;
   placeholder?: string;
   vazio?: string;
-  porPagina?: number;
+  paginacao?: React.ReactNode;
 }) {
-  const [busca, setBusca] = useState("");
-  const [pagina, setPagina] = useState(0);
-  const termo = sem(busca.trim());
-  const visiveis = termo
-    ? itens.filter((i) => sem(i.busca).includes(termo))
-    : itens;
-  const paginas = Math.max(1, Math.ceil(visiveis.length / porPagina));
-  const atual = Math.min(pagina, paginas - 1);
-  const mostrados = visiveis.slice(atual * porPagina, (atual + 1) * porPagina);
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const [carregando, iniciar] = useTransition();
+  const [texto, setTexto] = useState(busca);
+  // A busca mudou por fora (cartão, voltar do navegador): o campo acompanha.
+  const [anterior, setAnterior] = useState(busca);
+  if (busca !== anterior) {
+    setAnterior(busca);
+    setTexto(busca);
+  }
+
+  // Busca enquanto digita, sem uma ida ao servidor por tecla; volta à
+  // página 1.
+  useEffect(() => {
+    if (texto.trim() === busca) return;
+    const t = setTimeout(() => {
+      const p = new URLSearchParams(params);
+      p.delete("pagina");
+      if (texto.trim()) p.set("q", texto.trim());
+      else p.delete("q");
+      const qs = p.toString();
+      iniciar(() =>
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false }),
+      );
+    }, ESPERA_MS);
+    return () => clearTimeout(t);
+  }, [texto, busca, params, pathname, router]);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3" aria-busy={carregando}>
       <label className="relative block">
         <span className="sr-only">{placeholder}</span>
-        <Search
-          className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-neutral-400"
-          aria-hidden
-        />
+        {carregando ? (
+          <Loader
+            className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 animate-spin text-neutral-400 motion-reduce:animate-none"
+            aria-hidden
+          />
+        ) : (
+          <Search
+            className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-neutral-400"
+            aria-hidden
+          />
+        )}
         <input
           type="search"
-          value={busca}
-          onChange={(e) => {
-            setBusca(e.target.value);
-            setPagina(0);
-          }}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
           placeholder={placeholder}
           className="w-full rounded-full border border-neutral-200 bg-white/80 py-2.5 pr-4 pl-10 text-sm outline-none transition focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5"
         />
       </label>
-      {mostrados.length === 0 ? (
+      {itens.length === 0 ? (
         <p className="py-6 text-sm text-neutral-500">
-          {termo ? "Nada encontrado." : vazio}
+          {busca ? "Nada encontrado." : vazio}
         </p>
       ) : (
         <ul className="flex flex-col divide-y divide-neutral-900/[0.06]">
-          {mostrados.map((i) => (
+          {itens.map((i) => (
             <li key={i.chave} className="py-3 first:pt-1 last:pb-1">
               {i.conteudo}
             </li>
           ))}
         </ul>
       )}
-      {paginas > 1 && (
-        <nav
-          aria-label="Páginas"
-          className="flex items-center justify-end gap-2 text-sm text-neutral-600"
-        >
-          <span className="tabular-nums">
-            {atual * porPagina + 1}–
-            {Math.min((atual + 1) * porPagina, visiveis.length)} de{" "}
-            {visiveis.length}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPagina(atual - 1)}
-            disabled={atual === 0}
-            aria-label="Página anterior"
-            className="grid size-8 place-items-center rounded-full hover:bg-white disabled:opacity-40"
-          >
-            <ChevronLeft className="size-4" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => setPagina(atual + 1)}
-            disabled={atual >= paginas - 1}
-            aria-label="Próxima página"
-            className="grid size-8 place-items-center rounded-full hover:bg-white disabled:opacity-40"
-          >
-            <ChevronRight className="size-4" aria-hidden />
-          </button>
-        </nav>
-      )}
+      {paginacao}
     </div>
   );
 }

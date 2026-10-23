@@ -1,6 +1,13 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { cache } from "react";
+import {
+  type CriterioCartao,
+  filtrosDaBusca,
+  type PassoOrdem,
+  statusComCartao,
+} from "@/lib/os/lista";
+import { intervalo, POR_PAGINA, totalDePaginas } from "@/lib/os/paginacao";
 import type { Calendario } from "@/lib/os/prazo";
 import type { Permissao } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -204,34 +211,76 @@ export interface FiltroChamados {
   /** Só os da lixeira (padrão: fora dela). */
   lixeira?: boolean;
   limite?: number;
+  /**
+   * Minha caixa: junta os pedidos meus já concluídos (esperam a minha
+   * confirmação), na mesma consulta, para paginar tudo junto.
+   */
+  comConfirmacao?: boolean;
+  /** Busca do topo da lista (?q=): título, descrição ou número. */
+  busca?: string | null;
+  /** O que o cartão clicado (ou o contador) conta. */
+  cartao?: CriterioCartao | null;
 }
 
 /**
- * Chamados que o usuário vê (RLS) no recorte pedido. O recorte "minha
- * caixa" junta o que está comigo: sou o responsável, ou um destino é meu
- * ou do meu setor e ainda não concluiu, ou é a fila do meu setor.
+ * Consulta de chamados com os filtros, o recorte, o cartão e a busca (as
+ * listas, a página, a contagem e a exportação montam do mesmo jeito). null:
+ * o cartão e a barra se contradizem, nada passa.
  */
-export async function buscarChamados(
-  f: FiltroChamados = {},
-): Promise<ChamadoResumo[]> {
+async function montarConsulta(
+  f: FiltroChamados,
+  contar?: Contar,
+): Promise<{ q: Consulta } | null> {
   const ctx = await contexto();
-  const eu = ctx.usuario.id;
-  let q = (await os())
-    .from("chamados")
-    .select(COLUNAS_RESUMO)
-    .order("criado_em", { ascending: false })
-    .limit(f.limite ?? 2000);
+  const status = f.cartao ? statusComCartao(f.status, f.cartao) : f.status;
+  if (f.cartao && !status?.length) return null;
+  const destinos =
+    f.recorte === "minha_caixa"
+      ? await destinosEmCache(!!f.lixeira, (status ?? []).join(","))
+      : [];
+  // Num objeto: o construtor é "thenable" e o await de uma função async
+  // dispararia a consulta antes da ordem e da página.
+  return {
+    q: filtrar(selecionar(await os(), contar), f, status, ctx, destinos),
+  };
+}
 
+type Contar = { count: "exact"; head?: boolean };
+type Consulta = ReturnType<typeof selecionar>;
+
+function selecionar(cliente: Awaited<ReturnType<typeof os>>, contar?: Contar) {
+  return cliente.from("chamados").select(COLUNAS_RESUMO, contar);
+}
+
+function filtrar(
+  consulta: Consulta,
+  f: FiltroChamados,
+  status: FiltroChamados["status"],
+  ctx: Contexto,
+  destinos: string[],
+): Consulta {
+  const eu = ctx.usuario.id;
+  let q = consulta;
   q = f.lixeira ? q.not("lixeira_em", "is", null) : q.is("lixeira_em", null);
   if (f.setor) q = q.eq("setor_id", f.setor);
   if (f.tipos?.length) q = q.in("tipo", f.tipos);
-  if (f.status?.length) q = q.in("status", f.status);
+  if (status?.length) q = q.in("status", status);
   if (f.categoria) q = q.eq("categoria_id", f.categoria);
   if (f.responsavel) q = q.eq("responsavel_id", f.responsavel);
   if (f.prioridade) q = q.eq("prioridade", f.prioridade);
   if (f.etiqueta) q = q.contains("etiquetas", [f.etiqueta]);
   if (f.de) q = q.gte("criado_em", `${f.de}T00:00:00-03:00`);
   if (f.ate) q = q.lte("criado_em", `${f.ate}T23:59:59-03:00`);
+
+  const c = f.cartao;
+  if (c?.abertoPor) q = q.eq("aberto_por", c.abertoPor);
+  if (c?.semResponsavel) q = q.is("responsavel_id", null);
+  if (c?.prazoDesde) q = q.gte("prazo", c.prazoDesde);
+  if (c?.prazoAntes) q = q.lt("prazo", c.prazoAntes);
+  if (c?.encerradoDesde)
+    q = q.gte(c.encerradoDesde.campo, c.encerradoDesde.iso);
+  // Um .or() por palavra: o PostgREST junta todos com "e".
+  for (const ou of filtrosDaBusca(f.busca ?? "")) q = q.or(ou);
 
   switch (f.recorte) {
     case "abertos_por_mim":
@@ -244,24 +293,117 @@ export async function buscarChamados(
           : q.eq("setor_id", "00000000-0000-0000-0000-000000000000");
       break;
     case "minha_caixa": {
-      const destinos = await destinosDaMinhaCaixa(ctx, f);
       const ou = [`responsavel_id.eq.${eu}`];
       if (destinos.length) ou.push(`id.in.(${destinos.join(",")})`);
       if (ctx.setores.length)
         ou.push(
           `and(responsavel_id.is.null,setor_id.in.(${ctx.setores.join(",")}))`,
         );
+      if (f.comConfirmacao)
+        ou.push(`and(aberto_por.eq.${eu},status.eq.concluido)`);
       q = q.or(ou.join(","));
       break;
     }
     default:
       break;
   }
+  return q;
+}
 
-  const { data, error } = await q;
+/**
+ * Chamados que o usuário vê (RLS) no recorte pedido. O recorte "minha
+ * caixa" junta o que está comigo: sou o responsável, ou um destino é meu
+ * ou do meu setor e ainda não concluiu, ou é a fila do meu setor.
+ */
+export async function buscarChamados(
+  f: FiltroChamados = {},
+): Promise<ChamadoResumo[]> {
+  const m = await montarConsulta(f);
+  if (!m) return [];
+  const { data, error } = await m.q
+    .order("criado_em", { ascending: false })
+    .limit(f.limite ?? 2000);
   falhar(error);
   return data ?? [];
 }
+
+/** Ordem do banco (passos de `ordemDaConsulta`, em src/lib/os/lista.ts). */
+function ordenar(q: Consulta, passos: PassoOrdem[]): Consulta {
+  let r = q;
+  for (const p of passos)
+    r = r.order(p.coluna, { ascending: p.asc, nullsFirst: p.nullsFirst });
+  return r;
+}
+
+/**
+ * Só a página pedida (.range) e o total com os mesmos filtros (count
+ * "exact", na mesma consulta). Página além do fim (a lista encolheu): volta
+ * para a última.
+ */
+export async function buscarPaginaDeChamados(
+  f: FiltroChamados,
+  p: { pagina: number; ordem: PassoOrdem[]; porPagina?: number },
+): Promise<{ linhas: ChamadoResumo[]; total: number; pagina: number }> {
+  const porPagina = p.porPagina ?? POR_PAGINA;
+  const m = await montarConsulta(f, { count: "exact" });
+  if (!m) return { linhas: [], total: 0, pagina: 1 };
+  const { de, ate } = intervalo(p.pagina, porPagina);
+  const { data, error, count } = await ordenar(m.q, p.ordem).range(de, ate);
+  if (error?.code === "PGRST103" && p.pagina > 1) {
+    const ultima = totalDePaginas(await contarChamados(f), porPagina);
+    if (ultima < p.pagina)
+      return buscarPaginaDeChamados(f, { ...p, pagina: ultima });
+  }
+  falhar(error);
+  return { linhas: data ?? [], total: count ?? 0, pagina: p.pagina };
+}
+
+/** Quantos chamados passam nos filtros (sem trazer linha nenhuma). */
+export async function contarChamados(f: FiltroChamados): Promise<number> {
+  const m = await montarConsulta(f, { count: "exact", head: true });
+  if (!m) return 0;
+  const { count, error } = await m.q;
+  falhar(error);
+  return count ?? 0;
+}
+
+/**
+ * O resultado filtrado inteiro, na ordem pedida, lido de 1000 em 1000 (o
+ * máximo do PostgREST). Só para a exportação, no clique; `maximo` segura o
+ * tamanho do arquivo.
+ */
+export async function todosOsChamados(
+  f: FiltroChamados,
+  ordem: PassoOrdem[],
+  maximo = 10_000,
+): Promise<ChamadoResumo[]> {
+  const LOTE = 1000;
+  const linhas: ChamadoResumo[] = [];
+  for (let de = 0; de < maximo; de += LOTE) {
+    const m = await montarConsulta(f);
+    if (!m) break;
+    const { data, error } = await ordenar(m.q, ordem).range(
+      de,
+      Math.min(de + LOTE, maximo) - 1,
+    );
+    falhar(error);
+    linhas.push(...(data ?? []));
+    if ((data ?? []).length < LOTE) break;
+  }
+  return linhas;
+}
+
+/**
+ * Os destinos por requisição: a página e os cartões da Minha caixa pedem
+ * a mesma lista (mudando só o status), sem repetir a consulta.
+ */
+const destinosEmCache = cache(
+  async (lixeira: boolean, status: string): Promise<string[]> =>
+    destinosDaMinhaCaixa(await contexto(), {
+      lixeira,
+      status: status ? (status.split(",") as Enum<"status_chamado">[]) : [],
+    }),
+);
 
 /**
  * Chamados em que um destino é meu (ou do meu setor) e ainda não concluiu.

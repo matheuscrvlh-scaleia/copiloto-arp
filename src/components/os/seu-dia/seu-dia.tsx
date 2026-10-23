@@ -1,13 +1,14 @@
-import { contarCartao, PREFERENCIA_SEU_DIA } from "@/lib/os/lista";
+import { criterioDoCartao, PREFERENCIA_SEU_DIA } from "@/lib/os/lista";
 import { hojeEmBrasilia, paraBrasilia } from "@/lib/os/tempo";
-import { buscarChamados } from "@/server/os/base";
+import { contarChamados } from "@/server/os/base";
 import { lerPreferencia } from "@/server/os/preferencias";
-import { apoio, paraLinha } from "@/server/os/visoes";
+import { apoio } from "@/server/os/visoes";
 import { ModalSeuDia } from "./modal";
 
 // "Seu dia" (servidor): só na primeira entrada do dia. Lê o dia já visto
 // em core.preferencias e, se ainda não foi hoje, conta o que pede atenção
-// em toda a caixa da pessoa (sem os filtros da tela). Use em <Suspense>.
+// em toda a caixa da pessoa (sem os filtros da tela), só contando no banco.
+// Use em <Suspense>.
 
 const DIAS = [
   "domingo",
@@ -50,19 +51,18 @@ export async function SeuDia() {
       : null;
   if (dia === hoje) return null;
 
-  const [minhas, confirmar] = await Promise.all([
-    buscarChamados({
+  const ctx = { agora: a.agora, eu: a.ctx.usuario.id };
+  const [atrasados, venceHoje, confirmar] = await Promise.all([
+    contarChamados({
       recorte: "minha_caixa",
-      status: ["aberto", "em_andamento", "aguardando"],
+      cartao: criterioDoCartao("atrasados", ctx),
     }),
-    buscarChamados({ recorte: "abertos_por_mim", status: ["concluido"] }),
+    contarChamados({
+      recorte: "minha_caixa",
+      cartao: criterioDoCartao("vence_hoje", ctx),
+    }),
+    contarChamados({ recorte: "abertos_por_mim", status: ["concluido"] }),
   ]);
-  const ctx = {
-    agora: a.agora,
-    eu: a.ctx.usuario.id,
-    avisoHoras: a.avisoHoras,
-  };
-  const linhas = minhas.map((c) => paraLinha(c, a));
   const [ano, mes, d] = hoje.split("-").map(Number) as [number, number, number];
 
   return (
@@ -71,9 +71,9 @@ export async function SeuDia() {
         nome: a.ctx.usuario.nome,
         saudacao: saudacao(paraBrasilia(a.agora).hora),
         data: `${DIAS[new Date(Date.UTC(ano, mes - 1, d)).getUTCDay()]}, ${d} de ${MESES[mes - 1]}`,
-        atrasados: contarCartao(linhas, "atrasados", ctx),
-        hoje: contarCartao(linhas, "vence_hoje", ctx),
-        confirmar: confirmar.length,
+        atrasados,
+        hoje: venceHoje,
+        confirmar,
       }}
     />
   );

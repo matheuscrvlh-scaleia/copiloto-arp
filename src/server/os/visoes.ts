@@ -1,37 +1,62 @@
 import "server-only";
 import { cache } from "react";
+import { formatarDataHora } from "@/lib/formato";
 import {
   datasDoPlano,
   type ItemCalendario,
   rotuloPeriodo,
 } from "@/lib/os/calendario";
 import { andamentoDosDestinos } from "@/lib/os/ciclo";
+import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 import {
+  agrupar,
   type Busca,
+  CARTOES_DA_TELA,
+  type Carga,
+  type ChaveCartao,
+  COLUNAS_DA_TELA,
   type Contagens,
+  type ContextoLista,
+  type CriterioCartao,
+  criterioDoCartao,
   type Filtros,
   type LinhaChamado,
+  lerBusca,
+  lerCartao,
   lerFiltros,
+  lerOrdem,
+  type ModoGrupo,
+  modoDaLista,
+  type Ordem,
+  ordemDaConsulta,
+  ordenarCarga,
+  type PassoOrdem,
   PREFERENCIA_FILTROS,
+  paraExportar,
   type Recorte,
   statusDoFiltro,
   type Tela,
+  type TelaLista,
   temFiltrosNaUrl,
 } from "@/lib/os/lista";
+import { paginaDaUrl } from "@/lib/os/paginacao";
+import {
+  COLUNAS_QUADRO,
+  type ColunaDoQuadro,
+  lerMais,
+  limiteDaColuna,
+  type MaisPorColuna,
+} from "@/lib/os/quadro";
 import { rotaAtivo } from "@/lib/os/rotas";
+import { PRIORIDADES, STATUS, type StatusChamado } from "@/lib/os/rotulos";
+import { deBrasilia, instante, paraBrasilia, somarDias } from "@/lib/os/tempo";
 import {
-  deBrasilia,
-  hojeEmBrasilia,
-  instante,
-  paraBrasilia,
-  somarDias,
-} from "@/lib/os/tempo";
-import {
+  buscarPaginaDeChamados,
   type Categoria,
   type ChamadoResumo,
-  COLUNAS_RESUMO,
   type Contexto,
   categorias,
+  contarChamados,
   contexto,
   type FiltroChamados,
   os,
@@ -40,13 +65,16 @@ import {
   pessoas,
   type Setor,
   setores,
+  todosOsChamados,
 } from "./base";
 import { lerPreferencias } from "./preferencias";
 
 // Dados das visões do dia a dia (Minha caixa, Meu setor, Abertos por mim,
-// Quadro e Calendário). Tudo pela sessão (RLS). Uma consulta de chamados
-// por tela; nomes de setores, categorias e pessoas vêm uma vez só; as
-// contagens de fotos, anexos e conversa numa consulta agregada.
+// Quadro e Calendário). Tudo pela sessão (RLS). As listas e o quadro pedem
+// ao banco só a página (ou os primeiros cartões de cada coluna) com o total
+// junto; cartões e carga por pessoa são contagens. Nomes de setores,
+// categorias e pessoas vêm uma vez só; as contagens de fotos, anexos e
+// conversa numa consulta agregada.
 
 export interface Apoio {
   ctx: Contexto;
@@ -210,56 +238,324 @@ export function paraConsulta(f: Filtros, recorte: Recorte): FiltroChamados {
 }
 
 // ---------------------------------------------------------------------------
-// Encerrados no mês (cartões "Concluídos/Fechados no mês")
+// Listas paginadas (Minha caixa, Meu setor, Abertos por mim): o banco
+// devolve só a página, conta os cartões e a carga; tudo com os mesmos
+// filtros da barra. A exportação lê o resultado inteiro no clique.
 // ---------------------------------------------------------------------------
 
-/** Começo do mês corrente em Brasília (ISO). */
-export function inicioDoMes(agora: Date): string {
-  return deBrasilia(`${hojeEmBrasilia(agora).slice(0, 7)}-01`).toISOString();
+const RECORTE_DA_TELA: Record<TelaLista, Recorte> = {
+  caixa: "minha_caixa",
+  setor: "meu_setor",
+  abertos: "abertos_por_mim",
+};
+
+const umTexto = (v: unknown): string | undefined =>
+  typeof v === "string"
+    ? v
+    : Array.isArray(v) && typeof v[0] === "string"
+      ? v[0]
+      : undefined;
+
+export interface EstadoDaLista {
+  tela: TelaLista;
+  a: Apoio;
+  filtros: Filtros;
+  lembrados: boolean;
+  /** Barra e recorte (sem o cartão nem a busca). */
+  consulta: FiltroChamados;
+  cartao: ChaveCartao | null;
+  q: string;
+  ordem: Ordem | null;
+  modo: ModoGrupo;
+  pagina: number;
+  /** Meu setor: setores que a pessoa pode escolher (vazio: nenhum). */
+  disponiveis: Setor[];
+}
+
+/** Tudo o que a lista lê da URL (ou dos filtros lembrados). */
+export async function estadoDaLista(
+  tela: TelaLista,
+  busca: Busca,
+): Promise<EstadoDaLista> {
+  const [a, lidos] = await Promise.all([apoio(), filtrosDaTela(tela, busca)]);
+  let filtros = lidos.filtros;
+  let disponiveis: Setor[] = [];
+  if (tela === "setor") {
+    // Setor escolhido (lembrado); sem escolha válida, o primeiro dos meus.
+    disponiveis = setoresDisponiveis(a);
+    const setor =
+      disponiveis.find((s) => s.id === filtros.setor)?.id ??
+      disponiveis.find((s) => a.ctx.setores.includes(s.id))?.id ??
+      disponiveis[0]?.id;
+    filtros = { ...filtros, setor };
+  }
+  const ordem = lerOrdem(busca.ordem);
+  return {
+    tela,
+    a,
+    filtros,
+    lembrados: lidos.lembrados,
+    consulta: {
+      ...paraConsulta(filtros, RECORTE_DA_TELA[tela]),
+      comConfirmacao: tela === "caixa",
+    },
+    cartao: lerCartao(tela, busca.cartao),
+    q: lerBusca(busca.q),
+    ordem,
+    modo: modoDaLista(tela, filtros.agrupar, ordem),
+    pagina: paginaDaUrl(umTexto(busca.pagina)),
+    disponiveis,
+  };
+}
+
+const contextoDaLista = (a: Apoio): ContextoLista => ({
+  agora: a.agora,
+  eu: a.ctx.usuario.id,
+  avisoHoras: a.avisoHoras,
+});
+
+/** Consulta da lista com um cartão (o clicado, por padrão) e a busca. */
+export function consultaDaLista(
+  e: EstadoDaLista,
+  cartao: ChaveCartao | null = e.cartao,
+  comBusca = true,
+): FiltroChamados {
+  return {
+    ...e.consulta,
+    cartao: cartao ? criterioDoCartao(cartao, contextoDaLista(e.a)) : null,
+    busca: comBusca ? e.q : null,
+  };
+}
+
+/** Chamados → linhas da tela (avisos com vários destinos: o andamento). */
+async function paraLinhasDaLista(
+  e: EstadoDaLista,
+  chamados: ChamadoResumo[],
+): Promise<LinhaChamado[]> {
+  const destinos =
+    e.tela === "abertos"
+      ? await andamentoDosAvisos(
+          chamados.filter((c) => c.tipo === "aviso").map((c) => c.id),
+          e.a,
+        )
+      : null;
+  return chamados.map((c) => ({
+    ...paraLinha(c, e.a),
+    destinos: destinos?.get(c.id) ?? null,
+  }));
+}
+
+/** Só a página mostrada, na ordem do grupo e da coluna escolhida. */
+export async function paginaDaLista(
+  e: EstadoDaLista,
+): Promise<{ linhas: LinhaChamado[]; total: number; pagina: number }> {
+  const r = await buscarPaginaDeChamados(consultaDaLista(e), {
+    pagina: e.pagina,
+    ordem: ordemDaConsulta(e.modo, e.ordem),
+  });
+  return { ...r, linhas: await paraLinhasDaLista(e, r.linhas) };
 }
 
 /**
- * Concluídos ou fechados neste mês, com os mesmos filtros da barra (menos o
- * status). Só para os recortes que dá para repetir aqui: um setor ou o que
- * eu pedi.
+ * Número de cada cartão, contado no banco com os filtros da barra (a busca
+ * não muda os cartões, como antes), em paralelo.
  */
-export async function encerradosNoMes(
-  base: { setor: string } | { abertoPor: string },
-  f: FiltroChamados,
-  campo: "concluido_em" | "fechado_em",
-  agora: Date,
-): Promise<ChamadoResumo[]> {
-  let q = (await os())
-    .from("chamados")
-    .select(COLUNAS_RESUMO)
-    .is("lixeira_em", null)
-    .in(
-      "status",
-      campo === "fechado_em" ? ["fechado"] : ["concluido", "fechado"],
-    )
-    .gte(campo, inicioDoMes(agora))
-    .order(campo, { ascending: false })
-    .limit(500);
-  q =
-    "setor" in base
-      ? q.eq("setor_id", base.setor)
-      : q.eq("aberto_por", base.abertoPor);
-  if (f.tipos?.length) q = q.in("tipo", f.tipos);
-  if (f.categoria) q = q.eq("categoria_id", f.categoria);
-  if (f.responsavel) q = q.eq("responsavel_id", f.responsavel);
-  if (f.prioridade) q = q.eq("prioridade", f.prioridade);
-  if (f.etiqueta) q = q.contains("etiquetas", [f.etiqueta]);
-  if (f.de) q = q.gte("criado_em", `${f.de}T00:00:00-03:00`);
-  if (f.ate) q = q.lte("criado_em", `${f.ate}T23:59:59-03:00`);
-  const { data, error } = await q;
-  if (error) throw new Error(`Falha ao ler o banco: ${error.message}`);
-  return data ?? [];
+export async function contarCartoes(
+  e: EstadoDaLista,
+): Promise<Partial<Record<ChaveCartao, number>>> {
+  const chaves = CARTOES_DA_TELA[e.tela];
+  const valores = await Promise.all(
+    chaves.map((c) => contarChamados(consultaDaLista(e, c, false))),
+  );
+  return Object.fromEntries(chaves.map((c, i) => [c, valores[i] ?? 0]));
 }
 
-/** Junta listas sem repetir o chamado (a primeira ganha). */
-export function semRepetir<T extends { id: string }>(...listas: T[][]): T[] {
-  const vistos = new Set<string>();
-  return listas.flat().filter((x) => !vistos.has(x.id) && vistos.add(x.id));
+/**
+ * Carga por pessoa do Meu setor, contada no banco: abertos e atrasados de
+ * cada pessoa do setor e da fila, com os filtros da barra. Filtrando por um
+ * responsável, os outros ficam com zero (como a lista).
+ */
+export async function cargaDoSetor(
+  e: EstadoDaLista,
+  membros: { id: string; nome: string }[],
+): Promise<Carga[]> {
+  const base = consultaDaLista(e, null, false);
+  const ctx = contextoDaLista(e.a);
+  const abertos = criterioDoCartao("abertos", ctx);
+  const atrasados = criterioDoCartao("atrasados", ctx);
+  const contar = (responsavel: string | null, criterio: CriterioCartao) =>
+    base.responsavel && base.responsavel !== responsavel
+      ? Promise.resolve(0)
+      : contarChamados({
+          ...base,
+          responsavel,
+          cartao: responsavel
+            ? criterio
+            : { ...criterio, semResponsavel: true },
+        });
+  const quanto = async (id: string | null, nome: string): Promise<Carga> => {
+    const [a, b] = await Promise.all([
+      contar(id, abertos),
+      contar(id, atrasados),
+    ]);
+    return { id, nome, abertos: a, atrasados: b };
+  };
+  const [pessoas, fila] = await Promise.all([
+    Promise.all(membros.map((p) => quanto(p.id, p.nome))),
+    quanto(null, "Na fila"),
+  ]);
+  return ordenarCarga(pessoas, fila);
+}
+
+/** Exportação: o resultado filtrado inteiro, agrupado como na tela. */
+export async function exportacaoDaLista(e: EstadoDaLista) {
+  const chamados = await todosOsChamados(
+    consultaDaLista(e),
+    ordemDaConsulta(e.modo, e.ordem),
+  );
+  const linhas = await paraLinhasDaLista(e, chamados);
+  const ctx = contextoDaLista(e.a);
+  return paraExportar(
+    agrupar(linhas, e.modo, ctx),
+    e.modo,
+    COLUNAS_DA_TELA[e.tela],
+    ctx,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Quadro: uma consulta por coluna (os primeiros cartões e o total real)
+// ---------------------------------------------------------------------------
+
+export interface EstadoDoQuadro {
+  a: Apoio;
+  filtros: Filtros;
+  lembrados: boolean;
+  /** Filtros em vigor (recorte permitido, setor só onde cabe). */
+  valores: Filtros;
+  permitidos: Recorte[];
+  comSetor: boolean;
+  setores: Setor[];
+  consulta: FiltroChamados;
+  mais: MaisPorColuna;
+}
+
+export async function estadoDoQuadro(busca: Busca): Promise<EstadoDoQuadro> {
+  const [a, { filtros, lembrados }] = await Promise.all([
+    apoio(),
+    filtrosDaTela("quadro", busca),
+  ]);
+  const permitidos: Recorte[] = [
+    "minha_caixa",
+    ...(a.ctx.pode("os.meu_setor") ? (["meu_setor"] as const) : []),
+    "abertos_por_mim",
+    ...(a.ctx.pode("os.todos_setores") ? (["todos"] as const) : []),
+  ];
+  const recorte =
+    filtros.recorte && permitidos.includes(filtros.recorte)
+      ? filtros.recorte
+      : "minha_caixa";
+  const comSetor = recorte === "meu_setor" || recorte === "todos";
+  const valores: Filtros = {
+    ...filtros,
+    recorte,
+    setor: comSetor ? filtros.setor : undefined,
+  };
+  return {
+    a,
+    filtros,
+    lembrados,
+    valores,
+    permitidos,
+    comSetor,
+    setores:
+      recorte === "todos"
+        ? a.setores.filter((s) => s.ativo)
+        : setoresDisponiveis(a),
+    consulta: paraConsulta({ ...valores, status: undefined }, recorte),
+    mais: lerMais(busca.mais),
+  };
+}
+
+/** Colunas que o quadro consulta (Fechado só com o filtro "Fechados"). */
+export const colunasConsultadas = (e: EstadoDoQuadro): StatusChamado[] =>
+  COLUNAS_QUADRO.filter((s) => s !== "fechado" || !!e.filtros.fechados);
+
+/** Mais novos em cima; em Fechado, os fechados mais recentes. */
+const ordemDaColuna = (s: StatusChamado): PassoOrdem[] => [
+  {
+    coluna: s === "fechado" ? "fechado_em" : "criado_em",
+    asc: false,
+    nullsFirst: false,
+  },
+  { coluna: "numero", asc: false, nullsFirst: false },
+];
+
+export async function colunasDoQuadro(
+  e: EstadoDoQuadro,
+): Promise<ColunaDoQuadro[]> {
+  const colunas = await Promise.all(
+    colunasConsultadas(e).map(async (status) => {
+      const r = await buscarPaginaDeChamados(
+        { ...e.consulta, status: [status] },
+        {
+          pagina: 1,
+          porPagina: limiteDaColuna(e.mais, status),
+          ordem: ordemDaColuna(status),
+        },
+      );
+      return { status, chamados: r.linhas, total: r.total };
+    }),
+  );
+  const numeros = await contagens(
+    colunas.flatMap((c) => c.chamados.map((x) => x.id)),
+  );
+  return colunas.map((c) => ({
+    status: c.status,
+    total: c.total,
+    cartoes: c.chamados.map((x) => ({
+      ...paraLinha(x, e.a),
+      contagens: numeros.get(x.id),
+    })),
+  }));
+}
+
+/** Exportação do quadro: todas as colunas consultadas, inteiras. */
+export async function exportacaoDoQuadro(e: EstadoDoQuadro) {
+  const porColuna = await Promise.all(
+    colunasConsultadas(e).map(async (s) => ({
+      s,
+      chamados: await todosOsChamados(
+        { ...e.consulta, status: [s] },
+        ordemDaColuna(s),
+      ),
+    })),
+  );
+  return {
+    colunas: [
+      { titulo: "Coluna" },
+      { titulo: "Número", numero: true },
+      { titulo: "Título" },
+      { titulo: "Categoria" },
+      { titulo: "Responsável" },
+      { titulo: "Prioridade" },
+      { titulo: "Prazo" },
+    ] satisfies ColunaExportar[],
+    linhas: porColuna.flatMap(({ s, chamados }) =>
+      chamados.map((x): CelulaExportar[] => {
+        const c = paraLinha(x, e.a);
+        return [
+          STATUS[s],
+          c.numero,
+          c.titulo,
+          c.categoria ?? "",
+          c.responsavel ?? "Na fila",
+          PRIORIDADES[c.prioridade],
+          c.prazo ? formatarDataHora(c.prazo) : "",
+        ];
+      }),
+    ),
+  };
 }
 
 // ---------------------------------------------------------------------------

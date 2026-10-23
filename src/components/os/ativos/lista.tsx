@@ -242,10 +242,13 @@ export function DecisaoDeTroca({
   ativos,
   faixas,
   verCustos,
+  inicio = 0,
 }: {
   ativos: AtivoNaLista[];
   faixas: FaixasSinal;
   verCustos: boolean;
+  /** Posição da primeira linha no ranking (páginas seguintes). */
+  inicio?: number;
 }) {
   const colunas: Coluna<AtivoNaLista>[] = [
     { titulo: "Ativo", valor: (a) => <NomeDoAtivo a={a} /> },
@@ -300,7 +303,7 @@ export function DecisaoDeTroca({
             >
               <span className="flex items-start gap-3">
                 <span className="grid size-6 shrink-0 place-items-center rounded-full bg-neutral-900/[0.06] text-xs font-semibold tabular-nums">
-                  {i + 1}
+                  {inicio + i + 1}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{a.ativo.nome}</span>

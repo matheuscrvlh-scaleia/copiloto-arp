@@ -11,6 +11,7 @@ import {
 import { Secao } from "@/components/dashboard/tabela";
 import { FormAcao } from "@/components/form-acao";
 import { BotaoExportar } from "@/components/os/exportar";
+import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import { AcoesDoLink } from "@/components/os/portal/acoes-link";
 import { Atualizado, CartaoFiltro } from "@/components/os/portal/cartao-filtro";
 import { ListaBusca } from "@/components/os/portal/lista-busca";
@@ -18,13 +19,22 @@ import { SeloExemplo } from "@/components/os/selos";
 import { tonsDaTela } from "@/components/os/tons";
 import { SemAcesso } from "@/components/protegido";
 import { formatarData, formatarNumero } from "@/lib/formato";
+import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
+import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
+import {
+  FILTROS_PORTAL,
+  type FiltroPortal,
+  lerFiltroPortal,
+} from "@/lib/os/portal-lista";
 import { paraBrasilia } from "@/lib/os/tempo";
 import { tempoAtras } from "@/lib/os/texto";
 import { contexto } from "@/server/os/base";
 import {
   DIAS_DA_MEDIA,
+  indicadoresDoPortal,
   type LinhaDoPortal,
-  resumoDoPortal,
+  lojasDoPortal,
+  paginaDoPortal,
 } from "@/server/os/portal";
 import { gerarLinksEmLote } from "./actions";
 
@@ -32,13 +42,7 @@ const TONS = tonsDaTela("portal");
 
 export const metadata: Metadata = { title: "Portal e agenda" };
 
-const FILTROS = {
-  com_link: "Com link",
-  sem_link: "Sem link",
-  pedidos: "Com pedidos no mês",
-  avaliadas: "Avaliadas",
-} as const;
-type Filtro = keyof typeof FILTROS;
+const CAMINHO = "/os/portal";
 
 export default function Page({ searchParams }: PageProps<"/os/portal">) {
   return (
@@ -60,19 +64,40 @@ function Esqueleto() {
 const dia = (iso: string | null) =>
   iso ? formatarData(paraBrasilia(new Date(iso)).data) : null;
 
-function passa(l: LinhaDoPortal, f: Filtro | null): boolean {
-  switch (f) {
-    case "com_link":
-      return !!l.link;
-    case "sem_link":
-      return !l.link;
-    case "pedidos":
-      return l.pedidosNoMes > 0;
-    case "avaliadas":
-      return l.avaliacoes > 0;
-    default:
-      return true;
-  }
+const COLUNAS_EXPORTAR: ColunaExportar[] = [
+  { titulo: "LUC" },
+  { titulo: "Loja" },
+  { titulo: "Bloco" },
+  { titulo: "Link" },
+  { titulo: "Enviado em" },
+  { titulo: "Último acesso" },
+  { titulo: "Pedidos no mês", numero: true },
+  { titulo: "Avaliação", numero: true },
+];
+
+/** Exportar: o filtro inteiro, lido só no clique (não só a página). */
+async function exportarLinks(
+  busca: Record<string, string>,
+): Promise<{ colunas: ColunaExportar[]; linhas: CelulaExportar[][] }> {
+  "use server";
+  const ctx = await contexto();
+  if (!ctx.pode("os.portal") || !ctx.pode("os.exportar"))
+    throw new Error("Sem permissão para exportar.");
+  const { f, q } = lerFiltroPortal(busca);
+  const linhas = await lojasDoPortal(f, q, new Date());
+  return {
+    colunas: COLUNAS_EXPORTAR,
+    linhas: linhas.map((l) => [
+      l.loja.luc,
+      l.loja.nome,
+      l.loja.bloco,
+      l.link ? "Ativo" : "Sem link",
+      dia(l.link?.enviado_em ?? null),
+      dia(l.link?.ultimo_acesso_em ?? null),
+      l.pedidosNoMes,
+      l.media,
+    ]),
+  };
 }
 
 async function Links({
@@ -84,15 +109,23 @@ async function Links({
     return <SemAcesso />;
   }
   const sp = await searchParams;
-  const f = (
-    typeof sp.f === "string" && sp.f in FILTROS ? sp.f : null
-  ) as Filtro | null;
+  const { f, q } = lerFiltroPortal(sp);
+  const pagina = paginaDaUrl(sp.pagina);
   const agora = new Date();
-  const r = await resumoDoPortal(agora);
-  const linhas = r.linhas.filter((l) => passa(l, f));
-  const alternar = (x: Filtro) =>
-    f === x ? "/os/portal" : `/os/portal?f=${x}`;
+  // Só a página mostrada vem do banco; os cartões são contagens.
+  const [r, { linhas, total }] = await Promise.all([
+    indicadoresDoPortal(agora),
+    paginaDoPortal(f, q, pagina, agora),
+  ]);
+  const ultima = totalDePaginas(total);
+  if (pagina > ultima) redirect(hrefDaPagina(CAMINHO, sp, ultima));
+  // O cartão troca o filtro e mantém a busca (volta à página 1).
+  const alternar = (x: FiltroPortal) =>
+    hrefDaPagina(CAMINHO, { q: q || undefined, f: f === x ? undefined : x }, 1);
   const media = (m: number | null) => (m === null ? "—" : formatarNumero(m, 1));
+  const busca: Record<string, string> = {};
+  if (f) busca.f = f;
+  if (q) busca.q = q;
 
   return (
     <div className="flex flex-col gap-6">
@@ -104,7 +137,7 @@ async function Links({
           ativo={f === "com_link"}
           titulo="Lojas com link"
           valor={formatarNumero(r.comLink)}
-          detalhe={`de ${formatarNumero(r.linhas.length)} lojas vigentes`}
+          detalhe={`de ${formatarNumero(r.vigentes)} lojas vigentes`}
         />
         <CartaoFiltro
           tom={TONS[1]}
@@ -135,7 +168,7 @@ async function Links({
       </div>
 
       <Secao
-        titulo={f ? `Lojas · ${FILTROS[f]}` : "Lojas vigentes"}
+        titulo={f ? `Lojas · ${FILTROS_PORTAL[f]}` : "Lojas vigentes"}
         descricao="Cada loja tem um link permanente. Se vazar ou o contrato terminar, cancele: o link para de funcionar na hora."
       >
         <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -150,43 +183,37 @@ async function Links({
           {ctx.pode("os.exportar") && (
             <BotaoExportar
               titulo="Links do portal"
-              filtros={f ? FILTROS[f] : "Lojas vigentes"}
+              filtros={[
+                f ? FILTROS_PORTAL[f] : "Lojas vigentes",
+                q && `Busca: ${q}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
               nomeArquivo="links-do-portal"
-              colunas={[
-                { titulo: "LUC" },
-                { titulo: "Loja" },
-                { titulo: "Bloco" },
-                { titulo: "Link" },
-                { titulo: "Enviado em" },
-                { titulo: "Último acesso" },
-                { titulo: "Pedidos no mês", numero: true },
-                { titulo: "Avaliação", numero: true },
-              ]}
-              linhas={linhas.map((l) => [
-                l.loja.luc,
-                l.loja.nome,
-                l.loja.bloco,
-                l.link ? "Ativo" : "Sem link",
-                dia(l.link?.enviado_em ?? null),
-                dia(l.link?.ultimo_acesso_em ?? null),
-                l.pedidosNoMes,
-                l.media,
-              ])}
+              total={total}
+              carregar={exportarLinks.bind(null, busca)}
             />
           )}
         </div>
         <ListaBusca
+          busca={q}
           placeholder="Buscar pela LUC, nome ou bloco…"
           vazio={
-            r.linhas.length
+            r.vigentes
               ? "Nenhuma loja neste filtro."
               : "Nenhuma loja vigente. Cadastre as lojas na aba Lojas (contratos)."
           }
           itens={linhas.map((l) => ({
             chave: l.loja.id,
-            busca: `${l.loja.luc} ${l.loja.nome} ${l.loja.bloco ?? ""}`,
             conteudo: <LinhaDaLoja l={l} agora={agora} />,
           }))}
+          paginacao={
+            <Paginacao
+              pagina={pagina}
+              total={total}
+              href={(p) => hrefDaPagina(CAMINHO, sp, p)}
+            />
+          }
         />
       </Secao>
     </div>

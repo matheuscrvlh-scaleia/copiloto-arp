@@ -1,4 +1,5 @@
 import { podeIr, statusAoConcluir } from "./ciclo";
+import type { LinhaChamado } from "./lista";
 import { STATUS, type StatusChamado, type TipoChamado } from "./rotulos";
 
 // Quadro (kanban) dos chamados: o que acontece ao soltar um cartão numa
@@ -121,6 +122,71 @@ export function passosDoMovimento(
     if (fechando) return ["iniciar", "concluir"];
   }
   return [];
+}
+
+// ---------------------------------------------------------------------------
+// Paginação por coluna: cada coluna traz os primeiros cartões do seu status
+// e o "Mostrar mais" pede os próximos pela URL (?mais=aberto:25,concluido:50),
+// que o arrastar e o refresh do servidor mantêm.
+// ---------------------------------------------------------------------------
+
+/** Uma coluna como o servidor manda: os primeiros cartões e o total real. */
+export interface ColunaDoQuadro {
+  status: StatusChamado;
+  cartoes: LinhaChamado[];
+  /** Total da coluna com os filtros (o número do cabeçalho). */
+  total: number;
+}
+
+/** Cartões por coluna (e a quantidade que cada "Mostrar mais" traz). */
+export const POR_COLUNA = 25;
+
+/** Teto por coluna, para a URL não pedir milhares de cartões. */
+export const MAXIMO_POR_COLUNA = 500;
+
+export type MaisPorColuna = Partial<Record<StatusChamado, number>>;
+
+/** "aberto:25,concluido:50" → cartões a mais em cada coluna. */
+export function lerMais(valor: unknown): MaisPorColuna {
+  const v = Array.isArray(valor) ? valor[0] : valor;
+  const mais: MaisPorColuna = {};
+  if (typeof v !== "string") return mais;
+  for (const parte of v.split(",")) {
+    const [status, qtd] = parte.split(":");
+    const n = Number(qtd);
+    if (
+      status &&
+      (COLUNAS_QUADRO as string[]).includes(status) &&
+      Number.isInteger(n) &&
+      n > 0
+    )
+      mais[status as StatusChamado] = Math.min(
+        n,
+        MAXIMO_POR_COLUNA - POR_COLUNA,
+      );
+  }
+  return mais;
+}
+
+export function escreverMais(mais: MaisPorColuna): string {
+  return COLUNAS_QUADRO.filter((s) => (mais[s] ?? 0) > 0)
+    .map((s) => `${s}:${mais[s]}`)
+    .join(",");
+}
+
+/** Quantos cartões a coluna mostra. */
+export const limiteDaColuna = (mais: MaisPorColuna, s: StatusChamado) =>
+  POR_COLUNA + (mais[s] ?? 0);
+
+/** O "Mostrar mais" da coluna: mais POR_COLUNA, até o teto. */
+export function maisUmaPagina(
+  mais: MaisPorColuna,
+  s: StatusChamado,
+): MaisPorColuna {
+  return {
+    ...mais,
+    [s]: Math.min((mais[s] ?? 0) + POR_COLUNA, MAXIMO_POR_COLUNA - POR_COLUNA),
+  };
 }
 
 /** A coluna aceita o cartão? (destaque durante o arraste) */

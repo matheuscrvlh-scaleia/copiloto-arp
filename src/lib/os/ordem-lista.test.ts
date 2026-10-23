@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  contarCartoes,
+  criadasEntre,
+  criterioDoCartao,
+  extrasAtivos,
   lerFiltrosOS,
   localConfere,
-  noCartao,
-  type OSParaCartao,
   statusDoFiltro,
   urlDosFiltros,
 } from "./ordem-lista";
@@ -22,6 +22,7 @@ describe("filtros da URL", () => {
       de: "2026-10-01",
       ate: "31/10/2026",
       local: [" bloco b ", "outro"],
+      q: " bomba ",
       cartao: "em_execucao",
     });
     expect(f).toEqual({
@@ -31,12 +32,21 @@ describe("filtros da URL", () => {
       tecnico: null,
       empresa: null,
       rateio: false,
+      periodo: null,
       de: "2026-10-01",
       ate: null,
       local: "bloco b",
+      q: "bomba",
       cartao: "em_execucao",
     });
     expect(lerFiltrosOS({ status: "qualquer" }).status).toBeNull();
+    expect(lerFiltrosOS({ status: "toString" }).status).toBeNull();
+  });
+
+  it("o atalho do período vence as datas", () => {
+    const f = lerFiltrosOS({ periodo: "mes", de: "2026-01-01" });
+    expect(f.periodo).toBe("mes");
+    expect(f.de).toBeNull();
   });
 
   it("status pedido ao banco", () => {
@@ -50,7 +60,7 @@ describe("filtros da URL", () => {
   });
 
   it("monta a URL com uma troca", () => {
-    const f = lerFiltrosOS({ status: "fechado", rateio: "sim" });
+    const f = lerFiltrosOS({ status: "fechado", rateio: "sim", pagina: "3" });
     expect(urlDosFiltros("/os/ordens", f)).toBe(
       "/os/ordens?status=fechado&rateio=sim",
     );
@@ -59,35 +69,55 @@ describe("filtros da URL", () => {
     ).toBe("/os/ordens?rateio=sim&cartao=abertas");
     expect(urlDosFiltros("/os/ordens", lerFiltrosOS({}))).toBe("/os/ordens");
   });
+
+  it("conta os filtros do painel", () => {
+    expect(extrasAtivos(lerFiltrosOS({ status: "fechado" }))).toBe(0);
+    expect(
+      extrasAtivos(lerFiltrosOS({ categoria: ID, rateio: "sim", local: "b" })),
+    ).toBe(3);
+  });
+});
+
+describe("período", () => {
+  const agora = new Date("2026-10-23T12:00:00-03:00");
+  it("resolve os atalhos em Brasília", () => {
+    const sem = { de: null, ate: null };
+    expect(criadasEntre({ periodo: "mes", ...sem }, agora)).toEqual({
+      de: "2026-10-01",
+      ate: "2026-10-23",
+    });
+    expect(criadasEntre({ periodo: "30d", ...sem }, agora)).toEqual({
+      de: "2026-09-24",
+      ate: "2026-10-23",
+    });
+    expect(criadasEntre({ periodo: "ano", ...sem }, agora)).toEqual({
+      de: "2026-01-01",
+      ate: "2026-10-23",
+    });
+    expect(
+      criadasEntre({ periodo: null, de: "2026-05-01", ate: null }, agora),
+    ).toEqual({ de: "2026-05-01", ate: null });
+  });
 });
 
 describe("cartões", () => {
-  const agora = new Date("2026-10-23T12:00:00-03:00");
-  const os = (o: Partial<OSParaCartao>): OSParaCartao => ({
-    status: "aberto",
-    execucao: "interna",
-    fechado_em: null,
-    sessoes: [],
-    ...o,
-  });
-
-  it("cada cartão conta o seu", () => {
-    const lista = [
-      os({}),
-      os({ status: "em_andamento", sessoes: [{ fim: null }] }),
-      os({ status: "aguardando", execucao: "terceirizada" }),
-      os({ status: "fechado", fechado_em: "2026-10-02T10:00:00Z" }),
-      // 30/09 22h em Brasília: mês passado.
-      os({ status: "fechado", fechado_em: "2026-10-01T01:00:00Z" }),
-      os({ status: "concluido", execucao: "terceirizada" }),
-    ];
-    expect(contarCartoes(lista, agora)).toEqual({
-      abertas: 3,
-      em_execucao: 1,
-      terceirizadas: 1,
-      finalizadas_mes: 1,
+  it("cada cartão vira um critério da consulta", () => {
+    // 31/10 23h em Brasília ainda é outubro.
+    const agora = new Date("2026-11-01T02:00:00Z");
+    expect(criterioDoCartao("abertas", agora)).toEqual({
+      status: ["aberto", "em_andamento", "aguardando"],
     });
-    expect(noCartao(lista[1] as OSParaCartao, "em_execucao", agora)).toBe(true);
+    expect(criterioDoCartao("em_execucao", agora)).toEqual({ rodando: true });
+    expect(criterioDoCartao("terceirizadas", agora).execucao).toBe(
+      "terceirizada",
+    );
+    expect(criterioDoCartao("finalizadas_mes", agora)).toEqual({
+      status: ["fechado"],
+      fechadoEntre: {
+        de: "2026-10-01T00:00:00-03:00",
+        ate: "2026-11-01T00:00:00-03:00",
+      },
+    });
   });
 
   it("busca no local sem acento", () => {

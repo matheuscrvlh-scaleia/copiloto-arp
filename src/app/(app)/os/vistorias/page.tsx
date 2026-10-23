@@ -1,6 +1,7 @@
 import { ChevronRight, FileText, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import {
   CartaoCarregando,
@@ -11,6 +12,7 @@ import {
 import { CartaoIndicador } from "@/components/dashboard/indicador";
 import { type Coluna, Secao, Tabela } from "@/components/dashboard/tabela";
 import { BotaoExportar } from "@/components/os/exportar";
+import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import { SeloExemplo } from "@/components/os/selos";
 import { CLASSE_MARCADO, tonsDaTela } from "@/components/os/tons";
 import { FiltrosVistorias } from "@/components/os/vistorias/filtros";
@@ -22,6 +24,8 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { formatarData, formatarNumero } from "@/lib/formato";
+import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
+import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
 import { ROTAS_OS, rotaVistoria } from "@/lib/os/rotas";
 import {
   STATUS_VISTORIA,
@@ -35,9 +39,19 @@ import {
   ROTULOS_SITUACAO,
   situacaoDaVistoria,
 } from "@/lib/os/vistoria-regras";
-import { dataValida } from "@/lib/periodo";
+import {
+  CARTOES_VISTORIA as CARTOES,
+  type CartaoVistoria as Cartao,
+  lerFiltroVistorias,
+} from "@/lib/os/vistorias-lista";
 import { contexto } from "@/server/os/base";
-import { listarVistorias, type VistoriaResumo } from "@/server/os/vistorias";
+import {
+  contarCartoesVistoria,
+  opcoesDosFiltrosDeVistoria,
+  paginaDeVistorias,
+  type VistoriaResumo,
+  vistoriasDoFiltro,
+} from "@/server/os/vistorias";
 
 const TONS = tonsDaTela("vistorias");
 
@@ -62,47 +76,12 @@ export default function Page({ searchParams }: PageProps<"/os/vistorias">) {
 const um = (v: string | string[] | undefined) =>
   (Array.isArray(v) ? v[0] : v) ?? "";
 
-const sem = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-
-const CARTOES = {
-  andamento: "Em andamento",
-  assinatura: "Aguardando assinatura",
-  concluidas: "Concluídas no mês",
-  com_os: "Com OS gerada",
-} as const;
-type Cartao = keyof typeof CARTOES;
-
-interface Filtro {
-  q: string;
-  tipo: string;
-  status: string;
-  vistoriador: string;
-  bloco: string;
-  de: string;
-  ate: string;
-  cartao: Cartao | "";
-}
-
-function lerFiltro(sp: Busca): Filtro {
-  const cartao = um(sp.cartao);
-  return {
-    q: um(sp.q).trim(),
-    tipo: um(sp.tipo),
-    status: um(sp.status),
-    vistoriador: um(sp.vistoriador),
-    bloco: um(sp.bloco),
-    de: dataValida(um(sp.de)) ? um(sp.de) : "",
-    ate: dataValida(um(sp.ate)) ? um(sp.ate) : "",
-    cartao: Object.hasOwn(CARTOES, cartao) ? (cartao as Cartao) : "",
-  };
-}
-
-/** Endereço com os filtros de agora, trocando alguns. */
+/** Endereço com os filtros de agora, trocando alguns (volta à página 1). */
 function link(sp: Busca, mudancas: Record<string, string>): string {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) {
     const valor = um(v);
-    if (valor) p.set(k, valor);
+    if (valor && k !== "pagina") p.set(k, valor);
   }
   for (const [k, v] of Object.entries(mudancas)) {
     if (v) p.set(k, v);
@@ -112,64 +91,72 @@ function link(sp: Busca, mudancas: Record<string, string>): string {
   return q ? `${ROTAS_OS.vistorias}?${q}` : ROTAS_OS.vistorias;
 }
 
-const vistoriadorDe = (v: VistoriaResumo) =>
-  v.vistoriador_id ?? v.vistoriador_nome;
+const COLUNAS_EXPORTAR: ColunaExportar[] = [
+  { titulo: "Código" },
+  { titulo: "Tipo" },
+  { titulo: "Locatário(a)" },
+  { titulo: "Bloco / Área" },
+  { titulo: "Locação / Unidade" },
+  { titulo: "Data" },
+  { titulo: "Vistoriador" },
+  { titulo: "Status" },
+  { titulo: "Situação" },
+  { titulo: "OS geradas", numero: true },
+];
 
-function noCartao(v: VistoriaResumo, cartao: Cartao, mes: string): boolean {
-  const s = situacaoDaVistoria(v);
-  switch (cartao) {
-    case "andamento":
-      return s === "andamento";
-    case "assinatura":
-      return s === "aguardando_assinatura";
-    case "concluidas":
-      return s === "concluida" && v.data.startsWith(mes);
-    case "com_os":
-      return v.ordens > 0;
-  }
-}
-
-function filtrar(lista: VistoriaResumo[], f: Filtro, mes: string) {
-  const termo = sem(f.q);
-  return lista.filter(
-    (v) =>
-      (!f.tipo || v.tipo === f.tipo) &&
-      (!f.status || v.status === f.status) &&
-      (!f.vistoriador || vistoriadorDe(v) === f.vistoriador) &&
-      (!f.bloco || (v.bloco.trim() || "sem") === f.bloco) &&
-      (!f.de || v.data >= f.de) &&
-      (!f.ate || v.data <= f.ate) &&
-      (!f.cartao || noCartao(v, f.cartao, mes)) &&
-      (!termo ||
-        sem(`${v.codigo} ${v.locatario} ${v.bloco} ${v.unidade}`).includes(
-          termo,
-        )),
+/** Exportar: o filtro inteiro, lido só no clique (não só a página). */
+async function exportarVistorias(
+  busca: Record<string, string>,
+): Promise<{ colunas: ColunaExportar[]; linhas: CelulaExportar[][] }> {
+  "use server";
+  const ctx = await contexto();
+  if (!ctx.pode("os.vistorias") || !ctx.pode("os.exportar"))
+    throw new Error("Sem permissão para exportar.");
+  const lista = await vistoriasDoFiltro(
+    lerFiltroVistorias(busca),
+    hojeEmBrasilia(new Date()),
   );
+  return {
+    colunas: COLUNAS_EXPORTAR,
+    linhas: lista.map((v) => [
+      v.codigo,
+      tipoCurto(v.tipo),
+      v.locatario,
+      v.bloco,
+      v.unidade,
+      formatarData(v.data),
+      v.vistoriador_nome,
+      STATUS_VISTORIA[v.status],
+      ROTULOS_SITUACAO[situacaoDaVistoria(v)],
+      v.ordens,
+    ]),
+  };
 }
 
 async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
   const ctx = await contexto();
   if (!ctx.pode("os.vistorias")) return <SemAcesso />;
-  const [sp, todas] = await Promise.all([searchParams, listarVistorias()]);
+  const sp = await searchParams;
   const agora = new Date();
-  const mes = hojeEmBrasilia(agora).slice(0, 7);
-  const f = lerFiltro(sp);
-  const lista = filtrar(todas, f, mes);
+  const hoje = hojeEmBrasilia(agora);
+  const f = lerFiltroVistorias(sp);
+  const pagina = paginaDaUrl(sp.pagina);
+  // Só a página mostrada vem do banco; os cartões são contagens.
+  const [{ vistorias: lista, total }, contagem, opcoes] = await Promise.all([
+    paginaDeVistorias(f, pagina, hoje),
+    contarCartoesVistoria(hoje),
+    opcoesDosFiltrosDeVistoria(),
+  ]);
+  const ultima = totalDePaginas(total);
+  if (pagina > ultima) redirect(hrefDaPagina(ROTAS_OS.vistorias, sp, ultima));
+  const { vistoriadores, blocos } = opcoes;
 
-  const conta = (c: Cartao) => todas.filter((v) => noCartao(v, c, mes)).length;
   const detalhes: Record<Cartao, string> = {
     andamento: "sendo preenchidas",
     assinatura: "finalizadas sem as duas assinaturas",
     concluidas: "finalizadas e assinadas neste mês",
     com_os: "algum ambiente virou OS",
   };
-
-  const vistoriadores = new Map<string, string>();
-  for (const v of todas)
-    vistoriadores.set(vistoriadorDe(v), v.vistoriador_nome);
-  const blocos = [...new Set(todas.map((v) => v.bloco.trim() || "sem"))].sort(
-    (a, b) => a.localeCompare(b, "pt-BR"),
-  );
 
   const descricaoFiltros = [
     f.cartao && CARTOES[f.cartao],
@@ -184,6 +171,9 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
   ]
     .filter(Boolean)
     .join(" · ");
+  const busca: Record<string, string> = {};
+  for (const [k, v] of Object.entries(sp))
+    if (typeof v === "string" && k !== "pagina") busca[k] = v;
 
   const colunas: Coluna<VistoriaResumo>[] = [
     {
@@ -262,30 +252,8 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
               titulo="Vistorias"
               filtros={descricaoFiltros}
               nomeArquivo="vistorias"
-              colunas={[
-                { titulo: "Código" },
-                { titulo: "Tipo" },
-                { titulo: "Locatário(a)" },
-                { titulo: "Bloco / Área" },
-                { titulo: "Locação / Unidade" },
-                { titulo: "Data" },
-                { titulo: "Vistoriador" },
-                { titulo: "Status" },
-                { titulo: "Situação" },
-                { titulo: "OS geradas", numero: true },
-              ]}
-              linhas={lista.map((v) => [
-                v.codigo,
-                tipoCurto(v.tipo),
-                v.locatario,
-                v.bloco,
-                v.unidade,
-                formatarData(v.data),
-                v.vistoriador_nome,
-                STATUS_VISTORIA[v.status],
-                ROTULOS_SITUACAO[situacaoDaVistoria(v)],
-                v.ordens,
-              ])}
+              total={total}
+              carregar={exportarVistorias.bind(null, busca)}
             />
           )}
           <Link
@@ -309,7 +277,7 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
           >
             <CartaoIndicador
               titulo={CARTOES[c]}
-              valor={formatarNumero(conta(c))}
+              valor={formatarNumero(contagem[c])}
               detalhe={detalhes[c]}
               tom={TONS[i]}
             />
@@ -369,7 +337,7 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
       />
 
       <Secao
-        titulo={`${formatarNumero(lista.length)} ${lista.length === 1 ? "vistoria" : "vistorias"}`}
+        titulo={`${formatarNumero(total)} ${total === 1 ? "vistoria" : "vistorias"}`}
         descricao="Abra uma vistoria para preencher, assinar e enviar o laudo"
       >
         {/* Celular: cartões empilhados; telas maiores: a tabela. */}
@@ -413,6 +381,13 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
             linhas={lista}
             chave={(v) => v.id}
             vazio="Nenhuma vistoria com esses filtros."
+          />
+        </div>
+        <div className="mt-4">
+          <Paginacao
+            pagina={pagina}
+            total={total}
+            href={(p) => hrefDaPagina(ROTAS_OS.vistorias, sp, p)}
           />
         </div>
       </Secao>

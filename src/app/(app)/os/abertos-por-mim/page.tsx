@@ -16,22 +16,30 @@ import { VisaoLista } from "@/components/os/lista/visao-lista";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
-import { type Busca, descreverFiltros } from "@/lib/os/lista";
-import { buscarChamados } from "@/server/os/base";
 import {
-  andamentoDosAvisos,
-  apoio,
-  encerradosNoMes,
-  filtrosDaTela,
+  type Busca,
+  CARTOES_DA_TELA,
+  type ChaveCartao,
+  COLUNAS_DA_TELA,
+  descreverFiltros,
+} from "@/lib/os/lista";
+import {
+  contarCartoes,
+  estadoDaLista,
   horaDaVisita,
   nomesDosFiltros,
-  paraConsulta,
-  paraLinha,
+  paginaDaLista,
   pessoasPorSetor,
-  semRepetir,
 } from "@/server/os/visoes";
 
 export const metadata: Metadata = { title: "Abertos por mim" };
+
+const DETALHES: Partial<Record<ChaveCartao, string>> = {
+  aguardando_confirmacao: "concluídos, confirme ou reabra",
+  em_andamento: "alguém está cuidando",
+  atrasados: "passaram do prazo",
+  fechados_mes: "resolvidos neste mês",
+};
 
 export default function Page({
   searchParams,
@@ -58,30 +66,13 @@ export default function Page({
 
 async function Abertos({ busca }: { busca: Promise<Busca> }) {
   const params = await busca;
-  const [a, { filtros, lembrados }] = await Promise.all([
-    apoio(),
-    filtrosDaTela("abertos", params),
+  const e = await estadoDaLista("abertos", params);
+  const { a, filtros } = e;
+  // Só a página (o andamento dos avisos, só das linhas dela) e os cartões.
+  const [pagina, valores] = await Promise.all([
+    paginaDaLista(e),
+    contarCartoes(e),
   ]);
-  const consulta = paraConsulta(filtros, "abertos_por_mim");
-  const [meus, fechados] = await Promise.all([
-    buscarChamados(consulta),
-    encerradosNoMes(
-      { abertoPor: a.ctx.usuario.id },
-      consulta,
-      "fechado_em",
-      a.agora,
-    ),
-  ]);
-  const doFiltro = new Set(meus.map((c) => c.id));
-  const todos = semRepetir(meus, fechados);
-  const destinos = await andamentoDosAvisos(
-    todos.filter((c) => c.tipo === "aviso").map((c) => c.id),
-    a,
-  );
-  const linhas = todos.map((c) => ({
-    ...paraLinha(c, a, !doFiltro.has(c.id)),
-    destinos: destinos.get(c.id) ?? null,
-  }));
 
   return (
     <div className="flex flex-col gap-5">
@@ -89,38 +80,41 @@ async function Abertos({ busca }: { busca: Promise<Busca> }) {
       <BarraFiltros
         tela="abertos"
         valores={filtros}
-        lembrados={lembrados}
-        etiqueta
+        lembrados={e.lembrados}
+        busca={{ placeholder: "Buscar por número, título ou descrição…" }}
         campos={[
-          campoTipo,
-          campoSetor(a.setores.filter((s) => s.ativo)),
-          campoStatus,
-          campoPrioridade,
+          { ...campoTipo, largura: "w-44" },
+          { ...campoSetor(a.setores.filter((s) => s.ativo)), largura: "w-48" },
+          { ...campoStatus, largura: "w-40" },
         ]}
+        extras={[campoPrioridade]}
+        etiqueta
       />
       <VisaoLista
-        linhas={linhas}
-        cartoes={[
-          {
-            chave: "aguardando_confirmacao",
-            detalhe: "concluídos, confirme ou reabra",
-          },
-          { chave: "em_andamento", detalhe: "alguém está cuidando" },
-          { chave: "atrasados", detalhe: "passaram do prazo" },
-          { chave: "fechados_mes", detalhe: "resolvidos neste mês" },
-        ]}
-        agrupamento="status"
-        colunas={{ setor: true }}
+        linhas={pagina.linhas}
+        total={pagina.total}
+        pagina={pagina.pagina}
+        cartoes={CARTOES_DA_TELA.abertos.map((chave) => ({
+          chave,
+          detalhe: DETALHES[chave],
+          valor: valores[chave] ?? 0,
+        }))}
+        cartao={e.cartao}
+        ordem={e.ordem}
+        busca={e.q}
+        agrupamento={e.modo}
+        colunas={COLUNAS_DA_TELA.abertos}
         agora={a.agora.toISOString()}
         eu={a.ctx.usuario.id}
         avisoHoras={a.avisoHoras}
         pessoasPorSetor={pessoasPorSetor(
           a,
-          linhas.filter((l) => l.podeAtribuir).map((l) => l.setorId),
+          pagina.linhas.filter((l) => l.podeAtribuir).map((l) => l.setorId),
         )}
         exportar={
           a.ctx.pode("os.exportar")
             ? {
+                tela: "abertos",
                 titulo: "Abertos por mim",
                 filtros: descreverFiltros(
                   "abertos",

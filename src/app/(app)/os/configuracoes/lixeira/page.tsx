@@ -1,9 +1,11 @@
 import { History, Trash2, Undo2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AcaoRapida } from "@/components/admin/acao-rapida";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
+import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import {
   SeloExemplo,
   SeloSetor,
@@ -15,17 +17,20 @@ import { Protegido } from "@/components/protegido";
 import { CONFIGURACOES_OS } from "@/config/navigation";
 import { formatarDataHora } from "@/lib/formato";
 import { formatarNumeroChamado } from "@/lib/os/numeros";
+import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
 import { rotaChamado } from "@/lib/os/rotas";
 import { nomes, setores } from "@/server/os/base";
-import { chamadosNaLixeira } from "@/server/os/configuracoes";
 import { restaurarChamado } from "./actions";
+import { paginaDaLixeira } from "./consulta";
 
 export const metadata: Metadata = { title: "Lixeira de chamados" };
 
 // Chamados mandados para a lixeira, com quem mandou e quando. Nada é apagado
 // de verdade: restaurar devolve o chamado às listas como estava.
 
-export default function Page() {
+export default function Page({
+  searchParams,
+}: PageProps<"/os/configuracoes/lixeira">) {
   return (
     <Suspense
       fallback={
@@ -35,18 +40,23 @@ export default function Page() {
       }
     >
       <Protegido permissao="os.excluir">
-        <Lixeira />
+        <Lixeira searchParams={searchParams} />
       </Protegido>
     </Suspense>
   );
 }
 
-async function Lixeira() {
-  const [lista, todosSetores, nomesPorId] = await Promise.all([
-    chamadosNaLixeira(),
-    setores(),
-    nomes(),
-  ]);
+async function Lixeira({
+  searchParams,
+}: Pick<PageProps<"/os/configuracoes/lixeira">, "searchParams">) {
+  const sp = await searchParams;
+  const pagina = paginaDaUrl(sp.pagina);
+  // Só a página mostrada vem do banco, com o total junto.
+  const [{ chamados: lista, total }, todosSetores, nomesPorId] =
+    await Promise.all([paginaDaLixeira(pagina), setores(), nomes()]);
+  const ultima = totalDePaginas(total);
+  if (pagina > ultima)
+    redirect(hrefDaPagina(CONFIGURACOES_OS.lixeira, sp, ultima));
   const setorPorId = new Map(todosSetores.map((s) => [s.id, s]));
 
   return (
@@ -57,9 +67,9 @@ async function Lixeira() {
         </span>
         <div>
           <h2 className="text-base font-semibold">
-            {lista.length === 0
+            {total === 0
               ? "A lixeira está vazia"
-              : `${lista.length} ${lista.length === 1 ? "chamado na lixeira" : "chamados na lixeira"}`}
+              : `${total} ${total === 1 ? "chamado na lixeira" : "chamados na lixeira"}`}
           </h2>
           <p className="text-xs text-neutral-500">
             Chamados na lixeira saem de todas as listas e painéis. Nada é
@@ -124,6 +134,15 @@ async function Lixeira() {
             );
           })}
         </ul>
+      )}
+      {total > 0 && (
+        <div className="border-t border-neutral-900/[0.06] px-2 pt-3">
+          <Paginacao
+            pagina={pagina}
+            total={total}
+            href={(p) => hrefDaPagina(CONFIGURACOES_OS.lixeira, sp, p)}
+          />
+        </div>
       )}
     </Cartao>
   );

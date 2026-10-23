@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { BarraFiltros } from "@/components/os/filtros/barra-filtros";
+import {
+  BarraFiltros,
+  SeletorDeVisao,
+} from "@/components/os/filtros/barra-filtros";
 import {
   campoAgrupar,
   campoPrioridade,
@@ -19,27 +22,32 @@ import { Cartao, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
   type Busca,
-  cargaPorPessoa,
+  CARTOES_DA_TELA,
+  type ChaveCartao,
+  COLUNAS_DA_TELA,
   descreverFiltros,
   type Filtros,
   paraParametros,
 } from "@/lib/os/lista";
-import { buscarChamados } from "@/server/os/base";
 import {
-  apoio,
-  encerradosNoMes,
-  filtrosDaTela,
+  cargaDoSetor,
+  contarCartoes,
+  estadoDaLista,
   horaDaVisita,
   nomesDosFiltros,
   opcoesDeCategoria,
-  paraConsulta,
-  paraLinha,
+  paginaDaLista,
   pessoasPorSetor,
-  semRepetir,
-  setoresDisponiveis,
 } from "@/server/os/visoes";
 
 export const metadata: Metadata = { title: "Meu setor" };
+
+const DETALHES: Partial<Record<ChaveCartao, string>> = {
+  sem_responsavel: "na fila, para distribuir",
+  atrasados: "passaram do prazo",
+  abertos: "aberto, em andamento ou aguardando",
+  concluidos_mes: "concluídos ou fechados",
+};
 
 export default function Page({
   searchParams,
@@ -66,12 +74,10 @@ export default function Page({
 
 async function Setor({ busca }: { busca: Promise<Busca> }) {
   const params = await busca;
-  const [a, lidos] = await Promise.all([
-    apoio(),
-    filtrosDaTela("setor", params),
-  ]);
-  const disponiveis = setoresDisponiveis(a);
-  if (!disponiveis.length)
+  const e = await estadoDaLista("setor", params);
+  const { a, filtros, disponiveis } = e;
+  const setorId = filtros.setor;
+  if (!setorId)
     return (
       <Cartao>
         <p className="text-sm text-neutral-600">
@@ -81,30 +87,14 @@ async function Setor({ busca }: { busca: Promise<Busca> }) {
       </Cartao>
     );
 
-  // Setor escolhido (lembrado); sem escolha válida, o primeiro dos meus.
-  const setorId =
-    disponiveis.find((s) => s.id === lidos.filtros.setor)?.id ??
-    disponiveis.find((s) => a.ctx.setores.includes(s.id))?.id ??
-    disponiveis[0]?.id ??
-    "";
-  const filtros: Filtros = { ...lidos.filtros, setor: setorId };
-  const consulta = paraConsulta(filtros, "meu_setor");
-  const [doSetor, encerrados] = await Promise.all([
-    buscarChamados(consulta),
-    encerradosNoMes({ setor: setorId }, consulta, "concluido_em", a.agora),
-  ]);
-  const doFiltro = new Set(doSetor.map((c) => c.id));
-  const linhas = semRepetir(doSetor, encerrados).map((c) =>
-    paraLinha(c, a, !doFiltro.has(c.id)),
-  );
-
   const pessoas = pessoasPorSetor(a, [setorId]);
   const membros = pessoas[setorId] ?? [];
-  const ctx = {
-    agora: a.agora,
-    eu: a.ctx.usuario.id,
-    avisoHoras: a.avisoHoras,
-  };
+  // A página, os cartões e a carga por pessoa: tudo contado no banco.
+  const [pagina, valores, carga] = await Promise.all([
+    paginaDaLista(e),
+    contarCartoes(e),
+    cargaDoSetor(e, membros),
+  ]);
   const href = (extra: Filtros, cartao?: string) => {
     const p = paraParametros({ ...filtros, ...extra });
     if (cartao) p.set("cartao", cartao);
@@ -117,50 +107,58 @@ async function Setor({ busca }: { busca: Promise<Busca> }) {
       <BarraFiltros
         tela="setor"
         valores={filtros}
-        lembrados={lidos.lembrados}
+        lembrados={e.lembrados}
         fixos={["setor", "agrupar"]}
-        periodo
-        etiqueta
+        busca={{ placeholder: "Buscar por número, título ou descrição…" }}
         campos={[
           ...(disponiveis.length > 1
-            ? [{ ...campoSetor(disponiveis, undefined), largura: "w-56" }]
+            ? [{ ...campoSetor(disponiveis, undefined), largura: "w-48" }]
             : []),
-          campoAgrupar,
+          { ...campoStatus, largura: "w-40" },
           {
             chave: "responsavel",
             rotulo: "Responsável",
             todos: "Todos do setor",
             opcoes: membros.map((p) => ({ valor: p.id, rotulo: p.nome })),
-            largura: "w-52",
+            largura: "w-48",
           },
+        ]}
+        extras={[
           {
             chave: "categoria",
             rotulo: "Categoria",
             todos: "Todas as categorias",
             opcoes: opcoesDeCategoria(a, [setorId]),
-            largura: "w-52",
           },
-          campoStatus,
           campoPrioridade,
         ]}
+        etiqueta
+        periodo
       />
       <CargaPorPessoa
-        carga={cargaPorPessoa(linhas, membros, ctx)}
+        carga={carga}
         hrefPessoa={Object.fromEntries(
           membros.map((p) => [p.id, href({ responsavel: p.id })]),
         )}
         hrefFila={href({ responsavel: undefined }, "sem_responsavel")}
       />
       <VisaoLista
-        linhas={linhas}
-        cartoes={[
-          { chave: "sem_responsavel", detalhe: "na fila, para distribuir" },
-          { chave: "atrasados", detalhe: "passaram do prazo" },
-          { chave: "abertos", detalhe: "aberto, em andamento ou aguardando" },
-          { chave: "concluidos_mes", detalhe: "concluídos ou fechados" },
-        ]}
-        agrupamento={filtros.agrupar ?? "responsavel"}
-        colunas={{ solicitante: true }}
+        linhas={pagina.linhas}
+        total={pagina.total}
+        pagina={pagina.pagina}
+        cartoes={CARTOES_DA_TELA.setor.map((chave) => ({
+          chave,
+          detalhe: DETALHES[chave],
+          valor: valores[chave] ?? 0,
+        }))}
+        cartao={e.cartao}
+        ordem={e.ordem}
+        busca={e.q}
+        agrupamento={e.modo}
+        acoesDoTitulo={
+          <SeletorDeVisao tela="setor" valores={filtros} campo={campoAgrupar} />
+        }
+        colunas={COLUNAS_DA_TELA.setor}
         agora={a.agora.toISOString()}
         eu={a.ctx.usuario.id}
         avisoHoras={a.avisoHoras}
@@ -168,6 +166,7 @@ async function Setor({ busca }: { busca: Promise<Busca> }) {
         exportar={
           a.ctx.pode("os.exportar")
             ? {
+                tela: "setor",
                 titulo: `Meu setor · ${a.setorPorId.get(setorId)?.nome ?? ""}`,
                 filtros: descreverFiltros(
                   "setor",

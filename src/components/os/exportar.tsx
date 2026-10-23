@@ -13,6 +13,9 @@ import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 //     colunas={[{ titulo: "Número" }, { titulo: "Valor", numero: true }]}
 //     linhas={[["#12", 1234.5], …]}          // exatamente o que está na tela
 //   />
+// Lista paginada no servidor: em vez de `linhas`, passe `carregar` (Server
+// Action que lê o resultado filtrado inteiro e devolve { colunas, linhas });
+// ela só roda no clique. `total` (opcional) vai na dica do botão.
 // Gera no navegador (o que a pessoa vê já passou pelo RLS e pelas
 // permissões), carregando o gerador só no clique. Quem não tem a permissão
 // de exportar não recebe o botão (a tela decide).
@@ -44,25 +47,42 @@ export function BotaoExportar({
   titulo,
   filtros,
   nomeArquivo,
-  colunas,
-  linhas,
+  colunas = [],
+  linhas = [],
+  carregar,
+  total,
 }: {
   titulo: string;
   filtros?: string;
   nomeArquivo: string;
-  colunas: ColunaExportar[];
-  linhas: CelulaExportar[][];
+  colunas?: ColunaExportar[];
+  linhas?: CelulaExportar[][];
+  /** Lê tudo no clique (listas paginadas); senão vale `colunas`/`linhas`. */
+  carregar?: () => Promise<{
+    colunas: ColunaExportar[];
+    linhas: CelulaExportar[][];
+  }>;
+  /** Linhas do resultado inteiro, para a dica do botão. */
+  total?: number;
 }) {
   const [gerando, setGerando] = useState<Formato | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const quantas = total ?? (carregar ? null : linhas.length);
+  const dica = (onde: string) =>
+    quantas === null
+      ? `Baixar em ${onde} (o resultado inteiro)`
+      : `Baixar em ${onde} (${quantas} ${quantas === 1 ? "linha" : "linhas"})`;
 
   async function exportar(formato: Formato) {
     setGerando(formato);
     setErro(null);
     try {
-      const gerador = await import("@/lib/os/exportar");
+      const [gerador, conteudo] = await Promise.all([
+        import("@/lib/os/exportar"),
+        carregar ? carregar() : Promise.resolve({ colunas, linhas }),
+      ]);
       const agora = new Date();
-      const dados = { titulo, filtros, colunas, linhas, geradoEm: agora };
+      const dados = { titulo, filtros, ...conteudo, geradoEm: agora };
       const bytes =
         formato === "xlsx"
           ? await gerador.gerarExcel(dados)
@@ -86,7 +106,7 @@ export function BotaoExportar({
   return (
     <div className="flex items-center gap-2">
       <fieldset
-        aria-label="Exportar o que está na tela"
+        aria-label="Exportar"
         className="vidro m-0 inline-flex items-center gap-0.5 rounded-full p-1"
       >
         <button
@@ -94,7 +114,7 @@ export function BotaoExportar({
           className={botao}
           disabled={gerando !== null}
           onClick={() => exportar("xlsx")}
-          title={`Baixar em Excel (${linhas.length} linhas)`}
+          title={dica("Excel")}
         >
           {gerando === "xlsx" ? (
             <Loader
@@ -111,7 +131,7 @@ export function BotaoExportar({
           className={botao}
           disabled={gerando !== null}
           onClick={() => exportar("pdf")}
-          title={`Baixar em PDF (${linhas.length} linhas)`}
+          title={dica("PDF")}
         >
           {gerando === "pdf" ? (
             <Loader

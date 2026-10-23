@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import {
   custoPorMes,
   descreverLocal,
@@ -6,10 +7,21 @@ import {
   faltasNoCadastro,
   idadeEmAnos,
   type MesDeCusto,
-  preventivaAtrasada,
+  ordenarPorPeso,
   tempoMedioDeReparoMin,
   umAnoAntes,
 } from "@/lib/os/ativos";
+import {
+  type FiltroAtivos,
+  OR_CADASTRO_INCOMPLETO,
+  precisaDoSinal,
+} from "@/lib/os/ativos-lista";
+import {
+  buscaNoOr,
+  type Filtravel,
+  totalForaDoIntervalo,
+} from "@/lib/os/filtro-postgrest";
+import { intervalo } from "@/lib/os/paginacao";
 import {
   diasParado,
   type FaixasSinal,
@@ -216,61 +228,158 @@ export interface AtivoNaLista {
   preventivasAtrasadas: number;
 }
 
-export async function listarAtivos(agora: Date): Promise<{
-  ativos: AtivoNaLista[];
-  faixas: FaixasSinal;
-  categorias: CategoriaAtivo[];
-}> {
-  const hoje = hojeEmBrasilia(agora);
-  const db = await os();
-  const [lista, cats, todasLojas, porAtivo, planos, preventivas, regras] =
-    await Promise.all([
+interface SinalDoAtivo {
+  situacao: Ativo["situacao"];
+  bloco: string | null;
+  resumo: Resumo;
+  sinal: ResultadoSinal;
+}
+
+/**
+ * O sinal de troca de todos os ativos. Ele sai de os.resumo_ativos (RPC)
+ * com regras em TypeScript (faixas dos Parâmetros), então o banco não sabe
+ * filtrar nem ordenar por ele: o cartão "Sinal Trocar", o filtro por sinal
+ * e a ordem por peso leem as colunas do cálculo de todos (uma linha por
+ * ativo, poucas colunas). O resto da lista pagina no banco.
+ */
+const sinaisDosAtivos = cache(
+  async (
+    hoje: string,
+  ): Promise<{ porAtivo: Map<string, SinalDoAtivo>; faixas: FaixasSinal }> => {
+    const db = await os();
+    const [lista, porAtivo, regras] = await Promise.all([
       todas((de, ate) =>
-        db.from("ativos").select("*").order("codigo").range(de, ate),
+        db
+          .from("ativos")
+          .select(
+            "id, situacao, bloco, valor_reposicao, compra_data, vida_util_anos",
+          )
+          .order("id")
+          .range(de, ate),
       ),
-      categoriasDeAtivo(),
-      lojas(),
       resumos(hoje),
-      todas((de, ate) =>
-        db
-          .from("planos_preventivos")
-          .select("ativo_id, proxima_data")
-          .eq("ativo", true)
-          .order("id")
-          .range(de, ate),
-      ),
-      todas((de, ate) =>
-        db
-          .from("chamados")
-          .select("ativo_id, status, prazo")
-          .not("plano_id", "is", null)
-          .not("ativo_id", "is", null)
-          .in("status", ["aberto", "em_andamento", "aguardando"])
-          .is("lixeira_em", null)
-          .order("id")
-          .range(de, ate),
-      ),
       regrasDosAtivos(),
     ]);
+    const mapa = new Map<string, SinalDoAtivo>();
+    for (const a of lista) {
+      const resumo = porAtivo.get(a.id) ?? RESUMO_VAZIO;
+      mapa.set(a.id, {
+        situacao: a.situacao,
+        bloco: a.bloco,
+        resumo,
+        sinal: sinalDoAtivo(
+          {
+            custo12m: resumo.custo12m,
+            valorReposicao: a.valor_reposicao,
+            corretivas12m: resumo.corretivas12m,
+            compraData: a.compra_data,
+            vidaUtilAnos: a.vida_util_anos,
+          },
+          regras.faixas,
+          hoje,
+        ),
+      });
+    }
+    return { porAtivo: mapa, faixas: regras.faixas };
+  },
+);
 
+/**
+ * Preventivas atrasadas por ativo: OS de plano ainda abertas com o prazo
+ * vencido (filtradas no banco; costumam ser poucas).
+ */
+const atrasadasPorAtivo = cache(
+  async (agoraIso: string): Promise<Map<string, number>> => {
+    const db = await os();
+    const lista = await todas((de, ate) =>
+      db
+        .from("chamados")
+        .select("ativo_id")
+        .not("plano_id", "is", null)
+        .not("ativo_id", "is", null)
+        .in("status", ["aberto", "em_andamento", "aguardando"])
+        .is("lixeira_em", null)
+        .lt("prazo", agoraIso)
+        .order("id")
+        .range(de, ate),
+    );
+    const mapa = new Map<string, number>();
+    for (const c of lista)
+      if (c.ativo_id) mapa.set(c.ativo_id, (mapa.get(c.ativo_id) ?? 0) + 1);
+    return mapa;
+  },
+);
+
+/** Filtros da lista que o banco resolve (todos menos o sinal). */
+function filtrarAtivos<Q extends Filtravel<Q>>(
+  q: Q,
+  f: FiltroAtivos,
+  comAtraso: string[],
+): Q {
+  let c = q;
+  if (f.situacao === "") c = c.neq("situacao", "baixado");
+  else if (f.situacao !== "todas") c = c.eq("situacao", f.situacao);
+  if (f.cat === "sem") c = c.is("categoria_id", null);
+  else if (f.cat) c = c.eq("categoria_id", f.cat);
+  if (f.local === "sem") c = c.or("bloco.is.null,bloco.eq.");
+  else if (f.local) c = c.eq("bloco", f.local);
+  if (f.incompleto) c = c.or(OR_CADASTRO_INCOMPLETO);
+  if (f.preventiva) c = c.in("id", comAtraso);
+  const busca = buscaNoOr(f.q, [
+    "codigo",
+    "nome",
+    "numero_serie",
+    "fabricante",
+    "modelo",
+  ]);
+  if (busca) c = c.or(busca);
+  return c;
+}
+
+/** Junta categoria, loja, sinal, preventivas e próxima data às linhas. */
+async function completar(
+  lista: Ativo[],
+  hoje: string,
+  agora: Date,
+): Promise<AtivoNaLista[]> {
+  if (lista.length === 0) return [];
+  const db = await os();
+  const ids = lista.map((a) => a.id);
+  const lojaIds = [
+    ...new Set(lista.flatMap((a) => (a.loja_id ? [a.loja_id] : []))),
+  ];
+  const [cats, sinais, atrasadas, planos, lojasDaPagina] = await Promise.all([
+    categoriasDeAtivo(),
+    sinaisDosAtivos(hoje),
+    atrasadasPorAtivo(agora.toISOString()),
+    todas((de, ate) =>
+      db
+        .from("planos_preventivos")
+        .select("ativo_id, proxima_data")
+        .eq("ativo", true)
+        .in("ativo_id", ids)
+        .order("id")
+        .range(de, ate),
+    ),
+    lojaIds.length
+      ? db.from("lojas").select("id, luc, nome").in("id", lojaIds)
+      : null,
+  ]);
+  falhar(lojasDaPagina?.error ?? null);
   const nomeCategoria = new Map(cats.map((c) => [c.id, c.nome]));
-  const loja = new Map(todasLojas.map((l) => [l.id, l]));
+  const loja = new Map(
+    (lojasDaPagina?.data ?? []).map((l) => [l.id, `${l.luc} ${l.nome}`]),
+  );
   const proxima = new Map<string, string>();
   for (const p of planos) {
     const atual = proxima.get(p.ativo_id);
     if (!atual || p.proxima_data < atual)
       proxima.set(p.ativo_id, p.proxima_data);
   }
-  const atrasadas = new Map<string, number>();
-  for (const c of preventivas) {
-    if (c.ativo_id && preventivaAtrasada(c, agora))
-      atrasadas.set(c.ativo_id, (atrasadas.get(c.ativo_id) ?? 0) + 1);
-  }
-
-  const ativos = lista.map((a): AtivoNaLista => {
-    const resumo = porAtivo.get(a.id) ?? RESUMO_VAZIO;
-    const l = a.loja_id ? loja.get(a.loja_id) : undefined;
-    const nomeLoja = l ? `${l.luc} ${l.nome}` : null;
+  return lista.map((a): AtivoNaLista => {
+    const s = sinais.porAtivo.get(a.id);
+    const resumo = s?.resumo ?? RESUMO_VAZIO;
+    const nomeLoja = a.loja_id ? (loja.get(a.loja_id) ?? null) : null;
     return {
       ativo: a,
       categoria: a.categoria_id
@@ -279,24 +388,200 @@ export async function listarAtivos(agora: Date): Promise<{
       loja: nomeLoja,
       local: descreverLocal({ ...a, loja: nomeLoja }),
       resumo,
-      sinal: sinalDoAtivo(
-        {
-          custo12m: resumo.custo12m,
-          valorReposicao: a.valor_reposicao,
-          corretivas12m: resumo.corretivas12m,
-          compraData: a.compra_data,
-          vidaUtilAnos: a.vida_util_anos,
-        },
-        regras.faixas,
-        hoje,
-      ),
+      sinal:
+        s?.sinal ??
+        sinalDoAtivo(
+          {
+            custo12m: resumo.custo12m,
+            valorReposicao: a.valor_reposicao,
+            corretivas12m: resumo.corretivas12m,
+            compraData: a.compra_data,
+            vidaUtilAnos: a.vida_util_anos,
+          },
+          sinais.faixas,
+          hoje,
+        ),
       faltas: faltasNoCadastro(a),
       idadeAnos: idadeEmAnos(a.compra_data, hoje),
       proximaPreventiva: proxima.get(a.id) ?? null,
       preventivasAtrasadas: atrasadas.get(a.id) ?? 0,
     };
   });
-  return { ativos, faixas: regras.faixas, categorias: cats };
+}
+
+/**
+ * Os ids do filtro na ordem da tela, quando o sinal entra (filtro por
+ * sinal ou decisão de troca, do maior peso para o menor): o banco devolve
+ * só os ids filtrados e o sinal filtra e ordena aqui.
+ */
+async function idsPeloSinal(
+  f: FiltroAtivos,
+  hoje: string,
+  agora: Date,
+): Promise<string[]> {
+  const db = await os();
+  const [sinais, atrasadas] = await Promise.all([
+    sinaisDosAtivos(hoje),
+    atrasadasPorAtivo(agora.toISOString()),
+  ]);
+  const lista = await todas((de, ate) =>
+    filtrarAtivos(db.from("ativos").select("id"), f, [...atrasadas.keys()])
+      .order("codigo")
+      .order("id")
+      .range(de, ate),
+  );
+  const comSinal = lista
+    .map((a) => ({
+      id: a.id,
+      pesoPct: sinais.porAtivo.get(a.id)?.sinal.pesoPct ?? null,
+      sinal: sinais.porAtivo.get(a.id)?.sinal.sinal,
+    }))
+    .filter((a) => !f.sinal || a.sinal === f.sinal);
+  const ordem = f.visao === "decisao" ? ordenarPorPeso(comSinal) : comSinal;
+  return ordem.map((a) => a.id);
+}
+
+/** Linhas completas de uma lista de ids, na ordem pedida. */
+async function ativosPorId(ids: string[]): Promise<Ativo[]> {
+  const db = await os();
+  const linhas: Ativo[] = [];
+  // Em lotes: os ids vão na URL.
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await db
+      .from("ativos")
+      .select("*")
+      .in("id", ids.slice(i, i + 100));
+    falhar(error);
+    linhas.push(...(data ?? []));
+  }
+  const porId = new Map(linhas.map((a) => [a.id, a]));
+  return ids.flatMap((id) => porId.get(id) ?? []);
+}
+
+/** Uma página da lista (ou da decisão de troca) e o total do filtro. */
+export async function paginaDeAtivos(
+  f: FiltroAtivos,
+  pagina: number,
+  agora: Date,
+): Promise<{ ativos: AtivoNaLista[]; total: number }> {
+  const hoje = hojeEmBrasilia(agora);
+  const { de, ate } = intervalo(pagina);
+  if (precisaDoSinal(f)) {
+    const ids = await idsPeloSinal(f, hoje, agora);
+    const linhas = await ativosPorId(ids.slice(de, ate + 1));
+    return { ativos: await completar(linhas, hoje, agora), total: ids.length };
+  }
+  const db = await os();
+  const atrasadas = await atrasadasPorAtivo(agora.toISOString());
+  const { data, error, count } = await filtrarAtivos(
+    db.from("ativos").select("*", { count: "exact" }),
+    f,
+    [...atrasadas.keys()],
+  )
+    .order("codigo")
+    .order("id")
+    .range(de, ate);
+  if (error) {
+    const total = totalForaDoIntervalo(error);
+    if (total !== null) return { ativos: [], total };
+    falhar(error);
+  }
+  return {
+    ativos: await completar(data ?? [], hoje, agora),
+    total: count ?? 0,
+  };
+}
+
+/** Todos os ativos do filtro, na ordem da tela (exportar, no clique). */
+export async function ativosDoFiltro(
+  f: FiltroAtivos,
+  agora: Date,
+): Promise<AtivoNaLista[]> {
+  const hoje = hojeEmBrasilia(agora);
+  if (precisaDoSinal(f))
+    return completar(
+      await ativosPorId(await idsPeloSinal(f, hoje, agora)),
+      hoje,
+      agora,
+    );
+  const db = await os();
+  const atrasadas = await atrasadasPorAtivo(agora.toISOString());
+  const lista = await todas((de, ate) =>
+    filtrarAtivos(db.from("ativos").select("*"), f, [...atrasadas.keys()])
+      .order("codigo")
+      .order("id")
+      .range(de, ate),
+  );
+  return completar(lista, hoje, agora);
+}
+
+export interface IndicadoresDosAtivos {
+  /** Em uso, em manutenção ou parados (sem os baixados). */
+  emUso: number;
+  incompletos: number;
+  manutencao: number;
+  parados: number;
+  /** Preventivas atrasadas e em quantos ativos. */
+  atrasadas: number;
+  comAtraso: number;
+  trocar: number;
+  /** Blocos usados (opções do filtro de local). */
+  blocos: string[];
+  faixas: FaixasSinal;
+  categorias: CategoriaAtivo[];
+}
+
+/** Os cartões do topo: contagens no banco; o sinal sai do cálculo acima. */
+export async function indicadoresDosAtivos(
+  agora: Date,
+): Promise<IndicadoresDosAtivos> {
+  const hoje = hojeEmBrasilia(agora);
+  const db = await os();
+  const contar = async (
+    filtro: (
+      q: ReturnType<typeof consultaDeContagem>,
+    ) => ReturnType<typeof consultaDeContagem>,
+  ) => {
+    const { count, error } = await filtro(consultaDeContagem(db));
+    falhar(error);
+    return count ?? 0;
+  };
+  const [emUso, incompletos, manutencao, parados, sinais, atrasadas, cats] =
+    await Promise.all([
+      contar((q) => q.neq("situacao", "baixado")),
+      contar((q) => q.neq("situacao", "baixado").or(OR_CADASTRO_INCOMPLETO)),
+      contar((q) => q.eq("situacao", "em_manutencao")),
+      contar((q) => q.eq("situacao", "parado")),
+      sinaisDosAtivos(hoje),
+      atrasadasPorAtivo(agora.toISOString()),
+      categoriasDeAtivo(),
+    ]);
+  const emUsoComAtraso = [...atrasadas].filter(
+    ([id]) => sinais.porAtivo.get(id)?.situacao !== "baixado",
+  );
+  const valores = [...sinais.porAtivo.values()];
+  return {
+    emUso,
+    incompletos,
+    manutencao,
+    parados,
+    atrasadas: emUsoComAtraso.reduce((s, [, n]) => s + n, 0),
+    comAtraso: emUsoComAtraso.length,
+    trocar: valores.filter(
+      (s) => s.situacao !== "baixado" && s.sinal.sinal === "trocar",
+    ).length,
+    blocos: [
+      ...new Set(
+        valores.map((s) => s.bloco?.trim()).filter((b): b is string => !!b),
+      ),
+    ].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true })),
+    faixas: sinais.faixas,
+    categorias: cats,
+  };
+}
+
+function consultaDeContagem(db: Awaited<ReturnType<typeof os>>) {
+  return db.from("ativos").select("id", { count: "exact", head: true });
 }
 
 // ---------------------------------------------------------------------------

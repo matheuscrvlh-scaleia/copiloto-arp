@@ -2,7 +2,25 @@ import "server-only";
 import type { QueryData } from "@supabase/supabase-js";
 import { cache } from "react";
 import type { Sessao } from "@/lib/os/calculos";
+import {
+  buscaNoOr,
+  type Filtravel,
+  listaNoOr,
+  termoDeBusca,
+  totalForaDoIntervalo,
+} from "@/lib/os/filtro-postgrest";
 import { localDaOS, paraSessao, tipoDeServico } from "@/lib/os/ordem";
+import {
+  CARTOES_OS,
+  type CartaoOS,
+  type CriterioDoCartao,
+  criadasEntre,
+  criterioDoCartao,
+  type FiltrosOS,
+  localConfere,
+  statusDoFiltro,
+} from "@/lib/os/ordem-lista";
+import { intervalo } from "@/lib/os/paginacao";
 import type { OSRelatorio } from "@/lib/os/relatorios";
 import type { Execucao, StatusChamado } from "@/lib/os/rotulos";
 import { categorias, nomes, os, type Tabela } from "./base";
@@ -235,4 +253,206 @@ export function paraRelatorio(
     profissionais: profissionaisDa(o, c),
     solucao: o.solucao,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Lista paginada da tela Ordens de serviço
+// ---------------------------------------------------------------------------
+
+/** Filtros da tela já resolvidos para o banco. */
+export interface FiltroListaOS {
+  status: StatusChamado[];
+  execucao: Execucao | null;
+  categoria: string | null;
+  empresa: string | null;
+  rateio: boolean | null;
+  tecnico: string | null;
+  /** Criadas de / até (aaaa-mm-dd, Brasília, inclusive). */
+  de: string | null;
+  ate: string | null;
+  /** `.or()` do local digitado (local, bloco e lojas que conferem). */
+  local: string | null;
+  /** `.or()` da busca (número, título, descrição). */
+  busca: string | null;
+}
+
+/** Lojas que entram na busca do local por LUC e nome (a URL tem limite). */
+const MAX_LOJAS_NO_LOCAL = 150;
+
+/**
+ * Resolve os filtros da URL para a consulta. O local na tela junta loja,
+ * bloco e ponto: no banco vira local/bloco por texto e as lojas cujo nome
+ * ou LUC confere (lidas dos cadastros, que a tela já carrega).
+ */
+export function filtroDaListaOS(
+  f: FiltrosOS,
+  cad: Cadastros,
+  agora: Date,
+): FiltroListaOS {
+  const periodo = criadasEntre(f, agora);
+  let local: string | null = null;
+  const t = termoDeBusca(f.local);
+  if (t) {
+    const lojas = [...cad.lojas.values()]
+      .filter((l) => localConfere(`${l.luc} · ${l.nome}`, t))
+      .slice(0, MAX_LOJAS_NO_LOCAL)
+      .map((l) => l.id);
+    const bloco = t.replace(/^bloco\s+/i, "");
+    local = [
+      `local.ilike.*${t}*`,
+      `bloco.ilike.*${bloco}*`,
+      listaNoOr("loja_id", lojas),
+      // Sem loja, bloco nem ponto, a tela mostra "Área comum".
+      localConfere("Área comum", t)
+        ? "and(loja_id.is.null,bloco.is.null,local.is.null)"
+        : null,
+    ]
+      .filter(Boolean)
+      .join(",");
+  }
+  return {
+    status: statusDoFiltro(f.status),
+    execucao: f.execucao,
+    categoria: f.categoria,
+    empresa: f.empresa,
+    rateio: f.rateio,
+    tecnico: f.tecnico,
+    de: periodo.de,
+    ate: periodo.ate,
+    local,
+    busca: buscaNoOr(f.q, ["titulo", "descricao"], "numero"),
+  };
+}
+
+/**
+ * Técnico filtra pelas sessões: um segundo embutido das sessões, com
+ * !inner, deixa só as OS em que ele trabalhou sem cortar as outras
+ * sessões da OS (que somam o tempo).
+ */
+const comTecnico = (colunas: string, f: FiltroListaOS) =>
+  f.tecnico
+    ? `${colunas}, ftec:sessoes!inner(sessao_tecnicos!inner(tecnico_id))`
+    : colunas;
+
+function filtrarOS<Q extends Filtravel<Q>>(
+  q: Q,
+  f: FiltroListaOS,
+  extra: CriterioDoCartao | null,
+  rodando: string[],
+): Q {
+  let c = q.is("lixeira_em", null).eq("tipo", "os");
+  if (f.status.length) c = c.in("status", f.status);
+  if (f.execucao) c = c.eq("execucao", f.execucao);
+  if (f.categoria) c = c.eq("categoria_id", f.categoria);
+  if (f.empresa) c = c.eq("empresa_id", f.empresa);
+  if (f.rateio !== null) c = c.eq("rateio", f.rateio);
+  if (f.tecnico) c = c.eq("ftec.sessao_tecnicos.tecnico_id", f.tecnico);
+  if (f.de) c = c.gte("criado_em", `${f.de}T00:00:00-03:00`);
+  if (f.ate) c = c.lte("criado_em", `${f.ate}T23:59:59.999-03:00`);
+  if (f.local) c = c.or(f.local);
+  if (f.busca) c = c.or(f.busca);
+  if (extra) {
+    // Dois filtros na mesma coluna somam (status do filtro E do cartão).
+    if (extra.status) c = c.in("status", extra.status);
+    if (extra.execucao) c = c.eq("execucao", extra.execucao);
+    if (extra.fechadoEntre)
+      c = c
+        .gte("fechado_em", extra.fechadoEntre.de)
+        .lt("fechado_em", extra.fechadoEntre.ate);
+    if (extra.rodando) c = c.in("id", rodando);
+  }
+  return c;
+}
+
+/** OS com o cronômetro rodando agora (sessões abertas: são poucas). */
+const osRodando = cache(async (): Promise<string[]> => {
+  const { data, error } = await (await os())
+    .from("sessoes")
+    .select("chamado_id")
+    .is("fim", null)
+    .limit(500);
+  if (error) throw new Error(`Falha ao ler as sessões: ${error.message}`);
+  return [...new Set((data ?? []).map((s) => s.chamado_id))];
+});
+
+/** Uma página da lista (a mais recente primeiro) e o total do filtro. */
+export async function paginaDeOS(
+  f: FiltroListaOS,
+  cartao: CartaoOS | null,
+  pagina: number,
+  agora: Date,
+): Promise<{ linhas: LinhaOS[]; total: number }> {
+  const db = await os();
+  const extra = cartao ? criterioDoCartao(cartao, agora) : null;
+  const rodando = extra?.rodando ? await osRodando() : [];
+  const { de, ate } = intervalo(pagina);
+  const { data, error, count } = await filtrarOS(
+    db.from("chamados").select(comTecnico(COLUNAS_OS, f) as typeof COLUNAS_OS, {
+      count: "exact",
+    }),
+    f,
+    extra,
+    rodando,
+  )
+    .order("numero", { ascending: false })
+    .range(de, ate);
+  if (error) {
+    const total = totalForaDoIntervalo(error);
+    if (total !== null) return { linhas: [], total };
+    throw new Error(`Falha ao ler as OS: ${error.message}`);
+  }
+  return { linhas: data ?? [], total: count ?? 0 };
+}
+
+/** Os quatro cartões: contagens no banco, com os filtros da tela. */
+export async function contarCartoesOS(
+  f: FiltroListaOS,
+  agora: Date,
+): Promise<Record<CartaoOS, number>> {
+  const db = await os();
+  const rodando = await osRodando();
+  const chaves = Object.keys(CARTOES_OS) as CartaoOS[];
+  const contagens = await Promise.all(
+    chaves.map(async (c) => {
+      const { count, error } = await filtrarOS(
+        db
+          .from("chamados")
+          .select(comTecnico("id", f) as "id", { count: "exact", head: true }),
+        f,
+        criterioDoCartao(c, agora),
+        rodando,
+      );
+      if (error) throw new Error(`Falha ao contar as OS: ${error.message}`);
+      return [c, count ?? 0] as const;
+    }),
+  );
+  return Object.fromEntries(contagens) as Record<CartaoOS, number>;
+}
+
+/** Teto da exportação (o arquivo leva o filtro inteiro, de mil em mil). */
+export const MAXIMO_EXPORTAR_OS = 10_000;
+
+/** Todas as OS do filtro, para exportar (lidas só no clique). */
+export async function osDoFiltro(
+  f: FiltroListaOS,
+  cartao: CartaoOS | null,
+  agora: Date,
+): Promise<LinhaOS[]> {
+  const db = await os();
+  const extra = cartao ? criterioDoCartao(cartao, agora) : null;
+  const rodando = extra?.rodando ? await osRodando() : [];
+  return todasAsLinhas(
+    (de, ate) =>
+      filtrarOS(
+        db
+          .from("chamados")
+          .select(comTecnico(COLUNAS_OS, f) as typeof COLUNAS_OS),
+        f,
+        extra,
+        rodando,
+      )
+        .order("numero", { ascending: false })
+        .range(de, ate),
+    MAXIMO_EXPORTAR_OS,
+  );
 }

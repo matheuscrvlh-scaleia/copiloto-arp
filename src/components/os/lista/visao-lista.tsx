@@ -7,45 +7,40 @@ import {
   ChevronDown,
   CircleCheck,
   Clock,
-  Search,
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
+import { exportarLista } from "@/app/(app)/os/visoes-actions";
 import { BotaoExportar } from "@/components/os/exportar";
+import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import {
   IconeTipo,
   SeloExemplo,
   SeloStatusChamado,
 } from "@/components/os/selos";
 import { Selecao } from "@/components/selecao";
-import { formatarDataHora, formatarNumero } from "@/lib/formato";
-import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 import {
   agrupar,
   CARTOES,
   type ChaveCartao,
   COLUNAS_ORDEM,
   type ColunaOrdem,
+  type ColunasVisiveis,
   type ContextoLista,
-  contarCartao,
-  filtrarLinhas,
   type Grupo,
   type LinhaChamado,
   type ModoGrupo,
   ORDEM_PADRAO,
   type Ordem,
-  ordenarLinhas,
+  ordemNaUrl,
+  ordenavelNoBanco,
+  type TelaLista,
 } from "@/lib/os/lista";
-import { SITUACOES_PRAZO, situacaoDoPrazo } from "@/lib/os/prazo";
+import { POR_PAGINA } from "@/lib/os/paginacao";
 import { PARAM_PAINEL } from "@/lib/os/rotas";
-import {
-  MOTIVOS_AGUARDANDO,
-  PRIORIDADES,
-  STATUS,
-  TIPOS,
-} from "@/lib/os/rotulos";
+import { TIPOS } from "@/lib/os/rotulos";
 import { ProvedorAvisos } from "./avisos";
 import { type CartaoVisao, CartoesFiltro } from "./cartoes";
 import {
@@ -58,21 +53,30 @@ import {
 } from "./edicao";
 import { BarraDoLote } from "./lote";
 
-// Lista das visões (Minha caixa, Meu setor, Abertos por mim): cartões que
-// filtram, busca, ordenação por coluna, grupos, total no rodapé, alterações
-// rápidas, seleção com ações em lote e exportação do que está na tela.
-// Clicar no chamado abre o detalhe na janela lateral (?c=<id>), sem sair.
+// Lista das visões (Minha caixa, Meu setor, Abertos por mim), paginada no
+// servidor: chega só a página (30 linhas) e o total. Os cartões (contados
+// no banco), a ordem por coluna e a página vão na URL (?cartao=, ?ordem=,
+// ?pagina=; a busca ?q= fica na barra de filtros) e o servidor devolve a
+// página nova. Grupos dentro da página, alterações rápidas, seleção com
+// ações em lote (na página) e exportação do resultado inteiro (lido no
+// clique). Clicar no chamado abre o detalhe na janela lateral (?c=<id>).
 // Em telas estreitas a tabela vira cartões empilhados.
 
-export interface ColunasVisiveis {
-  setor?: boolean;
-  solicitante?: boolean;
-  responsavel?: boolean;
-}
+export type { ColunasVisiveis } from "@/lib/os/lista";
 
 export function VisaoLista(props: {
+  /** Só a página mostrada, na ordem do banco. */
   linhas: LinhaChamado[];
-  cartoes: { chave: ChaveCartao; detalhe?: string }[];
+  /** Total com os filtros, o cartão e a busca. */
+  total: number;
+  pagina: number;
+  /** Cartões com o número contado no banco. */
+  cartoes: CartaoVisao[];
+  cartao: ChaveCartao | null;
+  /** Ordem escolhida (null: a padrão, pelo prazo). */
+  ordem: Ordem | null;
+  /** Busca em vigor (?q=), para a mensagem de vazio e a exportação. */
+  busca: string;
   agrupamento: ModoGrupo;
   colunas: ColunasVisiveis;
   /** ISO da renderização (o mesmo no servidor e no navegador). */
@@ -80,8 +84,15 @@ export function VisaoLista(props: {
   eu: string;
   avisoHoras: number;
   pessoasPorSetor: Record<string, PessoaOpcao[]>;
-  exportar: { titulo: string; filtros: string; nomeArquivo: string } | null;
+  exportar: {
+    tela: TelaLista;
+    titulo: string;
+    filtros: string;
+    nomeArquivo: string;
+  } | null;
   vazio: string;
+  /** Junto do título da lista (ex.: o "Agrupar por" do Meu setor). */
+  acoesDoTitulo?: React.ReactNode;
 }) {
   return (
     <ProvedorAvisos>
@@ -92,7 +103,12 @@ export function VisaoLista(props: {
 
 function Conteudo({
   linhas,
+  total,
+  pagina,
   cartoes,
+  cartao,
+  ordem: ordemEscolhida,
+  busca,
   agrupamento,
   colunas,
   agora: agoraIso,
@@ -101,51 +117,64 @@ function Conteudo({
   pessoasPorSetor,
   exportar,
   vazio,
+  acoesDoTitulo,
 }: Parameters<typeof VisaoLista>[0]) {
+  const router = useRouter();
   const params = useSearchParams();
   const pathname = usePathname();
+  const [carregando, iniciar] = useTransition();
   const agora = useMemo(() => new Date(agoraIso), [agoraIso]);
   const ctx: ContextoLista = { agora, eu, avisoHoras };
-  const inicial = params.get("cartao");
-  const [cartao, setCartao] = useState<ChaveCartao | null>(
-    cartoes.some((c) => c.chave === inicial) ? (inicial as ChaveCartao) : null,
-  );
-  const [busca, setBusca] = useState("");
-  const [ordem, setOrdem] = useState<Ordem>(ORDEM_PADRAO);
+  const ordem = ordemEscolhida ?? ORDEM_PADRAO;
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [fechados, setFechados] = useState<Set<string>>(new Set());
 
-  /** O cartão ativo vai para a URL (o link leva junto), sem recarregar. */
-  function escolherCartao(c: ChaveCartao | null) {
-    setCartao(c);
-    setMarcados(new Set());
+  /** Cartão e ordem vão para a URL; a página volta para a primeira. */
+  function navegar(muda: (p: URLSearchParams) => void) {
     const p = new URLSearchParams(params);
-    if (c) p.set("cartao", c);
-    else p.delete("cartao");
-    window.history.replaceState(null, "", `${pathname}?${p.toString()}`);
+    p.delete("pagina");
+    muda(p);
+    setMarcados(new Set());
+    const qs = p.toString();
+    iniciar(() =>
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false }),
+    );
   }
 
-  const valores: CartaoVisao[] = cartoes.map((c) => ({
-    ...c,
-    valor: contarCartao(linhas, c.chave, ctx),
-  }));
-  const visiveis = ordenarLinhas(
-    filtrarLinhas(linhas, { cartao, busca }, ctx),
-    ordem,
-  );
-  const grupos = agrupar(visiveis, agrupamento, ctx);
-  const selecionadas = visiveis.filter((l) => marcados.has(l.id));
-  const total = linhas.filter((l) => !l.soNoCartao).length;
-  const comConfirmacao = visiveis.some(
+  const escolherCartao = (c: ChaveCartao | null) =>
+    navegar((p) => {
+      if (c) p.set("cartao", c);
+      else p.delete("cartao");
+    });
+
+  function ordenarPor(o: Ordem) {
+    navegar((p) => {
+      const padrao =
+        o.coluna === ORDEM_PADRAO.coluna && o.sentido === ORDEM_PADRAO.sentido;
+      if (padrao) p.delete("ordem");
+      else p.set("ordem", ordemNaUrl(o));
+    });
+  }
+
+  const ordenarColuna = (coluna: ColunaOrdem) =>
+    ordenarPor(
+      ordem.coluna === coluna
+        ? { coluna, sentido: ordem.sentido === 1 ? -1 : 1 }
+        : { coluna, sentido: 1 },
+    );
+
+  const grupos = agrupar(linhas, agrupamento, ctx, { naOrdemDasLinhas: true });
+  const selecionadas = linhas.filter((l) => marcados.has(l.id));
+  const comConfirmacao = linhas.some(
     (l) => l.status === "concluido" && l.abertoPor === eu,
   );
 
   const hrefPainel = (id: string) => {
     const p = new URLSearchParams(params);
     p.set(PARAM_PAINEL, id);
-    if (cartao) p.set("cartao", cartao);
     return `${pathname}?${p.toString()}`;
   };
+  const hrefPagina = (n: number) => hrefDaPagina(pathname, params, n);
 
   const marcar = (ids: string[], sim: boolean) =>
     setMarcados((m) => {
@@ -156,13 +185,6 @@ function Conteudo({
       }
       return novo;
     });
-
-  const ordenarPor = (coluna: ColunaOrdem) =>
-    setOrdem((o) =>
-      o.coluna === coluna
-        ? { coluna, sentido: o.sentido === 1 ? -1 : 1 }
-        : { coluna, sentido: 1 },
-    );
 
   const linha: PropsLinha = {
     colunas,
@@ -176,9 +198,9 @@ function Conteudo({
 
   return (
     <div className="flex flex-col gap-6">
-      {valores.length > 0 && (
+      {cartoes.length > 0 && (
         <CartoesFiltro
-          cartoes={valores}
+          cartoes={cartoes}
           ativo={cartao}
           aoEscolher={escolherCartao}
         />
@@ -186,81 +208,79 @@ function Conteudo({
 
       <section
         aria-label="Chamados"
+        aria-busy={carregando}
         className="vidro flex flex-col gap-4 rounded-[1.75rem] p-3 md:p-5"
       >
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex min-w-0 flex-1 basis-56 items-center gap-2 rounded-full border border-neutral-900/10 bg-white/70 py-1.5 pr-4 pl-1.5 text-sm">
-            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-neutral-900 text-white">
-              <Search className="size-3.5" aria-hidden />
-            </span>
-            <span className="sr-only">Buscar na lista</span>
-            <input
-              type="search"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar por número, título, pessoa, etiqueta…"
-              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-neutral-400"
-            />
-          </label>
-          <OrdemNoCelular ordem={ordem} aoMudar={setOrdem} />
-          {exportar && (
-            <BotaoExportar
-              titulo={
-                cartao
-                  ? `${exportar.titulo} · ${CARTOES[cartao].titulo}`
-                  : exportar.titulo
-              }
-              filtros={[
-                exportar.filtros,
-                busca.trim() && `Busca: ${busca.trim()}`,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-              nomeArquivo={exportar.nomeArquivo}
-              {...paraExportar(grupos, agrupamento, colunas, ctx)}
-            />
+          <h2 className="pl-2 text-sm font-semibold">
+            {cartao ? CARTOES[cartao].titulo : "Chamados"}
+          </h2>
+          {acoesDoTitulo}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <OrdemNoCelular ordem={ordem} aoMudar={ordenarPor} />
+            {exportar && (
+              <BotaoExportar
+                titulo={
+                  cartao
+                    ? `${exportar.titulo} · ${CARTOES[cartao].titulo}`
+                    : exportar.titulo
+                }
+                filtros={[exportar.filtros, busca && `Busca: ${busca}`]
+                  .filter(Boolean)
+                  .join(" · ")}
+                nomeArquivo={exportar.nomeArquivo}
+                total={total}
+                carregar={() =>
+                  exportarLista(exportar.tela, Object.fromEntries(params))
+                }
+              />
+            )}
+          </div>
+        </div>
+
+        {total > POR_PAGINA && (
+          <Paginacao pagina={pagina} total={total} href={hrefPagina} />
+        )}
+
+        <div className={`transition-opacity ${carregando ? "opacity-60" : ""}`}>
+          {linhas.length === 0 ? (
+            <p className="px-2 py-10 text-center text-sm text-neutral-500">
+              {busca || cartao ? "Nada encontrado com esse filtro." : vazio}
+            </p>
+          ) : (
+            <>
+              <Tabela
+                grupos={grupos}
+                ordem={ordem}
+                ordenarPor={ordenarColuna}
+                fechados={fechados}
+                alternar={(g) =>
+                  setFechados((f) => {
+                    const n = new Set(f);
+                    if (n.has(g)) n.delete(g);
+                    else n.add(g);
+                    return n;
+                  })
+                }
+                todosMarcados={
+                  linhas.length > 0 && linhas.every((l) => marcados.has(l.id))
+                }
+                marcarTodos={(sim) =>
+                  marcar(
+                    linhas.map((l) => l.id),
+                    sim,
+                  )
+                }
+                linha={linha}
+              />
+              <Empilhados grupos={grupos} linha={linha} />
+            </>
           )}
         </div>
 
-        {visiveis.length === 0 ? (
-          <p className="px-2 py-10 text-center text-sm text-neutral-500">
-            {busca || cartao ? "Nada encontrado com esse filtro." : vazio}
-          </p>
-        ) : (
-          <>
-            <Tabela
-              grupos={grupos}
-              ordem={ordem}
-              ordenarPor={ordenarPor}
-              fechados={fechados}
-              alternar={(g) =>
-                setFechados((f) => {
-                  const n = new Set(f);
-                  if (n.has(g)) n.delete(g);
-                  else n.add(g);
-                  return n;
-                })
-              }
-              todosMarcados={
-                visiveis.length > 0 && visiveis.every((l) => marcados.has(l.id))
-              }
-              marcarTodos={(sim) =>
-                marcar(
-                  visiveis.map((l) => l.id),
-                  sim,
-                )
-              }
-              linha={linha}
-            />
-            <Empilhados grupos={grupos} linha={linha} />
-          </>
-        )}
-
-        <p className="px-2 text-xs text-neutral-500 tabular-nums">
-          {visiveis.length === total || cartao
-            ? `Total: ${formatarNumero(visiveis.length)} ${visiveis.length === 1 ? "chamado" : "chamados"}`
-            : `Mostrando ${formatarNumero(visiveis.length)} de ${formatarNumero(total)} chamados`}
-        </p>
+        <div className="px-2">
+          <Paginacao pagina={pagina} total={total} href={hrefPagina} />
+        </div>
 
         {selecionadas.length > 0 && (
           <BarraDoLote
@@ -272,52 +292,6 @@ function Conteudo({
       </section>
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Exportação: o que está na tela, na ordem da tela
-// ---------------------------------------------------------------------------
-
-function paraExportar(
-  grupos: Grupo[],
-  modo: ModoGrupo,
-  colunas: ColunasVisiveis,
-  ctx: ContextoLista,
-): { colunas: ColunaExportar[]; linhas: CelulaExportar[][] } {
-  const comGrupo = modo !== "nenhum";
-  const cols: ColunaExportar[] = [
-    ...(comGrupo ? [{ titulo: "Grupo" }] : []),
-    { titulo: "Número", numero: true },
-    { titulo: "Tipo" },
-    { titulo: "Título" },
-    ...(colunas.setor ? [{ titulo: "Setor" }] : []),
-    { titulo: "Categoria" },
-    ...(colunas.solicitante ? [{ titulo: "Pedido por" }] : []),
-    ...(colunas.responsavel !== false ? [{ titulo: "Responsável" }] : []),
-    { titulo: "Prioridade" },
-    { titulo: "Prazo" },
-    { titulo: "Situação do prazo" },
-    { titulo: "Status" },
-    { titulo: "Aberto em" },
-  ];
-  const linhas = grupos.flatMap((g) =>
-    g.linhas.map((l) => [
-      ...(comGrupo ? [g.titulo] : []),
-      l.numero,
-      TIPOS[l.tipo],
-      l.titulo,
-      ...(colunas.setor ? [l.setor] : []),
-      l.categoria ?? "",
-      ...(colunas.solicitante ? [l.solicitante ?? ""] : []),
-      ...(colunas.responsavel !== false ? [l.responsavel ?? "Na fila"] : []),
-      PRIORIDADES[l.prioridade],
-      l.prazo ? formatarDataHora(l.prazo) : "",
-      SITUACOES_PRAZO[situacaoDoPrazo(l, ctx.agora, ctx.avisoHoras)],
-      `${STATUS[l.status]}${l.aguardando ? ` (${MOTIVOS_AGUARDANDO[l.aguardando]})` : ""}${l.destinos ? ` · ${l.destinos.texto}` : ""}`,
-      formatarDataHora(l.criadoEm),
-    ]),
-  );
-  return { colunas: cols, linhas };
 }
 
 // ---------------------------------------------------------------------------
@@ -408,7 +382,9 @@ function Cabecalho({
   ordenarPor: (c: ColunaOrdem) => void;
   className?: string;
 }) {
-  if (!coluna)
+  // O banco ordena por número, título, prioridade, prazo e status; setor e
+  // pessoas são nomes de outras tabelas: cabeçalho sem ordenação.
+  if (!coluna || !ordenavelNoBanco(coluna))
     return (
       <th
         scope="col"
@@ -478,7 +454,7 @@ function Tabela({
             <th scope="col" className="w-8 px-2 py-2">
               <input
                 type="checkbox"
-                aria-label="Marcar todos da lista"
+                aria-label="Marcar todos desta página"
                 checked={todosMarcados}
                 onChange={(e) => marcarTodos(e.target.checked)}
                 className="size-4 accent-neutral-900"
@@ -746,10 +722,7 @@ const ORDENS_CELULAR: { coluna: ColunaOrdem; rotulos: [string, string] }[] = [
   { coluna: "prioridade", rotulos: ["Menos urgente", "Mais urgente"] },
   { coluna: "numero", rotulos: ["Mais antigos", "Mais novos"] },
   { coluna: "titulo", rotulos: ["Título (A–Z)", "Título (Z–A)"] },
-  {
-    coluna: "responsavel",
-    rotulos: ["Responsável (A–Z)", "Responsável (Z–A)"],
-  },
+  { coluna: "status", rotulos: ["Status (do ciclo)", "Status (ao contrário)"] },
 ];
 
 function OrdemNoCelular({

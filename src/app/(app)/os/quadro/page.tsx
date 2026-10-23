@@ -13,25 +13,16 @@ import { Quadro } from "@/components/os/quadro/quadro";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
-import { type Busca, descreverFiltros, type Recorte } from "@/lib/os/lista";
-import { buscarChamados } from "@/server/os/base";
+import { type Busca, descreverFiltros } from "@/lib/os/lista";
 import {
-  apoio,
-  contagens,
-  filtrosDaTela,
+  colunasDoQuadro,
+  estadoDoQuadro,
   horaDaVisita,
   nomesDosFiltros,
   opcoesDeCategoria,
-  paraConsulta,
-  paraLinha,
-  semRepetir,
-  setoresDisponiveis,
 } from "@/server/os/visoes";
 
 export const metadata: Metadata = { title: "Quadro" };
-
-/** Fechados recentes que a coluna Fechado mostra quando pedida. */
-const FECHADOS_RECENTES = 40;
 
 export default function Page({
   searchParams,
@@ -79,47 +70,10 @@ function Esqueleto() {
 
 async function QuadroDaTela({ busca }: { busca: Promise<Busca> }) {
   const params = await busca;
-  const [a, { filtros, lembrados }] = await Promise.all([
-    apoio(),
-    filtrosDaTela("quadro", params),
-  ]);
-  const permitidos: Recorte[] = [
-    "minha_caixa",
-    ...(a.ctx.pode("os.meu_setor") ? (["meu_setor"] as const) : []),
-    "abertos_por_mim",
-    ...(a.ctx.pode("os.todos_setores") ? (["todos"] as const) : []),
-  ];
-  const recorte =
-    filtros.recorte && permitidos.includes(filtros.recorte)
-      ? filtros.recorte
-      : "minha_caixa";
-  const comSetor = recorte === "meu_setor" || recorte === "todos";
-  const setores =
-    recorte === "todos"
-      ? a.setores.filter((s) => s.ativo)
-      : setoresDisponiveis(a);
-  const valores = {
-    ...filtros,
-    recorte,
-    setor: comSetor ? filtros.setor : undefined,
-  };
-  const consulta = paraConsulta({ ...valores, status: undefined }, recorte);
-  const [abertos, fechados] = await Promise.all([
-    buscarChamados(consulta),
-    filtros.fechados
-      ? buscarChamados({
-          ...consulta,
-          status: ["fechado"],
-          limite: FECHADOS_RECENTES,
-        })
-      : Promise.resolve([]),
-  ]);
-  const todos = semRepetir(abertos, fechados);
-  const numeros = await contagens(todos.map((c) => c.id));
-  const cartoes = todos.map((c) => ({
-    ...paraLinha(c, a),
-    contagens: numeros.get(c.id),
-  }));
+  const e = await estadoDoQuadro(params);
+  const { a, valores } = e;
+  // Uma consulta por coluna: os primeiros cartões e o total real dela.
+  const colunas = await colunasDoQuadro(e);
 
   return (
     <div className="flex flex-col gap-5">
@@ -127,12 +81,16 @@ async function QuadroDaTela({ busca }: { busca: Promise<Busca> }) {
       <BarraFiltros
         tela="quadro"
         valores={valores}
-        lembrados={lembrados}
+        lembrados={e.lembrados}
         fixos={["recorte"]}
         campos={[
-          campoRecorte(permitidos),
-          ...(comSetor ? [campoSetor(setores)] : []),
-          campoTipo,
+          campoRecorte(e.permitidos),
+          ...(e.comSetor
+            ? [{ ...campoSetor(e.setores), largura: "w-48" }]
+            : []),
+          { ...campoTipo, largura: "w-44" },
+        ]}
+        extras={[
           {
             chave: "categoria",
             rotulo: "Categoria",
@@ -141,7 +99,6 @@ async function QuadroDaTela({ busca }: { busca: Promise<Busca> }) {
               a,
               valores.setor ? [valores.setor] : null,
             ),
-            largura: "w-52",
           },
           campoPrioridade,
           {
@@ -149,15 +106,15 @@ async function QuadroDaTela({ busca }: { busca: Promise<Busca> }) {
             rotulo: "Fechados",
             todos: "Sem os fechados",
             opcoes: [{ valor: "1", rotulo: "Com os fechados recentes" }],
-            largura: "w-56",
           },
         ]}
       />
       <Quadro
-        cartoes={cartoes}
+        colunas={colunas}
+        mais={e.mais}
         agora={a.agora.toISOString()}
         avisoHoras={a.avisoHoras}
-        comFechados={!!filtros.fechados}
+        comFechados={!!e.filtros.fechados}
         exportar={
           a.ctx.pode("os.exportar")
             ? {

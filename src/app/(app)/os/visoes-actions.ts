@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 import {
   lerFiltros,
   PREFERENCIA_FILTROS,
@@ -22,6 +23,12 @@ import {
   lerChamado,
 } from "@/server/os/chamados";
 import { gravarPreferencia } from "@/server/os/preferencias";
+import {
+  estadoDaLista,
+  estadoDoQuadro,
+  exportacaoDaLista,
+  exportacaoDoQuadro,
+} from "@/server/os/visoes";
 import { alterarChamado } from "./chamados/actions";
 
 // Ações das visões do dia a dia (listas, quadro e calendário): alterações
@@ -221,6 +228,52 @@ export async function moverChamado(entrada: {
   }
   refresh();
   return { ok: "Movido." };
+}
+
+// ---------------------------------------------------------------------------
+// Exportação das listas paginadas: o resultado filtrado inteiro, no clique
+// ---------------------------------------------------------------------------
+
+const telaLista = z.enum(["caixa", "setor", "abertos"]);
+/** Parâmetros da URL da tela (filtros, cartão, busca, ordem). */
+const parametrosDaUrl = z
+  .record(z.string().max(40), z.string().max(400))
+  .refine((p) => Object.keys(p).length <= 40, "parâmetros demais");
+
+interface Planilha {
+  colunas: ColunaExportar[];
+  linhas: CelulaExportar[][];
+}
+
+async function podeExportar(): Promise<boolean> {
+  const ctx = await contexto();
+  return ctx.pode("os.acessar") && ctx.pode("os.exportar");
+}
+
+/**
+ * Minha caixa, Meu setor e Abertos por mim: lê com os mesmos filtros da
+ * tela (a URL, ou os lembrados), em lotes de 1000. Lança se não puder: o
+ * botão mostra o erro.
+ */
+export async function exportarLista(
+  tela: string,
+  busca: Record<string, string>,
+): Promise<Planilha> {
+  const t = telaLista.safeParse(tela);
+  const p = parametrosDaUrl.safeParse(busca);
+  if (!t.success || !p.success) throw new Error("Pedido inválido.");
+  if (!(await podeExportar())) throw new Error("Sem permissão para exportar.");
+  return exportacaoDaLista(await estadoDaLista(t.data, p.data));
+}
+
+/** Quadro: todas as colunas consultadas, inteiras. */
+export async function exportarQuadro(
+  busca: Record<string, string>,
+): Promise<Planilha> {
+  const p = parametrosDaUrl.safeParse(busca);
+  if (!p.success) throw new Error("Pedido inválido.");
+  if (!(await podeExportar())) throw new Error("Sem permissão para exportar.");
+  return exportacaoDoQuadro(await estadoDoQuadro(p.data));
 }
 
 // ---------------------------------------------------------------------------

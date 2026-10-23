@@ -1,6 +1,14 @@
 import { z } from "zod";
-import { GRUPOS_CAIXA, grupoDaCaixa, situacaoDoPrazo } from "./prazo";
+import { formatarDataHora } from "@/lib/formato";
+import type { CelulaExportar, ColunaExportar } from "./exportar";
 import {
+  GRUPOS_CAIXA,
+  grupoDaCaixa,
+  SITUACOES_PRAZO,
+  situacaoDoPrazo,
+} from "./prazo";
+import {
+  MOTIVOS_AGUARDANDO,
   type MotivoAguardando,
   ORDEM_PRIORIDADE,
   type Origem,
@@ -12,11 +20,18 @@ import {
   TIPOS,
   type TipoChamado,
 } from "./rotulos";
-import { hojeEmBrasilia, instante, paraBrasilia } from "./tempo";
+import {
+  deBrasilia,
+  hojeEmBrasilia,
+  instante,
+  paraBrasilia,
+  somarDias,
+} from "./tempo";
 
 // Listas do dia a dia (Minha caixa, Meu setor, Abertos por mim, Quadro e
 // Calendário): filtros da barra, cartões que filtram, busca, ordenação,
-// grupos e a carga por pessoa. Regras puras; o servidor monta as linhas.
+// grupos e a carga por pessoa. Regras puras; o servidor monta as linhas e
+// pagina no banco (o critério dos cartões, a busca e a ordem viram filtro).
 
 /** Chamado já pronto para a tela (nomes resolvidos, sem funções). */
 export interface LinhaChamado {
@@ -331,7 +346,7 @@ function blocoDaCaixa(
 function agruparPor(
   linhas: LinhaChamado[],
   chave: (l: LinhaChamado) => { chave: string; titulo: string },
-  ordem: (a: Grupo, b: Grupo) => number,
+  ordem: ((a: Grupo, b: Grupo) => number) | null,
 ): Grupo[] {
   const grupos = new Map<string, Grupo>();
   for (const l of linhas) {
@@ -340,18 +355,25 @@ function agruparPor(
     atual.linhas.push(l);
     grupos.set(g.chave, atual);
   }
-  return [...grupos.values()].sort(ordem);
+  return ordem ? [...grupos.values()].sort(ordem) : [...grupos.values()];
 }
 
 const porTitulo = (a: Grupo, b: Grupo) =>
   a.titulo.localeCompare(b.titulo, "pt-BR");
 
-/** Agrupa mantendo a ordem das linhas dentro de cada grupo. */
+/**
+ * Agrupa mantendo a ordem das linhas dentro de cada grupo. Numa página que
+ * o banco já ordenou pelo grupo (`naOrdemDasLinhas`), responsável e
+ * categoria saem na ordem em que aparecem: o grupo que continua da página
+ * anterior fica em cima, e não no meio pela ordem alfabética.
+ */
 export function agrupar(
   linhas: LinhaChamado[],
   modo: ModoGrupo,
   c: ContextoLista,
+  opcoes: { naOrdemDasLinhas?: boolean } = {},
 ): Grupo[] {
+  const naOrdem = opcoes.naOrdemDasLinhas ?? false;
   switch (modo) {
     case "nenhum":
       return linhas.length ? [{ chave: "todos", titulo: "", linhas }] : [];
@@ -384,7 +406,10 @@ export function agrupar(
           chave: l.responsavelId ?? "",
           titulo: l.responsavel ?? "Sem responsável",
         }),
-        (a, b) => (a.chave === "" ? -1 : b.chave === "" ? 1 : porTitulo(a, b)),
+        naOrdem
+          ? null
+          : (a, b) =>
+              a.chave === "" ? -1 : b.chave === "" ? 1 : porTitulo(a, b),
       );
     case "categoria":
       return agruparPor(
@@ -393,7 +418,10 @@ export function agrupar(
           chave: l.categoriaId ?? "",
           titulo: l.categoria ?? "Sem categoria",
         }),
-        (a, b) => (a.chave === "" ? 1 : b.chave === "" ? -1 : porTitulo(a, b)),
+        naOrdem
+          ? null
+          : (a, b) =>
+              a.chave === "" ? 1 : b.chave === "" ? -1 : porTitulo(a, b),
       );
     case "status":
       return agruparPor(
@@ -451,13 +479,21 @@ export function cargaPorPessoa(
     alvo.abertos++;
     if (situacao(l, c) === "atrasado") alvo.atrasados++;
   }
-  const pessoasOrdenadas = [...cargas.values()].sort(
+  return ordenarCarga([...cargas.values()], fila);
+}
+
+/**
+ * Carga já contada (no banco, por pessoa): quem tem mais vem primeiro; a
+ * fila fica no topo se tiver algo.
+ */
+export function ordenarCarga(pessoas: Carga[], fila: Carga): Carga[] {
+  const ordenadas = [...pessoas].sort(
     (a, b) =>
       b.abertos - a.abertos ||
       b.atrasados - a.atrasados ||
       a.nome.localeCompare(b.nome, "pt-BR"),
   );
-  return fila.abertos ? [fila, ...pessoasOrdenadas] : pessoasOrdenadas;
+  return fila.abertos ? [fila, ...ordenadas] : ordenadas;
 }
 
 // ---------------------------------------------------------------------------
@@ -644,3 +680,322 @@ export function descreverFiltros(
 }
 
 const dataBr = (iso: string) => iso.split("-").reverse().join("/");
+
+// ---------------------------------------------------------------------------
+// Lista paginada no servidor: cartões, busca e ordem viram filtro do banco
+// ---------------------------------------------------------------------------
+
+/** Listas com cartões, busca e paginação (o Quadro pagina por coluna). */
+export type TelaLista = "caixa" | "setor" | "abertos";
+
+/** Cartões de cada lista (no máximo 4), na ordem da tela. */
+export const CARTOES_DA_TELA: Record<TelaLista, readonly ChaveCartao[]> = {
+  caixa: ["atrasados", "vence_hoje", "aguardando_confirmacao", "em_andamento"],
+  setor: ["sem_responsavel", "atrasados", "abertos", "concluidos_mes"],
+  abertos: [
+    "aguardando_confirmacao",
+    "em_andamento",
+    "atrasados",
+    "fechados_mes",
+  ],
+};
+
+export interface ColunasVisiveis {
+  setor?: boolean;
+  solicitante?: boolean;
+  responsavel?: boolean;
+}
+
+/** Colunas de cada lista (a tela e a exportação usam as mesmas). */
+export const COLUNAS_DA_TELA: Record<TelaLista, ColunasVisiveis> = {
+  caixa: { setor: true, solicitante: true },
+  setor: { solicitante: true },
+  abertos: { setor: true },
+};
+
+/** Cartão da URL, se for um dos cartões da tela. */
+export function lerCartao(tela: TelaLista, valor: unknown): ChaveCartao | null {
+  const v = Array.isArray(valor) ? valor[0] : valor;
+  return CARTOES_DA_TELA[tela].find((c) => c === v) ?? null;
+}
+
+/**
+ * O que um cartão conta, como filtro do banco (as mesmas regras de
+ * CARTOES[...].testa). `foraDaBarra`: o status da barra não vale (os
+ * encerrados no mês aparecem mesmo com a barra em "Em aberto").
+ */
+export interface CriterioCartao {
+  status: StatusChamado[];
+  foraDaBarra?: boolean;
+  abertoPor?: string;
+  semResponsavel?: boolean;
+  /** Prazo a partir de / antes de (ISO). */
+  prazoDesde?: string;
+  prazoAntes?: string;
+  /** Encerrado a partir de (ISO), no campo indicado. */
+  encerradoDesde?: { campo: "concluido_em" | "fechado_em"; iso: string };
+}
+
+/** Começo do mês corrente em Brasília (ISO). */
+export function inicioDoMes(agora: Date): string {
+  return deBrasilia(`${hojeEmBrasilia(agora).slice(0, 7)}-01`).toISOString();
+}
+
+export function criterioDoCartao(
+  cartao: ChaveCartao,
+  c: Pick<ContextoLista, "agora" | "eu">,
+): CriterioCartao {
+  const agora = c.agora.toISOString();
+  switch (cartao) {
+    case "atrasados":
+      return { status: EM_ABERTO, prazoAntes: agora };
+    case "vence_hoje":
+      // Ainda à frente e no mesmo dia em Brasília (não encerrado).
+      return {
+        status: EM_ABERTO,
+        prazoDesde: agora,
+        prazoAntes: deBrasilia(
+          somarDias(hojeEmBrasilia(c.agora), 1),
+        ).toISOString(),
+      };
+    case "aguardando_confirmacao":
+      return { status: ["concluido"], abertoPor: c.eu };
+    case "em_andamento":
+      return { status: ["em_andamento"] };
+    case "sem_responsavel":
+      return { status: EM_ABERTO, semResponsavel: true };
+    case "abertos":
+      return { status: EM_ABERTO };
+    case "concluidos_mes":
+      return {
+        status: ["concluido", "fechado"],
+        foraDaBarra: true,
+        encerradoDesde: { campo: "concluido_em", iso: inicioDoMes(c.agora) },
+      };
+    case "fechados_mes":
+      return {
+        status: ["fechado"],
+        foraDaBarra: true,
+        encerradoDesde: { campo: "fechado_em", iso: inicioDoMes(c.agora) },
+      };
+  }
+}
+
+/**
+ * Status pedidos ao banco com o cartão: o que a barra pede E o que o cartão
+ * conta (vazio: nada passa). Sem barra, ou fora dela, só o do cartão.
+ */
+export function statusComCartao(
+  barra: StatusChamado[] | undefined,
+  criterio: CriterioCartao,
+): StatusChamado[] {
+  if (!barra?.length || criterio.foraDaBarra) return criterio.status;
+  return criterio.status.filter((s) => barra.includes(s));
+}
+
+/** Busca da URL (?q=), aparada e com tamanho limitado. */
+export function lerBusca(valor: unknown): string {
+  const v = Array.isArray(valor) ? valor[0] : valor;
+  return typeof v === "string" ? v.trim().slice(0, 80) : "";
+}
+
+/**
+ * Busca do topo da lista → um filtro `.or()` por palavra (o banco exige
+ * todas): título ou descrição contém a palavra, ou o número é ela (#123).
+ * Vírgula, parênteses, aspas e dois-pontos são sintaxe do PostgREST; `*` e
+ * `%` são curingas: tudo isso vira espaço.
+ */
+export function filtrosDaBusca(texto: string): string[] {
+  return texto
+    .replace(/[,()"\\:*%]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 6)
+    .map((palavra) => {
+      const p = palavra.slice(0, 40);
+      const partes = [`titulo.ilike.*${p}*`, `descricao.ilike.*${p}*`];
+      const n = p.replace(/^#/, "");
+      if (/^\d{1,9}$/.test(n)) partes.push(`numero.eq.${n}`);
+      return partes.join(",");
+    });
+}
+
+/** Colunas que o banco sabe ordenar (nomes de setor e de pessoas, não). */
+export const COLUNAS_NO_BANCO = {
+  numero: "numero",
+  titulo: "titulo",
+  prioridade: "prioridade",
+  prazo: "prazo",
+  status: "status",
+  criado: "criado_em",
+} as const satisfies Partial<Record<ColunaOrdem, string>>;
+export type ColunaOrdemBanco = keyof typeof COLUNAS_NO_BANCO;
+
+export const ordenavelNoBanco = (c: ColunaOrdem): c is ColunaOrdemBanco =>
+  c in COLUNAS_NO_BANCO;
+
+/** Ordem da URL (?ordem=prazo.desc); inválida vira null (a padrão). */
+export function lerOrdem(valor: unknown): Ordem | null {
+  const v = Array.isArray(valor) ? valor[0] : valor;
+  if (typeof v !== "string") return null;
+  const [coluna, sentido] = v.split(".");
+  if (!coluna || !(coluna in COLUNAS_NO_BANCO)) return null;
+  if (sentido !== "asc" && sentido !== "desc") return null;
+  return {
+    coluna: coluna as ColunaOrdemBanco,
+    sentido: sentido === "asc" ? 1 : -1,
+  };
+}
+
+export const ordemNaUrl = (o: Ordem): string =>
+  `${o.coluna}.${o.sentido === 1 ? "asc" : "desc"}`;
+
+/** Um passo do `.order()` do banco. */
+export interface PassoOrdem {
+  coluna: string;
+  asc: boolean;
+  nullsFirst: boolean;
+}
+
+/**
+ * Grupo de cada lista. A caixa só agrupa na ordem padrão (pelo prazo):
+ * ordenada por outra coluna, os blocos de prazo se espalhariam pelas
+ * páginas, então ela vira uma lista corrida.
+ */
+export function modoDaLista(
+  tela: TelaLista,
+  agrupar: Agrupamento | undefined,
+  ordem: Ordem | null,
+): ModoGrupo {
+  if (tela === "caixa")
+    return !ordem || (ordem.coluna === "prazo" && ordem.sentido === 1)
+      ? "caixa"
+      : "nenhum";
+  if (tela === "setor") return agrupar ?? "responsavel";
+  return "status";
+}
+
+/**
+ * Ordem da página no banco: primeiro a coluna do grupo (os grupos saem em
+ * sequência entre as páginas), depois a escolhida (padrão: prazo; vazio
+ * sempre no fim) e, no empate, o mais urgente e o número (ordem estável).
+ */
+export function ordemDaConsulta(
+  modo: ModoGrupo,
+  ordem: Ordem | null,
+): PassoOrdem[] {
+  const passos: PassoOrdem[] = [];
+  if (modo === "responsavel")
+    passos.push({ coluna: "responsavel_id", asc: true, nullsFirst: true });
+  else if (modo === "categoria")
+    passos.push({ coluna: "categoria_id", asc: true, nullsFirst: false });
+  else if (modo === "status")
+    passos.push({ coluna: "status", asc: true, nullsFirst: false });
+  const o = ordem && ordenavelNoBanco(ordem.coluna) ? ordem : ORDEM_PADRAO;
+  const coluna = COLUNAS_NO_BANCO[o.coluna as ColunaOrdemBanco];
+  passos.push({ coluna, asc: o.sentido === 1, nullsFirst: false });
+  if (coluna !== "prioridade")
+    passos.push({ coluna: "prioridade", asc: false, nullsFirst: false });
+  if (coluna !== "numero")
+    passos.push({ coluna: "numero", asc: true, nullsFirst: false });
+  return passos;
+}
+
+// ---------------------------------------------------------------------------
+// Período de abertura (painel de filtros): atalhos ou datas escolhidas
+// ---------------------------------------------------------------------------
+
+export const ATALHOS_PERIODO = {
+  mes: "Este mês",
+  dias30: "Últimos 30 dias",
+  ano: "Este ano",
+} as const;
+export type AtalhoPeriodo = keyof typeof ATALHOS_PERIODO;
+
+/** De / até (aaaa-mm-dd) do atalho, contado a partir de hoje (Brasília). */
+export function periodoDoAtalho(
+  atalho: AtalhoPeriodo,
+  hoje: string,
+): { de: string; ate: string } {
+  switch (atalho) {
+    case "mes":
+      return { de: `${hoje.slice(0, 7)}-01`, ate: hoje };
+    case "dias30":
+      return { de: somarDias(hoje, -29), ate: hoje };
+    case "ano":
+      return { de: `${hoje.slice(0, 4)}-01-01`, ate: hoje };
+  }
+}
+
+/** Que atalho as datas formam (null: sem período; "personalizado": outras). */
+export function atalhoDoPeriodo(
+  de: string | undefined,
+  ate: string | undefined,
+  hoje: string,
+): AtalhoPeriodo | "personalizado" | null {
+  if (!de && !ate) return null;
+  for (const a of Object.keys(ATALHOS_PERIODO) as AtalhoPeriodo[]) {
+    const p = periodoDoAtalho(a, hoje);
+    if (p.de === de && p.ate === ate) return a;
+  }
+  return "personalizado";
+}
+
+/** "Este mês", "01/10/2026 a 15/10/2026", "Desde 01/10/2026"… */
+export function descreverPeriodo(
+  de: string | undefined,
+  ate: string | undefined,
+  hoje: string,
+): string | null {
+  const atalho = atalhoDoPeriodo(de, ate, hoje);
+  if (!atalho) return null;
+  if (atalho !== "personalizado") return ATALHOS_PERIODO[atalho];
+  if (de && ate) return `${dataBr(de)} a ${dataBr(ate)}`;
+  return de ? `Desde ${dataBr(de)}` : `Até ${dataBr(ate ?? "")}`;
+}
+
+// ---------------------------------------------------------------------------
+// Exportação: o resultado filtrado inteiro, agrupado como na tela
+// ---------------------------------------------------------------------------
+
+export function paraExportar(
+  grupos: Grupo[],
+  modo: ModoGrupo,
+  colunas: ColunasVisiveis,
+  ctx: Pick<ContextoLista, "agora" | "avisoHoras">,
+): { colunas: ColunaExportar[]; linhas: CelulaExportar[][] } {
+  const comGrupo = modo !== "nenhum";
+  const cols: ColunaExportar[] = [
+    ...(comGrupo ? [{ titulo: "Grupo" }] : []),
+    { titulo: "Número", numero: true },
+    { titulo: "Tipo" },
+    { titulo: "Título" },
+    ...(colunas.setor ? [{ titulo: "Setor" }] : []),
+    { titulo: "Categoria" },
+    ...(colunas.solicitante ? [{ titulo: "Pedido por" }] : []),
+    ...(colunas.responsavel !== false ? [{ titulo: "Responsável" }] : []),
+    { titulo: "Prioridade" },
+    { titulo: "Prazo" },
+    { titulo: "Situação do prazo" },
+    { titulo: "Status" },
+    { titulo: "Aberto em" },
+  ];
+  const linhas = grupos.flatMap((g) =>
+    g.linhas.map((l) => [
+      ...(comGrupo ? [g.titulo] : []),
+      l.numero,
+      TIPOS[l.tipo],
+      l.titulo,
+      ...(colunas.setor ? [l.setor] : []),
+      l.categoria ?? "",
+      ...(colunas.solicitante ? [l.solicitante ?? ""] : []),
+      ...(colunas.responsavel !== false ? [l.responsavel ?? "Na fila"] : []),
+      PRIORIDADES[l.prioridade],
+      l.prazo ? formatarDataHora(l.prazo) : "",
+      SITUACOES_PRAZO[situacaoDoPrazo(l, ctx.agora, ctx.avisoHoras)],
+      `${STATUS[l.status]}${l.aguardando ? ` (${MOTIVOS_AGUARDANDO[l.aguardando]})` : ""}${l.destinos ? ` · ${l.destinos.texto}` : ""}`,
+      formatarDataHora(l.criadoEm),
+    ]),
+  );
+  return { colunas: cols, linhas };
+}

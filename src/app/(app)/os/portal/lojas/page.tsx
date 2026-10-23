@@ -1,25 +1,26 @@
 import { ChevronRight, Info, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { BotaoLink, Situacao } from "@/components/admin/ui";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { Secao } from "@/components/dashboard/tabela";
 import { BotaoExportar } from "@/components/os/exportar";
+import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import { ListaBusca } from "@/components/os/portal/lista-busca";
 import { SeloExemplo } from "@/components/os/selos";
 import { SemAcesso } from "@/components/protegido";
 import { formatarData } from "@/lib/formato";
+import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
+import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
+import { lerFiltroLojas, SITUACOES_LOJA } from "@/lib/os/portal-lista";
 import { contexto } from "@/server/os/base";
-import { type Loja, lojas } from "@/server/os/lojas";
+import { type Loja, lojasDoFiltro, paginaDeLojas } from "@/server/os/lojas";
 
 export const metadata: Metadata = { title: "Lojas · Portal e agenda" };
 
-const SITUACOES = {
-  vigente: "Vigentes",
-  encerrado: "Encerradas",
-  todas: "Todas",
-} as const;
+const CAMINHO = "/os/portal/lojas";
 
 export default function Page({ searchParams }: PageProps<"/os/portal/lojas">) {
   return (
@@ -36,17 +37,56 @@ export default function Page({ searchParams }: PageProps<"/os/portal/lojas">) {
   );
 }
 
+const COLUNAS_EXPORTAR: ColunaExportar[] = [
+  { titulo: "LUC" },
+  { titulo: "Loja" },
+  { titulo: "Locatário" },
+  { titulo: "Bloco" },
+  { titulo: "Situação" },
+  { titulo: "Início" },
+  { titulo: "Fim" },
+  { titulo: "Telefone" },
+  { titulo: "Vaga" },
+];
+
+/** Exportar: o filtro inteiro, lido só no clique (não só a página). */
+async function exportarLojas(
+  busca: Record<string, string>,
+): Promise<{ colunas: ColunaExportar[]; linhas: CelulaExportar[][] }> {
+  "use server";
+  const ctx = await contexto();
+  if (!ctx.pode("os.portal") || !ctx.pode("os.exportar"))
+    throw new Error("Sem permissão para exportar.");
+  const { s, q } = lerFiltroLojas(busca);
+  const lista = await lojasDoFiltro(s, q);
+  return {
+    colunas: COLUNAS_EXPORTAR,
+    linhas: lista.map((l) => [
+      l.luc,
+      l.nome,
+      l.locatario,
+      l.bloco,
+      l.situacao === "vigente" ? "Vigente" : "Encerrado",
+      l.inicio ? formatarData(l.inicio) : null,
+      l.fim ? formatarData(l.fim) : null,
+      l.telefone,
+      l.tem_vaga === null ? null : l.tem_vaga ? "Sim" : "Não",
+    ]),
+  };
+}
+
 async function Lojas({
   searchParams,
 }: Pick<PageProps<"/os/portal/lojas">, "searchParams">) {
   const ctx = await contexto();
   if (!ctx.pode("os.portal")) return <SemAcesso />;
   const sp = await searchParams;
-  const s = (
-    typeof sp.s === "string" && sp.s in SITUACOES ? sp.s : "vigente"
-  ) as keyof typeof SITUACOES;
-  const todas = await lojas();
-  const lista = s === "todas" ? todas : todas.filter((l) => l.situacao === s);
+  const { s, q } = lerFiltroLojas(sp);
+  const pagina = paginaDaUrl(sp.pagina);
+  // Só a página mostrada vem do banco, com a busca.
+  const { lojas: lista, total } = await paginaDeLojas(s, q, pagina);
+  const ultima = totalDePaginas(total);
+  if (pagina > ultima) redirect(hrefDaPagina(CAMINHO, sp, ultima));
   const periodo = (l: Loja) =>
     l.inicio || l.fim
       ? `${formatarData(l.inicio)} a ${l.fim ? formatarData(l.fim) : "—"}`
@@ -71,10 +111,10 @@ async function Lojas({
       >
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <nav aria-label="Situação" className="flex flex-wrap gap-1">
-            {Object.entries(SITUACOES).map(([valor, rotulo]) => (
+            {Object.entries(SITUACOES_LOJA).map(([valor, rotulo]) => (
               <Link
                 key={valor}
-                href={`/os/portal/lojas?s=${valor}`}
+                href={hrefDaPagina(CAMINHO, { s: valor, q: q || undefined }, 1)}
                 aria-current={valor === s ? "page" : undefined}
                 className="rounded-full px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-white/70 aria-[current=page]:bg-neutral-900 aria-[current=page]:text-white"
               >
@@ -86,30 +126,12 @@ async function Lojas({
             {ctx.pode("os.exportar") && (
               <BotaoExportar
                 titulo="Lojas"
-                filtros={SITUACOES[s]}
+                filtros={[SITUACOES_LOJA[s], q && `Busca: ${q}`]
+                  .filter(Boolean)
+                  .join(" · ")}
                 nomeArquivo="lojas"
-                colunas={[
-                  { titulo: "LUC" },
-                  { titulo: "Loja" },
-                  { titulo: "Locatário" },
-                  { titulo: "Bloco" },
-                  { titulo: "Situação" },
-                  { titulo: "Início" },
-                  { titulo: "Fim" },
-                  { titulo: "Telefone" },
-                  { titulo: "Vaga" },
-                ]}
-                linhas={lista.map((l) => [
-                  l.luc,
-                  l.nome,
-                  l.locatario,
-                  l.bloco,
-                  l.situacao === "vigente" ? "Vigente" : "Encerrado",
-                  l.inicio ? formatarData(l.inicio) : null,
-                  l.fim ? formatarData(l.fim) : null,
-                  l.telefone,
-                  l.tem_vaga === null ? null : l.tem_vaga ? "Sim" : "Não",
-                ])}
+                total={total}
+                carregar={exportarLojas.bind(null, q ? { s, q } : { s })}
               />
             )}
             <BotaoLink href="/os/portal/lojas/nova">
@@ -121,11 +143,18 @@ async function Lojas({
           </div>
         </div>
         <ListaBusca
+          busca={q}
           placeholder="Buscar pela LUC, loja, locatário ou bloco…"
           vazio="Nenhuma loja aqui ainda."
+          paginacao={
+            <Paginacao
+              pagina={pagina}
+              total={total}
+              href={(p) => hrefDaPagina(CAMINHO, sp, p)}
+            />
+          }
           itens={lista.map((l) => ({
             chave: l.id,
-            busca: `${l.luc} ${l.nome} ${l.locatario ?? ""} ${l.bloco ?? ""} ${l.cnpj ?? ""}`,
             conteudo: (
               <Link
                 href={`/os/portal/lojas/${l.id}`}

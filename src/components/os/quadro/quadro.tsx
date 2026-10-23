@@ -17,30 +17,33 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { Ban, ChevronLeft, ChevronRight } from "lucide-react";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { moverChamado } from "@/app/(app)/os/visoes-actions";
+import { Ban, ChevronLeft, ChevronRight, Loader } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { exportarQuadro, moverChamado } from "@/app/(app)/os/visoes-actions";
 import { classeCampo } from "@/components/estilos";
 import { BotaoExportar } from "@/components/os/exportar";
 import { ProvedorAvisos, useAvisar } from "@/components/os/lista/avisos";
 import { BotoesDaJanela, JanelaRapida } from "@/components/os/lista/janela";
 import { corDoStatus } from "@/components/os/selos";
 import { Selecao } from "@/components/selecao";
-import { formatarDataHora } from "@/lib/formato";
+import { formatarNumero } from "@/lib/formato";
 import type { LinhaChamado } from "@/lib/os/lista";
 import {
   aoSoltar,
   type CartaoNoQuadro,
   COLUNAS_QUADRO,
+  type ColunaDoQuadro,
   colunaAceita,
+  escreverMais,
+  type MaisPorColuna,
   type Movimento,
+  maisUmaPagina,
 } from "@/lib/os/quadro";
 import { PARAM_PAINEL } from "@/lib/os/rotas";
 import {
   MOTIVOS_AGUARDANDO,
   type MotivoAguardando,
-  PRIORIDADES,
   STATUS,
   type StatusChamado,
 } from "@/lib/os/rotulos";
@@ -51,9 +54,14 @@ import { CartaoDoQuadro } from "./cartao";
 // Concluído, Aviso e tarefa pessoal vão direto para Fechado. A coluna que
 // não aceita o cartão fica apagada durante o arraste. A mudança aparece na
 // hora e volta atrás se o banco recusar (com o motivo no rodapé).
+// Cada coluna chega com os primeiros cartões e o total real (contado no
+// banco); "Mostrar mais" pede os próximos pela URL (?mais=), que o refresh
+// depois de arrastar mantém. A exportação lê as colunas inteiras no clique.
 
 export interface PropsQuadro {
-  cartoes: LinhaChamado[];
+  colunas: ColunaDoQuadro[];
+  /** Cartões a mais pedidos em cada coluna (da URL). */
+  mais: MaisPorColuna;
   agora: string;
   avisoHoras: number;
   /** Fechados recentes carregados (coluna aberta); senão ela fica recolhida. */
@@ -109,24 +117,60 @@ interface Pendente {
 }
 
 function Conteudo({
-  cartoes,
+  colunas: doServidor,
+  mais,
   agora: agoraIso,
   avisoHoras,
   comFechados,
   exportar,
 }: PropsQuadro) {
   const avisar = useAvisar();
+  const router = useRouter();
   const params = useSearchParams();
   const pathname = usePathname();
   const agora = useMemo(() => new Date(agoraIso), [agoraIso]);
+  const cartoes = useMemo(
+    () => doServidor.flatMap((c) => c.cartoes),
+    [doServidor],
+  );
   // Mudanças já feitas aqui, até o servidor mandar a lista nova.
   const [movidos, setMovidos] = useState<Map<string, StatusChamado>>(new Map());
   const [arrastando, setArrastando] = useState<LinhaChamado | null>(null);
   const [pendente, setPendente] = useState<Pendente | null>(null);
   const [fechadoAberto, setFechadoAberto] = useState(comFechados);
+  const [carregandoMais, iniciarMais] = useTransition();
+  const [pedindoMais, setPedindoMais] = useState<StatusChamado | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a lista nova do servidor substitui as mudanças locais
-  useEffect(() => setMovidos(new Map()), [cartoes]);
+  useEffect(() => setMovidos(new Map()), [doServidor]);
+
+  /** "Mostrar mais" da coluna: mais cartões pela URL (o servidor busca). */
+  function mostrarMais(s: StatusChamado) {
+    const p = new URLSearchParams(params);
+    p.set("mais", escreverMais(maisUmaPagina(mais, s)));
+    setPedindoMais(s);
+    iniciarMais(() =>
+      router.replace(`${pathname}?${p.toString()}`, { scroll: false }),
+    );
+  }
+
+  // Total de cada coluna: o do banco, mais o que entrou e menos o que saiu
+  // arrastando aqui (até o servidor mandar os números novos).
+  const totalDe = (s: StatusChamado) => {
+    let n = doServidor.find((c) => c.status === s)?.total ?? 0;
+    for (const c of cartoes) {
+      const para = movidos.get(c.id);
+      if (!para || para === c.status) continue;
+      if (para === s) n++;
+      if (c.status === s) n--;
+    }
+    return n;
+  };
+  /** Quantos ainda faltam carregar na coluna (pelo que o servidor mandou). */
+  const restantesDe = (s: StatusChamado) => {
+    const c = doServidor.find((x) => x.status === s);
+    return c ? Math.max(0, c.total - c.cartoes.length) : 0;
+  };
 
   const sensores = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -212,9 +256,6 @@ function Conteudo({
   }
 
   const ativo = arrastando ? paraCartao(arrastando) : null;
-  const colunas = COLUNAS_QUADRO.filter(
-    (s) => s !== "fechado" || fechadoAberto || comFechados,
-  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -228,26 +269,8 @@ function Conteudo({
             titulo={exportar.titulo}
             filtros={exportar.filtros}
             nomeArquivo="quadro"
-            colunas={[
-              { titulo: "Coluna" },
-              { titulo: "Número", numero: true },
-              { titulo: "Título" },
-              { titulo: "Categoria" },
-              { titulo: "Responsável" },
-              { titulo: "Prioridade" },
-              { titulo: "Prazo" },
-            ]}
-            linhas={colunas.flatMap((s) =>
-              (porColuna.get(s) ?? []).map((c) => [
-                STATUS[s],
-                c.numero,
-                c.titulo,
-                c.categoria ?? "",
-                c.responsavel ?? "Na fila",
-                PRIORIDADES[c.prioridade],
-                c.prazo ? formatarDataHora(c.prazo) : "",
-              ]),
-            )}
+            total={doServidor.reduce((n, c) => n + c.total, 0)}
+            carregar={() => exportarQuadro(Object.fromEntries(params))}
           />
         )}
       </div>
@@ -281,6 +304,10 @@ function Conteudo({
                 key={s}
                 status={s}
                 cartoes={porColuna.get(s) ?? []}
+                total={totalDe(s)}
+                restantes={restantesDe(s)}
+                aoMostrarMais={() => mostrarMais(s)}
+                carregandoMais={carregandoMais && pedindoMais === s}
                 aceita={ativo ? colunaAceita(ativo, s) : null}
                 agora={agora}
                 avisoHoras={avisoHoras}
@@ -323,6 +350,10 @@ function Conteudo({
 function Coluna({
   status,
   cartoes,
+  total,
+  restantes,
+  aoMostrarMais,
+  carregandoMais,
   aceita,
   agora,
   avisoHoras,
@@ -332,6 +363,12 @@ function Coluna({
 }: {
   status: StatusChamado;
   cartoes: LinhaChamado[];
+  /** Total real da coluna (o banco conta; o arrastar ajusta). */
+  total: number;
+  /** Cartões da coluna que ainda não vieram do servidor. */
+  restantes: number;
+  aoMostrarMais: () => void;
+  carregandoMais: boolean;
   /** Durante o arraste: aceita (true) ou não (false); fora dele, null. */
   aceita: boolean | null;
   agora: Date;
@@ -345,7 +382,7 @@ function Coluna({
   return (
     <section
       ref={setNodeRef}
-      aria-label={`${STATUS[status]}: ${cartoes.length} ${cartoes.length === 1 ? "chamado" : "chamados"}`}
+      aria-label={`${STATUS[status]}: ${total} ${total === 1 ? "chamado" : "chamados"}`}
       className={`vidro flex h-full min-h-0 w-[85vw] max-w-80 shrink-0 snap-start flex-col rounded-[1.75rem] p-2.5 transition sm:w-72 ${recusa ? "opacity-45" : ""} ${isOver && !recusa ? "ring-2 ring-marca" : ""} ${isOver && recusa ? "ring-2 ring-red-500/60" : ""}`}
     >
       <header className="flex items-center gap-2 px-2 pt-1 pb-2.5">
@@ -356,7 +393,7 @@ function Coluna({
         />
         <h2 className="text-sm font-semibold">{STATUS[status]}</h2>
         <span className="rounded-full bg-neutral-900/[0.06] px-2 py-0.5 text-xs font-medium text-neutral-600 tabular-nums">
-          {cartoes.length}
+          {formatarNumero(total)}
         </span>
         {aoRecolher && (
           <button
@@ -391,6 +428,25 @@ function Coluna({
             {vazioFechado
               ? "Solte aqui para fechar. Para ver os fechados recentes, use o filtro “Fechados”."
               : "Nenhum chamado aqui."}
+          </li>
+        )}
+        {restantes > 0 && (
+          <li className="pt-1 pb-1">
+            <button
+              type="button"
+              onClick={aoMostrarMais}
+              disabled={carregandoMais}
+              className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-neutral-900/15 px-3 py-2.5 text-xs font-medium text-neutral-600 transition hover:border-neutral-900/30 hover:bg-white/60 hover:text-neutral-900 disabled:cursor-wait disabled:opacity-60"
+            >
+              {carregandoMais && (
+                <Loader
+                  className="size-3.5 animate-spin motion-reduce:animate-none"
+                  aria-hidden
+                />
+              )}
+              Mostrar mais ({formatarNumero(restantes)}{" "}
+              {restantes === 1 ? "restante" : "restantes"})
+            </button>
           </li>
         )}
       </ul>
