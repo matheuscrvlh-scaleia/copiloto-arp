@@ -19,36 +19,55 @@ function lerRecolhidos(): string[] {
   }
 }
 
+function gravarRecolhidos(lista: string[]) {
+  try {
+    localStorage.setItem(CHAVE, JSON.stringify(lista));
+  } catch {
+    // Sem armazenamento: vale até recarregar.
+  }
+}
+
 /**
- * Menu com seções recolhíveis. A seção da tela atual nunca fica escondida.
- * Lê o pathname: use dentro de <Suspense>.
+ * Menu com seções recolhíveis, inclusive a da tela atual. Ao chegar numa
+ * tela de uma seção recolhida (pela busca, um link), ela se abre sozinha
+ * para o item marcado aparecer. Lê o pathname: use dentro de <Suspense>.
  */
 export function SidebarNav({ sections }: { sections: NavSection[] }) {
   const pathname = usePathname();
   const ativo = activeHref(sections, pathname);
+  const secaoAtiva = sections.find((s) =>
+    s.itens.some((i) => i.href === ativo),
+  )?.titulo;
   const [recolhidos, setRecolhidos] = useState<string[]>([]);
 
   useEffect(() => {
     setRecolhidos(lerRecolhidos());
   }, []);
 
+  // Mudou de tela (o item ativo mudou) para dentro de uma seção recolhida:
+  // abre a seção. Recolher a seção sem sair da tela continua valendo.
+  useEffect(() => {
+    if (!secaoAtiva || !ativo) return;
+    setRecolhidos((atual) => {
+      if (!atual.includes(secaoAtiva)) return atual;
+      const novo = atual.filter((t) => t !== secaoAtiva);
+      gravarRecolhidos(novo);
+      return novo;
+    });
+  }, [secaoAtiva, ativo]);
+
   function alternar(titulo: string) {
     const novo = recolhidos.includes(titulo)
       ? recolhidos.filter((t) => t !== titulo)
       : [...recolhidos, titulo];
     setRecolhidos(novo);
-    try {
-      localStorage.setItem(CHAVE, JSON.stringify(novo));
-    } catch {
-      // Sem armazenamento: vale até recarregar.
-    }
+    gravarRecolhidos(novo);
   }
 
   return (
     <nav className="flex flex-col gap-4 text-sm">
       {sections.map((section) => {
-        const temAtivo = section.itens.some((i) => i.href === ativo);
-        const aberto = temAtivo || !recolhidos.includes(section.titulo);
+        const aberto = !recolhidos.includes(section.titulo);
         const id = `menu-${section.titulo.toLowerCase()}`;
         return (
           <div key={section.titulo}>
@@ -57,9 +76,7 @@ export function SidebarNav({ sections }: { sections: NavSection[] }) {
               onClick={() => alternar(section.titulo)}
               aria-expanded={aberto}
               aria-controls={id}
-              disabled={temAtivo}
-              title={temAtivo ? "Seção da tela atual" : undefined}
-              className="mb-1 flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium tracking-wider text-neutral-400 uppercase transition hover:text-neutral-700 disabled:cursor-default disabled:hover:text-neutral-400"
+              className="mb-1 flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium tracking-wider text-neutral-400 uppercase transition hover:text-neutral-700"
             >
               {section.titulo}
               <ChevronDown
