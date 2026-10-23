@@ -72,9 +72,12 @@ export function Pessoa({ nome }: { nome: string | null }) {
 export function SeletorResponsavel({
   linha,
   pessoas,
+  compacto = false,
 }: {
   linha: LinhaChamado;
   pessoas: PessoaOpcao[];
+  /** Mais estreito (coluna da tabela); o nome longo corta com reticências. */
+  compacto?: boolean;
 }) {
   const { pendente, executar } = useAcaoRapida();
   if (!linha.podeAtribuir) return <Pessoa nome={linha.responsavel} />;
@@ -90,7 +93,7 @@ export function SeletorResponsavel({
     <Selecao
       variante="embutida"
       rotulo={`Responsável do chamado ${linha.numero}`}
-      className="-ml-3 w-48 max-w-full"
+      className={`-ml-3 max-w-full ${compacto ? "w-40" : "w-48"}`}
       desabilitada={pendente}
       valor={linha.responsavelId ?? ""}
       aoMudar={(v) =>
@@ -98,7 +101,7 @@ export function SeletorResponsavel({
         executar(() => atribuirResponsavel([linha.id], v || null))
       }
       opcoes={[
-        { valor: "", rotulo: "Na fila (sem responsável)" },
+        { valor: "", rotulo: "Na fila", descricao: "Sem responsável" },
         ...opcoes.map((p) => ({ valor: p.id, rotulo: p.nome })),
       ]}
     />
@@ -109,14 +112,21 @@ const OPCOES_PRIORIDADE = Object.entries(PRIORIDADES).map(
   ([valor, rotulo]) => ({ valor, rotulo }),
 );
 
-export function SeletorPrioridade({ linha }: { linha: LinhaChamado }) {
+export function SeletorPrioridade({
+  linha,
+  compacto = false,
+}: {
+  linha: LinhaChamado;
+  /** Mais estreito (coluna da tabela). */
+  compacto?: boolean;
+}) {
   const { pendente, executar } = useAcaoRapida();
   if (!linha.podePrazo) return <SeloPrioridade prioridade={linha.prioridade} />;
   return (
     <Selecao
       variante="embutida"
       rotulo={`Prioridade do chamado ${linha.numero}`}
-      className="-ml-3 w-32"
+      className={`-ml-3 ${compacto ? "w-28" : "w-32"}`}
       desabilitada={pendente}
       valor={linha.prioridade}
       aoMudar={(v) =>

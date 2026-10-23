@@ -99,12 +99,15 @@ function useDetalhes(itens: { chave: string; origem?: Origem }[]) {
 export function GraficoDoBloco({
   conteudo,
   descricao,
+  preencher = false,
 }: {
   conteudo: Exclude<
     Conteudo,
     { tipo: "numeros" | "tabela" | "matriz" | "texto" }
   >;
   descricao: string;
+  /** Ocupa a altura que sobra no cartão (pai em coluna flex). */
+  preencher?: boolean;
 }) {
   const detalhes = useDetalhes(conteudo.itens);
   switch (conteudo.tipo) {
@@ -136,6 +139,7 @@ export function GraficoDoBloco({
           itens={paraGrafico(conteudo.itens)}
           descricao={descricao}
           detalhes={detalhes}
+          className={preencher ? "flex-1" : ""}
         />
       );
     case "rosca":
@@ -160,6 +164,8 @@ export function GraficoDoBloco({
           rotulos={conteudo.rotulos}
           descricao={descricao}
           detalhes={detalhes}
+          preencher={preencher}
+          barrasLargas
         />
       );
   }

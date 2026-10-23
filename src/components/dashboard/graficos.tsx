@@ -1416,12 +1416,24 @@ export function ColunasEspelhadas({
   rotulos,
   descricao,
   detalhes,
+  preencher = false,
+  barrasLargas = false,
 }: {
   itens: ParMensal[];
   rotulos: { acima: string; abaixo: string };
   descricao: string;
   /** Quem forma cada item, pela chave (abre o modal ao clicar). */
   detalhes?: Record<string, Detalhe>;
+  /**
+   * Ocupa a altura que sobra no quadro (o pai é uma coluna flex), nunca
+   * menos que a altura de sempre. Sem ela, a altura é fixa.
+   */
+  preencher?: boolean;
+  /**
+   * Colunas mais largas com poucos itens: acompanham o espaço de cada item
+   * (até 3,5rem) e nunca ficam mais finas que as de sempre.
+   */
+  barrasLargas?: boolean;
 }) {
   const [ativo, setAtivo] = useState<number | null>(null);
   const det = useDetalhes(detalhes);
@@ -1430,9 +1442,22 @@ export function ColunasEspelhadas({
   const alt = (v: number) => (v / max) * 82;
   const destaque = itens.findIndex((i) => i.destaque);
   const item = ativo === null ? undefined : itens[ativo];
+  const barra = barrasLargas
+    ? {
+        largura: "min(100%, max(1.25rem, min(55%, 3.5rem)))",
+        cima: "rounded-t-lg",
+        baixo: "rounded-b-lg",
+        fundo: "rounded-2xl",
+      }
+    : {
+        largura: undefined,
+        cima: "w-full max-w-5 rounded-t-full",
+        baixo: "w-full max-w-5 rounded-b-full",
+        fundo: "rounded-full",
+      };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={`flex flex-col gap-3 ${preencher ? "min-h-0 flex-1" : ""}`}>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
         <span className="flex items-center gap-2">
           <span
@@ -1452,10 +1477,12 @@ export function ColunasEspelhadas({
         </span>
       </div>
       <div
-        className={`relative ${ANEL_FOCO}`}
+        className={`relative ${ANEL_FOCO} ${preencher ? "flex min-h-52 flex-1 flex-col" : ""}`}
         onPointerLeave={() => setAtivo(null)}
       >
-        <div className="relative flex h-52 gap-1.5 sm:gap-2">
+        <div
+          className={`relative flex gap-1.5 sm:gap-2 ${preencher ? "min-h-52 flex-1" : "h-52"}`}
+        >
           <span
             aria-hidden
             className="absolute inset-x-0 top-1/2 h-px bg-neutral-900/25"
@@ -1465,7 +1492,7 @@ export function ColunasEspelhadas({
             return (
               <div
                 key={i.chave}
-                className={`relative flex-1 rounded-full transition-colors ${ativo === k ? "bg-neutral-900/[0.05]" : ""} ${det.tem(i.chave) ? "cursor-pointer" : ""}`}
+                className={`relative flex-1 ${barra.fundo} transition-colors ${ativo === k ? "bg-neutral-900/[0.05]" : ""} ${det.tem(i.chave) ? "cursor-pointer" : ""}`}
                 style={{ opacity: apagado ? 0.45 : 1 }}
                 onPointerEnter={() => setAtivo(k)}
                 onPointerUp={() => det.abrir(i.chave)}
@@ -1473,16 +1500,18 @@ export function ColunasEspelhadas({
               >
                 {/* Para cima e para baixo a partir da linha base. */}
                 <span
-                  className="absolute bottom-1/2 left-1/2 w-full max-w-5 -translate-x-1/2 rounded-t-full motion-reduce:transition-none"
+                  className={`absolute bottom-1/2 left-1/2 -translate-x-1/2 motion-reduce:transition-none ${barra.cima}`}
                   style={{
+                    width: barra.largura,
                     height: montado ? `${alt(i.acima) / 2}%` : "0%",
                     backgroundColor: "var(--serie-1)",
                     transition: `height 700ms cubic-bezier(.2,.8,.2,1) ${k * 35}ms`,
                   }}
                 />
                 <span
-                  className="absolute top-1/2 left-1/2 w-full max-w-5 -translate-x-1/2 rounded-b-full motion-reduce:transition-none"
+                  className={`absolute top-1/2 left-1/2 -translate-x-1/2 motion-reduce:transition-none ${barra.baixo}`}
                   style={{
+                    width: barra.largura,
                     height: montado ? `${alt(i.abaixo) / 2}%` : "0%",
                     backgroundColor: "var(--serie-2)",
                     transition: `height 700ms cubic-bezier(.2,.8,.2,1) ${k * 35}ms`,

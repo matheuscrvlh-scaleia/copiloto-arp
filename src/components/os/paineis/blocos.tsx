@@ -17,6 +17,13 @@ const LARGURA: Record<NonNullable<Bloco["largura"]>, string> = {
   12: "xl:col-span-12",
 };
 
+// No computador os blocos vêm em pares na mesma linha da grade e o cartão
+// estica até a altura do vizinho. Para não sobrar vazio embaixo, o primeiro
+// gráfico que se adapta ocupa a altura que sobra (ou fica centrado nela, se
+// tem tamanho próprio) e a nota e os botões descem para o rodapé do cartão.
+const ESTICA: ReadonlySet<Conteudo["tipo"]> = new Set(["espelhadas", "faixas"]);
+const CENTRA: ReadonlySet<Conteudo["tipo"]> = new Set(["rosca"]);
+
 export function BlocoDoPainel({
   bloco,
   exportar,
@@ -28,6 +35,9 @@ export function BlocoDoPainel({
   /** Linha de filtros escrita no arquivo exportado. */
   filtros: string;
 }) {
+  const elastica = bloco.partes.findIndex(
+    (p) => ESTICA.has(p.tipo) || CENTRA.has(p.tipo),
+  );
   return (
     <Secao
       id={bloco.id}
@@ -35,16 +45,31 @@ export function BlocoDoPainel({
       descricao={bloco.descricao}
       tom={bloco.tom}
       className={`flex min-w-0 flex-col ${LARGURA[bloco.largura ?? 12]}`}
+      classeCorpo="flex flex-col"
     >
-      <div className="flex flex-col gap-5">
-        {bloco.partes.map((p, k) => (
-          <Parte
-            // biome-ignore lint/suspicious/noArrayIndexKey: partes fixas do bloco, a posição é a identidade
-            key={k}
-            conteudo={p}
-            descricao={bloco.titulo}
-          />
-        ))}
+      <div className="flex min-h-0 flex-1 flex-col gap-5">
+        {bloco.partes.map((p, k) =>
+          k === elastica ? (
+            <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: partes fixas do bloco, a posição é a identidade
+              key={k}
+              className={`flex min-h-0 flex-1 flex-col ${CENTRA.has(p.tipo) ? "justify-center" : ""}`}
+            >
+              <Parte
+                conteudo={p}
+                descricao={bloco.titulo}
+                preencher={ESTICA.has(p.tipo)}
+              />
+            </div>
+          ) : (
+            <Parte
+              // biome-ignore lint/suspicious/noArrayIndexKey: partes fixas do bloco, a posição é a identidade
+              key={k}
+              conteudo={p}
+              descricao={bloco.titulo}
+            />
+          ),
+        )}
       </div>
       {bloco.nota && (
         <p className="mt-4 text-xs text-neutral-500">{bloco.nota}</p>
@@ -77,9 +102,12 @@ export function BlocoDoPainel({
 function Parte({
   conteudo,
   descricao,
+  preencher = false,
 }: {
   conteudo: Conteudo;
   descricao: string;
+  /** O gráfico ocupa a altura que sobra no cartão. */
+  preencher?: boolean;
 }) {
   switch (conteudo.tipo) {
     case "numeros":
@@ -91,7 +119,13 @@ function Parte({
     case "texto":
       return <p className="text-sm text-neutral-500">{conteudo.texto}</p>;
     default:
-      return <GraficoDoBloco conteudo={conteudo} descricao={descricao} />;
+      return (
+        <GraficoDoBloco
+          conteudo={conteudo}
+          descricao={descricao}
+          preencher={preencher}
+        />
+      );
   }
 }
 

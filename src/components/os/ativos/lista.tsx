@@ -18,22 +18,42 @@ import {
   SeloSituacaoAtivo,
 } from "./selos";
 
-// Lista de ativos e visão "Decisão de troca". Tabela no computador e
-// cartões empilhados no celular. Reais só com os.custos.
+// Lista de ativos e visão "Decisão de troca". Tabela no computador (a partir
+// de xl, cabendo na largura: o nome quebra linha e, abaixo de 2xl, o local
+// vai embaixo dele em vez de ter coluna) e cartões empilhados no tablet e no
+// celular. Reais só com os.custos.
 
-function NomeDoAtivo({ a }: { a: AtivoNaLista }) {
+/** Só abaixo de 2xl / só em 2xl. */
+const SEM_COLUNA = "2xl:hidden";
+const SO_2XL = "hidden 2xl:table-cell";
+/** A coluna do nome fica com a largura que sobra. */
+const COLUNA_NOME = "w-full min-w-48";
+
+function NomeDoAtivo({
+  a,
+  comLocal = false,
+}: {
+  a: AtivoNaLista;
+  /** Local embaixo do nome (quando ele não tem coluna própria). */
+  comLocal?: boolean;
+}) {
   return (
-    <span className="flex min-w-0 flex-col">
+    <span className="flex min-w-0 flex-col gap-0.5">
       <Link
         href={rotaAtivo(a.ativo.id)}
-        className="font-medium underline-offset-2 hover:underline"
+        className="font-medium break-words underline-offset-2 hover:underline"
       >
         {a.ativo.nome}
       </Link>
-      <span className="font-mono text-[11px] text-neutral-500">
-        {a.ativo.codigo}
+      <span className="text-[11px] break-words text-neutral-500">
+        <span className="font-mono">{a.ativo.codigo}</span>
         {a.categoria ? ` · ${a.categoria}` : ""}
       </span>
+      {comLocal && a.local && (
+        <span className={`text-xs break-words text-neutral-500 ${SEM_COLUNA}`}>
+          {a.local}
+        </span>
+      )}
     </span>
   );
 }
@@ -84,11 +104,16 @@ export function TabelaAtivos({
   hoje: string;
 }) {
   const colunas: Coluna<AtivoNaLista>[] = [
-    { titulo: "Ativo", valor: (a) => <NomeDoAtivo a={a} /> },
+    {
+      titulo: "Ativo",
+      classe: COLUNA_NOME,
+      valor: (a) => <NomeDoAtivo a={a} comLocal />,
+    },
     {
       titulo: "Local",
+      classe: SO_2XL,
       valor: (a) => (
-        <span className="block max-w-56 truncate" title={a.local}>
+        <span className="block max-w-48 truncate" title={a.local}>
           {a.local}
         </span>
       ),
@@ -129,29 +154,32 @@ export function TabelaAtivos({
   ];
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden xl:block">
         <Tabela
+          caber
           colunas={colunas}
           linhas={ativos}
           chave={(a) => a.ativo.id}
           vazio="Nenhum ativo com esses filtros."
         />
       </div>
-      <ul className="flex flex-col gap-2 md:hidden">
+      <ul className="grid gap-2 lg:grid-cols-2 xl:hidden">
         {ativos.length === 0 && (
-          <li className="py-6 text-sm text-neutral-500">
+          <li className="py-6 text-sm text-neutral-500 lg:col-span-2">
             Nenhum ativo com esses filtros.
           </li>
         )}
         {ativos.map((a) => (
-          <li key={a.ativo.id}>
+          <li key={a.ativo.id} className="min-w-0">
             <Link
               href={rotaAtivo(a.ativo.id)}
-              className="flex flex-col gap-2 rounded-2xl bg-white/55 p-4 transition hover:bg-white/80"
+              className="flex h-full flex-col gap-2 rounded-2xl bg-white/55 p-4 transition hover:bg-white/80"
             >
               <span className="flex items-start justify-between gap-3">
                 <span className="min-w-0">
-                  <span className="block font-medium">{a.ativo.nome}</span>
+                  <span className="block font-medium break-words">
+                    {a.ativo.nome}
+                  </span>
                   <span className="block font-mono text-[11px] text-neutral-500">
                     {a.ativo.codigo}
                     {a.categoria ? ` · ${a.categoria}` : ""}
@@ -193,9 +221,12 @@ export function TabelaAtivos({
 function BarraPeso({
   peso,
   faixas,
+  className = "min-w-40",
 }: {
   peso: number | null;
   faixas: FaixasSinal;
+  /** Largura mínima (na tabela, mais curta). */
+  className?: string;
 }) {
   if (peso === null) return <SeloCriterio criterio="sem_dado" />;
   // A escala vai até um pouco além do limite de troca (ou do próprio peso).
@@ -208,7 +239,7 @@ function BarraPeso({
         ? "#fab219"
         : "#0ca30c";
   return (
-    <span className="flex min-w-40 items-center gap-2">
+    <span className={`flex items-center gap-2 ${className}`}>
       <span
         aria-hidden
         className="relative h-2 flex-1 overflow-hidden rounded-full bg-neutral-900/[0.08]"
@@ -251,17 +282,34 @@ export function DecisaoDeTroca({
   inicio?: number;
 }) {
   const colunas: Coluna<AtivoNaLista>[] = [
-    { titulo: "Ativo", valor: (a) => <NomeDoAtivo a={a} /> },
+    {
+      titulo: "Ativo",
+      classe: COLUNA_NOME,
+      valor: (a) => <NomeDoAtivo a={a} />,
+    },
     {
       titulo: "Peso da manutenção",
-      valor: (a) => <BarraPeso peso={a.sinal.pesoPct} faixas={faixas} />,
+      valor: (a) => (
+        <BarraPeso
+          peso={a.sinal.pesoPct}
+          faixas={faixas}
+          className="w-36 2xl:w-44"
+        />
+      ),
     },
     ...(verCustos
       ? [
           {
+            // Custo em cima e reposição embaixo: coluna estreita.
             titulo: "Custo 12m / reposição",
-            valor: (a: AtivoNaLista) =>
-              `${formatarMoeda(a.resumo.custo12m, 0)} / ${formatarMoeda(a.ativo.valor_reposicao, 0)}`,
+            valor: (a: AtivoNaLista) => (
+              <>
+                {formatarMoeda(a.resumo.custo12m, 0)}
+                <span className="block text-xs text-neutral-500">
+                  de {formatarMoeda(a.ativo.valor_reposicao, 0)}
+                </span>
+              </>
+            ),
             numero: true,
           },
         ]
@@ -286,20 +334,21 @@ export function DecisaoDeTroca({
   ];
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden xl:block">
         <Tabela
+          caber
           colunas={colunas}
           linhas={ativos}
           chave={(a) => a.ativo.id}
           vazio="Nenhum ativo com esses filtros."
         />
       </div>
-      <ol className="flex flex-col gap-2 md:hidden">
+      <ol className="grid gap-2 lg:grid-cols-2 xl:hidden">
         {ativos.map((a, i) => (
-          <li key={a.ativo.id}>
+          <li key={a.ativo.id} className="min-w-0">
             <Link
               href={rotaAtivo(a.ativo.id)}
-              className="flex flex-col gap-2.5 rounded-2xl bg-white/55 p-4 transition hover:bg-white/80"
+              className="flex h-full flex-col gap-2.5 rounded-2xl bg-white/55 p-4 transition hover:bg-white/80"
             >
               <span className="flex items-start gap-3">
                 <span className="grid size-6 shrink-0 place-items-center rounded-full bg-neutral-900/[0.06] text-xs font-semibold tabular-nums">

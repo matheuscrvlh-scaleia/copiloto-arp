@@ -40,7 +40,7 @@ import {
 } from "@/lib/os/lista";
 import { POR_PAGINA } from "@/lib/os/paginacao";
 import { PARAM_PAINEL } from "@/lib/os/rotas";
-import { TIPOS } from "@/lib/os/rotulos";
+import { ORIGENS, TIPOS } from "@/lib/os/rotulos";
 import { ProvedorAvisos } from "./avisos";
 import { type CartaoVisao, CartoesFiltro } from "./cartoes";
 import {
@@ -60,7 +60,10 @@ import { BarraDoLote } from "./lote";
 // página nova. Grupos dentro da página, alterações rápidas, seleção com
 // ações em lote (na página) e exportação do resultado inteiro (lido no
 // clique). Clicar no chamado abre o detalhe na janela lateral (?c=<id>).
-// Em telas estreitas a tabela vira cartões empilhados.
+// A tabela só aparece a partir de xl e cabe na largura (sem rolagem
+// lateral): o título quebra linha, setor, solicitante, categoria e origem
+// vão numa linha pequena embaixo dele (em 2xl, a primeira dessas vira
+// coluna). No celular e no tablet, cartões empilhados.
 
 export type { ColunasVisiveis } from "@/lib/os/lista";
 
@@ -165,9 +168,6 @@ function Conteudo({
 
   const grupos = agrupar(linhas, agrupamento, ctx, { naOrdemDasLinhas: true });
   const selecionadas = linhas.filter((l) => marcados.has(l.id));
-  const comConfirmacao = linhas.some(
-    (l) => l.status === "concluido" && l.abertoPor === eu,
-  );
 
   const hrefPainel = (id: string) => {
     const p = new URLSearchParams(params);
@@ -193,8 +193,21 @@ function Conteudo({
     hrefPainel,
     marcados,
     marcar,
-    confirmacao: comConfirmacao,
   };
+  const todosMarcados =
+    linhas.length > 0 && linhas.every((l) => marcados.has(l.id));
+  const marcarTodos = (sim: boolean) =>
+    marcar(
+      linhas.map((l) => l.id),
+      sim,
+    );
+  const alternarGrupo = (g: string) =>
+    setFechados((f) => {
+      const n = new Set(f);
+      if (n.has(g)) n.delete(g);
+      else n.add(g);
+      return n;
+    });
 
   return (
     <div className="flex flex-col gap-6">
@@ -254,26 +267,19 @@ function Conteudo({
                 ordem={ordem}
                 ordenarPor={ordenarColuna}
                 fechados={fechados}
-                alternar={(g) =>
-                  setFechados((f) => {
-                    const n = new Set(f);
-                    if (n.has(g)) n.delete(g);
-                    else n.add(g);
-                    return n;
-                  })
-                }
-                todosMarcados={
-                  linhas.length > 0 && linhas.every((l) => marcados.has(l.id))
-                }
-                marcarTodos={(sim) =>
-                  marcar(
-                    linhas.map((l) => l.id),
-                    sim,
-                  )
-                }
+                alternar={alternarGrupo}
+                todosMarcados={todosMarcados}
+                marcarTodos={marcarTodos}
                 linha={linha}
               />
-              <Empilhados grupos={grupos} linha={linha} />
+              <Empilhados
+                grupos={grupos}
+                fechados={fechados}
+                alternar={alternarGrupo}
+                todosMarcados={todosMarcados}
+                marcarTodos={marcarTodos}
+                linha={linha}
+              />
             </>
           )}
         </div>
@@ -295,7 +301,7 @@ function Conteudo({
 }
 
 // ---------------------------------------------------------------------------
-// Linhas (tabela no computador, cartões no celular)
+// Linhas (tabela no computador, cartões no tablet e no celular)
 // ---------------------------------------------------------------------------
 
 interface PropsLinha {
@@ -305,8 +311,6 @@ interface PropsLinha {
   hrefPainel: (id: string) => string;
   marcados: Set<string>;
   marcar: (ids: string[], sim: boolean) => void;
-  /** Alguma linha espera a minha confirmação (coluna de ações). */
-  confirmacao: boolean;
 }
 
 const ICONE_GRUPO = {
@@ -369,6 +373,18 @@ function TituloGrupo({
   );
 }
 
+/**
+ * Informação secundária que vira coluna própria em 2xl (a primeira que a
+ * tela mostra). Abaixo disso ela fica na linha pequena embaixo do título.
+ */
+type ColunaExtra = "setor" | "solicitante" | null;
+
+function colunaExtra(c: ColunasVisiveis): ColunaExtra {
+  if (c.setor) return "setor";
+  if (c.solicitante) return "solicitante";
+  return null;
+}
+
 function Cabecalho({
   coluna,
   titulo,
@@ -384,12 +400,10 @@ function Cabecalho({
 }) {
   // O banco ordena por número, título, prioridade, prazo e status; setor e
   // pessoas são nomes de outras tabelas: cabeçalho sem ordenação.
+  const classe = `px-2 py-2 text-left font-medium whitespace-nowrap ${className}`;
   if (!coluna || !ordenavelNoBanco(coluna))
     return (
-      <th
-        scope="col"
-        className={`px-2 py-2 text-left font-medium ${className}`}
-      >
+      <th scope="col" className={classe}>
         {titulo}
       </th>
     );
@@ -400,7 +414,7 @@ function Cabecalho({
       aria-sort={
         ativa ? (ordem.sentido === 1 ? "ascending" : "descending") : undefined
       }
-      className={`px-2 py-2 text-left font-medium ${className}`}
+      className={classe}
     >
       <button
         type="button"
@@ -438,16 +452,13 @@ function Tabela({
   marcarTodos: (sim: boolean) => void;
   linha: PropsLinha;
 }) {
-  const { colunas, confirmacao } = linha;
-  const nColunas =
-    7 +
-    (colunas.setor ? 1 : 0) +
-    (colunas.solicitante ? 1 : 0) +
-    (colunas.responsavel !== false ? 1 : 0) +
-    (confirmacao ? 1 : 0);
+  const { colunas } = linha;
+  const extra = colunaExtra(colunas);
+  const comResponsavel = colunas.responsavel !== false;
+  const nColunas = 6 + (extra ? 1 : 0) + (comResponsavel ? 1 : 0);
   const cab = { ordem, ordenarPor };
   return (
-    <div className="-mx-1 hidden overflow-x-auto md:block">
+    <div className="-mx-1 hidden overflow-x-auto xl:block">
       <table className="w-full border-collapse text-sm">
         <thead className="sticky top-0 z-10 bg-white/90 backdrop-blur">
           <tr className="border-b border-neutral-200 text-xs text-neutral-500">
@@ -461,18 +472,22 @@ function Tabela({
               />
             </th>
             <Cabecalho coluna="numero" titulo={COLUNAS_ORDEM.numero} {...cab} />
-            <Cabecalho coluna="titulo" titulo="Chamado" {...cab} />
-            {colunas.setor && (
-              <Cabecalho coluna="setor" titulo={COLUNAS_ORDEM.setor} {...cab} />
-            )}
-            {colunas.solicitante && (
+            {/* O título fica com a largura que sobra e quebra linha. */}
+            <Cabecalho
+              coluna="titulo"
+              titulo="Chamado"
+              className="w-full"
+              {...cab}
+            />
+            {extra && (
               <Cabecalho
-                coluna="solicitante"
-                titulo={COLUNAS_ORDEM.solicitante}
+                coluna={extra}
+                titulo={COLUNAS_ORDEM[extra]}
+                className="hidden 2xl:table-cell"
                 {...cab}
               />
             )}
-            {colunas.responsavel !== false && (
+            {comResponsavel && (
               <Cabecalho
                 coluna="responsavel"
                 titulo={COLUNAS_ORDEM.responsavel}
@@ -486,7 +501,6 @@ function Tabela({
             />
             <Cabecalho coluna="prazo" titulo={COLUNAS_ORDEM.prazo} {...cab} />
             <Cabecalho coluna="status" titulo={COLUNAS_ORDEM.status} {...cab} />
-            {confirmacao && <Cabecalho titulo="" {...cab} />}
           </tr>
         </thead>
         {grupos.map((g) => (
@@ -507,7 +521,9 @@ function Tabela({
               </tr>
             )}
             {!fechados.has(g.chave) &&
-              g.linhas.map((l) => <LinhaTabela key={l.id} l={l} p={linha} />)}
+              g.linhas.map((l) => (
+                <LinhaTabela key={l.id} l={l} p={linha} extra={extra} />
+              ))}
           </tbody>
         ))}
       </table>
@@ -515,8 +531,37 @@ function Tabela({
   );
 }
 
-/** Título, tipo, categoria, etiquetas e o que espera (Aguardando, destinos). */
-function Resumo({ l, href }: { l: LinhaChamado; href: string }) {
+function Setor({ l }: { l: LinhaChamado }) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5" title={l.setor}>
+      <span
+        aria-hidden
+        className="size-2 shrink-0 rounded-full"
+        style={{ backgroundColor: l.setorCor }}
+      />
+      <span className="truncate">{l.setor}</span>
+    </span>
+  );
+}
+
+/**
+ * Título, tipo e a linha pequena embaixo: setor, categoria, quem pediu,
+ * origem, etiquetas e o que espera (Aguardando, destinos). `naColuna`: a
+ * informação que já tem coluna própria em 2xl sai da linha nessa largura.
+ */
+function Resumo({
+  l,
+  href,
+  p,
+  naColuna = null,
+}: {
+  l: LinhaChamado;
+  href: string;
+  p: PropsLinha;
+  naColuna?: ColunaExtra;
+}) {
+  const so2xl = (c: Exclude<ColunaExtra, null>) =>
+    naColuna === c ? "2xl:hidden" : "";
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <Link
@@ -531,10 +576,21 @@ function Resumo({ l, href }: { l: LinhaChamado; href: string }) {
           <IconeTipo tipo={l.tipo} />
           <span className="sr-only">{TIPOS[l.tipo]}: </span>
         </span>
-        <span className="break-words">{l.titulo}</span>
+        <span className="min-w-0 break-words">{l.titulo}</span>
       </Link>
-      <span className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-6 text-xs text-neutral-500">
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-6 text-xs text-neutral-500">
+        {p.colunas.setor && (
+          <span className={`inline-flex max-w-full ${so2xl("setor")}`}>
+            <Setor l={l} />
+          </span>
+        )}
         {l.categoria && <span>{l.categoria}</span>}
+        {p.colunas.solicitante && l.solicitante && (
+          <span className={so2xl("solicitante")}>
+            Pedido por {l.solicitante}
+          </span>
+        )}
+        {l.origem !== "sistema" && <span>via {ORIGENS[l.origem]}</span>}
         {l.etiquetas.map((e) => (
           <span
             key={e}
@@ -575,9 +631,20 @@ function Marcar({ l, p }: { l: LinhaChamado; p: PropsLinha }) {
   );
 }
 
-function LinhaTabela({ l, p }: { l: LinhaChamado; p: PropsLinha }) {
+/** Concluído que espera a minha confirmação (abri e ainda não confirmei). */
+const esperaMinhaConfirmacao = (l: LinhaChamado, p: PropsLinha) =>
+  l.status === "concluido" && l.abertoPor === p.ctx.eu;
+
+function LinhaTabela({
+  l,
+  p,
+  extra,
+}: {
+  l: LinhaChamado;
+  p: PropsLinha;
+  extra: ColunaExtra;
+}) {
   const href = p.hrefPainel(l.id);
-  const confirmar = l.status === "concluido" && l.abertoPor === p.ctx.eu;
   return (
     <tr
       className={`border-b border-neutral-900/[0.06] align-top transition-colors last:border-0 hover:bg-white/50 ${p.marcados.has(l.id) ? "bg-white/60" : ""}`}
@@ -590,24 +657,31 @@ function LinhaTabela({ l, p }: { l: LinhaChamado; p: PropsLinha }) {
           #{l.numero}
         </Link>
       </td>
-      <td className="max-w-[28rem] min-w-56 px-2 py-2.5">
-        <Resumo l={l} href={href} />
+      <td className="min-w-48 px-2 py-2.5">
+        <Resumo l={l} href={href} p={p} naColuna={extra} />
+        {/* Confirmar / Reabrir embaixo do título: sem coluna só para isso. */}
+        {esperaMinhaConfirmacao(l, p) && (
+          <div className="mt-2 pl-6">
+            <AcoesDeConfirmacao linha={l} />
+          </div>
+        )}
       </td>
-      {p.colunas.setor && (
-        <td className="px-2 py-2.5 whitespace-nowrap">
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              aria-hidden
-              className="size-2 rounded-full"
-              style={{ backgroundColor: l.setorCor }}
-            />
-            {l.setor}
-          </span>
+      {extra === "setor" && (
+        <td className="hidden px-2 py-2.5 2xl:table-cell">
+          <div className="flex max-w-40">
+            <Setor l={l} />
+          </div>
         </td>
       )}
-      {p.colunas.solicitante && (
-        <td className="px-2 py-2.5 whitespace-nowrap">
-          <Pessoa nome={l.solicitante} />
+      {extra === "solicitante" && (
+        <td className="hidden px-2 py-2 2xl:table-cell">
+          <div className="max-w-44" title={l.solicitante ?? undefined}>
+            {l.solicitante ? (
+              <Pessoa nome={l.solicitante} />
+            ) : (
+              <span className="text-neutral-400">—</span>
+            )}
+          </div>
         </td>
       )}
       {p.colunas.responsavel !== false && (
@@ -615,11 +689,12 @@ function LinhaTabela({ l, p }: { l: LinhaChamado; p: PropsLinha }) {
           <SeletorResponsavel
             linha={l}
             pessoas={p.pessoasPorSetor[l.setorId] ?? []}
+            compacto
           />
         </td>
       )}
       <td className="px-2 py-1.5 whitespace-nowrap">
-        <SeletorPrioridade linha={l} />
+        <SeletorPrioridade linha={l} compacto />
       </td>
       <td className="px-2 py-2.5 whitespace-nowrap">
         <EditorPrazo
@@ -631,92 +706,103 @@ function LinhaTabela({ l, p }: { l: LinhaChamado; p: PropsLinha }) {
       <td className="px-2 py-2.5 whitespace-nowrap">
         <SeloStatusChamado status={l.status} aguardando={l.aguardando} />
       </td>
-      {p.confirmacao && (
-        <td className="px-2 py-2 whitespace-nowrap">
-          {confirmar && <AcoesDeConfirmacao linha={l} />}
-        </td>
-      )}
     </tr>
   );
 }
 
+/** Celular e tablet: um cartão por chamado (duas colunas a partir de lg). */
 function Empilhados({
   grupos,
+  fechados,
+  alternar,
+  todosMarcados,
+  marcarTodos,
   linha: p,
 }: {
   grupos: Grupo[];
+  fechados: Set<string>;
+  alternar: (g: string) => void;
+  todosMarcados: boolean;
+  marcarTodos: (sim: boolean) => void;
   linha: PropsLinha;
 }) {
   return (
-    <div className="flex flex-col gap-5 md:hidden">
+    <div className="flex flex-col gap-4 xl:hidden">
+      <label className="flex w-fit items-center gap-2 px-1 text-xs text-neutral-600">
+        <input
+          type="checkbox"
+          checked={todosMarcados}
+          onChange={(e) => marcarTodos(e.target.checked)}
+          className="size-4 accent-neutral-900"
+        />
+        Marcar todos desta página
+      </label>
       {grupos.map((g) => (
         <section key={g.chave} className="flex flex-col gap-2">
           {g.titulo && (
             <h3 className="px-1">
-              <TituloGrupo grupo={g} />
+              <TituloGrupo
+                grupo={g}
+                fechado={fechados.has(g.chave)}
+                alternar={() => alternar(g.chave)}
+              />
             </h3>
           )}
-          <ul className="flex flex-col gap-2">
-            {g.linhas.map((l) => (
-              <li
-                key={l.id}
-                className={`rounded-2xl border border-neutral-900/[0.06] bg-white/60 p-3 ${p.marcados.has(l.id) ? "ring-2 ring-neutral-900/20" : ""}`}
-              >
-                <div className="flex items-start gap-3">
-                  <span className="pt-0.5">
-                    <Marcar l={l} p={p} />
-                  </span>
-                  <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <div className="flex items-center justify-between gap-2 text-xs text-neutral-500">
-                      <span className="tabular-nums">
-                        #{l.numero}
-                        {p.colunas.setor && ` · ${l.setor}`}
-                      </span>
-                      <SeloStatusChamado
-                        status={l.status}
-                        aguardando={l.aguardando}
-                      />
-                    </div>
-                    <Resumo l={l} href={p.hrefPainel(l.id)} />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <EditorPrazo
-                        linha={l}
-                        agora={p.ctx.agora}
-                        avisoHoras={p.ctx.avisoHoras}
-                      />
-                      <SeletorPrioridade linha={l} />
-                    </div>
-                    {p.colunas.responsavel !== false && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-xs text-neutral-500">
-                          Responsável
-                        </span>
-                        <SeletorResponsavel
-                          linha={l}
-                          pessoas={p.pessoasPorSetor[l.setorId] ?? []}
+          {!fechados.has(g.chave) && (
+            <ul className="grid gap-2 lg:grid-cols-2">
+              {g.linhas.map((l) => (
+                <li
+                  key={l.id}
+                  className={`min-w-0 rounded-2xl border border-neutral-900/[0.06] bg-white/60 p-3 ${p.marcados.has(l.id) ? "ring-2 ring-neutral-900/20" : ""}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="pt-0.5">
+                      <Marcar l={l} p={p} />
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+                        <span className="tabular-nums">#{l.numero}</span>
+                        <SeloStatusChamado
+                          status={l.status}
+                          aguardando={l.aguardando}
                         />
                       </div>
-                    )}
-                    {p.colunas.solicitante && l.solicitante && (
-                      <p className="text-xs text-neutral-500">
-                        Pedido por {l.solicitante}
-                      </p>
-                    )}
-                    {l.status === "concluido" && l.abertoPor === p.ctx.eu && (
-                      <AcoesDeConfirmacao linha={l} />
-                    )}
+                      <Resumo l={l} href={p.hrefPainel(l.id)} p={p} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <EditorPrazo
+                          linha={l}
+                          agora={p.ctx.agora}
+                          avisoHoras={p.ctx.avisoHoras}
+                        />
+                        <SeletorPrioridade linha={l} />
+                      </div>
+                      {p.colunas.responsavel !== false && (
+                        <div className="flex min-w-0 items-center gap-2 text-sm">
+                          <span className="shrink-0 text-xs text-neutral-500">
+                            Responsável
+                          </span>
+                          <SeletorResponsavel
+                            linha={l}
+                            pessoas={p.pessoasPorSetor[l.setorId] ?? []}
+                          />
+                        </div>
+                      )}
+                      {esperaMinhaConfirmacao(l, p) && (
+                        <AcoesDeConfirmacao linha={l} />
+                      )}
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       ))}
     </div>
   );
 }
 
-/** No celular não há cabeçalho de coluna: a ordem vira uma seleção. */
+/** Nos cartões não há cabeçalho de coluna: a ordem vira uma seleção. */
 const ORDENS_CELULAR: { coluna: ColunaOrdem; rotulos: [string, string] }[] = [
   { coluna: "prazo", rotulos: ["Prazo mais próximo", "Prazo mais distante"] },
   { coluna: "prioridade", rotulos: ["Menos urgente", "Mais urgente"] },
@@ -736,7 +822,7 @@ function OrdemNoCelular({
     <Selecao
       variante="pilula"
       rotulo="Ordenar a lista"
-      className="w-56 max-w-full md:hidden"
+      className="w-56 max-w-full xl:hidden"
       valor={`${ordem.coluna}:${ordem.sentido}`}
       aoMudar={(v) => {
         const [coluna, sentido] = v.split(":");

@@ -7,11 +7,15 @@ export interface Coluna<T> {
   numero?: boolean;
   /** Texto que não quebra (ex.: o nome da pessoa) na TabelaBusca. */
   inteiro?: boolean;
+  /** Classe do cabeçalho e das células (ex.: "hidden 2xl:table-cell"). */
+  classe?: string;
 }
 
 /**
  * Tabela com rolagem lateral dentro do quadro (nunca a página). Com `rolar`,
  * ocupa a altura do quadro e rola também na vertical, com o cabeçalho preso.
+ * Com `caber`, ela se ajusta à largura do quadro: os textos quebram linha e
+ * só os números ficam inteiros.
  */
 export function Tabela<T>({
   colunas,
@@ -20,6 +24,7 @@ export function Tabela<T>({
   rodape,
   vazio = "Nenhum registro.",
   rolar = false,
+  caber = false,
   classeDaLinha,
 }: {
   colunas: Coluna<T>[];
@@ -29,6 +34,8 @@ export function Tabela<T>({
   vazio?: string;
   /** Rola por dentro; o quadro precisa ter altura definida. */
   rolar?: boolean;
+  /** Cabe na largura do quadro (sem rolagem lateral): os textos quebram. */
+  caber?: boolean;
   /** Classe extra de uma linha (ex.: fim de semana mais apagado). */
   classeDaLinha?: (linha: T) => string;
 }) {
@@ -36,10 +43,15 @@ export function Tabela<T>({
     return <p className="py-6 text-sm text-neutral-500">{vazio}</p>;
   }
   const alinhar = (c: Coluna<T>) =>
-    c.numero ? "text-right tabular-nums" : "text-left";
+    `${c.numero ? "text-right tabular-nums" : "text-left"} ${c.classe ?? ""}`;
+  // Número nunca quebra; o cabeçalho pode quebrar (com `caber`).
+  const celula = (c: Coluna<T>) =>
+    `${alinhar(c)} ${c.numero ? "whitespace-nowrap" : ""}`;
   return (
     <div className={`-mx-2 overflow-x-auto ${rolar ? "h-full" : ""}`}>
-      <table className="w-full min-w-max border-collapse text-sm">
+      <table
+        className={`w-full border-collapse text-sm ${caber ? "" : "min-w-max"}`}
+      >
         <thead
           className={rolar ? "sticky top-0 z-10 bg-white/90 backdrop-blur" : ""}
         >
@@ -61,7 +73,7 @@ export function Tabela<T>({
               className={`border-b border-neutral-900/[0.06] transition-colors last:border-0 hover:bg-white/50 ${classeDaLinha?.(l) ?? ""}`}
             >
               {colunas.map((c) => (
-                <td key={c.titulo} className={`px-2 py-2 ${alinhar(c)}`}>
+                <td key={c.titulo} className={`px-2 py-2 ${celula(c)}`}>
                   {c.valor(l)}
                 </td>
               ))}
@@ -121,6 +133,7 @@ export function Secao({
   className = "",
   tom = "claro",
   id,
+  classeCorpo = "",
 }: {
   /** Âncora (ex.: #beneficios) para os atalhos levarem ao bloco certo. */
   id?: string;
@@ -129,6 +142,8 @@ export function Secao({
   children: React.ReactNode;
   className?: string;
   tom?: Tom;
+  /** Classe extra do corpo (ex.: "flex flex-col" para esticar o conteúdo). */
+  classeCorpo?: string;
 }) {
   return (
     <section
@@ -139,7 +154,7 @@ export function Secao({
       {descricao && (
         <p className="mt-1 text-xs text-neutral-500">{descricao}</p>
       )}
-      <div className="mt-4 min-h-0 flex-1">{children}</div>
+      <div className={`mt-4 min-h-0 flex-1 ${classeCorpo}`}>{children}</div>
     </section>
   );
 }
