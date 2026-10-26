@@ -325,6 +325,14 @@ export const folhasDoCusto = cache(async (): Promise<FolhaDoCusto[]> => {
   return data ?? [];
 });
 
+/**
+ * Sócio (pró-labore) nunca entra no custo. O cálculo já o deixa de fora, mas
+ * o custo gravado antes dessa regra (ou numa folha fechada) ainda o tem: as
+ * leituras filtram também, para a tela não depender de recalcular.
+ */
+const ehProLabore = (l: { tipo_contrato: string }) =>
+  l.tipo_contrato === "pro_labore";
+
 /** Somas por competência, departamento, cargo e contrato (exige rh.custo_pessoal). */
 export const custoAgregado = cache(
   async (inicio: string, fim: string): Promise<CustoAgregado[]> => {
@@ -339,21 +347,23 @@ export const custoAgregado = cache(
         .order("cargo_id")
         .order("tipo_contrato"),
     );
-    return data.map((l) => ({
-      competencia: l.competencia,
-      departamento_id: l.departamento_id,
-      cargo_id: l.cargo_id,
-      tipo_contrato: l.tipo_contrato,
-      colaboradores: Number(l.colaboradores),
-      remuneracao: Number(l.remuneracao),
-      encargos: Number(l.encargos),
-      provisoes: Number(l.provisoes),
-      beneficios: Number(l.beneficios),
-      rescisao: Number(l.rescisao),
-      reembolsos: Number(l.reembolsos),
-      custo_total: Number(l.custo_total),
-      sem_valor: Number(l.sem_valor),
-    }));
+    return data
+      .filter((l) => !ehProLabore(l))
+      .map((l) => ({
+        competencia: l.competencia,
+        departamento_id: l.departamento_id,
+        cargo_id: l.cargo_id,
+        tipo_contrato: l.tipo_contrato,
+        colaboradores: Number(l.colaboradores),
+        remuneracao: Number(l.remuneracao),
+        encargos: Number(l.encargos),
+        provisoes: Number(l.provisoes),
+        beneficios: Number(l.beneficios),
+        rescisao: Number(l.rescisao),
+        reembolsos: Number(l.reembolsos),
+        custo_total: Number(l.custo_total),
+        sem_valor: Number(l.sem_valor),
+      }));
   },
 );
 
@@ -361,22 +371,26 @@ export const custoAgregado = cache(
 export const custosIndividuais = cache(
   async (competencia: string): Promise<CustoIndividual[]> => {
     const db = await rh();
-    const data = await lerTudo(() =>
-      db
-        .from("custos_colaborador")
-        .select(
-          `colaborador_id, departamento_id, tipo_contrato, remuneracao, encargos,
+    const [data, deFora] = await Promise.all([
+      lerTudo(() =>
+        db
+          .from("custos_colaborador")
+          .select(
+            `colaborador_id, departamento_id, tipo_contrato, remuneracao, encargos,
            provisao_13, provisao_ferias, multa_rescisoria, beneficios, rescisao,
            custo_total, custo_hora, salario_hora, jornada_min,
            pendencias:memoria->pendencias, valor_informado,
            colaborador:colaboradores(nome, matricula),
            departamento:departamentos(nome),
            cargo:cargos(nome)`,
-        )
-        .eq("competencia", competencia)
-        .order("colaborador_id"),
-    );
+          )
+          .eq("competencia", competencia)
+          .order("colaborador_id"),
+      ),
+      socios(),
+    ]);
     return data
+      .filter((c) => !ehProLabore(c) && !deFora.has(c.colaborador_id))
       .map((c) => ({
         colaborador_id: c.colaborador_id,
         nome: c.colaborador?.nome ?? "—",
