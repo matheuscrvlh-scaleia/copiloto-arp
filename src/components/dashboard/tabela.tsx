@@ -109,7 +109,7 @@ export function paraBusca<T>(
   linhas: T[],
   chave: (l: T) => string,
   busca: (l: T) => string,
-  filtros?: (l: T) => Record<string, string>,
+  filtros?: (l: T) => Record<string, string | string[]>,
 ) {
   return {
     colunas: colunas.map(({ titulo, numero, inteiro }) => ({

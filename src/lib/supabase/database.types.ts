@@ -3359,6 +3359,44 @@ export type Database = {
           },
         ]
       }
+      beneficio_contratos: {
+        Row: {
+          ate: string | null
+          atualizado_em: string
+          beneficio_id: string
+          criado_em: string
+          desde: string
+          id: string
+          tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"]
+        }
+        Insert: {
+          ate?: string | null
+          atualizado_em?: string
+          beneficio_id: string
+          criado_em?: string
+          desde: string
+          id?: string
+          tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"]
+        }
+        Update: {
+          ate?: string | null
+          atualizado_em?: string
+          beneficio_id?: string
+          criado_em?: string
+          desde?: string
+          id?: string
+          tipo_contrato?: Database["rh"]["Enums"]["tipo_contrato"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beneficio_contratos_beneficio_id_fkey"
+            columns: ["beneficio_id"]
+            isOneToOne: false
+            referencedRelation: "beneficios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       beneficios: {
         Row: {
           ativo: boolean
@@ -3582,6 +3620,7 @@ export type Database = {
           rescisao: number
           salario_hora: number | null
           tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"]
+          valor_informado: boolean
         }
         Insert: {
           beneficios?: number
@@ -3603,6 +3642,7 @@ export type Database = {
           rescisao?: number
           salario_hora?: number | null
           tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"]
+          valor_informado?: boolean
         }
         Update: {
           beneficios?: number
@@ -3624,6 +3664,7 @@ export type Database = {
           rescisao?: number
           salario_hora?: number | null
           tipo_contrato?: Database["rh"]["Enums"]["tipo_contrato"]
+          valor_informado?: boolean
         }
         Relationships: [
           {
@@ -3766,6 +3807,7 @@ export type Database = {
           multa_rescisoria_pct: number
           provisiona_13: boolean
           provisiona_ferias: boolean
+          provisiona_recesso: boolean
           terceiros_pct: number
           tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"]
           vigente_desde: string
@@ -3779,6 +3821,7 @@ export type Database = {
           multa_rescisoria_pct: number
           provisiona_13: boolean
           provisiona_ferias: boolean
+          provisiona_recesso: boolean
           terceiros_pct: number
           tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"]
           vigente_desde: string
@@ -3792,6 +3835,7 @@ export type Database = {
           multa_rescisoria_pct?: number
           provisiona_13?: boolean
           provisiona_ferias?: boolean
+          provisiona_recesso?: boolean
           terceiros_pct?: number
           tipo_contrato?: Database["rh"]["Enums"]["tipo_contrato"]
           vigente_desde?: string
@@ -4450,6 +4494,35 @@ export type Database = {
         }
         Relationships: []
       }
+      valores_pj: {
+        Row: {
+          atualizado_em: string
+          colaborador_id: string
+          sync_run_id: string | null
+          valor: number
+        }
+        Insert: {
+          atualizado_em?: string
+          colaborador_id: string
+          sync_run_id?: string | null
+          valor: number
+        }
+        Update: {
+          atualizado_em?: string
+          colaborador_id?: string
+          sync_run_id?: string | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "valores_pj_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: true
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -4481,6 +4554,7 @@ export type Database = {
           reembolsos: number
           remuneracao: number
           rescisao: number
+          sem_valor: number
           tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"]
         }[]
       }
@@ -4498,6 +4572,7 @@ export type Database = {
         }
         Returns: string
       }
+      socios: { Args: never; Returns: string[] }
       salvar_faixas_plano: {
         Args: { p_faixas: Json; p_tabela_id: string }
         Returns: undefined
@@ -4537,6 +4612,10 @@ export type Database = {
         | "pro_labore"
         | "adicional"
         | "hora_extra"
+        | "faltas_atrasos"
+        | "afastamento_empresa"
+        | "banco_horas"
+        | "verbas_sem_encargos"
         | "adiantamento"
         | "afastamento"
         | "rescisao"
@@ -4733,6 +4812,10 @@ export const Constants = {
         "pro_labore",
         "adicional",
         "hora_extra",
+        "faltas_atrasos",
+        "afastamento_empresa",
+        "banco_horas",
+        "verbas_sem_encargos",
         "adiantamento",
         "afastamento",
         "rescisao",

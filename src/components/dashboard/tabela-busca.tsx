@@ -22,8 +22,12 @@ export interface LinhaBusca {
   /** Texto em que a busca procura. */
   busca: string;
   celulas: React.ReactNode[];
-  /** Valor da linha em cada filtro, pela chave do filtro. */
-  filtros?: Record<string, string>;
+  /**
+   * Valor da linha em cada filtro, pela chave do filtro. Com uma lista, a
+   * linha aparece em qualquer uma das opções (ex.: afastado está entre os
+   * ativos e entre os afastados).
+   */
+  filtros?: Record<string, string | string[]>;
 }
 
 export interface FiltroBusca {
@@ -69,7 +73,10 @@ export function TabelaBusca({
   const visiveis = linhas.filter(
     (l) =>
       (!termo || sem(l.busca).includes(termo)) &&
-      Object.entries(escolhas).every(([k, v]) => !v || l.filtros?.[k] === v),
+      Object.entries(escolhas).every(([k, v]) => {
+        const da = l.filtros?.[k];
+        return !v || (Array.isArray(da) ? da.includes(v) : da === v);
+      }),
   );
   const paginas = porPagina
     ? Math.max(1, Math.ceil(visiveis.length / porPagina))

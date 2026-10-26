@@ -205,6 +205,7 @@ export interface ColaboradorQuadro {
   decisao_desligamento?: string | null;
   // Opcionais: o cargo vem da folha; quem não está nela não tem.
   cargo?: string | null;
+  cargo_id?: string | null;
   tipo_contrato?: string | null;
 }
 

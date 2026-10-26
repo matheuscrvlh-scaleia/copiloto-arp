@@ -239,8 +239,7 @@ const pct = obrigatorio(decimal).refine(
 );
 const marcado = z.preprocess((v) => v === "on", z.boolean());
 
-const encargos = z.object({
-  tipo_contrato: z.enum(["clt", "aprendiz", "estagiario", "pj", "pro_labore"]),
+const comEncargos = z.object({
   inss_patronal_pct: pct,
   terceiros_pct: pct,
   fgts_pct: pct,
@@ -250,6 +249,31 @@ const encargos = z.object({
   provisiona_ferias: marcado,
 });
 
+// Estagiário e PJ não têm encargos: a tela só mostra as provisões deles, e
+// os campos que sumiram são gravados zerados. Pró-labore não é editável (sócio
+// fica fora do custo).
+const encargos = z.discriminatedUnion("tipo_contrato", [
+  comEncargos.extend({ tipo_contrato: z.literal("clt") }),
+  comEncargos.extend({ tipo_contrato: z.literal("aprendiz") }),
+  z.object({
+    tipo_contrato: z.literal("estagiario"),
+    provisiona_recesso: marcado,
+  }),
+  z.object({
+    tipo_contrato: z.literal("pj"),
+    provisiona_13: marcado,
+    provisiona_ferias: marcado,
+  }),
+]);
+
+const SEM_ENCARGOS = {
+  inss_patronal_pct: 0,
+  terceiros_pct: 0,
+  fgts_pct: 0,
+  multa_rescisoria_pct: 0,
+  aplica_rat: false,
+};
+
 export async function salvarEncargos(
   _: EstadoAcao,
   form: FormData,
@@ -257,20 +281,40 @@ export async function salvarEncargos(
   if (!(await pode("rh.parametros"))) return SEM_PERMISSAO;
   const e = encargos.safeParse(Object.fromEntries(form));
   if (!e.success) return primeiroErro(e.error);
+  const d = e.data;
+  const valores =
+    d.tipo_contrato === "estagiario"
+      ? {
+          ...SEM_ENCARGOS,
+          provisiona_13: false,
+          provisiona_ferias: false,
+          provisiona_recesso: d.provisiona_recesso,
+        }
+      : d.tipo_contrato === "pj"
+        ? {
+            ...SEM_ENCARGOS,
+            provisiona_13: d.provisiona_13,
+            provisiona_ferias: d.provisiona_ferias,
+            provisiona_recesso: false,
+          }
+        : {
+            inss_patronal_pct: d.inss_patronal_pct as number,
+            terceiros_pct: d.terceiros_pct as number,
+            fgts_pct: d.fgts_pct as number,
+            multa_rescisoria_pct: d.multa_rescisoria_pct as number,
+            aplica_rat: d.aplica_rat,
+            provisiona_13: d.provisiona_13,
+            provisiona_ferias: d.provisiona_ferias,
+            provisiona_recesso: false,
+          };
   const { error } = await (await createClient())
     .schema("rh")
     .from("encargos_por_contrato")
     .upsert(
       {
-        tipo_contrato: e.data.tipo_contrato,
+        tipo_contrato: d.tipo_contrato,
         vigente_desde: competenciaDe(new Date()),
-        inss_patronal_pct: e.data.inss_patronal_pct as number,
-        terceiros_pct: e.data.terceiros_pct as number,
-        fgts_pct: e.data.fgts_pct as number,
-        multa_rescisoria_pct: e.data.multa_rescisoria_pct as number,
-        aplica_rat: e.data.aplica_rat,
-        provisiona_13: e.data.provisiona_13,
-        provisiona_ferias: e.data.provisiona_ferias,
+        ...valores,
       },
       { onConflict: "tipo_contrato,vigente_desde" },
     );

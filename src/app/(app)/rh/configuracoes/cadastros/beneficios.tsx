@@ -23,30 +23,52 @@ import {
   TIPOS_BENEFICIO,
   tabelasDoPlano,
   type Vinculo,
+  type VinculoContrato,
   vinculosDeBeneficio,
+  vinculosPorContrato,
 } from "@/server/rh/beneficios";
 import { folhasDoCusto } from "@/server/rh/dados";
 import {
   removerVinculo,
+  removerVinculoContrato,
   salvarBeneficio,
   salvarValorManual,
   vincularBeneficio,
+  vincularContrato,
   vincularPelaFolha,
 } from "./actions";
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 const valorBr = (v: number | null) => (v === null ? "" : formatarNumero(v, 2));
 
+/** Tipos de contrato que recebem benefício (sócio fica fora do custo). */
+const CONTRATOS_NO_PLURAL: Record<string, string> = {
+  clt: "CLT",
+  aprendiz: "jovens aprendizes",
+  estagiario: "estagiários",
+  pj: "PJ",
+};
+const todosOs = (tipo: string) =>
+  `Todos os ${CONTRATOS_NO_PLURAL[tipo] ?? tipo}`;
+
 /** Cadastro de benefícios e de quem recebe cada um (rh.beneficios). */
 export async function Beneficios() {
-  const [beneficios, vinculos, colaboradores, tabelas, folhas] =
+  const [beneficios, vinculos, contratos, colaboradores, tabelas, folhas] =
     await Promise.all([
       beneficiosCadastrados(),
       vinculosDeBeneficio(),
+      vinculosPorContrato(),
       colaboradoresAtivos(),
       tabelasDoPlano(),
       folhasDoCusto(),
     ]);
+  const pessoasDoContrato = new Map<string, number>();
+  for (const c of colaboradores)
+    if (c.tipo_contrato)
+      pessoasDoContrato.set(
+        c.tipo_contrato,
+        (pessoasDoContrato.get(c.tipo_contrato) ?? 0) + 1,
+      );
   // Vínculo novo começa no mês da última folha, para entrar no custo dela.
   const desdeSugerido = folhas[0]?.competencia ?? null;
   const mesAtual = competenciaDe(new Date());
@@ -89,6 +111,8 @@ export async function Beneficios() {
             key={b.id}
             beneficio={b}
             vinculos={vinculos.filter((v) => v.beneficio_id === b.id)}
+            contratos={contratos.filter((c) => c.beneficio_id === b.id)}
+            pessoasDoContrato={pessoasDoContrato}
             tabelas={tabelas.filter((t) => t.beneficio_id === b.id)}
             mesAtual={mesAtual}
             opcoesColaborador={opcoesColaborador}
@@ -159,6 +183,8 @@ function ValorDoMes({
 function CartaoBeneficio({
   beneficio: b,
   vinculos,
+  contratos,
+  pessoasDoContrato,
   tabelas,
   mesAtual,
   opcoesColaborador,
@@ -166,6 +192,9 @@ function CartaoBeneficio({
 }: {
   beneficio: Beneficio;
   vinculos: Vinculo[];
+  contratos: VinculoContrato[];
+  /** Pessoas no cadastro (sem desligamento) por tipo de contrato. */
+  pessoasDoContrato: Map<string, number>;
   tabelas: TabelaCadastrada[];
   /** Competência do valor mostrado em cada pessoa (aaaa-mm-01). */
   mesAtual: string;
@@ -173,6 +202,7 @@ function CartaoBeneficio({
   desdeSugerido: string | null;
 }) {
   const ativos = vinculos.filter((v) => v.ate === null);
+  const contratosAtivos = contratos.filter((c) => c.ate === null);
   const pelaFaixa = b.valor_padrao === null;
   const temTabela = tabelas.length > 0;
   const faixas = vigenteEm(tabelas, mesAtual)?.faixas ?? null;
@@ -191,7 +221,10 @@ function CartaoBeneficio({
             : `${formatarMoeda(b.valor_padrao)}/mês`}
         </span>
         <span className="ml-auto text-xs text-neutral-500">
-          {ativos.length} {ativos.length === 1 ? "pessoa" : "pessoas"}
+          {[
+            ...contratosAtivos.map((c) => todosOs(c.tipo_contrato)),
+            `${ativos.length} ${ativos.length === 1 ? "pessoa" : "pessoas"}`,
+          ].join(" + ")}
           {!b.ativo && " · inativo"}
         </span>
       </summary>
@@ -200,8 +233,88 @@ function CartaoBeneficio({
         <FormBeneficio beneficio={b} />
 
         <div className="flex flex-col gap-3">
+          <div>
+            <p className="text-sm font-medium">Por tipo de contrato</p>
+            <p className="text-xs text-neutral-500">
+              Todos com o contrato no Copiloto RH recebem, inclusive quem for
+              admitido depois. Quem também está vinculado abaixo fica com o
+              vínculo da pessoa (e o valor manual dela).
+            </p>
+          </div>
+          {contratos.length > 0 && (
+            <ul className="flex flex-col divide-y divide-neutral-900/[0.06] text-sm">
+              {contratos.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2"
+                >
+                  <div className="min-w-56 flex-1">
+                    <p className="font-medium">{todosOs(c.tipo_contrato)}</p>
+                    <p className="text-xs text-neutral-500">
+                      desde {formatarData(c.desde)}
+                      {c.ate ? ` até ${formatarData(c.ate)}` : ""} ·{" "}
+                      {formatarNumero(
+                        pessoasDoContrato.get(c.tipo_contrato) ?? 0,
+                      )}{" "}
+                      no cadastro hoje
+                    </p>
+                  </div>
+                  <FormAcao
+                    acao={removerVinculoContrato}
+                    rotulo="Remover"
+                    rotuloEnviando="Removendo…"
+                    variante="perigo"
+                    confirmar={`Tirar ${b.nome} de ${todosOs(c.tipo_contrato).toLowerCase()}?`}
+                    className="flex items-center gap-2"
+                  >
+                    <input type="hidden" name="id" value={c.id} />
+                  </FormAcao>
+                </li>
+              ))}
+            </ul>
+          )}
+          <FormAcao
+            acao={vincularContrato}
+            rotulo="Vincular contrato"
+            rotuloEnviando="Vinculando…"
+            className="grid items-end gap-3 rounded-2xl bg-neutral-900/[0.03] p-3 sm:grid-cols-[1fr_10rem_auto]"
+          >
+            <input type="hidden" name="beneficio_id" value={b.id} />
+            <label className={rotulo}>
+              Tipo de contrato
+              <Selecao
+                name="tipo_contrato"
+                obrigatorio
+                rotulo="Tipo de contrato"
+                placeholder="Escolha…"
+                opcoes={Object.keys(CONTRATOS_NO_PLURAL)
+                  .filter(
+                    (tipo) =>
+                      !contratosAtivos.some((c) => c.tipo_contrato === tipo),
+                  )
+                  .map((valor) => ({
+                    valor,
+                    rotulo: todosOs(valor),
+                    descricao: `${formatarNumero(pessoasDoContrato.get(valor) ?? 0)} no cadastro`,
+                  }))}
+              />
+            </label>
+            <label className={rotulo}>
+              Desde
+              <input
+                type="date"
+                name="desde"
+                required
+                defaultValue={desdeSugerido ?? ""}
+                className={classeCampo}
+              />
+            </label>
+          </FormAcao>
+        </div>
+
+        <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-medium">Quem recebe</p>
+            <p className="text-sm font-medium">Pessoas específicas</p>
             {b.rubricas_desconto.length > 0 && (
               <FormAcao
                 acao={vincularPelaFolha}

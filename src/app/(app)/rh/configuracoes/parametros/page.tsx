@@ -74,6 +74,34 @@ const TABELAS: Record<string, string> = {
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 
+/** Caixa de marcar dos encargos e provisões. */
+function Marcar({
+  nome,
+  marcado,
+  rotulo: texto,
+  dica,
+}: {
+  nome: string;
+  marcado: boolean;
+  rotulo: string;
+  dica?: string;
+}) {
+  return (
+    <label className="flex items-center gap-2 pb-2 text-sm">
+      <input
+        type="checkbox"
+        name={nome}
+        defaultChecked={marcado}
+        className="size-4 accent-neutral-900"
+      />
+      <span>
+        {texto}
+        {dica && <span className="block text-xs text-neutral-500">{dica}</span>}
+      </span>
+    </label>
+  );
+}
+
 export default function Page() {
   return (
     <Suspense fallback={<Esqueleto />}>
@@ -269,7 +297,7 @@ async function Parametros() {
       <Secao
         id="encargos"
         titulo="Encargos e provisões por tipo de contrato"
-        descricao={`Percentuais sobre a remuneração. Sobre as provisões incidem os mesmos encargos. Valores de referência da especificação: confirme antes do primeiro fechamento. Alterações valem a partir de ${formatarMes(mesAtual)}.`}
+        descricao={`Percentuais sobre a remuneração. Sobre as provisões incidem os mesmos encargos. Valores de referência da especificação: confirme antes do primeiro fechamento. Pró-labore não aparece: sócio fica fora do custo de pessoal. Alterações valem a partir de ${formatarMes(mesAtual)}.`}
       >
         <div className="flex flex-col divide-y divide-neutral-100">
           {dados.encargos.length === 0 && (
@@ -277,94 +305,131 @@ async function Parametros() {
               Nenhum tipo de contrato com encargos cadastrados.
             </p>
           )}
-          {dados.encargos.map((c) => (
-            <FormAcao
-              key={c.tipo_contrato}
-              acao={salvarEncargos}
-              className="flex flex-col gap-3 py-4 first:pt-0"
-            >
-              <input
-                type="hidden"
-                name="tipo_contrato"
-                value={c.tipo_contrato}
-              />
-              <p className="text-sm font-medium">
-                {CONTRATOS[c.tipo_contrato]}{" "}
-                <span className="font-normal text-neutral-500">
-                  · desde {formatarMes(c.vigente_desde)}
-                </span>
-              </p>
-              <p className="text-xs font-medium text-neutral-500">Encargos</p>
-              <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-4">
-                <label className={rotulo}>
-                  INSS patronal (%)
-                  <input
-                    name="inss_patronal_pct"
-                    inputMode="decimal"
-                    defaultValue={c.inss_patronal_pct}
-                    className={classeCampo}
-                  />
-                </label>
-                <label className={rotulo}>
-                  Terceiros (%)
-                  <input
-                    name="terceiros_pct"
-                    inputMode="decimal"
-                    defaultValue={c.terceiros_pct}
-                    className={classeCampo}
-                  />
-                </label>
-                <label className={rotulo}>
-                  FGTS (%)
-                  <input
-                    name="fgts_pct"
-                    inputMode="decimal"
-                    defaultValue={c.fgts_pct}
-                    className={classeCampo}
-                  />
-                </label>
-                <label className="flex items-center gap-2 pb-2 text-sm">
-                  <input
-                    type="checkbox"
-                    name="aplica_rat"
-                    defaultChecked={c.aplica_rat}
-                    className="size-4 accent-neutral-900"
-                  />
-                  Aplica RAT × FAP
-                </label>
-              </div>
-              <p className="text-xs font-medium text-neutral-500">Provisões</p>
-              <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-4">
-                <label className="flex items-center gap-2 pb-2 text-sm">
-                  <input
-                    type="checkbox"
-                    name="provisiona_13"
-                    defaultChecked={c.provisiona_13}
-                    className="size-4 accent-neutral-900"
-                  />
-                  Provisiona 13º
-                </label>
-                <label className="flex items-center gap-2 pb-2 text-sm">
-                  <input
-                    type="checkbox"
-                    name="provisiona_ferias"
-                    defaultChecked={c.provisiona_ferias}
-                    className="size-4 accent-neutral-900"
-                  />
-                  Provisiona férias + 1/3
-                </label>
-                <label className={rotulo}>
-                  Multa rescisória (% do FGTS)
-                  <input
-                    name="multa_rescisoria_pct"
-                    inputMode="decimal"
-                    defaultValue={c.multa_rescisoria_pct}
-                    className={classeCampo}
-                  />
-                </label>
-              </div>
-            </FormAcao>
-          ))}
+          {dados.encargos
+            .filter((c) => c.tipo_contrato !== "pro_labore")
+            .map((c) => (
+              <FormAcao
+                key={c.tipo_contrato}
+                acao={salvarEncargos}
+                className="flex flex-col gap-3 py-4 first:pt-0"
+              >
+                <input
+                  type="hidden"
+                  name="tipo_contrato"
+                  value={c.tipo_contrato}
+                />
+                <p className="text-sm font-medium">
+                  {CONTRATOS[c.tipo_contrato]}{" "}
+                  <span className="font-normal text-neutral-500">
+                    · desde {formatarMes(c.vigente_desde)}
+                  </span>
+                </p>
+                {c.tipo_contrato === "estagiario" ? (
+                  <>
+                    <p className="text-xs text-neutral-500">
+                      Estágio (Lei 11.788/2008) não tem encargos.
+                      Auxílio-transporte, seguro e taxa do agente de integração
+                      entram em Benefícios.
+                    </p>
+                    <p className="text-xs font-medium text-neutral-500">
+                      Provisões
+                    </p>
+                    <Marcar
+                      nome="provisiona_recesso"
+                      marcado={c.provisiona_recesso}
+                      rotulo="Provisiona recesso remunerado"
+                      dica="1/12 da bolsa por mês, sem o adicional de 1/3 e sem encargos"
+                    />
+                  </>
+                ) : c.tipo_contrato === "pj" ? (
+                  <>
+                    <p className="text-xs text-neutral-500">
+                      PJ não tem encargos. Marque as provisões só se o contrato
+                      prever pagamento de 13º ou férias.
+                    </p>
+                    <p className="text-xs font-medium text-neutral-500">
+                      Provisões
+                    </p>
+                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-4">
+                      <Marcar
+                        nome="provisiona_13"
+                        marcado={c.provisiona_13}
+                        rotulo="Provisiona 13º"
+                      />
+                      <Marcar
+                        nome="provisiona_ferias"
+                        marcado={c.provisiona_ferias}
+                        rotulo="Provisiona férias + 1/3"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-medium text-neutral-500">
+                      Encargos
+                    </p>
+                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-4">
+                      <label className={rotulo}>
+                        INSS patronal (%)
+                        <input
+                          name="inss_patronal_pct"
+                          inputMode="decimal"
+                          defaultValue={c.inss_patronal_pct}
+                          className={classeCampo}
+                        />
+                      </label>
+                      <label className={rotulo}>
+                        Terceiros (%)
+                        <input
+                          name="terceiros_pct"
+                          inputMode="decimal"
+                          defaultValue={c.terceiros_pct}
+                          className={classeCampo}
+                        />
+                      </label>
+                      <label className={rotulo}>
+                        FGTS (%)
+                        <input
+                          name="fgts_pct"
+                          inputMode="decimal"
+                          defaultValue={c.fgts_pct}
+                          className={classeCampo}
+                        />
+                      </label>
+                      <Marcar
+                        nome="aplica_rat"
+                        marcado={c.aplica_rat}
+                        rotulo="Aplica RAT × FAP"
+                      />
+                    </div>
+                    <p className="text-xs font-medium text-neutral-500">
+                      Provisões
+                    </p>
+                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-4">
+                      <Marcar
+                        nome="provisiona_13"
+                        marcado={c.provisiona_13}
+                        rotulo="Provisiona 13º"
+                      />
+                      <Marcar
+                        nome="provisiona_ferias"
+                        marcado={c.provisiona_ferias}
+                        rotulo="Provisiona férias + 1/3"
+                      />
+                      <label className={rotulo}>
+                        Multa rescisória (% do FGTS)
+                        <input
+                          name="multa_rescisoria_pct"
+                          inputMode="decimal"
+                          defaultValue={c.multa_rescisoria_pct}
+                          className={classeCampo}
+                        />
+                      </label>
+                    </div>
+                  </>
+                )}
+              </FormAcao>
+            ))}
         </div>
       </Secao>
 

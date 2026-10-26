@@ -1,4 +1,5 @@
 import type { Colaborador } from "@/connectors/copiloto-rh/schemas";
+import { SALARIO_FICTICIO } from "@/lib/rh/folha/ficticio";
 import type { Database } from "@/lib/supabase/database.types";
 
 type TipoContrato = Database["rh"]["Enums"]["tipo_contrato"];
@@ -24,6 +25,12 @@ export interface LinhaCopiloto {
   situacao_copiloto: string;
   motivo_desligamento_copiloto: string | null;
   decisao_desligamento_copiloto: string | null;
+}
+
+/** Valor mensal do contrato de um PJ (rh.valores_pj). */
+export interface ValorPj {
+  colaborador_id: string;
+  valor: number;
 }
 
 // Valores de contract_type do Copiloto (rótulos da tela de lá: CLT, PJ,
@@ -57,13 +64,20 @@ export function matriculaDoCopiloto(
  * copiloto_id ou pela matrícula; quem não existe no Centralizador é criado
  * (só o Copiloto cria pessoas: o ponto e a folha apenas se ligam a elas).
  * Departamento e cargo seguem do ponto e da folha. Avisos só com a
- * matrícula, sem nome nem data.
+ * matrícula, sem nome nem data. Do salário, só o dos PJ (é o custo deles; o
+ * dos outros vem da folha); no protótipo, gravado como R$ 2.000,00.
  */
 export function planejarCopiloto(
   copiloto: Colaborador[],
   existentes: Existente[],
   novoId: () => string,
-): { linhas: LinhaCopiloto[]; novos: number; avisos: string[] } {
+  salarioFicticio = true,
+): {
+  linhas: LinhaCopiloto[];
+  valoresPj: ValorPj[];
+  novos: number;
+  avisos: string[];
+} {
   const porCopiloto = new Map(
     existentes.filter((e) => e.copiloto_id).map((e) => [e.copiloto_id, e]),
   );
@@ -73,6 +87,7 @@ export function planejarCopiloto(
   const matriculasUsadas = new Set(porMatricula.keys());
 
   const linhas: LinhaCopiloto[] = [];
+  const valoresPj: ValorPj[] = [];
   const avisos: string[] = [];
   const ligados = new Set<string>();
   let novos = 0;
@@ -132,6 +147,19 @@ export function planejarCopiloto(
     if (c.status === "terminated" && !desligamento)
       avisos.push(`${rotulo}: desligado no Copiloto sem data de desligamento`);
 
+    if (tipo === "pj") {
+      const salario = c.compensation?.base_salary;
+      if (salario === null || salario === undefined)
+        avisos.push(
+          `${rotulo}: PJ sem Salário no Copiloto (custo como valor não informado)`,
+        );
+      else
+        valoresPj.push({
+          colaborador_id: id,
+          valor: salarioFicticio ? SALARIO_FICTICIO : salario,
+        });
+    }
+
     linhas.push({
       id,
       copiloto_id: c.id,
@@ -151,5 +179,5 @@ export function planejarCopiloto(
     avisos.push(
       `${novos} colaborador(es) do Copiloto criado(s) no Centralizador (sem par pela matrícula)`,
     );
-  return { linhas, novos, avisos };
+  return { linhas, valoresPj, novos, avisos };
 }

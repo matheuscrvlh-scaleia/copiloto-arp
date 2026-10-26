@@ -43,24 +43,38 @@ async function todas<T>(
 async function carregar(admin: AdminClient, competencia: string) {
   const rh = admin.schema("rh");
   const fim = fimDoMes(competencia);
-  const { data: folha, error } = await rh
-    .from("folhas")
-    .select("id, status")
-    .eq("competencia", competencia)
-    .maybeSingle();
+  const [{ data: folha, error }, rubricas] = await Promise.all([
+    rh
+      .from("folhas")
+      .select("id, status")
+      .eq("competencia", competencia)
+      .maybeSingle(),
+    todas((de, ate) =>
+      rh
+        .from("rubricas")
+        .select("codigo, grupo")
+        .order("codigo")
+        .range(de, ate),
+    ),
+  ]);
   falhar(error);
+  const codigosProLabore = rubricas
+    .filter((r) => r.grupo === "pro_labore")
+    .map((r) => r.codigo);
 
   const [
     pessoas,
     rubricasFolha,
-    rubricas,
+    cadastro,
+    deFora,
     encargos,
     empresa,
     jornadas,
     vinculos,
+    porContrato,
     tabelas,
     dependentes,
-    notas,
+    valoresPj,
   ] = await Promise.all([
     folha
       ? todas((de, ate) =>
@@ -88,11 +102,14 @@ async function carregar(admin: AdminClient, competencia: string) {
       : [],
     todas((de, ate) =>
       rh
-        .from("rubricas")
-        .select("codigo, grupo")
-        .order("codigo")
+        .from("colaboradores")
+        .select(
+          "id, tipo_contrato, departamento_id, cargo_id, admissao, desligamento, nascimento",
+        )
+        .order("id")
         .range(de, ate),
     ),
+    sociosDoCusto(admin, codigosProLabore),
     rh.from("encargos_por_contrato").select("*"),
     rh.from("parametros_empresa").select("vigente_desde, rat_pct, fap"),
     rh
@@ -111,6 +128,15 @@ async function carregar(admin: AdminClient, competencia: string) {
       .lte("desde", fim)
       .or(`ate.is.null,ate.gte.${competencia}`),
     rh
+      .from("beneficio_contratos")
+      .select(
+        `tipo_contrato,
+         beneficio:beneficios(id, nome, tipo, valor_padrao, rubricas_desconto,
+           rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo)`,
+      )
+      .lte("desde", fim)
+      .or(`ate.is.null,ate.gte.${competencia}`),
+    rh
       .from("plano_tabelas")
       .select(
         "beneficio_id, vigente_desde, faixas:plano_faixas_etarias(idade_min, idade_max, mensalidade)",
@@ -119,21 +145,17 @@ async function carregar(admin: AdminClient, competencia: string) {
     rh
       .from("dependentes")
       .select("colaborador_id, nascimento, tem_plano, tem_odonto"),
-    rh
-      .from("notas_pj")
-      .select(
-        "colaborador_id, valor, colaborador:colaboradores(departamento_id, cargo_id, tipo_contrato)",
-      )
-      .eq("competencia", competencia),
+    rh.from("valores_pj").select("colaborador_id, valor"),
   ]);
   for (const r of [
     encargos,
     empresa,
     jornadas,
     vinculos,
+    porContrato,
     tabelas,
     dependentes,
-    notas,
+    valoresPj,
   ])
     falhar(r.error);
 
@@ -141,23 +163,63 @@ async function carregar(admin: AdminClient, competencia: string) {
     folha,
     pessoas,
     rubricasFolha,
+    cadastro: new Map(cadastro.map((c) => [c.id, c])),
+    socios: deFora,
     grupos: new Map(rubricas.map((r) => [r.codigo, r.grupo as GrupoRubrica])),
     encargos: encargos.data ?? [],
     empresa: empresa.data ?? [],
     jornadas: jornadas.data ?? [],
     vinculos: vinculos.data ?? [],
+    porContrato: porContrato.data ?? [],
     tabelas: tabelas.data ?? [],
     dependentes: dependentes.data ?? [],
-    notas: notas.data ?? [],
+    valoresPj: new Map(
+      (valoresPj.data ?? []).map((v) => [v.colaborador_id, Number(v.valor)]),
+    ),
   };
+}
+
+/**
+ * Sócios (como rh.socios(), que a service role não roda por não ter usuário):
+ * contrato de pró-labore no Copiloto ou em alguma folha, ou rubrica de
+ * pró-labore em alguma folha.
+ */
+async function sociosDoCusto(
+  admin: AdminClient,
+  codigosProLabore: number[],
+): Promise<Set<string>> {
+  const rh = admin.schema("rh");
+  const [cadastro, folha, rubricas] = await Promise.all([
+    rh.from("colaboradores").select("id").eq("tipo_contrato", "pro_labore"),
+    rh
+      .from("folha_colaboradores")
+      .select("colaborador_id")
+      .eq("tipo_contrato", "pro_labore"),
+    codigosProLabore.length
+      ? rh
+          .from("folha_rubricas")
+          .select("colaborador_id")
+          .in("rubrica_codigo", codigosProLabore)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  for (const r of [cadastro, folha, rubricas]) falhar(r.error);
+  return new Set([
+    ...(cadastro.data ?? []).map((c) => c.id),
+    ...(folha.data ?? []).map((c) => c.colaborador_id),
+    ...(rubricas.data ?? []).map((c) => c.colaborador_id),
+  ]);
 }
 
 type Dados = Awaited<ReturnType<typeof carregar>>;
 
-/** Benefícios de cada pessoa com o valor cheio resolvido (manual, padrão ou faixa). */
+/**
+ * Benefícios de cada pessoa com o valor cheio resolvido (manual, padrão ou
+ * faixa): os vinculados a ela e os do tipo de contrato dela (o dela vence).
+ */
 function beneficiosPorPessoa(
   d: Dados,
   competencia: string,
+  tipoDe: Map<string, string>,
 ): Map<string, { beneficios: BeneficioDoMes[]; pendencias: string[] }> {
   const faixasDe = (beneficioId: string): FaixaEtaria[] | null => {
     const t = vigenteEm(
@@ -175,11 +237,33 @@ function beneficiosPorPessoa(
   const porFaixa = (faixas: FaixaEtaria[] | null, nascimento: string | null) =>
     valorPelaFaixa(faixas, nascimento, competencia);
 
+  const jaTem = new Set(
+    d.vinculos.map((v) => `${v.colaborador_id}:${v.beneficio?.id}`),
+  );
+  const doContrato = [...tipoDe].flatMap(([colaborador_id, tipo]) =>
+    d.porContrato.flatMap((c) => {
+      const chave = `${colaborador_id}:${c.beneficio?.id}`;
+      if (c.tipo_contrato !== tipo || !c.beneficio || jaTem.has(chave))
+        return [];
+      jaTem.add(chave);
+      return [
+        {
+          colaborador_id,
+          valor_manual: null,
+          beneficio: c.beneficio,
+          colaborador: {
+            nascimento: d.cadastro.get(colaborador_id)?.nascimento ?? null,
+          },
+        },
+      ];
+    }),
+  );
+
   const mapa = new Map<
     string,
     { beneficios: BeneficioDoMes[]; pendencias: string[] }
   >();
-  for (const v of d.vinculos) {
+  for (const v of [...d.vinculos, ...doContrato]) {
     const b = v.beneficio;
     if (!b?.ativo) continue;
     const item = mapa.get(v.colaborador_id) ?? {
@@ -254,6 +338,7 @@ export function montarCustos(d: Dados, competencia: string): CustoCalculado[] {
           aplica_rat: e.aplica_rat,
           provisiona_13: e.provisiona_13,
           provisiona_ferias: e.provisiona_ferias,
+          provisiona_recesso: e.provisiona_recesso,
           multa_rescisoria_pct: Number(e.multa_rescisoria_pct),
         }
       : null;
@@ -269,59 +354,83 @@ export function montarCustos(d: Dados, competencia: string): CustoCalculado[] {
     });
     rubricasDe.set(r.colaborador_id, lista);
   }
-  const beneficios = beneficiosPorPessoa(d, competencia);
   const jornadas = d.jornadas.map((j) => ({
     ...j,
     horas_mes_min: Number(j.horas_mes_min),
   }));
+  const fim = fimDoMes(competencia);
 
-  const pessoas: PessoaDoMes[] = d.pessoas.map((p) => {
-    const b = beneficios.get(p.colaborador_id);
-    return {
-      colaborador_id: p.colaborador_id,
-      tipo_contrato: p.tipo_contrato,
-      departamento_id: p.departamento_id,
-      cargo_id: p.cargo_id,
-      salario: p.salario === null ? null : Number(p.salario),
-      jornada_min: jornadaDe(p, jornadas, competencia, p.horas_mes_min),
-      rubricas: rubricasDe.get(p.colaborador_id) ?? [],
-      beneficios: b?.beneficios ?? [],
-      pendencias: b?.pendencias,
-    };
-  });
-
-  // PJ: não está na folha; o custo é a soma das notas do mês.
-  const naFolha = new Set(pessoas.map((p) => p.colaborador_id));
-  const notas = new Map<
+  // Só quem está no Copiloto RH (todo colaborador do sistema vem de lá; a
+  // folha se liga pela matrícula). Departamento, cargo e contrato são os do
+  // cadastro; a folha só completa o que faltar. Sócio fica fora; desligado
+  // só entra até o mês da rescisão. PJ sai do cadastro, não da folha.
+  const doMes = new Map<
     string,
-    { valor: number; nota: (typeof d.notas)[number] }
+    {
+      tipo_contrato: string;
+      departamento_id: string | null;
+      cargo_id: string | null;
+      folha?: (typeof d.pessoas)[number];
+    }
   >();
-  for (const n of d.notas) {
-    if (naFolha.has(n.colaborador_id)) continue;
-    const atual = notas.get(n.colaborador_id);
-    notas.set(n.colaborador_id, {
-      valor: (atual?.valor ?? 0) + Number(n.valor),
-      nota: n,
+  for (const p of d.pessoas) {
+    const c = d.cadastro.get(p.colaborador_id);
+    if (!c || d.socios.has(c.id) || c.tipo_contrato === "pj") continue;
+    if (c.desligamento && c.desligamento < competencia) continue;
+    doMes.set(c.id, {
+      tipo_contrato: c.tipo_contrato ?? p.tipo_contrato,
+      departamento_id: c.departamento_id ?? p.departamento_id,
+      cargo_id: c.cargo_id ?? p.cargo_id,
+      folha: p,
     });
   }
-  for (const [colaborador_id, { valor, nota }] of notas) {
+  for (const c of d.cadastro.values()) {
+    if (c.tipo_contrato !== "pj" || d.socios.has(c.id)) continue;
+    if (!c.admissao || c.admissao > fim) continue;
+    if (c.desligamento && c.desligamento < competencia) continue;
+    doMes.set(c.id, {
+      tipo_contrato: "pj",
+      departamento_id: c.departamento_id,
+      cargo_id: c.cargo_id,
+    });
+  }
+
+  const beneficios = beneficiosPorPessoa(
+    d,
+    competencia,
+    new Map([...doMes].map(([id, p]) => [id, p.tipo_contrato])),
+  );
+  const pessoas: PessoaDoMes[] = [...doMes].map(([colaborador_id, p]) => {
     const b = beneficios.get(colaborador_id);
     const base = {
       colaborador_id,
-      departamento_id: nota.colaborador?.departamento_id ?? null,
-      cargo_id: nota.colaborador?.cargo_id ?? null,
-    };
-    pessoas.push({
-      ...base,
-      tipo_contrato: nota.colaborador?.tipo_contrato ?? "pj",
-      salario: null,
-      jornada_min: jornadaDe(base, jornadas, competencia, null),
-      rubricas: [],
+      tipo_contrato: p.tipo_contrato,
+      departamento_id: p.departamento_id,
+      cargo_id: p.cargo_id,
       beneficios: b?.beneficios ?? [],
       pendencias: b?.pendencias,
-      valor_notas: valor,
-    });
-  }
+    };
+    // PJ: o custo é o valor mensal do contrato (Salário no Copiloto RH).
+    if (!p.folha)
+      return {
+        ...base,
+        salario: null,
+        jornada_min: jornadaDe(base, jornadas, competencia, null),
+        rubricas: [],
+        valor_pj: d.valoresPj.get(colaborador_id) ?? null,
+      };
+    return {
+      ...base,
+      salario: p.folha.salario === null ? null : Number(p.folha.salario),
+      jornada_min: jornadaDe(
+        base,
+        jornadas,
+        competencia,
+        p.folha.horas_mes_min,
+      ),
+      rubricas: rubricasDe.get(colaborador_id) ?? [],
+    };
+  });
 
   return pessoas.map((p) =>
     calcularCusto(
@@ -339,14 +448,16 @@ export interface ResultadoCusto {
   comPendencia: number;
 }
 
-/** Recalcula e grava o custo da competência. Folha fechada fica como está. */
+/**
+ * Recalcula e grava o custo da competência. Só mês com folha; folha fechada
+ * fica como está.
+ */
 export async function recalcularCusto(
   competencia: string,
   admin: AdminClient = createAdminClient(),
 ): Promise<ResultadoCusto | null> {
   const dados = await carregar(admin, competencia);
-  if (dados.folha?.status === "fechada") return null;
-  if (!dados.folha && dados.notas.length === 0) return null;
+  if (!dados.folha || dados.folha.status === "fechada") return null;
   const custos = montarCustos(dados, competencia);
   const { error } = await admin.schema("rh").rpc("gravar_custos", {
     p_competencia: competencia,

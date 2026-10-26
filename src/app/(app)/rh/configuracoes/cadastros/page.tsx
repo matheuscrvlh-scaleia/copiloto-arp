@@ -5,12 +5,21 @@ import { Secao, Tabela } from "@/components/dashboard/tabela";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { SemAcesso } from "@/components/protegido";
+import { Selecao } from "@/components/selecao";
 import { competenciaDe, formatarMes, formatarMoeda } from "@/lib/formato";
-import { GRUPOS_RUBRICA } from "@/lib/rh/rubricas";
+import {
+  GRUPOS_CLASSIFICAVEIS,
+  GRUPOS_RUBRICA,
+  type GrupoRubrica,
+} from "@/lib/rh/rubricas";
 import { pode } from "@/server/auth";
 import { dadosFinanceiros } from "@/server/rh/dados";
 import { dadosDosParametros } from "@/server/rh/parametros";
-import { salvarDepartamento, salvarFinanceiro } from "./actions";
+import {
+  salvarDepartamento,
+  salvarFinanceiro,
+  trocarGrupoRubrica,
+} from "./actions";
 import { Beneficios } from "./beneficios";
 
 export const metadata: Metadata = { title: "Cadastros do RH" };
@@ -208,8 +217,47 @@ async function Estrutura() {
       <Secao
         id="rubricas"
         titulo="Rubricas da folha"
-        descricao={`${dados.rubricas.length} rubricas classificadas a partir da folha de 07/2026. Rubrica nova é classificada em Importações, logo depois de enviar a folha.`}
+        descricao={`${dados.rubricas.length} rubricas. Rubrica nova é classificada em Importações, logo depois de enviar a folha. Nos grupos que entram no custo, provento soma e desconto subtrai.`}
       >
+        <FormAcao
+          acao={trocarGrupoRubrica}
+          rotulo="Trocar grupo"
+          rotuloEnviando="Recalculando…"
+          className="mb-4 grid items-end gap-3 rounded-2xl bg-neutral-900/[0.03] p-3 sm:grid-cols-[1fr_20rem_auto]"
+        >
+          <label className={rotulo}>
+            Rubrica
+            <Selecao
+              name="codigo"
+              obrigatorio
+              busca
+              rotulo="Rubrica"
+              placeholder="Buscar pelo código ou nome…"
+              opcoes={dados.rubricas.map((r) => ({
+                valor: String(r.codigo),
+                rotulo: `${r.codigo} · ${r.descricao}`,
+                descricao: GRUPOS_RUBRICA[r.grupo as GrupoRubrica] ?? r.grupo,
+              }))}
+            />
+          </label>
+          <label className={rotulo}>
+            Novo grupo
+            <Selecao
+              name="grupo"
+              obrigatorio
+              rotulo="Novo grupo"
+              placeholder="Escolha o grupo…"
+              opcoes={GRUPOS_CLASSIFICAVEIS.map((g) => ({
+                valor: g,
+                rotulo: GRUPOS_RUBRICA[g],
+              }))}
+            />
+          </label>
+        </FormAcao>
+        <p className="-mt-2 mb-4 text-xs text-neutral-500">
+          A troca vale para todos os meses: as folhas já importadas e ainda não
+          fechadas são recalculadas na hora. Folha fechada não muda.
+        </p>
         <div className="flex flex-col gap-2">
           {Object.entries(GRUPOS_RUBRICA).map(([grupo, nome]) => {
             const doGrupo = dados.rubricas.filter((r) => r.grupo === grupo);

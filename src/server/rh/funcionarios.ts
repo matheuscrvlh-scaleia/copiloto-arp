@@ -15,6 +15,7 @@ import {
   type TrechoDoPonto,
 } from "@/lib/rh/ponto-periodo";
 import { createClient } from "@/lib/supabase/server";
+import { socios } from "./dados";
 
 // Leituras da tela de Funcionários, com a sessão do usuário (o RLS decide).
 // Folha, rubricas e custo são das tabelas sensíveis: só voltam linhas para
@@ -46,6 +47,14 @@ export interface Funcionario {
   noPonto: boolean;
   /** No Secullum, mas o RH tirou do ponto (não conta nas telas). */
   foraDoPonto: boolean;
+  /** Afastamento do ponto que cobre hoje (o primeiro, se houver mais de um). */
+  afastamentoHoje: AfastamentoDeHoje | null;
+}
+
+export interface AfastamentoDeHoje {
+  inicio: string;
+  fim: string;
+  motivo: string | null;
 }
 
 const CAMPOS = `id, nome, matricula, secullum_id, situacao_copiloto, fora_do_ponto,
@@ -72,7 +81,7 @@ type LinhaColaborador = {
 function paraFuncionario(
   c: LinhaColaborador,
   hoje: string,
-  afastados: Set<string>,
+  afastados: Map<string, AfastamentoDeHoje>,
 ): Funcionario {
   return {
     id: c.id,
@@ -88,31 +97,47 @@ function paraFuncionario(
     situacao: situacaoDe(c, hoje, afastados.has(c.id)),
     noPonto: c.secullum_id !== null,
     foraDoPonto: c.fora_do_ponto,
+    afastamentoHoje: afastados.get(c.id) ?? null,
   };
 }
 
-/** Quem tem afastamento do ponto cobrindo `hoje`. */
-async function afastadosEm(hoje: string, id?: string): Promise<Set<string>> {
+/** Quem tem afastamento do ponto cobrindo `hoje`, com motivo e período. */
+async function afastadosEm(
+  hoje: string,
+  id?: string,
+): Promise<Map<string, AfastamentoDeHoje>> {
   let consulta = (await rh())
     .from("afastamentos")
-    .select("colaborador_id")
+    .select("colaborador_id, inicio, fim, motivo, justificativa")
     .lte("inicio", hoje)
-    .gte("fim", hoje);
+    .gte("fim", hoje)
+    .order("inicio");
   if (id) consulta = consulta.eq("colaborador_id", id);
   const { data, error } = await consulta;
   falhar(error);
-  return new Set((data ?? []).map((a) => a.colaborador_id));
+  const mapa = new Map<string, AfastamentoDeHoje>();
+  for (const a of data ?? [])
+    if (!mapa.has(a.colaborador_id))
+      mapa.set(a.colaborador_id, {
+        inicio: a.inicio,
+        fim: a.fim,
+        motivo: a.justificativa ?? a.motivo,
+      });
+  return mapa;
 }
 
-/** Todos os colaboradores (vindos do Copiloto RH), por nome. */
+/** Todos os colaboradores (vindos do Copiloto RH), por nome, menos os sócios. */
 export const funcionarios = cache(async (): Promise<Funcionario[]> => {
   const hoje = isoLocal(new Date());
-  const [{ data, error }, afastados] = await Promise.all([
+  const [{ data, error }, afastados, deFora] = await Promise.all([
     (await rh()).from("colaboradores").select(CAMPOS).order("nome"),
     afastadosEm(hoje),
+    socios(),
   ]);
   falhar(error);
-  return (data ?? []).map((c) => paraFuncionario(c, hoje, afastados));
+  return (data ?? [])
+    .filter((c) => !deFora.has(c.id))
+    .map((c) => paraFuncionario(c, hoje, afastados));
 });
 
 export interface Perfil extends Funcionario {
@@ -478,7 +503,7 @@ export const custosDe = cache(async (id: string): Promise<CustoDoMes[]> => {
       `competencia, colaborador_id, departamento_id, tipo_contrato, remuneracao,
        encargos, provisao_13, provisao_ferias, multa_rescisoria, beneficios,
        rescisao, reembolsos, custo_total, custo_hora, salario_hora, jornada_min,
-       memoria`,
+       memoria, valor_informado`,
     )
     .eq("colaborador_id", id)
     .order("competencia", { ascending: false });
@@ -504,6 +529,7 @@ export const custosDe = cache(async (id: string): Promise<CustoDoMes[]> => {
     custo_hora: num(c.custo_hora),
     salario_hora: num(c.salario_hora),
     jornada_min: c.jornada_min,
+    valor_informado: c.valor_informado,
     memoria: c.memoria as CustoIndividual["memoria"],
   }));
 });

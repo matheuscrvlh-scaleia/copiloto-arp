@@ -1535,3 +1535,120 @@ describe("histórico de alterações (core.logs e core.historico)", () => {
     ).toBe(total);
   });
 });
+
+describe("contratos, sócios e PJ (20261026)", () => {
+  const SOCIO = "30000000-0000-0000-0000-0000000000a1";
+  const PJ = "30000000-0000-0000-0000-0000000000a2";
+  const FOLHA_SOCIO = "40000000-0000-0000-0000-0000000000a1";
+  const BENEFICIO = "70000000-0000-0000-0000-0000000000a1";
+
+  beforeAll(async () => {
+    await db.exec(`
+      insert into rh.colaboradores (id, copiloto_id, matricula, nome, admissao, tipo_contrato)
+        values ('${SOCIO}', '60000000-0000-0000-0000-0000000000a1', 900, 'Sócio Teste', '2020-01-01', 'clt'),
+               ('${PJ}', '60000000-0000-0000-0000-0000000000a2', null, 'PJ Teste', '2026-01-01', 'pj');
+      insert into rh.folhas (id, competencia) values ('${FOLHA_SOCIO}', '2027-01-01');
+      insert into rh.folha_colaboradores (folha_id, colaborador_id, situacao, tipo_contrato)
+        values ('${FOLHA_SOCIO}', '${SOCIO}', 'trabalhando', 'clt');
+      -- 100 = Pró-labore (dados iniciais).
+      insert into rh.folha_rubricas (folha_id, colaborador_id, rubrica_codigo, natureza, valor)
+        values ('${FOLHA_SOCIO}', '${SOCIO}', 100, 'provento', 2000);
+      insert into rh.beneficios (id, nome, tipo, valor_padrao)
+        values ('${BENEFICIO}', 'Seguro de acidentes pessoais', 'seguro', 30);
+    `);
+  });
+
+  it("sócio é quem tem rubrica de pró-labore: o RH vê só o id; sem permissão, nada", async () => {
+    const sql = "select * from rh.socios() as id";
+    await como(U.analista, async () => {
+      const { rows } = await db.query<{ id: string }>(sql);
+      expect(rows.map((r) => r.id)).toEqual([SOCIO]);
+    });
+    await como(U.outro, async () => {
+      expect(await linhas(sql)).toBe(0);
+    });
+  });
+
+  it("valor do PJ: só o servidor grava; só quem vê o custo individual lê", async () => {
+    await db.exec(
+      `insert into rh.valores_pj (colaborador_id, valor) values ('${PJ}', 7000)`,
+    );
+    await como(U.gestora, async () => {
+      expect(await linhas("select * from rh.valores_pj")).toBe(1);
+      expect(
+        await erro(
+          `update rh.valores_pj set valor = 1 where colaborador_id = '${PJ}'`,
+        ),
+      ).toMatch(/permission denied/);
+    });
+    await como(U.analista, async () => {
+      expect(await linhas("select * from rh.valores_pj")).toBe(0);
+    });
+  });
+
+  it("benefício por contrato: rh.beneficios edita, um em aberto por contrato, com auditoria", async () => {
+    const vincular = (desde: string) =>
+      `insert into rh.beneficio_contratos (beneficio_id, tipo_contrato, desde)
+       values ('${BENEFICIO}', 'estagiario', '${desde}')`;
+    await como(U.analista, async () => {
+      expect(await erro(vincular("2026-10-01"))).toMatch(/row-level security/);
+    });
+    await como(U.gestora, async () => {
+      expect(await erro(vincular("2026-10-01"))).toBeNull();
+      expect(await erro(vincular("2026-11-01"))).toMatch(
+        /beneficio_contratos_aberto/,
+      );
+      expect(await linhas("select * from rh.beneficio_contratos")).toBe(1);
+    });
+    await como(U.analista, async () => {
+      expect(await linhas("select * from rh.beneficio_contratos")).toBe(0);
+    });
+    expect(
+      await linhas(
+        "select 1 from core.auditoria where tabela = 'rh.beneficio_contratos'",
+      ),
+    ).toBe(1);
+  });
+
+  it("PJ sem valor ativo no fim do mês sai do divisor do custo médio", async () => {
+    await db.exec(`
+      insert into rh.custos_colaborador (competencia, colaborador_id, tipo_contrato,
+          custo_total, memoria, valor_informado)
+        values ('2027-01-01', '${PJ}', 'pj', 0, '[]', false);
+    `);
+    const sql =
+      "select sem_valor, colaboradores from rh.custo_agregado('2027-01-01', '2027-01-01')";
+    await como(U.gestora, async () => {
+      const { rows } = await db.query<{
+        sem_valor: string;
+        colaboradores: string;
+      }>(sql);
+      expect(
+        rows.map((r) => [Number(r.colaboradores), Number(r.sem_valor)]),
+      ).toEqual([[1, 1]]);
+    });
+    // Desligado no meio do mês: não está entre os ativos do fim do mês.
+    await db.exec(
+      `update rh.colaboradores set desligamento = '2027-01-15' where id = '${PJ}'`,
+    );
+    await como(U.gestora, async () => {
+      const { rows } = await db.query<{ sem_valor: string }>(sql);
+      expect(rows.map((r) => Number(r.sem_valor))).toEqual([0]);
+    });
+    await como(U.analista, async () => {
+      expect(await linhas(sql)).toBe(0);
+    });
+  });
+
+  it("estagiário começa sem recesso; grupos novos de rubrica são válidos", async () => {
+    const { rows } = await db.query<{ provisiona_recesso: boolean }>(
+      "select provisiona_recesso from rh.encargos_por_contrato where tipo_contrato = 'estagiario'",
+    );
+    expect(rows.map((r) => r.provisiona_recesso)).toEqual([false]);
+    expect(
+      await erro(
+        "select 'faltas_atrasos'::rh.grupo_rubrica, 'afastamento_empresa'::rh.grupo_rubrica, 'banco_horas'::rh.grupo_rubrica, 'verbas_sem_encargos'::rh.grupo_rubrica",
+      ),
+    ).toBeNull();
+  });
+});

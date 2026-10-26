@@ -1,3 +1,4 @@
+import { ativosEm } from "./calculos";
 import { GRUPOS_RUBRICA, type GrupoRubrica } from "./rubricas";
 
 // Custo mensal por funcionário (especificação do RH, seção 4.4). Função pura:
@@ -20,7 +21,45 @@ export interface EncargosDoContrato {
   aplica_rat: boolean;
   provisiona_13: boolean;
   provisiona_ferias: boolean;
+  /** Estagiário: recesso remunerado (1/12 da bolsa, sem 1/3 e sem encargos). */
+  provisiona_recesso: boolean;
   multa_rescisoria_pct: number;
+}
+
+const SEM_ENCARGOS = {
+  inss_patronal_pct: 0,
+  terceiros_pct: 0,
+  fgts_pct: 0,
+  aplica_rat: false,
+  multa_rescisoria_pct: 0,
+};
+
+/**
+ * O que vale de cada contrato, seja o que for que esteja gravado nos campos
+ * que a tela não mostra mais: estagiário (Lei 11.788/2008) e PJ nunca têm
+ * encargos; o estagiário só provisiona o recesso e o PJ, 13º e férias; só o
+ * estagiário tem recesso.
+ */
+export function regrasDoContrato(
+  tipo: string,
+  e: EncargosDoContrato | null,
+): EncargosDoContrato | null {
+  if (!e) return null;
+  if (tipo === "estagiario")
+    return {
+      ...SEM_ENCARGOS,
+      provisiona_13: false,
+      provisiona_ferias: false,
+      provisiona_recesso: e.provisiona_recesso,
+    };
+  if (tipo === "pj")
+    return {
+      ...SEM_ENCARGOS,
+      provisiona_13: e.provisiona_13,
+      provisiona_ferias: e.provisiona_ferias,
+      provisiona_recesso: false,
+    };
+  return { ...e, provisiona_recesso: false };
 }
 
 /** RAT e FAP da empresa vigentes na competência (null: não configurados). */
@@ -53,8 +92,11 @@ export interface PessoaDoMes {
   jornada_min: number | null;
   rubricas: RubricaDaFolha[];
   beneficios: BeneficioDoMes[];
-  /** PJ: soma das notas do mês (o custo é a nota). */
-  valor_notas?: number;
+  /**
+   * PJ: valor mensal do contrato (Salário no Copiloto RH); null quando não
+   * foi informado. Ausente para quem está na folha.
+   */
+  valor_pj?: number | null;
   /** Avisos de quem montou os dados (ex.: dependente sem faixa). */
   pendencias?: string[];
 }
@@ -82,14 +124,39 @@ export interface CustoCalculado {
   jornada_min: number | null;
   custo_hora: number | null;
   salario_hora: number | null;
+  /** PJ sem valor informado: aparece, mas fica fora do custo médio. */
+  valor_informado: boolean;
   memoria: { linhas: LinhaMemoria[]; pendencias: string[] };
 }
 
-const REMUNERACAO: GrupoRubrica[] = [
-  "salario",
-  "pro_labore",
-  "adicional",
-  "hora_extra",
+/**
+ * Partes da remuneração, na ordem da memória de cálculo. Todas entram na base
+ * dos encargos e das provisões, menos as verbas sem encargos. Pró-labore não
+ * está aqui: sócio fica fora do custo.
+ */
+const PARTES_DA_REMUNERACAO: {
+  grupos: GrupoRubrica[];
+  rotulo: string;
+  comEncargos: boolean;
+}[] = [
+  {
+    grupos: ["salario", "adicional"],
+    rotulo: "salário e adicionais",
+    comEncargos: true,
+  },
+  { grupos: ["hora_extra"], rotulo: "horas extras", comEncargos: true },
+  { grupos: ["banco_horas"], rotulo: "banco de horas pago", comEncargos: true },
+  {
+    grupos: ["afastamento_empresa"],
+    rotulo: "afastamento pago pela empresa",
+    comEncargos: true,
+  },
+  { grupos: ["faltas_atrasos"], rotulo: "faltas e atrasos", comEncargos: true },
+  {
+    grupos: ["verbas_sem_encargos"],
+    rotulo: "verbas sem encargos",
+    comEncargos: false,
+  },
 ];
 
 const centavos = (v: number) => Math.round(v * 100);
@@ -113,11 +180,12 @@ export function encargosPct(e: EncargosDoContrato, rat: RatFap | null): number {
 export function calcularCusto(
   p: PessoaDoMes,
   grupoDe: (codigo: number) => GrupoRubrica | undefined,
-  encargos: EncargosDoContrato | null,
+  encargosGravados: EncargosDoContrato | null,
   rat: RatFap | null,
 ): CustoCalculado {
   const linhas: LinhaMemoria[] = [];
   const pendencias: string[] = [...(p.pendencias ?? [])];
+  const encargos = regrasDoContrato(p.tipo_contrato, encargosGravados);
   const somaDo = (grupos: GrupoRubrica[]) =>
     p.rubricas
       .filter((r) => {
@@ -135,16 +203,45 @@ export function calcularCusto(
     }
   }
 
-  // Remuneração: grupos Salário, Pró-labore, Adicionais e Horas extras; no
-  // PJ, a nota do mês.
-  const ehPj = p.valor_notas !== undefined;
-  const remuneracao = arred(ehPj ? (p.valor_notas ?? 0) : somaDo(REMUNERACAO));
+  // Remuneração: as partes da folha (provento soma, desconto subtrai); no
+  // PJ, o valor mensal do contrato. Base dos encargos e das provisões: tudo
+  // menos as verbas sem encargos.
+  const ehPj = p.valor_pj !== undefined;
+  const valorInformado = !ehPj || p.valor_pj !== null;
+  let remuneracao: number;
+  let base: number;
+  let regraRemuneracao: string;
+  if (ehPj) {
+    remuneracao = arred(p.valor_pj ?? 0);
+    base = remuneracao;
+    regraRemuneracao = valorInformado
+      ? "Valor mensal do contrato (Salário no Copiloto RH)"
+      : "Valor do contrato não informado no Copiloto RH";
+    if (!valorInformado)
+      pendencias.push(
+        "Valor não informado: preencha o Salário do PJ no Copiloto RH. Fica fora do custo e do custo médio.",
+      );
+  } else {
+    const partes = PARTES_DA_REMUNERACAO.map((parte) => ({
+      ...parte,
+      valor: arred(somaDo(parte.grupos)),
+    }));
+    remuneracao = arred(partes.reduce((s, x) => s + x.valor, 0));
+    base = arred(
+      partes.filter((x) => x.comEncargos).reduce((s, x) => s + x.valor, 0),
+    );
+    regraRemuneracao = partes
+      .filter((x, i) => i === 0 || x.valor !== 0)
+      .map(
+        (x, i) =>
+          `${i === 0 ? "" : x.valor < 0 ? "− " : "+ "}${x.rotulo} ${Math.abs(x.valor).toFixed(2)}${x.comEncargos ? "" : " (fora da base dos encargos)"}`,
+      )
+      .join(" ");
+  }
   linhas.push({
     rotulo: "Remuneração",
     valor: remuneracao,
-    regra: ehPj
-      ? "Notas do PJ no mês"
-      : "Salário + pró-labore + adicionais + horas extras da folha",
+    regra: regraRemuneracao,
   });
 
   if (!encargos) {
@@ -157,53 +254,79 @@ export function calcularCusto(
     );
   }
 
+  const semEncargos =
+    p.tipo_contrato === "estagiario"
+      ? "Estágio (Lei 11.788/2008) não tem encargos"
+      : p.tipo_contrato === "pj"
+        ? "PJ não tem encargos"
+        : null;
   const enc = encargos ? encargosPct(encargos, rat) : 0;
-  const valorEncargos = arred((remuneracao * enc) / 100);
+  const valorEncargos = arred((base * enc) / 100);
+  const baseTexto = base === remuneracao ? "Remuneração" : "Base";
   linhas.push({
     rotulo: "Encargos do mês",
     valor: valorEncargos,
-    regra: encargos
-      ? `Remuneração × ${pct(enc)} (INSS ${pct(encargos.inss_patronal_pct)} + Terceiros ${pct(encargos.terceiros_pct)} + FGTS ${pct(encargos.fgts_pct)}${encargos.aplica_rat ? ` + RAT ${rat ? `${pct(rat.rat_pct)} × FAP ${rat.fap}` : "não configurado"}` : ""})`
-      : "Sem encargos para o contrato",
+    regra:
+      semEncargos ??
+      (encargos
+        ? `${baseTexto} × ${pct(enc)} (INSS ${pct(encargos.inss_patronal_pct)} + Terceiros ${pct(encargos.terceiros_pct)} + FGTS ${pct(encargos.fgts_pct)}${encargos.aplica_rat ? ` + RAT ${rat ? `${pct(rat.rat_pct)} × FAP ${rat.fap}` : "não configurado"}` : ""})`
+        : "Sem encargos para o contrato"),
   });
 
   // Provisões com todos os encargos do contrato por cima (não só o FGTS).
+  // Sem encargos (estagiário e PJ), a provisão sai sem nada por cima.
   const comEncargos = 1 + enc / 100;
+  const porCima = enc ? ` × (1 + ${pct(enc)})` : "";
   const provisao13 = encargos?.provisiona_13
-    ? arred((remuneracao / 12) * comEncargos)
+    ? arred((base / 12) * comEncargos)
     : 0;
   linhas.push({
     rotulo: "Provisão de 13º",
     valor: provisao13,
     regra: encargos?.provisiona_13
-      ? `Remuneração ÷ 12 × (1 + ${pct(enc)})`
+      ? `${baseTexto} ÷ 12${porCima}`
       : "Contrato sem provisão de 13º",
   });
-  const provisaoFerias = encargos?.provisiona_ferias
-    ? arred((remuneracao / 12) * (4 / 3) * comEncargos)
-    : 0;
-  linhas.push({
-    rotulo: "Provisão de férias",
-    valor: provisaoFerias,
-    regra: encargos?.provisiona_ferias
-      ? `Remuneração ÷ 12 × 4/3 × (1 + ${pct(enc)})`
-      : "Contrato sem provisão de férias",
-  });
+  let provisaoFerias: number;
+  if (encargos?.provisiona_recesso) {
+    // Recesso do estagiário: 1/12 da bolsa, sem 1/3 e sem encargos. Fica na
+    // coluna das férias (o estagiário não tem as duas).
+    provisaoFerias = arred(base / 12);
+    linhas.push({
+      rotulo: "Provisão de recesso remunerado",
+      valor: provisaoFerias,
+      regra: "Bolsa ÷ 12, sem 1/3 e sem encargos",
+    });
+  } else {
+    provisaoFerias = encargos?.provisiona_ferias
+      ? arred((base / 12) * (4 / 3) * comEncargos)
+      : 0;
+    linhas.push({
+      rotulo: "Provisão de férias",
+      valor: provisaoFerias,
+      regra: encargos?.provisiona_ferias
+        ? `${baseTexto} ÷ 12 × 4/3${porCima}`
+        : p.tipo_contrato === "estagiario"
+          ? "Recesso não provisionado (Parâmetros)"
+          : "Contrato sem provisão de férias",
+    });
+  }
 
   // Multa rescisória: % sobre o FGTS do mês, sem dividir por 12.
   const multa = encargos
     ? arred(
-        (((remuneracao * encargos.fgts_pct) / 100) *
-          encargos.multa_rescisoria_pct) /
+        (((base * encargos.fgts_pct) / 100) * encargos.multa_rescisoria_pct) /
           100,
       )
     : 0;
   linhas.push({
     rotulo: "Multa rescisória provisionada",
     valor: multa,
-    regra: encargos
-      ? `${pct(encargos.multa_rescisoria_pct)} do FGTS do mês (remuneração × ${pct(encargos.fgts_pct)})`
-      : "Sem encargos para o contrato",
+    regra:
+      semEncargos ??
+      (encargos
+        ? `${pct(encargos.multa_rescisoria_pct)} do FGTS do mês (${baseTexto.toLowerCase()} × ${pct(encargos.fgts_pct)})`
+        : "Sem encargos para o contrato"),
   });
 
   // Benefícios: valor cheio − o que o funcionário paga do titular + o que a
@@ -296,13 +419,15 @@ export function calcularCusto(
     reembolsos,
     custo_total: custoTotal,
     jornada_min: p.jornada_min,
-    custo_hora: horas
-      ? Math.round((custoTotal / horas) * 10_000) / 10_000
-      : null,
+    custo_hora:
+      horas && valorInformado
+        ? Math.round((custoTotal / horas) * 10_000) / 10_000
+        : null,
     salario_hora:
       horas && p.salario !== null
         ? Math.round((p.salario / horas) * 10_000) / 10_000
         : null,
+    valor_informado: valorInformado,
     memoria: { linhas, pendencias },
   };
 }
@@ -439,6 +564,8 @@ export interface CustoAgregado {
   rescisao: number;
   reembolsos: number;
   custo_total: number;
+  /** Ativos no fim do mês sem valor (PJ sem Salário): fora do custo médio. */
+  sem_valor: number;
 }
 
 export type TotaisCusto = Omit<
@@ -456,6 +583,7 @@ export function somarCustos(linhas: CustoAgregado[]): TotaisCusto {
     rescisao: 0,
     reembolsos: 0,
     custo_total: 0,
+    sem_valor: 0,
   };
   for (const l of linhas) {
     for (const k of Object.keys(t) as (keyof TotaisCusto)[]) t[k] += l[k];
@@ -479,6 +607,39 @@ export function custosPor(
     .sort((a, b) => b.totais.custo_total - a.totais.custo_total);
 }
 
+/**
+ * Ativos no Copiloto RH no último dia de cada mês, somados (pessoas-mês),
+ * por grupo (departamento, cargo ou contrato do cadastro).
+ */
+export function ativosPorGrupo<
+  T extends { admissao: string | null; desligamento: string | null },
+>(
+  pessoas: T[],
+  fins: string[],
+  chave: (p: T) => string | null,
+): Map<string | null, number> {
+  const n = new Map<string | null, number>();
+  for (const fim of fins)
+    for (const p of ativosEm(pessoas, fim)) {
+      const k = chave(p);
+      n.set(k, (n.get(k) ?? 0) + 1);
+    }
+  return n;
+}
+
+/**
+ * Custo médio: custo do grupo ÷ ativos do grupo no Copiloto RH, sem os PJ
+ * sem valor informado (não somam R$ 0 na média). Null sem ninguém.
+ */
+export function custoMedio(
+  custoTotal: number,
+  ativos: number,
+  semValor = 0,
+): number | null {
+  const pessoas = ativos - semValor;
+  return pessoas > 0 ? custoTotal / pessoas : null;
+}
+
 /** Custo de uma pessoa como as telas mostram (provisões já somadas). */
 export interface CustoIndividual {
   colaborador_id: string;
@@ -497,6 +658,8 @@ export interface CustoIndividual {
   custo_hora: number | null;
   salario_hora: number | null;
   jornada_min: number | null;
+  /** PJ sem valor informado no Copiloto RH. */
+  valor_informado: boolean;
   memoria: {
     linhas: { rotulo: string; valor: number; regra: string }[];
     pendencias: string[];

@@ -2,6 +2,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { copilotoRh as criarClienteCopiloto } from "../integracoes";
+import { recalcularEmAberto, tentarRecalcular } from "../rh/custo";
+import { salarioFicticioAtivo } from "../rh/folha";
 import { planejarCopiloto } from "./copiloto-rh-regras";
 import { emLotes, executar, guardarBrutos } from "./execucao";
 
@@ -31,10 +33,11 @@ export async function sincronizarCopiloto() {
       .select("id, matricula, copiloto_id, tipo_contrato");
     if (existentes.error) throw existentes.error;
 
-    const { linhas, novos, avisos } = planejarCopiloto(
+    const { linhas, valoresPj, novos, avisos } = planejarCopiloto(
       copiloto,
       existentes.data,
       randomUUID,
+      salarioFicticioAtivo(),
     );
     for (const lote of emLotes(linhas, 500)) {
       const { error } = await rh
@@ -43,12 +46,32 @@ export async function sincronizarCopiloto() {
       if (error) throw error;
     }
 
+    // Valor do PJ: troca tudo (quem deixou de ser PJ ou ficou sem Salário sai).
+    const comValor = valoresPj.map((v) => v.colaborador_id);
+    const apagar = rh.from("valores_pj").delete();
+    const { error: erroApagar } = comValor.length
+      ? await apagar.not("colaborador_id", "in", `(${comValor.join(",")})`)
+      : await apagar.not("colaborador_id", "is", null);
+    if (erroApagar) throw erroApagar;
+    for (const lote of emLotes(valoresPj, 500)) {
+      const { error } = await rh.from("valores_pj").upsert(
+        lote.map((v) => ({ ...v, sync_run_id: runId })),
+        { onConflict: "colaborador_id" },
+      );
+      if (error) throw error;
+    }
+
+    // O bruto guarda o que o conector validou, menos o salário: o do PJ já
+    // está em rh.valores_pj e o dos outros não é usado.
     await guardarBrutos(
       admin,
       SISTEMA,
       "colaboradores",
       runId,
-      copiloto.map((c) => ({ chave: c.id, payload: c })),
+      copiloto.map(({ compensation: _, ...c }) => ({
+        chave: c.id,
+        payload: c,
+      })),
     );
 
     const resultado: ResultadoCopiloto = {
@@ -58,6 +81,8 @@ export async function sincronizarCopiloto() {
       desligados: copiloto.filter((c) => c.status === "terminated").length,
       avisos,
     };
+    // Contrato e valor do PJ mudam o custo das folhas em aberto.
+    await tentarRecalcular(recalcularEmAberto);
     return {
       ...resultado,
       registros: linhas.length,

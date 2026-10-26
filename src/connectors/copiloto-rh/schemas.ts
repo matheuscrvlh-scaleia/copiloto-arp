@@ -51,8 +51,9 @@ export const STATUS_COLABORADOR = [
 /**
  * Datas de admissão, desligamento e nascimento vêm como "aaaa-mm-dd".
  * Do bloco `personal` (escopo employees:personal:read) só o nascimento entra;
- * CPF, RG, contatos e endereço ficam de fora de propósito. O bloco
- * `compensation` (salário) também: o salário vem da folha.
+ * CPF, RG, contatos e endereço ficam de fora de propósito. Do bloco
+ * `compensation` só o salário-base: é o valor mensal do contrato do PJ, que não
+ * está na folha. O sync guarda só o dos PJ (o dos outros vem da folha).
  */
 export const colaboradorSchema = z.object({
   id: z.string(),
@@ -73,6 +74,16 @@ export const colaboradorSchema = z.object({
     .nullish(),
   updated_at: z.string(),
   personal: z.object({ birth_date: z.string().nullish() }).nullish(),
+  compensation: z
+    .object({
+      // Número ou texto ("2000.00"); vazio é não informado.
+      base_salary: z.preprocess(
+        (v) =>
+          typeof v === "string" ? (v.trim() === "" ? null : Number(v)) : v,
+        z.number().nonnegative().nullish(),
+      ),
+    })
+    .nullish(),
 });
 
 export type Colaborador = z.infer<typeof colaboradorSchema>;

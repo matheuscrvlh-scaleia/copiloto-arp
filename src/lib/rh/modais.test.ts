@@ -182,6 +182,7 @@ describe("modais do custo", () => {
     rescisao: 0,
     reembolsos: 0,
     custo_total: 6552,
+    sem_valor: 0,
   };
   const pessoa = (nome: string, encargos: number): CustoIndividual => ({
     colaborador_id: nome,
@@ -191,6 +192,7 @@ describe("modais do custo", () => {
     departamento: "Administração",
     cargo: "Analista",
     tipo_contrato: "clt",
+    valor_informado: true,
     remuneracao: 2000,
     encargos,
     provisoes: 600,

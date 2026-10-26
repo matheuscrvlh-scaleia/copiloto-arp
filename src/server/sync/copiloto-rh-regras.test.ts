@@ -88,7 +88,11 @@ describe("regras do copiloto rh", () => {
   it("sem par: cria, com a matrícula do Copiloto se estiver livre", () => {
     const r = planejarCopiloto(
       [
-        copiloto({ id: "c1", contract_type: "pj" }),
+        copiloto({
+          id: "c1",
+          contract_type: "pj",
+          compensation: { base_salary: 7000 },
+        }),
         copiloto({ id: "c2", code: "5" }),
       ],
       [existente({ id: "a", matricula: 7 })],
@@ -107,6 +111,32 @@ describe("regras do copiloto rh", () => {
     ]);
     expect(r.avisos).toEqual([
       "2 colaborador(es) do Copiloto criado(s) no Centralizador (sem par pela matrícula)",
+    ]);
+  });
+
+  it("salário só do PJ; no protótipo, R$ 2.000,00; sem Salário, avisa", () => {
+    const pessoas = [
+      copiloto({ id: "c1", code: "1", compensation: { base_salary: 3000 } }),
+      copiloto({
+        id: "c2",
+        code: "2",
+        contract_type: "pj",
+        compensation: { base_salary: 7000 },
+      }),
+      copiloto({ id: "c3", code: "3", contract_type: "pj" }),
+    ];
+    const existentes = [
+      existente({ id: "a", matricula: 1 }),
+      existente({ id: "b", matricula: 2 }),
+      existente({ id: "c", matricula: 3 }),
+    ];
+    const real = planejarCopiloto(pessoas, existentes, novoId, false);
+    expect(real.valoresPj).toEqual([{ colaborador_id: "b", valor: 7000 }]);
+    expect(real.avisos).toEqual([
+      "matrícula 3: PJ sem Salário no Copiloto (custo como valor não informado)",
+    ]);
+    expect(planejarCopiloto(pessoas, existentes, novoId).valoresPj).toEqual([
+      { colaborador_id: "b", valor: 2000 },
     ]);
   });
 

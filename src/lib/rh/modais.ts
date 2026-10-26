@@ -588,7 +588,7 @@ export const COMPONENTES: Record<
   remuneracao: {
     rotulo: "Remuneração",
     regra:
-      "Salário + pró-labore + adicionais + horas extras (grupos das rubricas); PJ: notas do mês",
+      "Salário, adicionais, horas extras, banco de horas pago e afastamento pago pela empresa − faltas e atrasos + verbas sem encargos (grupos das rubricas); PJ: Salário no Copiloto RH. Sócio (pró-labore) fica fora",
     fonte: "Rubricas da folha, classificadas em Importar folha",
   },
   encargos: {
@@ -600,7 +600,7 @@ export const COMPONENTES: Record<
   provisoes: {
     rotulo: "Provisões",
     regra:
-      "13º = remuneração ÷ 12; férias = ÷ 12 × 4/3, ambos com todos os encargos; multa rescisória = % do FGTS do mês",
+      "13º = remuneração ÷ 12; férias = ÷ 12 × 4/3, ambos com todos os encargos; multa rescisória = % do FGTS do mês. Estagiário: só o recesso (bolsa ÷ 12); PJ: 13º e férias se marcados, sem encargos",
     fonte: "Parâmetros: provisões e multa por tipo de contrato",
   },
   beneficios: {
@@ -816,23 +816,31 @@ export function origemDoComponente(
   };
 }
 
-export function origemDoCustoMedio(t: TotaisCusto, o: OpcoesCusto): Detalhe {
+export function origemDoCustoMedio(
+  t: TotaisCusto,
+  ativos: number,
+  o: OpcoesCusto,
+): Detalhe {
+  const pessoas = ativos - t.sem_valor;
   return {
     secao: "Custo de pessoal",
     titulo: `Custo médio por pessoa em ${formatarMes(o.competencia)}`,
     resumo: [
       {
         rotulo: "Custo médio",
-        valor: moeda(t.colaboradores ? t.custo_total / t.colaboradores : 0),
+        valor: pessoas > 0 ? moeda(t.custo_total / pessoas) : "—",
       },
       { rotulo: "Custo total", valor: moeda(t.custo_total) },
-      { rotulo: "Pessoas", valor: String(t.colaboradores) },
+      { rotulo: "Ativos no Copiloto RH", valor: String(ativos) },
+      ...(t.sem_valor
+        ? [{ rotulo: "PJ sem valor (fora)", valor: String(t.sem_valor) }]
+        : []),
     ],
     fontes: fontesDoCusto(o, [
       {
         rotulo: "Fórmula",
         valor:
-          "Custo total ÷ pessoas com custo na folha (inclui afastados e desligados no mês)",
+          "Custo total ÷ colaboradores ativos no Copiloto RH no último dia do mês da folha (sem sócios e sem os PJ sem valor informado). O custo inclui quem saiu no mês (rescisão)",
       },
     ]),
     tabelas: [

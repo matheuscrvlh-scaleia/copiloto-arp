@@ -174,42 +174,58 @@ export const pontoDoPeriodo = cache(
 );
 
 /**
+ * Sócios: quem tem rubrica (ou contrato) de pró-labore. Ficam fora do custo,
+ * do quadro e das listas de Funcionários; o cadastro no Copiloto não muda.
+ */
+export const socios = cache(async (): Promise<Set<string>> => {
+  const { data, error } = await (await rh()).rpc("socios");
+  falhar(error);
+  return new Set(data ?? []);
+});
+
+/**
  * Quadro e turnover: todos vêm do Copiloto RH (fonte da especificação para
- * ativos, admissões, desligamentos e turnover). Departamento e cargo seguem
- * do ponto e da folha.
+ * ativos, admissões, desligamentos e turnover), menos os sócios. Departamento
+ * e cargo seguem do ponto e da folha.
  */
 export const colaboradoresDoQuadro = cache(
   async (): Promise<ColaboradorQuadro[]> => {
-    const { data, error } = await (await rh())
-      .from("colaboradores")
-      .select(
-        `id, nome, matricula, departamento_id, admissao, desligamento,
-         tipo_contrato, motivo_desligamento_copiloto,
-         decisao_desligamento_copiloto,
-         departamento:departamentos(nome),
-         cargo:cargos(nome)`,
-      )
-      .order("nome");
+    const [{ data, error }, deFora] = await Promise.all([
+      (await rh())
+        .from("colaboradores")
+        .select(
+          `id, nome, matricula, departamento_id, cargo_id, admissao, desligamento,
+           tipo_contrato, motivo_desligamento_copiloto,
+           decisao_desligamento_copiloto,
+           departamento:departamentos(nome),
+           cargo:cargos(nome)`,
+        )
+        .order("nome"),
+      socios(),
+    ]);
     falhar(error);
-    return (data ?? []).map((c) => ({
-      id: c.id,
-      nome: c.nome,
-      matricula: c.matricula,
-      departamento_id: c.departamento_id,
-      departamento: c.departamento?.nome ?? "Sem departamento",
-      admissao: c.admissao,
-      desligamento: c.desligamento,
-      motivo_desligamento: c.motivo_desligamento_copiloto,
-      decisao_desligamento: c.decisao_desligamento_copiloto,
-      tipo_turnover: c.desligamento
-        ? tipoDoDesligamento(
-            c.decisao_desligamento_copiloto,
-            c.motivo_desligamento_copiloto,
-          )
-        : null,
-      cargo: c.cargo?.nome ?? null,
-      tipo_contrato: c.tipo_contrato,
-    }));
+    return (data ?? [])
+      .filter((c) => !deFora.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        nome: c.nome,
+        matricula: c.matricula,
+        departamento_id: c.departamento_id,
+        departamento: c.departamento?.nome ?? "Sem departamento",
+        admissao: c.admissao,
+        desligamento: c.desligamento,
+        motivo_desligamento: c.motivo_desligamento_copiloto,
+        decisao_desligamento: c.decisao_desligamento_copiloto,
+        tipo_turnover: c.desligamento
+          ? tipoDoDesligamento(
+              c.decisao_desligamento_copiloto,
+              c.motivo_desligamento_copiloto,
+            )
+          : null,
+        cargo: c.cargo?.nome ?? null,
+        cargo_id: c.cargo_id,
+        tipo_contrato: c.tipo_contrato,
+      }));
   },
 );
 
@@ -357,6 +373,7 @@ export const custoAgregado = cache(
       rescisao: Number(l.rescisao),
       reembolsos: Number(l.reembolsos),
       custo_total: Number(l.custo_total),
+      sem_valor: Number(l.sem_valor),
     }));
   },
 );
@@ -370,6 +387,7 @@ export const custosIndividuais = cache(
         `colaborador_id, departamento_id, tipo_contrato, remuneracao, encargos,
          provisao_13, provisao_ferias, multa_rescisoria, beneficios, rescisao,
          custo_total, custo_hora, salario_hora, jornada_min, memoria,
+         valor_informado,
          colaborador:colaboradores(nome, matricula),
          departamento:departamentos(nome),
          cargo:cargos(nome)`,
@@ -397,6 +415,7 @@ export const custosIndividuais = cache(
         custo_hora: c.custo_hora === null ? null : Number(c.custo_hora),
         salario_hora: c.salario_hora === null ? null : Number(c.salario_hora),
         jornada_min: c.jornada_min,
+        valor_informado: c.valor_informado,
         memoria: c.memoria as CustoIndividual["memoria"],
       }))
       .sort((a, b) => b.custo_total - a.custo_total);

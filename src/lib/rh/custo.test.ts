@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  ativosPorGrupo,
   type BeneficioDoMes,
   calcularCusto,
+  custoMedio,
   custosPor,
   type EncargosDoContrato,
   idadeEm,
@@ -31,6 +33,11 @@ const GRUPOS: Record<number, GrupoRubrica> = {
   490: "beneficio_desconto",
   998: "imposto_funcionario",
   995: "reembolso_inss",
+  8069: "faltas_atrasos",
+  8100: "afastamento_empresa",
+  8200: "banco_horas",
+  8300: "verbas_sem_encargos",
+  5000: "salario",
   23: "informativa",
   77: "nao_classificada",
 };
@@ -43,16 +50,14 @@ const CLT: EncargosDoContrato = {
   aplica_rat: true,
   provisiona_13: true,
   provisiona_ferias: true,
+  provisiona_recesso: false,
   multa_rescisoria_pct: 40,
 };
-const PRO_LABORE: EncargosDoContrato = {
-  inss_patronal_pct: 20,
-  terceiros_pct: 0,
-  fgts_pct: 0,
-  aplica_rat: false,
-  provisiona_13: false,
-  provisiona_ferias: false,
-  multa_rescisoria_pct: 0,
+// Valores antigos gravados nos campos que a tela não mostra mais: o cálculo
+// ignora (estagiário e PJ nunca têm encargos).
+const LEGADO: EncargosDoContrato = {
+  ...CLT,
+  provisiona_recesso: true,
 };
 // RAT 1% × FAP 2 = 2%: com INSS, Terceiros e FGTS, 35,8%.
 const RAT = { rat_pct: 1, fap: 2 };
@@ -204,32 +209,109 @@ describe("custo por funcionário", () => {
     expect(c.beneficios).toBe(350.23);
   });
 
-  it("pró-labore: só INSS de 20%, sem provisões nem multa", () => {
+  it("rubrica de pró-labore não entra no custo", () => {
     const c = calcularCusto(
-      pessoa({ tipo_contrato: "pro_labore", rubricas: [r(100, 10_000)] }),
+      pessoa({ rubricas: [r(8781, 2500), r(100, 10_000)] }),
       grupoDe,
-      PRO_LABORE,
+      CLT,
       RAT,
     );
-    expect(c.encargos).toBe(2000);
-    expect(c.provisao_13 + c.provisao_ferias + c.multa_rescisoria).toBe(0);
-    expect(c.custo_total).toBe(12_000);
+    expect(c.remuneracao).toBe(2500);
   });
 
-  it("PJ: custo é a nota do mês", () => {
+  it("estagiário: sem encargos; recesso = bolsa ÷ 12, sem 1/3 e sem encargos", () => {
+    const c = calcularCusto(
+      pessoa({ tipo_contrato: "estagiario", rubricas: [r(8781, 1200)] }),
+      grupoDe,
+      LEGADO,
+      RAT,
+    );
+    expect(c.encargos).toBe(0);
+    expect(c.provisao_13).toBe(0);
+    expect(c.multa_rescisoria).toBe(0);
+    expect(c.provisao_ferias).toBe(100);
+    expect(c.custo_total).toBe(1300);
+    expect(
+      c.memoria.linhas.find(
+        (l) => l.rotulo === "Provisão de recesso remunerado",
+      )?.valor,
+    ).toBe(100);
+    expect(
+      c.memoria.linhas.find((l) => l.rotulo === "Encargos do mês")?.regra,
+    ).toMatch(/Lei 11\.788/);
+
+    const semRecesso = calcularCusto(
+      pessoa({ tipo_contrato: "estagiario", rubricas: [r(8781, 1200)] }),
+      grupoDe,
+      { ...LEGADO, provisiona_recesso: false },
+      RAT,
+    );
+    expect(semRecesso.custo_total).toBe(1200);
+  });
+
+  it("PJ: custo é o Salário do Copiloto; provisões só se marcadas, sem encargos", () => {
+    const pj = (valor_pj: number | null) =>
+      pessoa({ tipo_contrato: "pj", rubricas: [], salario: null, valor_pj });
+    const sem = calcularCusto(
+      pj(7000),
+      grupoDe,
+      { ...LEGADO, provisiona_13: false, provisiona_ferias: false },
+      RAT,
+    );
+    expect(sem.custo_total).toBe(7000);
+    expect(sem.encargos).toBe(0);
+    expect(sem.salario_hora).toBeNull();
+    expect(sem.valor_informado).toBe(true);
+
+    const com = calcularCusto(pj(6000), grupoDe, LEGADO, RAT);
+    expect(com.encargos).toBe(0);
+    expect(com.multa_rescisoria).toBe(0);
+    expect(com.provisao_13).toBe(500);
+    expect(com.provisao_ferias).toBe(666.67);
+    expect(com.custo_total).toBe(7166.67);
+  });
+
+  it("PJ sem Salário: valor não informado, com pendência", () => {
     const c = calcularCusto(
       pessoa({
         tipo_contrato: "pj",
         rubricas: [],
-        valor_notas: 7000,
         salario: null,
+        valor_pj: null,
       }),
       grupoDe,
-      { ...PRO_LABORE, inss_patronal_pct: 0 },
+      LEGADO,
       RAT,
     );
-    expect(c.custo_total).toBe(7000);
-    expect(c.salario_hora).toBeNull();
+    expect(c.valor_informado).toBe(false);
+    expect(c.remuneracao).toBe(0);
+    expect(c.custo_hora).toBeNull();
+    expect(c.memoria.pendencias.join("\n")).toMatch(/Valor não informado/);
+  });
+
+  it("grupos novos: faltas reduzem, banco e afastamento somam, verba sem encargos fica fora da base", () => {
+    const c = calcularCusto(
+      pessoa({
+        rubricas: [
+          r(8781, 2500),
+          r(8069, 100, "desconto"),
+          r(8100, 300),
+          r(8200, 200),
+          r(8300, 1000),
+          r(8300, 100, "desconto"),
+        ],
+      }),
+      grupoDe,
+      CLT,
+      RAT,
+    );
+    // Base 2.500 − 100 + 300 + 200 = 2.900; remuneração + 900 sem encargos.
+    expect(c.remuneracao).toBe(3800);
+    expect(c.encargos).toBe(1038.2);
+    expect(c.provisao_13).toBe(328.18);
+    expect(
+      c.memoria.linhas.find((l) => l.rotulo === "Remuneração")?.regra,
+    ).toMatch(/− faltas e atrasos 100\.00.*verbas sem encargos 900\.00 \(fora/);
   });
 
   it("aponta o que ficou de fora", () => {
@@ -369,6 +451,7 @@ describe("somas", () => {
     rescisao: 0,
     reembolsos: 0,
     custo_total: total,
+    sem_valor: 0,
   });
 
   it("soma e agrupa do maior para o menor", () => {
@@ -381,6 +464,41 @@ describe("somas", () => {
       { chave: "b", totais: { custo_total: 300.2 } },
       { chave: "a", totais: { colaboradores: 2, custo_total: 100.3 } },
     ]);
+  });
+});
+
+describe("custo médio", () => {
+  const p = (
+    admissao: string | null,
+    desligamento: string | null,
+    dep: string,
+  ) => ({
+    admissao,
+    desligamento,
+    dep,
+  });
+
+  it("ativos no último dia de cada mês, somados por grupo", () => {
+    const pessoas = [
+      p("2026-01-10", null, "a"),
+      p("2026-01-10", "2026-07-15", "a"),
+      p("2026-07-20", null, "b"),
+      p("2026-08-05", null, "b"),
+    ];
+    const n = ativosPorGrupo(
+      pessoas,
+      ["2026-07-31", "2026-08-31"],
+      (x) => x.dep,
+    );
+    expect(n.get("a")).toBe(2);
+    expect(n.get("b")).toBe(3);
+  });
+
+  it("custo ÷ ativos, sem os PJ sem valor; sem ninguém, null", () => {
+    expect(custoMedio(9000, 3)).toBe(3000);
+    expect(custoMedio(9000, 4, 1)).toBe(3000);
+    expect(custoMedio(9000, 1, 1)).toBeNull();
+    expect(custoMedio(9000, 0)).toBeNull();
   });
 });
 

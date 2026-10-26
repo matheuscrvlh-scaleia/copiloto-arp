@@ -88,9 +88,9 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 |---|---|
 | `parametros_empresa` | RAT, FAP (0,5–2,0), regime, ciclo e adicional do banco de horas |
 | `parametros_turnover` | Sem uso desde 21/10/2026: o turnover vem pronto da API do Copiloto. Sai depois do deploy |
-| `encargos_por_contrato` | Por tipo (CLT, aprendiz, estagiário, PJ, pró-labore): INSS patronal, Terceiros, FGTS, se aplica RAT, se provisiona 13º e férias, % da multa rescisória |
+| `encargos_por_contrato` | Por tipo (CLT, aprendiz, estagiário, PJ): INSS patronal, Terceiros, FGTS, se aplica RAT, se provisiona 13º, férias e recesso (`provisiona_recesso`, só estagiário), % da multa rescisória. Estagiário e PJ nunca têm encargos: o cálculo ignora os percentuais gravados (`regrasDoContrato`). Pró-labore não aparece: sócio fica fora do custo |
 | `jornadas` | Horas/mês em níveis: colaborador > cargo > departamento > empresa (nenhum id) |
-| `rubricas` | Código, descrição e grupo (como entra no custo). Rubrica nova entra como `nao_classificada` e gera aviso; `informativa` (ex.: FGTS de rescisão) não entra no custo |
+| `rubricas` | Código, descrição e grupo (como entra no custo). Rubrica nova entra como `nao_classificada` e gera aviso; `informativa` (ex.: FGTS de rescisão) não entra no custo. Nos grupos que entram, provento soma e desconto subtrai: `faltas_atrasos`, `afastamento_empresa` e `banco_horas` entram na remuneração e na base dos encargos; `verbas_sem_encargos`, só na remuneração; `pro_labore` marca o sócio e não entra. O grupo pode ser trocado em Cadastros (recalcula as folhas em aberto) |
 
 ### Benefícios e plano de saúde
 
@@ -98,6 +98,7 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 |---|---|
 | `beneficios` | VR, VT, plano, odonto, seguro, massagem…: valor, rubricas de desconto (titular e dependente), quanto a empresa paga do dependente |
 | `colaborador_beneficios` | Vínculo com período; `valor_manual` não é sobrescrito quando a faixa muda |
+| `beneficio_contratos` | Benefício para todo um tipo de contrato (ex.: seguro de todos os estagiários), com período; vale para quem entrar depois. O vínculo da pessoa vence o do contrato. Um em aberto por benefício e contrato |
 | `plano_tabelas` | Uma por reajuste, por benefício (plano ou odonto), ligada à importação da planilha |
 | `plano_faixas_etarias` | Idade mínima/máxima e mensalidade |
 | `plano_coparticipacao` | Por tempo de casa: % do colaborador ou valor fixo (ex.: R$ 57,50 acima de 7 anos) |
@@ -113,14 +114,19 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 | `ponto_diario` | Cada dia do mesmo `/Calcular` (sem chamada a mais): batidas na posição da coluna Entrada/Saída (null onde faltou), justificativa no lugar delas (FOLGA, FERIADO, ATESTAD…), horas do dia e saldo corrente do banco. Alimenta o perfil em RH › Funcionários |
 | `afastamentos` | Do Secullum |
 | `custos_colaborador` 🔒 | Resultado do cálculo: remuneração, encargos, provisões, multa, benefícios, rescisão, reembolsos, custo total (check: fecha com as parcelas), custo/hora, salário/hora, memória de cálculo. Só o servidor grava |
-| `notas_pj` 🔒 | Custo do PJ pela nota. Manual até a integração com o ENET |
+| `valores_pj` 🔒 | Valor mensal do contrato do PJ: o Salário no Copiloto RH, gravado pela sincronização (só dos PJ; no protótipo, R$ 2.000,00). Sem linha: valor não informado (o PJ aparece, mas fica fora do custo médio) |
+| `notas_pj` 🔒 | Sem uso desde 26/10/2026: o custo do PJ é o `valores_pj` |
 | `dados_financeiros_mensais` | Faturamento bruto, custo total, custos sem pessoal, lucro e endomarketing do mês. Manual até a integração com o ENET |
 | `orcamento_endomarketing` | Orçamento anual aprovado |
 
 Funções (`security definer`, só somas):
 
 - `rh.custo_agregado(inicio, fim)`: custo por competência, departamento,
-  cargo e tipo de contrato. Exige `rh.custo_pessoal`.
+  cargo e tipo de contrato, e quantos PJ sem valor estavam ativos no fim do
+  mês (`sem_valor`, tirados do divisor do custo médio). Exige `rh.custo_pessoal`.
+- `rh.socios()`: ids de quem tem rubrica (ou contrato) de pró-labore. Sócio
+  fica fora do custo, do quadro e das listas de Funcionários. Qualquer
+  permissão do RH.
 - `rh.quadro_mensal(inicio, fim)`: headcount por competência, departamento,
   tipo de contrato e situação. Exige qualquer permissão do RH.
 - `rh.banco_horas_em_reais(competencia)`: banco de horas positivo × salário
@@ -138,9 +144,13 @@ Funções (`security definer`, só somas):
 
 O cálculo fica em `src/lib/rh/custo.ts` (função pura, testada) e roda no
 servidor (`src/server/rh/custo.ts`) ao importar a folha, classificar
-rubrica, salvar encargos ou RAT/FAP e no botão Recalcular. Sem RAT/FAP
-vigente no mês, vale a primeira configuração (ela é gravada a partir do mês
-em que a Gestora preenche, depois das folhas antigas).
+rubrica, salvar encargos ou RAT/FAP, sincronizar o Copiloto RH e no botão
+Recalcular. Sem RAT/FAP vigente no mês, vale a primeira configuração (ela é
+gravada a partir do mês em que a Gestora preenche, depois das folhas
+antigas). Só entra quem está no Copiloto RH (a folha se liga pela
+matrícula), com departamento, cargo e contrato do cadastro; sócio fica fora;
+desligado entra até o mês da rescisão; PJ entra pelo `valores_pj`, não pela
+folha. Custo médio = custo ÷ ativos no Copiloto RH no último dia do mês.
 
 ### Dados iniciais
 
@@ -165,6 +175,8 @@ ela antes do primeiro fechamento.
 | `folha_colaboradores`, `folha_rubricas` | `rh.custo_pessoal.individual` | `rh.folha` (importação) |
 | `custos_colaborador` | `rh.custo_pessoal.individual` | — (servidor) |
 | `notas_pj` | `rh.custo_pessoal.individual` | `rh.parametros` |
+| `valores_pj` | `rh.custo_pessoal.individual` | — (sincronização) |
+| `beneficio_contratos` | `rh.beneficios` | `rh.beneficios` |
 | `core.auditoria` | `rh.parametros` (tabelas do RH); `admin.historico` (tudo) | — (trigger) |
 | `core.logs` | `admin.historico` | — (servidor) |
 | `integracao.*` | ninguém (sem permissão de uso do schema) | service role |

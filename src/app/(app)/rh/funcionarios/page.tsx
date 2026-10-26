@@ -25,7 +25,7 @@ import { type Funcionario, funcionarios } from "@/server/rh/funcionarios";
 
 export const metadata: Metadata = { title: "Funcionários" };
 
-export default function Page() {
+export default function Page({ searchParams }: PageProps<"/rh/funcionarios">) {
   return (
     <>
       <PageHeader
@@ -34,7 +34,7 @@ export default function Page() {
       />
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="rh.funcionarios">
-          <Lista />
+          <Lista busca={searchParams} />
         </Protegido>
       </Suspense>
     </>
@@ -47,13 +47,39 @@ const opcoesDe = (valores: string[]) =>
     .sort((a, b) => a.localeCompare(b))
     .map((v) => ({ valor: v, rotulo: v }));
 
+/** O que cada cartão filtra na lista (?situacao=…). */
+const SITUACOES = {
+  ativos: "Ativos e afastados",
+  afastados: "Afastados hoje",
+  desligados: "Desligados",
+} as const;
+type FiltroSituacao = keyof typeof SITUACOES;
+
+/** Opções do filtro em que a pessoa aparece: o afastado está nas duas. */
+const situacoesDe = (f: Funcionario): FiltroSituacao[] =>
+  f.situacao === "afastado" ? ["ativos", "afastados"] : [VINCULO[f.situacao]];
+
+const periodo = (a: { inicio: string; fim: string }) =>
+  a.inicio === a.fim
+    ? formatarData(a.inicio)
+    : `${formatarData(a.inicio)} a ${formatarData(a.fim)}`;
+
 const contrato = (f: Funcionario) =>
   f.tipo_contrato
     ? (ROTULO_CONTRATO[f.tipo_contrato] ?? f.tipo_contrato)
     : "Sem contrato";
 
-async function Lista() {
-  const todos = await funcionarios();
+async function Lista({
+  busca,
+}: {
+  busca: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [todos, params] = await Promise.all([funcionarios(), busca]);
+  const pedida = params.situacao;
+  const situacao: FiltroSituacao =
+    typeof pedida === "string" && pedida in SITUACOES
+      ? (pedida as FiltroSituacao)
+      : "ativos";
   const hoje = isoLocal(new Date());
   const conta = (s: Funcionario["situacao"][]) =>
     todos.filter((f) => s.includes(f.situacao)).length;
@@ -91,6 +117,29 @@ async function Lista() {
       titulo: "Situação",
       valor: (f) => <SeloSituacao situacao={f.situacao} />,
     },
+    // Só com o filtro dos afastados: por que e até quando.
+    ...(situacao === "afastados"
+      ? [
+          {
+            titulo: "Afastamento",
+            valor: (f: Funcionario) =>
+              f.afastamentoHoje ? (
+                <span>
+                  {f.afastamentoHoje.motivo ?? "Sem motivo no ponto"}
+                  <span className="block text-xs text-neutral-500">
+                    {periodo(f.afastamentoHoje)}
+                  </span>
+                </span>
+              ) : f.situacao === "afastado" ? (
+                <span className="text-neutral-500">
+                  Afastado no Copiloto RH (sem período no ponto)
+                </span>
+              ) : (
+                "—"
+              ),
+          },
+        ]
+      : []),
     {
       titulo: "",
       valor: (f) => (
@@ -113,24 +162,34 @@ async function Lista() {
           titulo="Ativos"
           valor={conta(["ativo", "afastado", "a_admitir"])}
           detalhe="no Copiloto RH, com os afastados"
+          filtro="ativos"
+          escolhido={situacao}
         />
         <Numero
           titulo="Afastados hoje"
           valor={conta(["afastado"])}
           detalhe="pelo Copiloto ou por afastamento no ponto"
+          filtro="afastados"
+          escolhido={situacao}
         />
         <Numero
           titulo="Desligados"
           valor={conta(["desligado"])}
           detalhe="mantidos para o histórico"
+          filtro="desligados"
+          escolhido={situacao}
         />
       </div>
 
       <Secao
+        id="colaboradores"
         titulo="Colaboradores"
         descricao="Clique no nome para abrir o perfil"
+        className="scroll-mt-6"
       >
         <TabelaBusca
+          // Um cartão clicado troca o filtro: a tabela recomeça com ele.
+          key={situacao}
           placeholder="Buscar pelo nome ou matrícula…"
           porPagina={15}
           filtros={[
@@ -138,11 +197,11 @@ async function Lista() {
               chave: "vinculo",
               rotulo: "Situação",
               todos: "Todas as situações",
-              inicial: "ativos",
-              opcoes: [
-                { valor: "ativos", rotulo: "Ativos e afastados" },
-                { valor: "desligados", rotulo: "Desligados" },
-              ],
+              inicial: situacao,
+              opcoes: Object.entries(SITUACOES).map(([valor, rotulo]) => ({
+                valor,
+                rotulo,
+              })),
             },
             {
               chave: "dep",
@@ -163,7 +222,7 @@ async function Lista() {
             (f) => f.id,
             (f) => `${f.nome} ${f.matricula ?? ""}`,
             (f) => ({
-              vinculo: VINCULO[f.situacao],
+              vinculo: situacoesDe(f),
               dep: f.departamento,
               contrato: contrato(f),
             }),
@@ -180,28 +239,39 @@ async function Lista() {
   );
 }
 
+/** Cartão que filtra a lista pela situação dele. */
 function Numero({
   titulo,
   valor,
   detalhe,
+  filtro,
+  escolhido,
   destaque = false,
 }: {
   titulo: string;
   valor: number;
   detalhe: string;
+  filtro: FiltroSituacao;
+  escolhido: FiltroSituacao;
   destaque?: boolean;
 }) {
   const apagado = destaque
     ? "text-[rgb(255_255_255/0.60)]"
     : "text-neutral-500";
+  const ativo = filtro === escolhido;
   return (
-    <div className={`${destaque ? "destaque" : "vidro"} rounded-[1.75rem] p-6`}>
+    <Link
+      href={`?situacao=${filtro}#colaboradores`}
+      aria-current={ativo ? "true" : undefined}
+      title={`Mostrar na lista: ${SITUACOES[filtro].toLowerCase()}`}
+      className={`${destaque ? "destaque" : "vidro"} block rounded-[1.75rem] p-6 transition hover:-translate-y-0.5 hover:shadow-lg ${ativo ? "ring-2 ring-neutral-900/70" : ""}`}
+    >
       <p className={`text-sm ${apagado}`}>{titulo}</p>
       <p className="mt-2 text-5xl font-semibold tracking-tight">
         {formatarNumero(valor)}
       </p>
       <p className={`mt-1 text-xs ${apagado}`}>{detalhe}</p>
-    </div>
+    </Link>
   );
 }
 

@@ -154,7 +154,8 @@ describe("copiloto rh", () => {
 
     const c = lista[0];
     expect(c?.personal).toEqual({ birth_date: "1990-05-12" });
-    expect(c).not.toHaveProperty("compensation");
+    // Do salário só o valor (vale para o PJ; a regra do sync descarta o resto).
+    expect(c?.compensation).toEqual({ base_salary: 2000 });
     expect(c).not.toHaveProperty("email");
     expect(JSON.stringify(lista)).not.toContain("000.000.000-00");
   });

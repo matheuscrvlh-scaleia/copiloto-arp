@@ -4,10 +4,11 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
 import { formatarMes, lerValorBr } from "@/lib/formato";
+import { GRUPOS_CLASSIFICAVEIS, GRUPOS_RUBRICA } from "@/lib/rh/rubricas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { erroDoBanco, primeiroErro } from "@/server/acoes";
-import { pode } from "@/server/auth";
+import { pode, usuarioAtual } from "@/server/auth";
 import { recalcularEmAberto, tentarRecalcular } from "@/server/rh/custo";
 
 // Cadastros manuais do RH. Toda gravação passa pelo RLS e cai em
@@ -46,6 +47,45 @@ export async function salvarDepartamento(
 }
 
 // ---------------------------------------------------------------------------
+// Rubricas: trocar o grupo de uma rubrica já classificada.
+// ---------------------------------------------------------------------------
+
+const grupoDaRubrica = z.object({
+  codigo: z.coerce.number().int().positive("escolha a rubrica"),
+  grupo: z.enum(GRUPOS_CLASSIFICAVEIS, "escolha o grupo"),
+});
+
+/** Troca o grupo e recalcula as folhas em aberto (fechada não muda). */
+export async function trocarGrupoRubrica(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("rh.parametros"))) return SEM_PERMISSAO;
+  const r = grupoDaRubrica.safeParse(Object.fromEntries(form));
+  if (!r.success)
+    return primeiroErro(r.error, { codigo: "Rubrica", grupo: "Grupo" });
+  const usuario = await usuarioAtual();
+  const { data, error } = await (await createClient())
+    .schema("rh")
+    .from("rubricas")
+    .update({
+      grupo: r.data.grupo,
+      classificada_por: usuario.id,
+      classificada_em: new Date().toISOString(),
+    })
+    .eq("codigo", r.data.codigo)
+    .select("codigo");
+  if (error) return erroDoBanco(error);
+  if (!data?.length) return { erro: "Rubrica não encontrada." };
+  const calculado = await tentarRecalcular(recalcularEmAberto);
+  refresh();
+  const ok = `Rubrica ${r.data.codigo} agora em “${GRUPOS_RUBRICA[r.data.grupo]}”.`;
+  return calculado
+    ? { ok: `${ok} Folhas em aberto recalculadas.` }
+    : {
+        ok: `${ok} O custo não foi recalculado: use Recalcular em Custo de pessoal.`,
+      };
+}
 
 // ---------------------------------------------------------------------------
 // Benefícios (rh.beneficios). Mudam o custo: recalcula as folhas em aberto.
@@ -179,6 +219,59 @@ export async function vincularBeneficio(
   const { error } = await rh.from("colaborador_beneficios").insert(v.data);
   if (error) return erroDoBanco(error);
   return salvoERecalculado("Vinculado.");
+}
+
+const vinculoContrato = z.object({
+  beneficio_id: z.uuid(),
+  tipo_contrato: z.enum(
+    ["clt", "aprendiz", "estagiario", "pj"],
+    "escolha o tipo de contrato",
+  ),
+  desde: z.iso.date({ message: "informe desde quando" }),
+});
+
+/**
+ * Todos com o tipo de contrato recebem o benefício, inclusive quem for
+ * admitido depois. Quem já tem o benefício vinculado à pessoa fica com o dela.
+ */
+export async function vincularContrato(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("rh.beneficios"))) return SEM_PERMISSAO_BENEFICIO;
+  const v = vinculoContrato.safeParse(Object.fromEntries(form));
+  if (!v.success)
+    return primeiroErro(v.error, {
+      tipo_contrato: "Tipo de contrato",
+      desde: "Desde",
+    });
+  const rh = (await createClient()).schema("rh");
+  const { count } = await rh
+    .from("beneficio_contratos")
+    .select("id", { count: "exact", head: true })
+    .eq("beneficio_id", v.data.beneficio_id)
+    .eq("tipo_contrato", v.data.tipo_contrato)
+    .is("ate", null);
+  if (count) return { erro: "Este tipo de contrato já recebe o benefício." };
+  const { error } = await rh.from("beneficio_contratos").insert(v.data);
+  if (error) return erroDoBanco(error);
+  return salvoERecalculado("Vinculado ao tipo de contrato.");
+}
+
+export async function removerVinculoContrato(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await pode("rh.beneficios"))) return SEM_PERMISSAO_BENEFICIO;
+  const id = z.uuid().safeParse(form.get("id"));
+  if (!id.success) return { erro: "Vínculo inválido." };
+  const { error } = await (await createClient())
+    .schema("rh")
+    .from("beneficio_contratos")
+    .delete()
+    .eq("id", id.data);
+  if (error) return erroDoBanco(error);
+  return salvoERecalculado("Removido.");
 }
 
 const valorManual = z.object({ id: z.uuid(), valor_manual: reais });

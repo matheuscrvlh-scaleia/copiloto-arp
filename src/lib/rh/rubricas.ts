@@ -1,11 +1,15 @@
 /** Como cada grupo de rubrica entra no custo (especificação do RH, seção 4.2). */
 export const GRUPOS_RUBRICA = {
   salario: "Salário",
-  pro_labore: "Pró-labore",
+  pro_labore: "Pró-labore (sócio, não entra)",
   adicional: "Adicionais",
   hora_extra: "Horas extras",
+  banco_horas: "Banco de horas pago (custo)",
+  afastamento_empresa: "Afastamento pago pela empresa (custo)",
+  faltas_atrasos: "Faltas e atrasos (reduz o custo)",
+  verbas_sem_encargos: "Verbas sem encargos (custo)",
   adiantamento: "Adiantamento (não entra)",
-  afastamento: "Afastamento (não entra)",
+  afastamento: "Pago pelo INSS / afastamento (não entra)",
   rescisao: "Rescisão (custo)",
   pagamento_provisionado: "Férias e 13º pagos (consomem a provisão)",
   beneficio_desconto: "Desconto de benefício (reduz o custo)",

@@ -752,6 +752,13 @@ function FolhaECusto({
   }
   const total = (n: RubricaDoFuncionario["natureza"]) =>
     rubricas.filter((r) => r.natureza === n).reduce((s, r) => s + r.valor, 0);
+  const proventos = total("provento");
+  const descontos = total("desconto");
+  // O líquido vem do PDF da folha, não da conta; a diferença só é apontada.
+  const diferenca =
+    folha.liquido === null
+      ? 0
+      : Math.round((proventos - descontos - folha.liquido) * 100) / 100;
   const outroMes = folha.competencia.slice(0, 7) !== mes.slice(0, 7);
   const descricao = [
     outroMes &&
@@ -770,7 +777,6 @@ function FolhaECusto({
     ["Base INSS", formatarMoeda(folha.base_inss)],
     ["Base FGTS", formatarMoeda(folha.base_fgts)],
     ["FGTS do mês", formatarMoeda(folha.valor_fgts)],
-    ["Líquido", formatarMoeda(folha.liquido)],
   ];
 
   return (
@@ -780,7 +786,7 @@ function FolhaECusto({
         tom="verde"
         descricao={descricao || undefined}
       >
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 2xl:grid-cols-8">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 2xl:grid-cols-7">
           {resumo.map(([rotulo, valor]) => (
             <div key={rotulo} className="min-w-0">
               <dt className="text-xs text-neutral-500">{rotulo}</dt>
@@ -795,6 +801,30 @@ function FolhaECusto({
           titulo="Rubricas"
           descricao="Como veio no Extrato Mensal, com o grupo que define como entra no custo"
         >
+          <dl className="mb-4 grid grid-cols-3 gap-3">
+            {(
+              [
+                ["Proventos", formatarMoeda(proventos)],
+                ["Descontos", formatarMoeda(descontos)],
+                ["Valor líquido", formatarMoeda(folha.liquido)],
+              ] as const
+            ).map(([rotulo, valor]) => (
+              <div
+                key={rotulo}
+                className="min-w-0 rounded-2xl bg-neutral-900/[0.03] px-4 py-3"
+              >
+                <dt className="text-xs text-neutral-500">{rotulo}</dt>
+                <dd className="mt-1 text-sm font-semibold tabular-nums">
+                  {valor}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {diferenca !== 0 && (
+            <p className="-mt-2 mb-4 text-xs text-neutral-500">
+              Diferença com o líquido da folha: {formatarMoeda(diferenca)}
+            </p>
+          )}
           <Tabela
             colunas={COLUNAS_RUBRICA}
             linhas={[...rubricas].sort(

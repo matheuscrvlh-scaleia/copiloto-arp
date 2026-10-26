@@ -45,9 +45,10 @@ import {
 } from "@/lib/formato";
 import { status } from "@/lib/indicadores";
 import { competenciasDoPeriodo } from "@/lib/periodo";
-import { ativosEm } from "@/lib/rh/calculos";
 import {
+  ativosPorGrupo,
   type CustoAgregado,
+  custoMedio,
   custosPor,
   somarCustos,
   type TotaisCusto,
@@ -190,8 +191,25 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
       : [];
   const pessoas = pessoasTodas ? doDep(pessoasTodas) : null;
 
-  // Com vários meses, "colaboradores" soma pessoas-mês: o custo médio sai
-  // por pessoa e por mês. Pessoas na tela = as da última folha.
+  // Custo médio = custo ÷ ativos no Copiloto RH no último dia do mês da folha
+  // (sócios já ficam fora do quadro). Com vários meses, pessoas-mês: o custo
+  // médio sai por pessoa e por mês. Departamento, cargo e contrato do cadastro.
+  const fins = usados.map((c) => fimConsiderado(c));
+  const quadroDep = doDep(quadro);
+  const ativosDe = (
+    chave: (c: (typeof quadro)[number]) => string | null | undefined,
+  ) => ativosPorGrupo(quadroDep, fins, (c) => chave(c) ?? null);
+  const somaDe = (m: Map<string | null, number>) =>
+    [...m.values()].reduce((s, n) => s + n, 0);
+  const ativosDoFiltro = somaDe(ativosDe(() => "todos"));
+  const ativosAntes = somaDe(
+    ativosPorGrupo(
+      quadroDep,
+      antes.map((c) => fimConsiderado(c)),
+      () => "todos",
+    ),
+  );
+
   const t = somarCustos(linhas);
   const pessoasUltima = somarCustos(
     linhas.filter((l) => l.competencia === mes),
@@ -218,15 +236,14 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   const seloIlustrativo = receita?.ilustrativa ? (
     <SeloIlustrativo texto="Dados ilustrativos – aguardando faturamento do mês" />
   ) : null;
-  const ativos = usados.reduce(
-    (s, c) => s + ativosEm(quadro, fimConsiderado(c)).length,
-    0,
-  );
+  const ativos = somaDe(ativosPorGrupo(quadro, fins, () => "todos"));
   const porPessoa = receita
     ? receitaPorColaborador(receita.valor, ativos)
     : null;
-  const custoMedioArp = tArp.colaboradores
-    ? tArp.custo_total / tArp.colaboradores
+  const custoMedioArp = custoMedio(tArp.custo_total, ativos, tArp.sem_valor);
+  const medio = custoMedio(t.custo_total, ativosDoFiltro, t.sem_valor);
+  const medioAnt = tAnt
+    ? custoMedio(tAnt.custo_total, ativosAntes, tAnt.sem_valor)
     : null;
   const indice = indiceDeRetorno(porPessoa, custoMedioArp);
   // Custo + despesa total: o lançado do mês ou, como ilustrativo, o último.
@@ -314,11 +331,22 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     cor: (i + 1) as FatiaRosca["cor"],
   }));
 
-  const colunasGrupo = (
-    titulo: string,
-  ): Coluna<{ nome: string; totais: TotaisCusto }>[] => [
+  const colunasGrupo = (titulo: string): Coluna<Grupo>[] => [
     { titulo, valor: (l) => l.nome },
-    { titulo: "Pessoas", valor: (l) => l.totais.colaboradores, numero: true },
+    {
+      titulo: "Pessoas",
+      valor: (l) => (
+        <span title="Ativos no Copiloto RH no último dia do mês da folha">
+          {formatarNumero(l.ativos)}
+          {l.totais.sem_valor > 0 && (
+            <span className="block text-xs font-normal text-neutral-500">
+              {l.totais.sem_valor} sem valor
+            </span>
+          )}
+        </span>
+      ),
+      numero: true,
+    },
     {
       titulo: "% sobre a receita",
       valor: (l) => {
@@ -375,20 +403,30 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     },
     {
       titulo: "Custo médio",
-      valor: (l) => moeda(l.totais.custo_total / l.totais.colaboradores),
+      valor: (l) => {
+        const m = custoMedio(
+          l.totais.custo_total,
+          l.ativos,
+          l.totais.sem_valor,
+        );
+        return m === null ? "—" : moeda(m);
+      },
       numero: true,
     },
   ];
   const agrupar = (
     chave: (l: CustoAgregado) => string | null,
+    ativosDoGrupo: Map<string | null, number>,
     nome: (k: string | null) => string,
-  ) =>
+  ): Grupo[] =>
     custosPor(linhas, chave).map((g) => ({
       nome: nome(g.chave),
       totais: g.totais,
+      ativos: ativosDoGrupo.get(g.chave) ?? 0,
     }));
   const porDepartamento = agrupar(
     (l) => l.departamento_id,
+    ativosDe((c) => c.departamento_id),
     (k) => (k && nomeDep.get(k)) || "Sem departamento",
   );
 
@@ -416,28 +454,19 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
             tom="escuro"
             valor={moeda(t.custo_total)}
             variacao={variacao(t.custo_total, tAnt?.custo_total)}
-            detalhe={`${pessoasUltima} pessoas na ${rotuloFolhas}${usados.length > 1 ? " (última) · soma dos meses" : ""}${comFolha.length ? "" : " · sem folha no período: a última antes dele"}`}
+            detalhe={`${pessoasUltima} pessoas no custo da ${rotuloFolhas}${usados.length > 1 ? " (última) · soma dos meses" : ""}${comFolha.length ? "" : " · sem folha no período: a última antes dele"}`}
             origem={origemDoCustoTotal(t, opcoes)}
           />
           <CartaoIndicador
             titulo="Custo médio por pessoa"
-            valor={
-              t.colaboradores ? moeda(t.custo_total / t.colaboradores) : "—"
-            }
+            valor={medio === null ? "—" : moeda(medio)}
             variacao={
-              tAnt?.colaboradores && t.colaboradores
-                ? variacao(
-                    t.custo_total / t.colaboradores,
-                    tAnt.custo_total / tAnt.colaboradores,
-                  )
+              medio !== null && medioAnt !== null
+                ? variacao(medio, medioAnt)
                 : undefined
             }
-            detalhe={
-              usados.length > 1
-                ? "Custo total ÷ pessoas, por mês (média dos meses)"
-                : "Custo total ÷ pessoas na folha"
-            }
-            origem={origemDoCustoMedio(t, opcoes)}
+            detalhe={`Custo total ÷ colaboradores ativos no Copiloto RH${usados.length > 1 ? " (pessoas-mês)" : ""}`}
+            origem={origemDoCustoMedio(t, ativosDoFiltro, opcoes)}
           />
           <CartaoIndicador
             titulo="Encargos e provisões"
@@ -581,7 +610,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
                 ["Remuneração", t.remuneracao],
                 ["+ Rescisões", t.rescisao],
                 ["+ Encargos", t.encargos],
-                ["+ Provisões (13º, férias, multa)", t.provisoes],
+                ["+ Provisões (13º, férias, recesso, multa)", t.provisoes],
                 ["+ Benefícios", t.beneficios],
               ].map(([rotulo, valor]) => (
                 <div key={rotulo} className="flex justify-between gap-4 py-2">
@@ -632,6 +661,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
                   ),
                   agrupar(
                     (l) => l.cargo_id,
+                    ativosDe((c) => c.cargo_id),
                     (k) => (k && nomeCargo.get(k)) || "Sem cargo",
                   ),
                   (l) => l.nome,
@@ -657,6 +687,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
                 ),
                 agrupar(
                   (l) => l.tipo_contrato,
+                  ativosDe((c) => c.tipo_contrato),
                   (k) => (k && ROTULO_CONTRATO[k]) || "—",
                 ),
                 (l) => l.nome,
@@ -712,11 +743,16 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
           Cálculo da especificação do RH (4.4): encargos = remuneração × (INSS +
           Terceiros + FGTS + RAT × FAP); provisões de 13º (÷ 12) e férias (÷ 12
           × 4/3) com todos os encargos; multa rescisória = % do FGTS do mês.
-          Férias e 13º pagos consomem a provisão e não entram de novo. O custo é
-          recalculado ao importar a folha, classificar rubrica e salvar encargos
-          ou RAT/FAP; folha fechada não muda. A folha é mensal: um período
-          dentro do mês mostra o mês inteiro, e vários meses são somados (o
-          custo médio é por pessoa e por mês).
+          Estagiário e PJ não têm encargos: o estagiário provisiona só o recesso
+          (bolsa ÷ 12) e o PJ, 13º e férias, se marcados em Parâmetros. O custo
+          do PJ é o Salário no Copiloto RH. Sócios (pró-labore) ficam fora. Só
+          entra quem está no Copiloto RH; desligado, até o mês da rescisão.
+          Custo médio = custo ÷ ativos no Copiloto RH no último dia do mês, sem
+          os PJ sem valor. Férias e 13º pagos consomem a provisão e não entram
+          de novo. O custo é recalculado ao importar a folha, classificar
+          rubrica e salvar encargos ou RAT/FAP; folha fechada não muda. A folha
+          é mensal: um período dentro do mês mostra o mês inteiro, e vários
+          meses são somados (o custo médio é por pessoa e por mês).
         </Nota>
       </div>
     </ProvedorDetalhe>
@@ -737,11 +773,19 @@ const colunasPessoa: Coluna<CustoIndividual>[] = [
     titulo: "Contrato",
     valor: (p) => ROTULO_CONTRATO[p.tipo_contrato] ?? p.tipo_contrato,
   },
-  { titulo: "Remuneração", valor: (p) => moeda(p.remuneracao), numero: true },
+  {
+    titulo: "Remuneração",
+    valor: (p) => (p.valor_informado ? moeda(p.remuneracao) : <SemValor />),
+    numero: true,
+  },
   { titulo: "Encargos", valor: (p) => moeda(p.encargos), numero: true },
   { titulo: "Provisões", valor: (p) => moeda(p.provisoes), numero: true },
   { titulo: "Benefícios", valor: (p) => moeda(p.beneficios), numero: true },
-  { titulo: "Custo total", valor: (p) => moeda(p.custo_total), numero: true },
+  {
+    titulo: "Custo total",
+    valor: (p) => (p.valor_informado ? moeda(p.custo_total) : <SemValor />),
+    numero: true,
+  },
   {
     titulo: "Custo/hora",
     valor: (p) => (p.custo_hora === null ? "—" : formatarMoeda(p.custo_hora)),
@@ -762,6 +806,25 @@ const colunasPessoa: Coluna<CustoIndividual>[] = [
     inteiro: true,
   },
 ];
+
+/** PJ sem Salário no Copiloto RH: fica fora da soma do custo médio. */
+function SemValor() {
+  return (
+    <span
+      className="text-xs text-neutral-500 italic"
+      title="Preencha o Salário do PJ no Copiloto RH"
+    >
+      valor não informado
+    </span>
+  );
+}
+
+interface Grupo {
+  nome: string;
+  totais: TotaisCusto;
+  /** Ativos do grupo no Copiloto RH no fim do mês (pessoas-mês). */
+  ativos: number;
+}
 
 function memoria(p: CustoIndividual): Detalhe {
   return {

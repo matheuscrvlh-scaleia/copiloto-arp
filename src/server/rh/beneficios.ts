@@ -96,6 +96,26 @@ export const vinculosDeBeneficio = cache(async (): Promise<Vinculo[]> => {
     .sort((a, b) => a.nome.localeCompare(b.nome));
 });
 
+export interface VinculoContrato {
+  id: string;
+  beneficio_id: string;
+  tipo_contrato: string;
+  desde: string;
+  ate: string | null;
+}
+
+/** Benefícios dados a todo um tipo de contrato. */
+export const vinculosPorContrato = cache(
+  async (): Promise<VinculoContrato[]> => {
+    const { data, error } = await (await rh())
+      .from("beneficio_contratos")
+      .select("id, beneficio_id, tipo_contrato, desde, ate")
+      .order("desde", { ascending: false });
+    falhar(error);
+    return data ?? [];
+  },
+);
+
 /** Quem pode receber benefício: cadastro ainda sem desligamento. */
 export const colaboradoresAtivos = cache(async () => {
   const { data, error } = await (await rh())
