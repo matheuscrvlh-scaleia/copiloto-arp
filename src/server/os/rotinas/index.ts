@@ -1,5 +1,5 @@
 import "server-only";
-import { registrarEvento } from "@/server/logs";
+import { registrarDepois } from "@/server/logs";
 import { rotinaAceite } from "./aceite";
 import { rotinaCobrancaTerceirizado } from "./cobranca-terceirizado";
 import { rotinaModelos } from "./modelos";
@@ -51,7 +51,8 @@ const ROTINAS = [
 /**
  * Roda tudo, uma rotina depois da outra (a ordem importa pouco, mas em
  * sequência uma não disputa a outra pelo mesmo chamado). Registra no
- * histórico quando algo mudou, quando falhou ou quando foi pedido à mão.
+ * histórico quando algo mudou, quando falhou ou quando foi pedido à mão,
+ * depois de responder (after: o cron e o botão "Rodar rotinas agora").
  */
 export async function rodarRotinas(
   agora = new Date(),
@@ -85,7 +86,7 @@ export async function rodarRotinas(
   const total = resultados.reduce((t, r) => t + r.registros, 0);
   const falhas = resultados.filter((r) => !r.ok);
   if (total > 0 || falhas.length > 0 || usuarioId) {
-    await registrarEvento({
+    registrarDepois({
       modulo: "os",
       evento: "os_rotina",
       descricao: [

@@ -2,15 +2,23 @@ import "server-only";
 import type { Intervalo, RegrasAgenda } from "@/lib/os/agenda";
 import { type DiaComHorarios, diasComHorarios } from "@/lib/os/portal";
 import { hojeEmBrasilia, somarDias } from "@/lib/os/tempo";
-import { os, type osAdmin, type Tabela } from "./base";
+import {
+  type Agenda,
+  agendas as agendasDoModulo,
+  os,
+  type osAdmin,
+  type Tabela,
+} from "./base";
 
 // Agendas (telhado, vistorias, doca): regras de cada uma, ocupação (o que
 // já está marcado e os bloqueios por clima) e as listas da tela interna.
 // As funções que recebem o cliente servem ao portal (service role, depois
-// de conferir o token) e à equipe (sessão, RLS).
+// de conferir o token) e à equipe (sessão, RLS). As agendas em si são
+// configuração e vêm do cache (base.ts); os bloqueios, não: são lidos junto
+// com os horários marcados, que mudam a toda hora.
 
 type ClienteOs = ReturnType<typeof osAdmin>;
-export type Agenda = Tabela<"agendas">;
+export type { Agenda };
 export type Bloqueio = Tabela<"agenda_bloqueios">;
 
 function falhar(erro: { message: string } | null): asserts erro is null {
@@ -132,23 +140,11 @@ function erroDaReserva(e: { code?: string; message: string }): string {
 // Tela interna (sessão)
 // ---------------------------------------------------------------------------
 
-export async function agendas(): Promise<Agenda[]> {
-  const { data, error } = await (await os())
-    .from("agendas")
-    .select("*")
-    .order("nome");
-  falhar(error);
-  return data ?? [];
-}
+/** Todas as agendas, pelo nome (do cache: base.ts). */
+export const agendas = agendasDoModulo;
 
 export async function agenda(id: string): Promise<Agenda | null> {
-  const { data, error } = await (await os())
-    .from("agendas")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  falhar(error);
-  return data;
+  return (await agendas()).find((a) => a.id === id) ?? null;
 }
 
 /** Bloqueios que ainda não terminaram. */

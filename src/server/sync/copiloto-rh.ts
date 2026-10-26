@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { copilotoRh as criarClienteCopiloto } from "../integracoes";
 import { recalcularEmAberto, tentarRecalcular } from "../rh/custo";
 import { salarioFicticioAtivo } from "../rh/folha";
+import { lerTudo } from "../supabase-paginas";
 import { planejarCopiloto } from "./copiloto-rh-regras";
 import { emLotes, executar, guardarBrutos } from "./execucao";
 
@@ -28,14 +29,17 @@ export async function sincronizarCopiloto() {
 
   return executar(admin, SISTEMA, "rh", async (runId) => {
     const copiloto = await api.colaboradores();
-    const existentes = await rh
-      .from("colaboradores")
-      .select("id, matricula, copiloto_id, tipo_contrato");
-    if (existentes.error) throw existentes.error;
+    // Todos os colaboradores (ativos e desligados): de mil em mil.
+    const existentes = await lerTudo(() =>
+      rh
+        .from("colaboradores")
+        .select("id, matricula, copiloto_id, tipo_contrato")
+        .order("id"),
+    );
 
     const { linhas, valoresPj, novos, avisos } = planejarCopiloto(
       copiloto,
-      existentes.data,
+      existentes,
       randomUUID,
       salarioFicticioAtivo(),
     );
@@ -47,12 +51,22 @@ export async function sincronizarCopiloto() {
     }
 
     // Valor do PJ: troca tudo (quem deixou de ser PJ ou ficou sem Salário sai).
-    const comValor = valoresPj.map((v) => v.colaborador_id);
-    const apagar = rh.from("valores_pj").delete();
-    const { error: erroApagar } = comValor.length
-      ? await apagar.not("colaborador_id", "in", `(${comValor.join(",")})`)
-      : await apagar.not("colaborador_id", "is", null);
-    if (erroApagar) throw erroApagar;
+    // Os que saem vão pelo id, em lotes: um "not in" com todos os PJs na URL
+    // cresce com o quadro.
+    const comValor = new Set(valoresPj.map((v) => v.colaborador_id));
+    const atuais = await lerTudo(() =>
+      rh.from("valores_pj").select("colaborador_id").order("colaborador_id"),
+    );
+    const sair = atuais
+      .map((v) => v.colaborador_id)
+      .filter((id) => !comValor.has(id));
+    for (const lote of emLotes(sair, 200)) {
+      const { error } = await rh
+        .from("valores_pj")
+        .delete()
+        .in("colaborador_id", lote);
+      if (error) throw error;
+    }
     for (const lote of emLotes(valoresPj, 500)) {
       const { error } = await rh.from("valores_pj").upsert(
         lote.map((v) => ({ ...v, sync_run_id: runId })),

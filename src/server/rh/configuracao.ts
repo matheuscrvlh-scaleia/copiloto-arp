@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { type Usuario, usuarioAtual } from "@/server/auth";
 import { TAG } from "@/server/cache";
+import { lerTudo } from "@/server/supabase-paginas";
 
 // Configuração do RH, a mesma para todo mundo que usa o módulo:
 // departamentos, cargos, rubricas, RAT/FAP e encargos, metas, catálogo de
@@ -37,24 +38,6 @@ export function usaORh(usuario: Usuario): boolean {
 }
 
 const comModulo = cache(async () => usaORh(await usuarioAtual()));
-
-const PAGINA = 1000;
-
-/** Todas as linhas, de mil em mil (limite da API). */
-async function todas<T>(
-  consulta: (
-    de: number,
-    ate: number,
-  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
-  const linhas: T[] = [];
-  for (let de = 0; ; de += PAGINA) {
-    const { data, error } = await consulta(de, de + PAGINA - 1);
-    falhar(error);
-    linhas.push(...(data ?? []));
-    if (!data || data.length < PAGINA) return linhas;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Departamentos e cargos
@@ -101,13 +84,8 @@ async function cargosEmCache(): Promise<CargoDoRh[]> {
   "use cache";
   cacheLife("referencia");
   cacheTag(TAG.rh.cargos);
-  return todas((de, ate) =>
-    rhAdmin()
-      .from("cargos")
-      .select("id, nome")
-      .order("nome")
-      .order("id")
-      .range(de, ate),
+  return lerTudo(() =>
+    rhAdmin().from("cargos").select("id, nome").order("nome").order("id"),
   );
 }
 
@@ -131,12 +109,11 @@ async function rubricasEmCache(): Promise<RubricaDoRh[]> {
   "use cache";
   cacheLife("referencia");
   cacheTag(TAG.rh.rubricas);
-  return todas((de, ate) =>
+  return lerTudo(() =>
     rhAdmin()
       .from("rubricas")
       .select("codigo, descricao, grupo")
-      .order("codigo")
-      .range(de, ate),
+      .order("codigo"),
   );
 }
 

@@ -14,30 +14,15 @@ import {
 import type { GrupoRubrica } from "@/lib/rh/rubricas";
 import { type AdminClient, createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
+import { lerTudo } from "../supabase-paginas";
 
 // Calcula e grava o custo de pessoal de uma competência (seção 4.4).
 // Usa a service role: chamar só depois de conferir a permissão de quem pediu.
+// O que cresce com o quadro (pessoas, rubricas, jornadas, vínculos,
+// dependentes) é lido de mil em mil (lerTudo), com ordem por chave única.
 
 function falhar(erro: { message: string } | null): asserts erro is null {
   if (erro) throw new Error(`Falha ao ler o banco: ${erro.message}`);
-}
-
-const PAGINA = 1000;
-
-/** Todas as linhas de uma consulta, de mil em mil (limite da API). */
-async function todas<T>(
-  consulta: (
-    de: number,
-    ate: number,
-  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
-  const linhas: T[] = [];
-  for (let de = 0; ; de += PAGINA) {
-    const { data, error } = await consulta(de, de + PAGINA - 1);
-    falhar(error);
-    linhas.push(...(data ?? []));
-    if (!data || data.length < PAGINA) return linhas;
-  }
 }
 
 async function carregar(admin: AdminClient, competencia: string) {
@@ -71,49 +56,40 @@ async function carregar(admin: AdminClient, competencia: string) {
     valoresPj,
   ] = await Promise.all([
     folhaDoMes,
-    todas((de, ate) =>
-      rh
-        .from("rubricas")
-        .select("codigo, grupo")
-        .order("codigo")
-        .range(de, ate),
-    ),
+    lerTudo(() => rh.from("rubricas").select("codigo, grupo").order("codigo")),
     folhaDoMes.then((folha) =>
       folha
-        ? todas((de, ate) =>
+        ? lerTudo(() =>
             rh
               .from("folha_colaboradores")
               .select(
                 "colaborador_id, tipo_contrato, departamento_id, cargo_id, horas_mes_min, salario",
               )
               .eq("folha_id", folha.id)
-              .order("colaborador_id")
-              .range(de, ate),
+              .order("colaborador_id"),
           )
         : [],
     ),
     folhaDoMes.then((folha) =>
       folha
-        ? todas((de, ate) =>
+        ? lerTudo(() =>
             rh
               .from("folha_rubricas")
               .select(
                 "colaborador_id, rubrica_codigo, natureza, valor, rubrica:rubricas(descricao)",
               )
               .eq("folha_id", folha.id)
-              .order("id")
-              .range(de, ate),
+              .order("id"),
           )
         : [],
     ),
-    todas((de, ate) =>
+    lerTudo(() =>
       rh
         .from("colaboradores")
         .select(
           "id, tipo_contrato, departamento_id, cargo_id, admissao, desligamento, nascimento",
         )
-        .order("id")
-        .range(de, ate),
+        .order("id"),
     ),
     sociosDoCusto(admin),
     rh
@@ -122,21 +98,28 @@ async function carregar(admin: AdminClient, competencia: string) {
         "tipo_contrato, vigente_desde, inss_patronal_pct, terceiros_pct, fgts_pct, aplica_rat, provisiona_13, provisiona_ferias, provisiona_recesso, multa_rescisoria_pct",
       ),
     rh.from("parametros_empresa").select("vigente_desde, rat_pct, fap"),
-    rh
-      .from("jornadas")
-      .select(
-        "departamento_id, cargo_id, colaborador_id, horas_mes_min, vigente_desde",
-      ),
-    rh
-      .from("colaborador_beneficios")
-      .select(
-        `colaborador_id, valor_manual,
-         beneficio:beneficios(id, nome, tipo, valor_padrao, rubricas_desconto,
-           rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo),
-         colaborador:colaboradores(nascimento)`,
-      )
-      .lte("desde", fim)
-      .or(`ate.is.null,ate.gte.${competencia}`),
+    // Uma por funcionário (e por vigência), além das de cargo e departamento.
+    lerTudo(() =>
+      rh
+        .from("jornadas")
+        .select(
+          "departamento_id, cargo_id, colaborador_id, horas_mes_min, vigente_desde",
+        )
+        .order("id"),
+    ),
+    lerTudo(() =>
+      rh
+        .from("colaborador_beneficios")
+        .select(
+          `colaborador_id, valor_manual,
+           beneficio:beneficios(id, nome, tipo, valor_padrao, rubricas_desconto,
+             rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo),
+           colaborador:colaboradores(nascimento)`,
+        )
+        .lte("desde", fim)
+        .or(`ate.is.null,ate.gte.${competencia}`)
+        .order("id"),
+    ),
     rh
       .from("beneficio_contratos")
       .select(
@@ -152,22 +135,20 @@ async function carregar(admin: AdminClient, competencia: string) {
         "beneficio_id, vigente_desde, faixas:plano_faixas_etarias(idade_min, idade_max, mensalidade)",
       )
       .lte("vigente_desde", competencia),
-    rh
-      .from("dependentes")
-      .select("colaborador_id, nascimento, tem_plano, tem_odonto"),
-    rh.from("valores_pj").select("colaborador_id, valor"),
+    lerTudo(() =>
+      rh
+        .from("dependentes")
+        .select("colaborador_id, nascimento, tem_plano, tem_odonto")
+        .order("id"),
+    ),
+    lerTudo(() =>
+      rh
+        .from("valores_pj")
+        .select("colaborador_id, valor")
+        .order("colaborador_id"),
+    ),
   ]);
-  for (const r of [
-    encargos,
-    empresa,
-    jornadas,
-    vinculos,
-    porContrato,
-    tabelas,
-    dependentes,
-    valoresPj,
-  ])
-    falhar(r.error);
+  for (const r of [encargos, empresa, porContrato, tabelas]) falhar(r.error);
 
   return {
     folha,
@@ -178,13 +159,13 @@ async function carregar(admin: AdminClient, competencia: string) {
     grupos: new Map(rubricas.map((r) => [r.codigo, r.grupo as GrupoRubrica])),
     encargos: encargos.data ?? [],
     empresa: empresa.data ?? [],
-    jornadas: jornadas.data ?? [],
-    vinculos: vinculos.data ?? [],
+    jornadas,
+    vinculos,
     porContrato: porContrato.data ?? [],
     tabelas: tabelas.data ?? [],
-    dependentes: dependentes.data ?? [],
+    dependentes,
     valoresPj: new Map(
-      (valoresPj.data ?? []).map((v) => [v.colaborador_id, Number(v.valor)]),
+      valoresPj.map((v) => [v.colaborador_id, Number(v.valor)]),
     ),
   };
 }
@@ -192,26 +173,39 @@ async function carregar(admin: AdminClient, competencia: string) {
 /**
  * Sócios (como rh.socios(), que a service role não roda por não ter usuário):
  * contrato de pró-labore no Copiloto ou em alguma folha, ou rubrica de
- * pró-labore em alguma folha (o grupo vem junto, pela rubrica).
+ * pró-labore em alguma folha (o grupo vem junto, pela rubrica). As duas da
+ * folha juntam todos os meses: de mil em mil.
  */
 async function sociosDoCusto(admin: AdminClient): Promise<Set<string>> {
   const rh = admin.schema("rh");
   const [cadastro, folha, rubricas] = await Promise.all([
-    rh.from("colaboradores").select("id").eq("tipo_contrato", "pro_labore"),
-    rh
-      .from("folha_colaboradores")
-      .select("colaborador_id")
-      .eq("tipo_contrato", "pro_labore"),
-    rh
-      .from("folha_rubricas")
-      .select("colaborador_id, rubrica:rubricas!inner(grupo)")
-      .eq("rubrica.grupo", "pro_labore"),
+    lerTudo(() =>
+      rh
+        .from("colaboradores")
+        .select("id")
+        .eq("tipo_contrato", "pro_labore")
+        .order("id"),
+    ),
+    lerTudo(() =>
+      rh
+        .from("folha_colaboradores")
+        .select("colaborador_id")
+        .eq("tipo_contrato", "pro_labore")
+        .order("folha_id")
+        .order("colaborador_id"),
+    ),
+    lerTudo(() =>
+      rh
+        .from("folha_rubricas")
+        .select("colaborador_id, rubrica:rubricas!inner(grupo)")
+        .eq("rubrica.grupo", "pro_labore")
+        .order("id"),
+    ),
   ]);
-  for (const r of [cadastro, folha, rubricas]) falhar(r.error);
   return new Set([
-    ...(cadastro.data ?? []).map((c) => c.id),
-    ...(folha.data ?? []).map((c) => c.colaborador_id),
-    ...(rubricas.data ?? []).map((c) => c.colaborador_id),
+    ...cadastro.map((c) => c.id),
+    ...folha.map((c) => c.colaborador_id),
+    ...rubricas.map((c) => c.colaborador_id),
   ]);
 }
 

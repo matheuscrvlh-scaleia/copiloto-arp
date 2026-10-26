@@ -125,7 +125,8 @@ export async function exigirAgora(
 
 /**
  * Importação e dados de exemplo gravam em quase todo o cadastro do módulo
- * (setores, pessoas nos setores, catálogo, lojas, categorias de ativo):
+ * (setores, pessoas nos setores, catálogo, lojas, categorias de ativo e a
+ * agenda dos compromissos importados):
  * invalida todo o cache de configuração. Só dentro de Server Action.
  */
 export function invalidarCadastros(): void {
@@ -135,6 +136,7 @@ export function invalidarCadastros(): void {
     TAG.os.categorias,
     TAG.os.ativoCategorias,
     TAG.os.lojas,
+    TAG.os.agendas,
   ])
     updateTag(tag);
 }

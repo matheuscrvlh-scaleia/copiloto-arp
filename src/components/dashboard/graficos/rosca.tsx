@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import type { Detalhe } from "@/components/modal-detalhe";
-import { ANEL_FOCO, Explorar, parteDe, useDetalhes, useMontado } from "./base";
+import {
+  ANEL_FOCO,
+  Explorar,
+  parteDe,
+  useDetalhes,
+  useMontado,
+  usePreCarga,
+} from "./base";
 
 // Rosca: composição de um total.
 
@@ -38,6 +45,7 @@ export function Rosca({
 }) {
   const [ativo, setAtivo] = useState<number | null>(null);
   const det = useDetalhes(detalhes);
+  usePreCarga(detalhes, ativo === null ? undefined : fatias[ativo]?.chave);
   const montado = useMontado();
   const total = fatias.reduce((s, f) => s + Math.max(f.valor, 0), 0);
   if (total <= 0) {

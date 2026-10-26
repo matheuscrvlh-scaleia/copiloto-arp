@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -13,7 +14,9 @@ import {
 // gráfico ou indicador. Usa <dialog> (Esc fecha, foco preso dentro, fundo
 // inerte). Tudo o que ele mostra vem do servidor, já filtrado pelas
 // permissões de quem está vendo: pronto com a página ou, nas listas grandes,
-// pedido ao abrir (carregarTabelas).
+// pedido ao servidor (carregarTabelas). Esse pedido começa quando o mouse
+// para sobre o que abre o modal (ou o foco chega nele) e fica guardado:
+// abrir e reabrir não esperam de novo.
 
 export interface ColunaDetalhe {
   titulo: string;
@@ -56,6 +59,69 @@ export interface Detalhe {
 }
 
 // ---------------------------------------------------------------------------
+// Tabelas pedidas ao servidor: uma vez por detalhe, guardadas no navegador.
+// ---------------------------------------------------------------------------
+
+type Carregar = NonNullable<Detalhe["carregarTabelas"]>;
+
+/** Pedido das tabelas de um detalhe: em andamento, pronto ou com erro. */
+export interface PedidoDeTabelas {
+  promessa: Promise<TabelaDetalhe[]>;
+  lista?: TabelaDetalhe[];
+  erro?: boolean;
+}
+
+// Pela função de carga (a Server Action com os argumentos já presos): a
+// mesma da página enquanto ela não for recarregada. Some com a página.
+const pedidos = new WeakMap<Carregar, PedidoDeTabelas>();
+
+/** O pedido já feito para o detalhe, sem começar nenhum. */
+export function pedidoDe(d: Detalhe | null): PedidoDeTabelas | undefined {
+  return d?.carregarTabelas ? pedidos.get(d.carregarTabelas) : undefined;
+}
+
+/**
+ * Começa o pedido das tabelas do detalhe, ou devolve o que já existe. Um
+ * pedido que falhou é refeito (fechar e abrir de novo tenta outra vez).
+ */
+export function pedirTabelas(d: Detalhe): PedidoDeTabelas | undefined {
+  const carregar = d.carregarTabelas;
+  if (!carregar) return undefined;
+  const feito = pedidos.get(carregar);
+  if (feito && !feito.erro) return feito;
+  const pedido: PedidoDeTabelas = {
+    promessa: carregar().then(
+      (lista) => {
+        pedido.lista = lista;
+        return lista;
+      },
+      (erro: unknown) => {
+        pedido.erro = true;
+        throw erro;
+      },
+    ),
+  };
+  // Quem espera (o modal) trata o erro; a pré-carga sozinha não avisa nada.
+  pedido.promessa.catch(() => undefined);
+  pedidos.set(carregar, pedido);
+  return pedido;
+}
+
+/**
+ * Pré-carga do detalhe que o mouse ou o foco tocou: começa a buscar as
+ * tabelas (e baixa a janela) antes do clique. Sem carregarTabelas, só a
+ * janela. Nunca em lote: só quem a pessoa está prestes a abrir.
+ */
+export function preCarregarDetalhe(d: Detalhe | undefined): void {
+  if (!d) return;
+  void carregarJanela();
+  pedirTabelas(d);
+}
+
+/** Espera do mouse parado antes da pré-carga: passar por cima não pede. */
+export const ESPERA_PRE_CARGA_MS = 100;
+
+// ---------------------------------------------------------------------------
 // Um modal por página: os gráficos só pedem para abrir.
 // ---------------------------------------------------------------------------
 
@@ -77,6 +143,8 @@ export function ProvedorDetalhe({ children }: { children: React.ReactNode }) {
   const [detalhe, setDetalhe] = useState<Detalhe | null>(null);
   const [usado, setUsado] = useState(false);
   const abrir = useCallback((d: Detalhe) => {
+    // Se a pré-carga não pediu (toque direto, Enter), pede agora.
+    pedirTabelas(d);
     setUsado(true);
     setDetalhe(d);
   }, []);
@@ -108,11 +176,24 @@ export function AbreDetalhe({
   children: React.ReactNode;
 }) {
   const abrir = useAbrirDetalhe();
+  const espera = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(espera.current), []);
   if (!detalhe || !abrir) return <div className={className}>{children}</div>;
   return (
     <button
       type="button"
       onClick={() => abrir(detalhe)}
+      // Pré-carga: mouse parado em cima, dedo encostado ou foco do teclado.
+      onPointerEnter={() => {
+        clearTimeout(espera.current);
+        espera.current = setTimeout(
+          () => preCarregarDetalhe(detalhe),
+          ESPERA_PRE_CARGA_MS,
+        );
+      }}
+      onPointerLeave={() => clearTimeout(espera.current)}
+      onPointerDown={() => preCarregarDetalhe(detalhe)}
+      onFocus={() => preCarregarDetalhe(detalhe)}
       aria-haspopup="dialog"
       className={`group/detalhe cursor-pointer text-left transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca ${className}`}
     >

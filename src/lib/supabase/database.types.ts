@@ -3167,6 +3167,14 @@ export type Database = {
           situacao: Database["os"]["Enums"]["situacao_ativo"]
         }[]
       }
+      carga_do_setor: {
+        Args: { p_agora: string; p_categoria?: string; p_criado_ate?: string; p_criado_desde?: string; p_etiqueta?: string; p_prioridade?: Database["os"]["Enums"]["prioridade"]; p_responsavel?: string; p_setor: string; p_status?: Database["os"]["Enums"]["status_chamado"][]; p_tipos?: Database["os"]["Enums"]["tipo_chamado"][] }
+        Returns: {
+          abertos: number
+          atrasados: number
+          responsavel_id: string
+        }[]
+      }
       desfazer_importacao: {
         Args: { p_importacao: string }
         Returns: undefined

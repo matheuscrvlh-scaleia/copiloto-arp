@@ -9,12 +9,13 @@ import { os } from "@/server/os/base";
 import { lerAtivo } from "@/server/os/chamado-detalhe";
 import { lerChamado } from "@/server/os/chamados";
 import { dadosDoFormulario } from "@/server/os/formulario";
+import { lojasDoModulo } from "@/server/os/lojas";
 import { NovoNaPagina } from "./novo-na-pagina";
 
 export const metadata: Metadata = { title: "Novo chamado" };
 
 // Abrir chamado com contexto pela URL: ?ativo=<id> (etiqueta QR do ativo),
-// ?loja=<id>, ?vinculado=<id>, ?vistoria=<id>&ambiente=<id> ("Gerar OS"),
+// ?loja=<id> (da lista de lojas em cache), ?vinculado=<id>, ?vistoria=<id>&ambiente=<id> ("Gerar OS"),
 // ?converter=<id> (Tarefa/Solicitação vira OS) e ?duplicar=<id>.
 
 type Busca = Record<string, string | string[] | undefined>;
@@ -58,9 +59,20 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
 const nada = Promise.resolve({ data: null });
 
 /**
- * Lê o contexto da URL (sempre pela sessão: só o que a pessoa vê). As
- * leituras saem juntas; a montagem segue a ordem de sempre (a loja e o
- * ativo da origem valem até a URL dizer outra coisa).
+ * A loja da URL, da lista em cache do módulo (lojasDoModulo). Sem acesso ao
+ * módulo, ou loja que não existe: sem loja (como a leitura pelo RLS).
+ */
+const lojaDaUrl = (id: string) =>
+  lojasDoModulo().then(
+    (lista) => lista.find((l) => l.id === id) ?? null,
+    () => null,
+  );
+
+/**
+ * Lê o contexto da URL (pela sessão, ou do cache do módulo com o mesmo
+ * acesso: só o que a pessoa vê). As leituras saem juntas; a montagem segue
+ * a ordem de sempre (a loja e o ativo da origem valem até a URL dizer outra
+ * coisa).
  */
 async function montarInicial(busca: Busca): Promise<InicialDoFormulario> {
   const inicial: InicialDoFormulario = { contexto: [] };
@@ -78,9 +90,7 @@ async function montarInicial(busca: Busca): Promise<InicialDoFormulario> {
     origemId ? lerChamado(origemId) : null,
     vinculadoId ? lerChamado(vinculadoId) : null,
     lerAtivo(ativoId ?? null),
-    lojaId
-      ? db.from("lojas").select("id, luc, nome").eq("id", lojaId).maybeSingle()
-      : nada,
+    lojaId ? lojaDaUrl(lojaId) : null,
     vistoriaId
       ? db
           .from("vistorias")
@@ -145,11 +155,11 @@ async function montarInicial(busca: Busca): Promise<InicialDoFormulario> {
     });
   }
 
-  if (loja.data) {
-    inicial.lojaId = loja.data.id;
+  if (loja) {
+    inicial.lojaId = loja.id;
     inicial.contexto.push({
       rotulo: "Loja",
-      valor: `${loja.data.luc} · ${loja.data.nome}`,
+      valor: `${loja.luc} · ${loja.nome}`,
     });
   }
 

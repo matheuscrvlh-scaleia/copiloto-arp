@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import listaDeTarefas from "./__fixtures__/lista-de-tarefas.json";
 import obra from "./__fixtures__/obra.json";
 import relatorio from "./__fixtures__/relatorio.json";
@@ -67,19 +67,32 @@ describe("diário de obras", () => {
   });
 
   it("espaça as chamadas pelo intervalo", async () => {
-    const horarios: number[] = [];
-    const client = createDiarioDeObrasClient({
-      token: "abc",
-      intervaloMs: 30,
-      fetch: (async () => {
-        horarios.push(Date.now());
-        return new Response(JSON.stringify(EMPRESA), { status: 200 });
-      }) as typeof fetch,
-    });
-    await Promise.all([client.empresa(), client.empresa(), client.empresa()]);
-    const [primeira = 0, , terceira = 0] = horarios;
-    expect(horarios).toHaveLength(3);
-    expect(terceira - primeira).toBeGreaterThanOrEqual(55);
+    // Relógio falso: o intervalo é medido no tempo do cliente, não no da
+    // máquina (que atrasa quando outros testes ocupam a CPU).
+    vi.useFakeTimers({ now: 1_000_000, toFake: ["setTimeout", "Date"] });
+    try {
+      const horarios: number[] = [];
+      const client = createDiarioDeObrasClient({
+        token: "abc",
+        intervaloMs: 30,
+        fetch: (async () => {
+          horarios.push(Date.now());
+          return new Response(JSON.stringify(EMPRESA), { status: 200 });
+        }) as typeof fetch,
+      });
+      const chamadas = Promise.all([
+        client.empresa(),
+        client.empresa(),
+        client.empresa(),
+      ]);
+      await vi.advanceTimersByTimeAsync(29);
+      expect(horarios.map((h) => h - 1_000_000)).toEqual([0]);
+      await vi.advanceTimersByTimeAsync(31);
+      await chamadas;
+      expect(horarios.map((h) => h - 1_000_000)).toEqual([0, 30, 60]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("monta os filtros de relatórios na query", async () => {

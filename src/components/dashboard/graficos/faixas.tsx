@@ -10,6 +10,7 @@ import {
   parteDe,
   useDetalhes,
   useMontado,
+  usePreCarga,
 } from "./base";
 
 // Faixas: distribuição de um total em poucas faixas.
@@ -32,6 +33,7 @@ export function Faixas({
 }) {
   const [ativo, setAtivo] = useState<number | null>(null);
   const det = useDetalhes(detalhes);
+  usePreCarga(detalhes, ativo === null ? undefined : itens[ativo]?.chave);
   const montado = useMontado();
   const total = itens.reduce((s, i) => s + Math.max(i.valor, 0), 0);
   const max = Math.max(...itens.map((i) => i.valor), 0);

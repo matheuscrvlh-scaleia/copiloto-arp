@@ -1,8 +1,8 @@
 "use client";
 
-import { useDraggable } from "@dnd-kit/core";
 import { Camera, MessageSquare, Paperclip } from "lucide-react";
 import Link from "next/link";
+import { useAtributos, usePonte } from "@/components/os/arraste/ponte";
 import { IconeTipo, SeloExemplo, SeloPrazo } from "@/components/os/selos";
 import { iniciais } from "@/lib/formato";
 import type { LinhaChamado } from "@/lib/os/lista";
@@ -10,7 +10,9 @@ import { MOTIVOS_AGUARDANDO, PRIORIDADES, TIPOS } from "@/lib/os/rotulos";
 
 // Cartão do quadro: número, categoria, título, prioridade alta/urgente,
 // prazo relativo, responsável (iniciais) e as contagens de fotos, anexos e
-// conversa. Arrasta pelo cartão todo; o título abre o detalhe ao lado.
+// conversa. Arrasta pelo cartão todo; o título abre o detalhe ao lado. O
+// arrastar vem do motor carregado depois (components/os/arraste): aqui o
+// cartão só se cadastra na ponte e repassa os eventos.
 
 const COR_PRIORIDADE = {
   alta: "bg-amber-50 text-amber-900",
@@ -23,6 +25,7 @@ export function CartaoDoQuadro({
   avisoHoras,
   href,
   flutuando = false,
+  arrastado = false,
 }: {
   c: LinhaChamado;
   agora: Date;
@@ -30,23 +33,23 @@ export function CartaoDoQuadro({
   href: string;
   /** Cópia que segue o ponteiro durante o arraste. */
   flutuando?: boolean;
+  /** É o cartão que está sendo arrastado (fica apagado no lugar). */
+  arrastado?: boolean;
 }) {
-  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
-    id: c.id,
-    disabled: flutuando,
-  });
+  const ponte = usePonte();
+  const attributes = useAtributos(arrastado);
   const n = c.contagens;
   const urgencia =
     c.prioridade === "alta" || c.prioridade === "urgente" ? c.prioridade : null;
 
   return (
     <article
-      ref={flutuando ? undefined : setNodeRef}
+      ref={flutuando ? undefined : ponte.arrastavel(c.id)}
       {...(flutuando ? {} : attributes)}
-      {...(flutuando ? {} : listeners)}
+      {...(flutuando ? {} : ponte.eventos(c.id))}
       aria-roledescription="cartão arrastável"
       aria-label={`#${c.numero} ${c.titulo}`}
-      className={`flex touch-manipulation flex-col gap-2 rounded-2xl border border-neutral-900/[0.06] bg-white/80 p-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-marca ${isDragging ? "opacity-30" : ""} ${flutuando ? "rotate-1 cursor-grabbing shadow-[0_24px_48px_-20px_rgb(0_0_0/0.5)]" : "cursor-grab hover:border-neutral-900/20 hover:bg-white"}`}
+      className={`flex touch-manipulation flex-col gap-2 rounded-2xl border border-neutral-900/[0.06] bg-white/80 p-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-marca ${arrastado ? "opacity-30" : ""} ${flutuando ? "rotate-1 cursor-grabbing shadow-[0_24px_48px_-20px_rgb(0_0_0/0.5)]" : "cursor-grab hover:border-neutral-900/20 hover:bg-white"}`}
     >
       <div className="flex items-center gap-1.5 text-xs text-neutral-500">
         <span title={TIPOS[c.tipo]} className="text-neutral-400">

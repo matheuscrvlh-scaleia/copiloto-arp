@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import type { Detalhe } from "@/components/modal-detalhe";
-import { ANEL_FOCO, Dica, Explorar, useDetalhes, useMontado } from "./base";
+import {
+  ANEL_FOCO,
+  Dica,
+  Explorar,
+  useDetalhes,
+  useMontado,
+  usePreCarga,
+} from "./base";
 
 // Colunas espelhadas: entradas para cima, saídas para baixo.
 
@@ -46,6 +53,7 @@ export function ColunasEspelhadas({
 }) {
   const [ativo, setAtivo] = useState<number | null>(null);
   const det = useDetalhes(detalhes);
+  usePreCarga(detalhes, ativo === null ? undefined : itens[ativo]?.chave);
   const montado = useMontado();
   const max = Math.max(...itens.flatMap((i) => [i.acima, i.abaixo]), 1);
   const alt = (v: number) => (v / max) * 82;

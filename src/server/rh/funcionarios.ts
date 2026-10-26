@@ -15,6 +15,7 @@ import {
   type TrechoDoPonto,
 } from "@/lib/rh/ponto-periodo";
 import { createClient } from "@/lib/supabase/server";
+import { lerTudo } from "../supabase-paginas";
 import { socios } from "./dados";
 
 // Leituras da tela de Funcionários, com a sessão do usuário (o RLS decide).
@@ -129,13 +130,16 @@ async function afastadosEm(
 /** Todos os colaboradores (vindos do Copiloto RH), por nome, menos os sócios. */
 export const funcionarios = cache(async (): Promise<Funcionario[]> => {
   const hoje = isoLocal(new Date());
-  const [{ data, error }, afastados, deFora] = await Promise.all([
-    (await rh()).from("colaboradores").select(CAMPOS).order("nome"),
+  const db = await rh();
+  // Todos, desde sempre (ativos e desligados): de mil em mil.
+  const [data, afastados, deFora] = await Promise.all([
+    lerTudo(() =>
+      db.from("colaboradores").select(CAMPOS).order("nome").order("id"),
+    ),
     afastadosEm(hoje),
     socios(),
   ]);
-  falhar(error);
-  return (data ?? [])
+  return data
     .filter((c) => !deFora.has(c.id))
     .map((c) => paraFuncionario(c, hoje, afastados));
 });
@@ -218,19 +222,22 @@ export interface DiaDoPonto {
 /** Cada dia de `de` a `ate` com as batidas, em ordem. */
 export const pontoDiarioDe = cache(
   async (id: string, de: string, ate: string): Promise<DiaDoPonto[]> => {
-    const { data, error } = await (await rh())
-      .from("ponto_diario")
-      .select(
-        `data, batidas, ocorrencia, previstas_min, normais_min, faltas_min,
-         atrasos_min, abonos_min, extras_min, noturnas_min, banco_saldo_min,
-         banco_creditos_min, banco_debitos_min`,
-      )
-      .eq("colaborador_id", id)
-      .gte("data", de)
-      .lte("data", ate)
-      .order("data");
-    falhar(error);
-    return (data ?? []).map((d) => ({
+    const db = await rh();
+    // Um período longo passa de mil dias: de mil em mil (data é única aqui).
+    const data = await lerTudo(() =>
+      db
+        .from("ponto_diario")
+        .select(
+          `data, batidas, ocorrencia, previstas_min, normais_min, faltas_min,
+           atrasos_min, abonos_min, extras_min, noturnas_min, banco_saldo_min,
+           banco_creditos_min, banco_debitos_min`,
+        )
+        .eq("colaborador_id", id)
+        .gte("data", de)
+        .lte("data", ate)
+        .order("data"),
+    );
+    return data.map((d) => ({
       ...d,
       batidas: (d.batidas ?? []) as (string | null)[],
       abonos_min: (d.abonos_min ?? {}) as Record<string, number>,

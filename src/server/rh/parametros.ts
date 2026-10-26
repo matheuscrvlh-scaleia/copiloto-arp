@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { lerTudo } from "../supabase-paginas";
 import {
   cargosDoRh,
   departamentosDoRh,
@@ -43,16 +44,27 @@ export const dadosDosParametros = cache(async () => {
       .select("id, tabela, registro_id, acao, usuario_id, em")
       .order("em", { ascending: false })
       .limit(30),
-    rh
-      .from("jornadas")
-      .select(
-        "departamento_id, cargo_id, colaborador_id, horas_mes_min, vigente_desde",
-      )
-      .order("vigente_desde", { ascending: false }),
+    // Há uma jornada por funcionário (e por vigência) e os colaboradores são
+    // todos, desde sempre: de mil em mil.
+    lerTudo(() =>
+      rh
+        .from("jornadas")
+        .select(
+          "departamento_id, cargo_id, colaborador_id, horas_mes_min, vigente_desde",
+        )
+        .order("vigente_desde", { ascending: false })
+        .order("id"),
+    ),
     cargosDoRh(),
-    rh.from("colaboradores").select("id, nome, desligamento").order("nome"),
+    lerTudo(() =>
+      rh
+        .from("colaboradores")
+        .select("id, nome, desligamento")
+        .order("nome")
+        .order("id"),
+    ),
   ]);
-  for (const r of [auditoria, jornadas, colaboradores]) falhar(r.error);
+  falhar(auditoria.error);
 
   // Nomes de quem alterou: o RLS só mostra os que o usuário pode ver.
   const ids = [
@@ -83,9 +95,7 @@ export const dadosDosParametros = cache(async () => {
   const nomeDe = new Map<string, string>([
     ...deps.map((d) => [`departamento:${d.id}`, d.nome] as const),
     ...cargos.map((c) => [`cargo:${c.id}`, c.nome] as const),
-    ...(colaboradores.data ?? []).map(
-      (c) => [`colaborador:${c.id}`, c.nome] as const,
-    ),
+    ...colaboradores.map((c) => [`colaborador:${c.id}`, c.nome] as const),
   ]);
   const jornadasVigentes = new Map<
     string,
@@ -97,7 +107,7 @@ export const dadosDosParametros = cache(async () => {
       vigente_desde: string;
     }
   >();
-  for (const j of jornadas.data ?? []) {
+  for (const j of jornadas) {
     const [nivel, id] = j.colaborador_id
       ? (["colaborador", j.colaborador_id] as const)
       : j.cargo_id
@@ -128,9 +138,7 @@ export const dadosDosParametros = cache(async () => {
         a.nome.localeCompare(b.nome),
     ),
     cargos,
-    colaboradoresAtivos: (colaboradores.data ?? []).filter(
-      (c) => !c.desligamento,
-    ),
+    colaboradoresAtivos: colaboradores.filter((c) => !c.desligamento),
     rubricas,
     auditoria: (auditoria.data ?? []).map((a) => ({
       ...a,

@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { type Detalhe, useAbrirDetalhe } from "@/components/modal-detalhe";
+import {
+  type Detalhe,
+  ESPERA_PRE_CARGA_MS,
+  preCarregarDetalhe,
+  useAbrirDetalhe,
+} from "@/components/modal-detalhe";
 import { formatarNumero } from "@/lib/formato";
 
 // Gráficos interativos. Passar o mouse (ou o dedo) mostra a dica com o valor
@@ -144,6 +149,26 @@ export function useDetalhes(detalhes?: Record<string, Detalhe>) {
       if (d && abrir) abrir(d);
     },
   };
+}
+
+/**
+ * Pré-carga do item aceso (mouse parado em cima, dedo ou setas do teclado):
+ * o modal dele abre sem esperar. Passar o mouse por cima de vários itens não
+ * pede nenhum; só o item em que ele para.
+ */
+export function usePreCarga(
+  detalhes: Record<string, Detalhe> | undefined,
+  chave: string | undefined,
+) {
+  const detalhe = chave === undefined ? undefined : detalhes?.[chave];
+  useEffect(() => {
+    if (!detalhe?.carregarTabelas) return;
+    const id = setTimeout(
+      () => preCarregarDetalhe(detalhe),
+      ESPERA_PRE_CARGA_MS,
+    );
+    return () => clearTimeout(id);
+  }, [detalhe]);
 }
 
 export const ANEL_FOCO =

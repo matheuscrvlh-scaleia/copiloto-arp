@@ -1,26 +1,22 @@
 "use client";
 
-import {
-  type Announcements,
-  type CollisionDetection,
-  DndContext,
-  type DragEndEvent,
-  DragOverlay,
-  type DragStartEvent,
-  type KeyboardCoordinateGetter,
-  KeyboardSensor,
-  PointerSensor,
-  pointerWithin,
-  rectIntersection,
-  TouchSensor,
-  useDroppable,
-  useSensor,
-  useSensors,
+import type {
+  Announcements,
+  DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
+  KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import { Ban, ChevronLeft, ChevronRight, Loader } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { classeCampo } from "@/components/estilos";
+import {
+  Ponte,
+  PonteDoArraste,
+  useMotor,
+  usePonte,
+} from "@/components/os/arraste/ponte";
 import { BotaoExportar } from "@/components/os/exportar";
 import { ProvedorAvisos, useAvisar } from "@/components/os/lista/avisos";
 import { BotoesDaJanela, JanelaRapida } from "@/components/os/lista/janela";
@@ -50,7 +46,8 @@ import { exportarQuadro, moverChamado } from "@/server/os/acoes/visoes";
 import { CartaoDoQuadro } from "./cartao";
 
 // Quadro dos chamados: colunas por status, arrastando o cartão de uma para
-// outra (mouse, toque e teclado). Ao soltar em Aguardando pede o motivo; em
+// outra (mouse, toque e teclado; o @dnd-kit carrega depois da hidratação,
+// ver components/os/arraste). Ao soltar em Aguardando pede o motivo; em
 // Concluído, Aviso e tarefa pessoal vão direto para Fechado. A coluna que
 // não aceita o cartão fica apagada durante o arraste. A mudança aparece na
 // hora e volta atrás se o banco recusar (com o motivo no rodapé).
@@ -105,12 +102,6 @@ const andarPeloTeclado: KeyboardCoordinateGetter = (
   };
 };
 
-/** Ponteiro em cima da coluna; no teclado, a que o cartão cobre mais. */
-const colisao: CollisionDetection = (args) => {
-  const sob = pointerWithin(args);
-  return sob.length ? sob : rectIntersection(args);
-};
-
 interface Pendente {
   cartao: LinhaChamado;
   movimento: Movimento;
@@ -125,6 +116,9 @@ function Conteudo({
   exportar,
 }: PropsQuadro) {
   const avisar = useAvisar();
+  const [ponte] = useState(() => new Ponte());
+  const raiz = useRef<HTMLDivElement>(null);
+  const Motor = useMotor(raiz);
   const router = useRouter();
   const params = useSearchParams();
   const pathname = usePathname();
@@ -136,6 +130,8 @@ function Conteudo({
   // Mudanças já feitas aqui, até o servidor mandar a lista nova.
   const [movidos, setMovidos] = useState<Map<string, StatusChamado>>(new Map());
   const [arrastando, setArrastando] = useState<LinhaChamado | null>(null);
+  // Coluna sob o cartão arrastado (o destaque dela).
+  const [sobre, setSobre] = useState<StatusChamado | null>(null);
   const [pendente, setPendente] = useState<Pendente | null>(null);
   const [fechadoAberto, setFechadoAberto] = useState(comFechados);
   const [carregandoMais, iniciarMais] = useTransition();
@@ -171,14 +167,6 @@ function Conteudo({
     const c = doServidor.find((x) => x.status === s);
     return c ? Math.max(0, c.total - c.cartoes.length) : 0;
   };
-
-  const sensores = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 220, tolerance: 8 },
-    }),
-    useSensor(KeyboardSensor, { coordinateGetter: andarPeloTeclado }),
-  );
 
   const atuais = cartoes.map((c) => {
     const status = movidos.get(c.id);
@@ -219,10 +207,21 @@ function Conteudo({
 
   function aoComecar(e: DragStartEvent) {
     setArrastando(atuais.find((c) => c.id === e.active.id) ?? null);
+    setSobre(null);
+  }
+
+  function aoPassar(e: DragOverEvent) {
+    setSobre((e.over?.id as StatusChamado | undefined) ?? null);
+  }
+
+  function aoCancelar() {
+    setArrastando(null);
+    setSobre(null);
   }
 
   function aoTerminar(e: DragEndEvent) {
     setArrastando(null);
+    setSobre(null);
     const c = atuais.find((x) => x.id === e.active.id);
     const coluna = e.over?.id as StatusChamado | undefined;
     if (!c || !coluna) return;
@@ -258,36 +257,23 @@ function Conteudo({
   const ativo = arrastando ? paraCartao(arrastando) : null;
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-neutral-500">
-          Arraste o cartão para mudar o status · no teclado: espaço pega, setas
-          movem, espaço solta.
-        </p>
-        {exportar && (
-          <BotaoExportar
-            titulo={exportar.titulo}
-            filtros={exportar.filtros}
-            nomeArquivo="quadro"
-            total={doServidor.reduce((n, c) => n + c.total, 0)}
-            carregar={() => exportarQuadro(Object.fromEntries(params))}
-          />
-        )}
-      </div>
-      <DndContext
-        sensors={sensores}
-        collisionDetection={colisao}
-        onDragStart={aoComecar}
-        onDragEnd={aoTerminar}
-        onDragCancel={() => setArrastando(null)}
-        accessibility={{
-          announcements: anuncios,
-          screenReaderInstructions: {
-            draggable:
-              "Para mover o chamado, aperte espaço, use as setas para escolher a coluna e aperte espaço de novo para soltar. Esc cancela.",
-          },
-        }}
-      >
+    <PonteDoArraste value={ponte}>
+      <div ref={raiz} className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-neutral-500">
+            Arraste o cartão para mudar o status · no teclado: espaço pega,
+            setas movem, espaço solta.
+          </p>
+          {exportar && (
+            <BotaoExportar
+              titulo={exportar.titulo}
+              filtros={exportar.filtros}
+              nomeArquivo="quadro"
+              total={doServidor.reduce((n, c) => n + c.total, 0)}
+              carregar={() => exportarQuadro(Object.fromEntries(params))}
+            />
+          )}
+        </div>
         {/* Só rola de lado: com overflow-x, o eixo vertical também viraria
             "auto" e o quadro rolaria por dentro, escondendo o cabeçalho das
             colunas. A altura é a da janela; cada coluna rola os seus cartões. */}
@@ -297,6 +283,7 @@ function Conteudo({
               <ColunaRecolhida
                 key={s}
                 aceita={ativo ? colunaAceita(ativo, s) : null}
+                sobre={sobre === s}
                 aoAbrir={() => setFechadoAberto(true)}
               />
             ) : (
@@ -309,6 +296,8 @@ function Conteudo({
                 aoMostrarMais={() => mostrarMais(s)}
                 carregandoMais={carregandoMais && pedindoMais === s}
                 aceita={ativo ? colunaAceita(ativo, s) : null}
+                sobre={sobre === s}
+                arrastado={arrastando?.id ?? null}
                 agora={agora}
                 avisoHoras={avisoHoras}
                 hrefPainel={hrefPainel}
@@ -322,28 +311,46 @@ function Conteudo({
             ),
           )}
         </div>
-        <DragOverlay dropAnimation={null}>
-          {arrastando && (
-            <CartaoDoQuadro
-              c={arrastando}
-              agora={agora}
-              avisoHoras={avisoHoras}
-              href={hrefPainel(arrastando.id)}
-              flutuando
-            />
-          )}
-        </DragOverlay>
-      </DndContext>
+        {Motor && (
+          <Motor
+            ponte={ponte}
+            colisao="ponteiroOuArea"
+            teclado={andarPeloTeclado}
+            onDragStart={aoComecar}
+            onDragOver={aoPassar}
+            onDragEnd={aoTerminar}
+            onDragCancel={aoCancelar}
+            accessibility={{
+              announcements: anuncios,
+              screenReaderInstructions: {
+                draggable:
+                  "Para mover o chamado, aperte espaço, use as setas para escolher a coluna e aperte espaço de novo para soltar. Esc cancela.",
+              },
+            }}
+            sobreposicao={
+              arrastando && (
+                <CartaoDoQuadro
+                  c={arrastando}
+                  agora={agora}
+                  avisoHoras={avisoHoras}
+                  href={hrefPainel(arrastando.id)}
+                  flutuando
+                />
+              )
+            }
+          />
+        )}
 
-      <JanelaDoMotivo
-        pendente={pendente}
-        aoFechar={() => setPendente(null)}
-        aoConfirmar={(extra) => {
-          if (pendente) gravar(pendente.cartao, pendente.movimento, extra);
-          setPendente(null);
-        }}
-      />
-    </div>
+        <JanelaDoMotivo
+          pendente={pendente}
+          aoFechar={() => setPendente(null)}
+          aoConfirmar={(extra) => {
+            if (pendente) gravar(pendente.cartao, pendente.movimento, extra);
+            setPendente(null);
+          }}
+        />
+      </div>
+    </PonteDoArraste>
   );
 }
 
@@ -355,6 +362,8 @@ function Coluna({
   aoMostrarMais,
   carregandoMais,
   aceita,
+  sobre: isOver,
+  arrastado,
   agora,
   avisoHoras,
   hrefPainel,
@@ -371,17 +380,21 @@ function Coluna({
   carregandoMais: boolean;
   /** Durante o arraste: aceita (true) ou não (false); fora dele, null. */
   aceita: boolean | null;
+  /** O cartão arrastado está sobre esta coluna. */
+  sobre: boolean;
+  /** Id do cartão sendo arrastado (fica apagado no lugar). */
+  arrastado: string | null;
   agora: Date;
   avisoHoras: number;
   hrefPainel: (id: string) => string;
   aoRecolher?: () => void;
   vazioFechado?: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const ponte = usePonte();
   const recusa = aceita === false;
   return (
     <section
-      ref={setNodeRef}
+      ref={ponte.soltavel(status)}
       aria-label={`${STATUS[status]}: ${total} ${total === 1 ? "chamado" : "chamados"}`}
       className={`vidro flex h-full min-h-0 w-[85vw] max-w-80 shrink-0 snap-start flex-col rounded-[1.75rem] p-2.5 transition sm:w-72 ${recusa ? "opacity-45" : ""} ${isOver && !recusa ? "ring-2 ring-marca" : ""} ${isOver && recusa ? "ring-2 ring-red-500/60" : ""}`}
     >
@@ -420,6 +433,7 @@ function Coluna({
               agora={agora}
               avisoHoras={avisoHoras}
               href={hrefPainel(c.id)}
+              arrastado={arrastado === c.id}
             />
           </li>
         ))}
@@ -457,15 +471,18 @@ function Coluna({
 /** Fechado recolhido: uma faixa estreita que ainda aceita o cartão. */
 function ColunaRecolhida({
   aceita,
+  sobre: isOver,
   aoAbrir,
 }: {
   aceita: boolean | null;
+  /** O cartão arrastado está sobre a faixa. */
+  sobre: boolean;
   aoAbrir: () => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: "fechado" });
+  const ponte = usePonte();
   return (
     <section
-      ref={setNodeRef}
+      ref={ponte.soltavel("fechado")}
       aria-label="Fechado (recolhida)"
       className={`vidro flex h-full w-16 shrink-0 snap-start flex-col items-center gap-3 rounded-[1.75rem] py-3 transition ${aceita === false ? "opacity-45" : ""} ${isOver && aceita !== false ? "ring-2 ring-marca" : ""}`}
     >

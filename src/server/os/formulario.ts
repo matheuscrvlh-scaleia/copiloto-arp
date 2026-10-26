@@ -6,10 +6,16 @@ import type {
 } from "@/components/os/novo/tipos";
 import { lerCamposExtras, lerChecklist } from "@/lib/os/chamado";
 import { UNIDADES_PRAZO } from "@/lib/os/rotulos";
-import { categorias, contexto, os, pessoas, setores } from "@/server/os/base";
+import {
+  agendas,
+  categorias,
+  contexto,
+  pessoas,
+  setores,
+} from "@/server/os/base";
 
-// O que o formulário de abrir chamado precisa, lido com a sessão: setores e
-// categorias ativos, pessoas do módulo e agendas. Lojas e ativos só vêm
+// O que o formulário de abrir chamado precisa (configuração do módulo, do
+// cache): setores e categorias ativos, pessoas do módulo e agendas. Lojas e ativos só vêm
 // quando a pessoa abre "Mais detalhes" (opcoesDeVinculo). Uma vez por
 // requisição: o botão "+ Novo", a página /os/novo e a gestão do detalhe
 // pedem o mesmo.
@@ -18,11 +24,11 @@ export const dadosDoFormulario = cache(
   async (): Promise<DadosDoFormulario | null> => {
     const ctx = await contexto();
     if (!ctx.pode("os.acessar")) return null;
-    const [todosSetores, todas, gente, agendas] = await Promise.all([
+    const [todosSetores, todas, gente, todasAgendas] = await Promise.all([
       setores(),
       categorias(),
       pessoas(),
-      (await os()).from("agendas").select("id, nome").eq("ativo", true),
+      agendas(),
     ]);
     const ativos = todosSetores.filter((s) => s.ativo);
     const idsAtivos = new Set(ativos.map((s) => s.id));
@@ -63,7 +69,9 @@ export const dadosDoFormulario = cache(
         nome: p.nome,
         setores: p.setores,
       })),
-      agendas: (agendas.data ?? []).map((a) => ({ id: a.id, nome: a.nome })),
+      agendas: todasAgendas
+        .filter((a) => a.ativo)
+        .map((a) => ({ id: a.id, nome: a.nome })),
     };
   },
 );

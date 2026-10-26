@@ -15,9 +15,11 @@ import {
   type Periodo,
 } from "@/lib/periodo";
 import {
+  agendas as agendasDoModulo,
   type Categoria,
   type ChamadoResumo,
   categorias,
+  metas as metasDoModulo,
   os,
   pessoas,
   type Setor,
@@ -127,6 +129,52 @@ async function todasAsPaginas<T>(
   }
 }
 
+/** Páginas pedidas juntas, no máximo (cada uma é uma consulta ao banco). */
+const PAGINAS_JUNTAS = 6;
+
+/**
+ * Como todasAsPaginas, mas sem esperar uma página para pedir a outra. A
+ * primeira traz a contagem estimada (`count: "estimated"`: exata quando é
+ * pouco, a do planejador quando passa do limite do PostgREST, sem contar
+ * linha por linha); com ela, as páginas seguintes saem juntas, de
+ * PAGINAS_JUNTAS em PAGINAS_JUNTAS. A estimativa só decide quantas pedir de
+ * uma vez: o fim continua sendo a primeira página incompleta, então uma
+ * estimativa baixa só leva a mais uma rodada, e uma alta, a algumas páginas
+ * vazias. A consulta precisa de uma ordem estável.
+ */
+async function paginasEmParalelo<T>(
+  pagina: (
+    de: number,
+    ate: number,
+    contar: boolean,
+  ) => PromiseLike<{
+    data: T[] | null;
+    error: { message: string } | null;
+    count?: number | null;
+  }>,
+): Promise<T[]> {
+  const primeira = await pagina(0, PAGINA - 1, true);
+  falhar(primeira.error);
+  const linhas: T[] = [...(primeira.data ?? [])];
+  if (linhas.length < PAGINA) return linhas;
+  const estimadas = Math.ceil((primeira.count ?? 0) / PAGINA);
+  for (let proxima = 1; ; ) {
+    const juntas = Math.min(Math.max(estimadas - proxima, 1), PAGINAS_JUNTAS);
+    const lidas = await Promise.all(
+      Array.from({ length: juntas }, (_, i) => {
+        const de = (proxima + i) * PAGINA;
+        return pagina(de, de + PAGINA - 1, false);
+      }),
+    );
+    for (const { data, error } of lidas) {
+      falhar(error);
+      linhas.push(...(data ?? []));
+      if ((data ?? []).length < PAGINA) return linhas;
+    }
+    proxima += juntas;
+  }
+}
+
 /**
  * Chamados que o usuário vê e que importam para o período: os que estão em
  * aberto e os que nasceram, concluíram, fecharam ou foram cancelados desde
@@ -140,10 +188,10 @@ export async function chamadosDoPainel(
   const cliente = await os();
   const inicio = `"${desde}T00:00:00-03:00"`;
   const fim = `${somarDias(ate, 1)}T00:00:00-03:00`;
-  return todasAsPaginas((de, ultimo) =>
+  return paginasEmParalelo((de, ultimo, contar) =>
     cliente
       .from("chamados")
-      .select(COLUNAS_PAINEL)
+      .select(COLUNAS_PAINEL, contar ? { count: "estimated" } : undefined)
       .is("lixeira_em", null)
       .lt("criado_em", fim)
       .or(
@@ -190,12 +238,15 @@ async function emLotes<T>(
 // Configuração
 // ---------------------------------------------------------------------------
 
+/** Metas (do cache: base.ts), só o que os indicadores usam. */
 export async function metas(): Promise<LinhaMeta[]> {
-  const { data, error } = await (await os())
-    .from("metas")
-    .select("setor_id, categoria_id, indicador, meta, limite_atencao");
-  falhar(error);
-  return data ?? [];
+  return (await metasDoModulo()).map((m) => ({
+    setor_id: m.setor_id,
+    categoria_id: m.categoria_id,
+    indicador: m.indicador,
+    meta: m.meta,
+    limite_atencao: m.limite_atencao,
+  }));
 }
 
 /** Setores de cada pessoa, na ordem dos setores (o primeiro é a origem). */
@@ -476,11 +527,7 @@ export async function agendasDoPeriodo(de: string, ate: string) {
   const fim = `${somarDias(ate, 1)}T00:00:00-03:00`;
   const cliente = await os();
   const [agendas, agendamentos, bloqueios] = await Promise.all([
-    cliente
-      .from("agendas")
-      .select("id, nome, dias_semana, limite_por_dia")
-      .eq("ativo", true)
-      .order("nome"),
+    agendasDoModulo(),
     todasAsPaginas((a, b) =>
       cliente
         .from("agendamentos")
@@ -497,10 +544,16 @@ export async function agendasDoPeriodo(de: string, ate: string) {
       .lt("inicio", fim)
       .gt("fim", inicio),
   ]);
-  falhar(agendas.error);
   falhar(bloqueios.error);
   return {
-    agendas: agendas.data ?? [],
+    agendas: agendas
+      .filter((a) => a.ativo)
+      .map((a) => ({
+        id: a.id,
+        nome: a.nome,
+        dias_semana: a.dias_semana,
+        limite_por_dia: a.limite_por_dia,
+      })),
     agendamentos,
     bloqueios: bloqueios.data ?? [],
   };

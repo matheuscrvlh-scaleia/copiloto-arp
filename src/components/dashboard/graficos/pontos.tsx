@@ -11,6 +11,7 @@ import {
   type ItemGrafico,
   useDetalhes,
   useMontado,
+  usePreCarga,
 } from "./base";
 
 // Pontos: distribuição de pessoas num eixo.
@@ -78,6 +79,7 @@ export function Pontos({
     (_, k) => k * passoEixo,
   );
   const item = ativo === null ? undefined : ordenados[ativo];
+  usePreCarga(detalhes, item?.chave);
   const pos = ativo === null ? undefined : posicoes[ativo];
 
   return (

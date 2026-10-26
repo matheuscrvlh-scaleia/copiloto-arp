@@ -12,6 +12,7 @@ import {
   tetoRedondo,
   useDetalhes,
   useMontado,
+  usePreCarga,
 } from "./base";
 
 // Área ao longo do tempo.
@@ -56,6 +57,7 @@ export function AreaLinha({
 
   const [ativo, setAtivo] = useState<number | null>(null);
   const det = useDetalhes(detalhes);
+  usePreCarga(detalhes, ativo === null ? undefined : itens[ativo]?.chave);
   const montado = useMontado();
   const svg = useRef<SVGSVGElement>(null);
   const gradiente = `area-${useId().replace(/:/g, "")}`;

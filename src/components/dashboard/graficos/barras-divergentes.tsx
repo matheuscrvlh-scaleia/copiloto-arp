@@ -2,7 +2,14 @@
 
 import { useRef, useState } from "react";
 import type { Detalhe } from "@/components/modal-detalhe";
-import { ANEL_FOCO, Dica, Explorar, useDetalhes, useMontado } from "./base";
+import {
+  ANEL_FOCO,
+  Dica,
+  Explorar,
+  useDetalhes,
+  useMontado,
+  usePreCarga,
+} from "./base";
 
 // Barras divergentes: dois lados a partir do zero (ex.: banco de horas).
 
@@ -56,6 +63,7 @@ export function BarrasDivergentes({
   const [abaixo, setAbaixo] = useState(false);
   const lista = useRef<HTMLUListElement>(null);
   const det = useDetalhes(detalhes);
+  usePreCarga(detalhes, ativo === null ? undefined : linhas[ativo]?.chave);
   const montado = useMontado();
   function acender(k: number | null, linha?: Element) {
     setAtivo(k);

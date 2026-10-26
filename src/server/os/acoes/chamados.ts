@@ -26,6 +26,7 @@ import { deBrasilia, somarDias } from "@/lib/os/tempo";
 import type { Json } from "@/lib/supabase/database.types";
 import { erroDoBanco, primeiroErro, valores } from "@/server/acoes";
 import {
+  agendas,
   categorias,
   contexto,
   membrosDoSetor,
@@ -827,13 +828,8 @@ export async function horariosDoDia(
   const db = await os();
   const inicioDia = deBrasilia(data).toISOString();
   const fimDia = deBrasilia(somarDias(data, 1)).toISOString();
-  const [agenda, ocupados, bloqueios] = await Promise.all([
-    db
-      .from("agendas")
-      .select("*")
-      .eq("id", agendaId)
-      .eq("ativo", true)
-      .maybeSingle(),
+  const [lista, ocupados, bloqueios] = await Promise.all([
+    agendas(),
     db
       .from("agendamentos")
       .select("inicio, fim")
@@ -848,7 +844,7 @@ export async function horariosDoDia(
       .lt("inicio", fimDia)
       .gt("fim", inicioDia),
   ]);
-  const a = agenda.data;
+  const a = lista.find((x) => x.id === agendaId && x.ativo);
   if (!a) return { orientacao: null, livres: [] };
   const intervalo = (x: { inicio: string; fim: string }) => ({
     inicio: new Date(x.inicio),

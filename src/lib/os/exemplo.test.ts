@@ -159,6 +159,10 @@ const entrada = (semente = 2026): EntradaExemplo => ({
 
 const dados = gerarExemplo(entrada());
 
+// Os testes que geram a base inteira de novo (ou recalculam todas as OS) são
+// pesados: ~0,5 s sozinhos e bem mais com a CPU dividida com outros testes.
+const PESADO = { timeout: 30_000 };
+
 describe("sorteio", () => {
   it("é determinístico pela semente", () => {
     const a = sorteio(7);
@@ -181,7 +185,7 @@ describe("sorteio", () => {
 });
 
 describe("dados de exemplo", () => {
-  it("mesma semente, mesmos dados", () => {
+  it("mesma semente, mesmos dados", PESADO, () => {
     expect(gerarExemplo(entrada())).toEqual(dados);
     expect(gerarExemplo(entrada(99)).lojas[0]?.nome).not.toBe(
       dados.lojas[0]?.nome,
@@ -308,7 +312,7 @@ describe("dados de exemplo", () => {
     for (const n of porDia.values()) expect(n).toBeLessThanOrEqual(2);
   });
 
-  it("OS com técnicos, sessões no passado e custo calculável", () => {
+  it("OS com técnicos, sessões no passado e custo calculável", PESADO, () => {
     const sessoes = new Set(dados.sessoes.map((s) => s.chamado_id));
     expect(sessoes.size).toBeGreaterThan(200);
     const comVarios = dados.calculos.filter((c) =>
@@ -375,7 +379,7 @@ describe("dados de exemplo", () => {
 });
 
 describe("qualquer semente", () => {
-  it("mantém as regras do banco", () => {
+  it("mantém as regras do banco", PESADO, () => {
     for (const semente of [1, 7, 12345, 29_000_000]) {
       const d = gerarExemplo(entrada(semente));
       const ate = agora.getTime();

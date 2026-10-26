@@ -9,6 +9,7 @@ import {
   type ItemGrafico,
   useDetalhes,
   useMontado,
+  usePreCarga,
 } from "./base";
 
 // Barras deitadas.
@@ -37,6 +38,7 @@ export function BarrasHorizontais({
 }) {
   const [ativo, setAtivo] = useState<number | null>(null);
   const det = useDetalhes(detalhes);
+  usePreCarga(detalhes, ativo === null ? undefined : itens[ativo]?.chave);
   const montado = useMontado();
   const max = Math.max(...itens.map((i) => i.valor), meta?.valor ?? 0, 0);
   if (itens.length === 0 || max <= 0) {

@@ -9,6 +9,7 @@ import {
 import { type AdminClient, createAdminClient } from "@/lib/supabase/admin";
 import { TAG } from "../cache";
 import { secullum as criarClienteSecullum } from "../integracoes";
+import { lerTudo } from "../supabase-paginas";
 import { emLotes, emParalelo, executar, guardarBrutos } from "./execucao";
 import {
   competenciasParaSincronizar,
@@ -60,9 +61,9 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
 
     // Departamentos: só cria os novos. Nome e de-para são da Gestora.
     const deps = await api.departamentos();
-    {
+    for (const lote of emLotes(deps, 500)) {
       const { error } = await rh.from("departamentos").upsert(
-        deps.map((d) => ({
+        lote.map((d) => ({
           secullum_id: d.Id,
           nome: d.Descricao.trim(),
           ativo: !d.Desativado,
@@ -70,18 +71,21 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
         { onConflict: "secullum_id", ignoreDuplicates: true },
       );
       if (error) throw error;
-      // Departamento novo entra no cache do módulo (filtros, cadastros).
-      revalidateTag(TAG.rh.departamentos, "max");
     }
+    // Departamento novo entra no cache do módulo (filtros, cadastros) já na
+    // próxima visita: expira na hora, sem servir a lista antiga.
+    revalidateTag(TAG.rh.departamentos, { expire: 0 });
     const depPorSecullum = await mapa(
-      rh.from("departamentos").select("id, secullum_id"),
+      lerTudo(() =>
+        rh.from("departamentos").select("id, secullum_id").order("id"),
+      ),
     );
 
     // Motivos de desligamento: cria os novos já com a sugestão de turnover.
     const motivos = await api.motivosDemissao();
-    {
+    for (const lote of emLotes(motivos, 500)) {
       const { error } = await rh.from("motivos_desligamento").upsert(
-        motivos.map((m) => ({
+        lote.map((m) => ({
           secullum_id: m.Id,
           descricao: m.Descricao.trim(),
           tipo_turnover: tipoTurnoverSugerido(m.Descricao),
@@ -96,13 +100,16 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
     // o departamento; não cria ninguém. Quem não tem par fica de fora.
     const funcionarios = await api.funcionarios();
     const donos = donosDaMatricula(funcionarios);
-    const existentes = await rh
-      .from("colaboradores")
-      .select("id, copiloto_id, nome, matricula, secullum_id, fora_do_ponto");
-    if (existentes.error) throw existentes.error;
-    const porSecullum = new Map(existentes.data.map((c) => [c.secullum_id, c]));
+    // Todos os colaboradores (ativos e desligados): de mil em mil.
+    const existentes = await lerTudo(() =>
+      rh
+        .from("colaboradores")
+        .select("id, copiloto_id, nome, matricula, secullum_id, fora_do_ponto")
+        .order("id"),
+    );
+    const porSecullum = new Map(existentes.map((c) => [c.secullum_id, c]));
     const porMatricula = new Map(
-      existentes.data
+      existentes
         .filter((c) => c.secullum_id === null)
         .map((c) => [c.matricula, c]),
     );
@@ -164,7 +171,7 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
       colaboradores.map((c) => [c.secullum_id, c]),
     );
     const foraDoPonto = new Set(
-      existentes.data.filter((c) => c.fora_do_ponto).map((c) => c.id),
+      existentes.filter((c) => c.fora_do_ponto).map((c) => c.id),
     );
     const colaboradorPorMatricula = new Map(
       colaboradores
@@ -377,17 +384,13 @@ async function calculosNaUltimaHora(admin: AdminClient): Promise<number> {
   }, 0);
 }
 
-/** secullum_id → id, a partir de um select dessas duas colunas. */
+/** secullum_id → id, a partir das linhas dessas duas colunas. */
 async function mapa(
-  consulta: PromiseLike<{
-    data: { id: string; secullum_id: number | null }[] | null;
-    error: unknown;
-  }>,
+  consulta: Promise<{ id: string; secullum_id: number | null }[]>,
 ): Promise<Map<number, string>> {
-  const { data: linhas, error } = await consulta;
-  if (error) throw error;
+  const linhas = await consulta;
   return new Map(
-    (linhas ?? [])
+    linhas
       .filter(
         (l): l is { id: string; secullum_id: number } => l.secullum_id !== null,
       )

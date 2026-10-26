@@ -101,10 +101,17 @@ Cuidados:
    `podeAgora()` (direto no banco, sem cache). Com o cliente da sessão, o
    RLS já confere.
 3. Gravar.
-4. Invalidar: `updateTag(TAG.x)` para cada tag do que mudou (em Route
-   Handler e rotina: `revalidateTag(TAG.x, "max")`). Se a tela também
-   mostra dado lido na requisição, `refresh()`.
-5. Log e notificação em `after()`.
+4. Invalidar: `updateTag(TAG.x)` para cada tag do que mudou. Em Route
+   Handler, sincronização e rotina (onde `updateTag` não existe):
+   `revalidateTag(TAG.x, { expire: 0 })`, para a próxima visita já vir
+   com o dado novo; `"max"` serve uma vez o dado antigo enquanto atualiza,
+   e só vale quando isso não importa. Se a tela também mostra dado lido
+   na requisição, `refresh()`.
+5. Log e notificação em `after()` (`registrarDepois()` em `server/logs.ts`).
+
+Leitura que pode passar de 1000 linhas (limite do PostgREST, que corta
+sem avisar) usa `lerTudo()` de `server/supabase-paginas.ts`, com ordem por
+chave única.
 
 Quem cria uma tabela de configuração nova cria a tag em `TAG` e invalida em
 toda ação que grava nela.

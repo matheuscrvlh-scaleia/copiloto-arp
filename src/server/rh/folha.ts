@@ -9,6 +9,7 @@ import {
 import { aplicarSalarioFicticio } from "@/lib/rh/folha/ficticio";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { lerTudo } from "../supabase-paginas";
 import { cargosDoRh, departamentosDoRh, rubricasDoRh } from "./configuracao";
 
 export const BUCKET = "importacoes";
@@ -53,29 +54,30 @@ export async function lerPdfDaFolha(bytes: Uint8Array): Promise<ExtratoMensal> {
 export async function contextoDoBanco(extrato: ExtratoMensal) {
   const supabase = await createClient();
   const rh = supabase.schema("rh");
+  // Rubricas e colaboradores (todos, desde sempre) passam de mil: de mil em
+  // mil. Uma matrícula ou rubrica cortada viraria "fora do Copiloto" ou
+  // "rubrica nova" na prévia.
   const [rubricas, departamentos, colaboradores, folha] = await Promise.all([
-    rh.from("rubricas").select("codigo, grupo"),
+    lerTudo(() => rh.from("rubricas").select("codigo, grupo").order("codigo")),
     rh
       .from("departamentos")
       .select("id, nome, codigo_folha")
       .eq("ativo", true)
       .order("nome"),
-    rh.from("colaboradores").select("matricula"),
+    lerTudo(() => rh.from("colaboradores").select("matricula").order("id")),
     rh
       .from("folhas")
       .select("id, status")
       .eq("competencia", extrato.competencia)
       .maybeSingle(),
   ]);
-  for (const r of [rubricas, departamentos, colaboradores, folha]) {
+  for (const r of [departamentos, folha]) {
     if (r.error) throw new Error(`Falha ao ler o banco: ${r.error.message}`);
   }
   return {
-    grupos: new Map(
-      (rubricas.data ?? []).map((r) => [r.codigo, r.grupo as string]),
-    ),
+    grupos: new Map(rubricas.map((r) => [r.codigo, r.grupo as string])),
     departamentos: departamentos.data ?? [],
-    matriculas: new Set((colaboradores.data ?? []).map((c) => c.matricula)),
+    matriculas: new Set(colaboradores.map((c) => c.matricula)),
     folhaExistente: folha.data,
   };
 }
@@ -227,63 +229,45 @@ export interface PessoaParaEditar {
   }[];
 }
 
-const PAGINA = 1000;
-
 /**
  * Uma folha inteira para conferir e corrigir na tela: pessoas, rubricas e as
  * opções dos campos. Lê com a sessão de quem pediu (RLS: valores individuais);
  * departamentos, cargos e rubricas vêm do cache do módulo. Tudo em paralelo:
- * as consultas só dependem do id da folha.
+ * as consultas só dependem do id da folha. Pessoas e rubricas da folha, de
+ * mil em mil.
  */
 export async function folhaParaEditar(id: string) {
   const rh = (await createClient()).schema("rh");
-  const paginaDeRubricas = (de: number) =>
-    rh
-      .from("folha_rubricas")
-      .select("colaborador_id, rubrica_codigo, natureza, referencia, valor")
-      .eq("folha_id", id)
-      .order("id")
-      .range(de, de + PAGINA - 1);
-  const [folha, pessoas, departamentos, cargos, rubricas, primeiras] =
+  const [folha, pessoas, departamentos, cargos, rubricas, linhas] =
     await Promise.all([
       rh
         .from("folhas")
         .select("id, competencia, status, ficticia")
         .eq("id", id)
         .maybeSingle(),
-      rh
-        .from("folha_colaboradores")
-        .select(
-          "colaborador_id, situacao, tipo_contrato, departamento_id, cargo_id, horas_mes_min, salario, liquido, colaborador:colaboradores(nome, matricula)",
-        )
-        .eq("folha_id", id),
+      lerTudo(() =>
+        rh
+          .from("folha_colaboradores")
+          .select(
+            "colaborador_id, situacao, tipo_contrato, departamento_id, cargo_id, horas_mes_min, salario, liquido, colaborador:colaboradores(nome, matricula)",
+          )
+          .eq("folha_id", id)
+          .order("colaborador_id"),
+      ),
       departamentosDoRh(),
       cargosDoRh(),
       rubricasDoRh(),
-      paginaDeRubricas(0),
+      lerTudo(() =>
+        rh
+          .from("folha_rubricas")
+          .select("colaborador_id, rubrica_codigo, natureza, referencia, valor")
+          .eq("folha_id", id)
+          .order("id"),
+      ),
     ]);
-  for (const r of [folha, pessoas, primeiras])
-    if (r.error) throw new Error(`Falha ao ler o banco: ${r.error.message}`);
+  if (folha.error)
+    throw new Error(`Falha ao ler o banco: ${folha.error.message}`);
   if (!folha.data) return null;
-
-  const linhas: {
-    colaborador_id: string;
-    rubrica_codigo: number;
-    natureza: string;
-    referencia: number | null;
-    valor: number;
-  }[] = [...(primeiras.data ?? [])];
-  // Mais de mil rubricas: o resto, de mil em mil.
-  for (
-    let de = PAGINA, ultima = primeiras.data?.length ?? 0;
-    ultima === PAGINA;
-    de += PAGINA
-  ) {
-    const { data, error: e } = await paginaDeRubricas(de);
-    if (e) throw new Error(`Falha ao ler o banco: ${e.message}`);
-    linhas.push(...(data ?? []));
-    ultima = data?.length ?? 0;
-  }
 
   const catalogo = new Map(rubricas.map((r) => [r.codigo, r]));
   const porPessoa = Map.groupBy(linhas, (l) => l.colaborador_id);
@@ -293,7 +277,7 @@ export async function folhaParaEditar(id: string) {
     departamentos: departamentos.map(({ id, nome }) => ({ id, nome })),
     cargos,
     rubricas,
-    pessoas: (pessoas.data ?? [])
+    pessoas: pessoas
       .map(
         (p): PessoaParaEditar => ({
           colaborador_id: p.colaborador_id,

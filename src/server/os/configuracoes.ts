@@ -11,7 +11,9 @@ import { createClient } from "@/lib/supabase/server";
 import { categoriasDeAtivo } from "@/server/os/ativos";
 import { CAMINHOS_PAPEL_TIMBRADO } from "@/server/os/pdf/papel-timbrado";
 import {
+  agendas as agendasDoModulo,
   contexto,
+  metas as metasDoModulo,
   nomes,
   os,
   pessoas,
@@ -29,14 +31,15 @@ function falhar(erro: { message: string } | null): asserts erro is null {
 
 export type Agenda = Pick<Tabela<"agendas">, "id" | "nome" | "ativo">;
 
-export const agendas = cache(async (): Promise<Agenda[]> => {
-  const { data, error } = await (await os())
-    .from("agendas")
-    .select("id, nome, ativo")
-    .order("nome");
-  falhar(error);
-  return data ?? [];
-});
+/** Agendas para o catálogo (do cache, pelo nome): só o que a tela usa. */
+export const agendas = cache(
+  async (): Promise<Agenda[]> =>
+    (await agendasDoModulo()).map(({ id, nome, ativo }) => ({
+      id,
+      nome,
+      ativo,
+    })),
+);
 
 /**
  * Chamados de cada categoria (fora da lixeira). Conta o que a pessoa vê:
@@ -141,11 +144,8 @@ export async function feriados(): Promise<Tabela<"feriados">[]> {
   return data ?? [];
 }
 
-export async function metas(): Promise<Tabela<"metas">[]> {
-  const { data, error } = await (await os()).from("metas").select("*");
-  falhar(error);
-  return data ?? [];
-}
+/** Metas dos painéis (do cache, como nos painéis). */
+export const metas = metasDoModulo;
 
 /** Categorias de ativo (do cache, como na tela de Ativos). */
 export const ativoCategorias = categoriasDeAtivo;

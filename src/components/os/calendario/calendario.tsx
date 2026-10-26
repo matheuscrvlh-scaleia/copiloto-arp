@@ -1,23 +1,21 @@
 "use client";
 
-import {
-  DndContext,
-  type DragEndEvent,
-  DragOverlay,
-  type DragStartEvent,
-  KeyboardSensor,
-  PointerSensor,
-  pointerWithin,
-  TouchSensor,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
+import type {
+  DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
 } from "@dnd-kit/core";
 import { GripVertical } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Ponte,
+  PonteDoArraste,
+  useAtributos,
+  useMotor,
+  usePonte,
+} from "@/components/os/arraste/ponte";
 import { BotaoExportar } from "@/components/os/exportar";
 import { ProvedorAvisos, useAvisar } from "@/components/os/lista/avisos";
 import {
@@ -40,7 +38,8 @@ import { mudarPrazo } from "@/server/os/acoes/visoes";
 // Calendário do módulo: mês, semana e dia, com cores por tipo de item e a
 // legenda (que também liga e desliga cada tipo). Arrastar um prazo para
 // outro dia muda a data mantendo a hora; o banco decide quem pode e o
-// motivo da recusa aparece no rodapé. No celular, a lista dos dias.
+// motivo da recusa aparece no rodapé. No celular, a lista dos dias. O
+// @dnd-kit carrega depois da hidratação (components/os/arraste).
 
 export interface PropsCalendario {
   itens: ItemCalendario[];
@@ -80,16 +79,14 @@ function Conteudo({
   // Dia novo de um prazo arrastado, até a lista nova chegar do servidor.
   const [movidos, setMovidos] = useState<Map<string, string>>(new Map());
   const [arrastando, setArrastando] = useState<ItemCalendario | null>(null);
+  // Id do chip arrastado (com o prefixo) e do dia sob ele.
+  const [arrastandoId, setArrastandoId] = useState<string | null>(null);
+  const [sobre, setSobre] = useState<string | null>(null);
+  const [ponte] = useState(() => new Ponte());
+  const raiz = useRef<HTMLDivElement>(null);
+  const Motor = useMotor(raiz);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a lista nova do servidor substitui as mudanças locais
   useEffect(() => setMovidos(new Map()), [itens]);
-
-  const sensores = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 220, tolerance: 8 },
-    }),
-    useSensor(KeyboardSensor),
-  );
 
   const visiveis = itens
     .filter((i) => !ocultos.has(i.tipo))
@@ -114,8 +111,22 @@ function Conteudo({
     return `${pathname}?${p.toString()}`;
   };
 
-  function aoTerminar(e: DragEndEvent) {
+  function aoComecar(e: DragStartEvent) {
+    setArrastando(
+      visiveis.find((i) => i.chave === String(e.active.id).slice(2)) ?? null,
+    );
+    setArrastandoId(String(e.active.id));
+    setSobre(null);
+  }
+
+  function aoCancelar() {
     setArrastando(null);
+    setArrastandoId(null);
+    setSobre(null);
+  }
+
+  function aoTerminar(e: DragEndEvent) {
+    aoCancelar();
     // Os ids levam o prefixo da grade ou da lista ("g:", "l:").
     const item = visiveis.find((i) => i.chave === String(e.active.id).slice(2));
     const dia = e.over ? String(e.over.id).slice(2) : undefined;
@@ -142,30 +153,13 @@ function Conteudo({
     });
   }
 
-  const props = { porDia, hoje, hrefItem, hrefDia };
+  const props = { porDia, hoje, hrefItem, hrefDia, sobre, arrastandoId };
   const grade = { ...props, prefixo: "g:" };
   const lista = { ...props, prefixo: "l:" };
 
   return (
-    <DndContext
-      sensors={sensores}
-      collisionDetection={pointerWithin}
-      onDragStart={(e: DragStartEvent) =>
-        setArrastando(
-          visiveis.find((i) => i.chave === String(e.active.id).slice(2)) ??
-            null,
-        )
-      }
-      onDragEnd={aoTerminar}
-      onDragCancel={() => setArrastando(null)}
-      accessibility={{
-        screenReaderInstructions: {
-          draggable:
-            "Para mudar o prazo, aperte espaço, use as setas para escolher o dia e aperte espaço de novo. Esc cancela.",
-        },
-      }}
-    >
-      <div className="flex flex-col gap-4">
+    <PonteDoArraste value={ponte}>
+      <div ref={raiz} className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Legenda
             ocultos={ocultos}
@@ -223,12 +217,30 @@ function Conteudo({
           />
         </div>
       </div>
-      <DragOverlay dropAnimation={null}>
-        {arrastando && (
-          <Chip item={arrastando} prefixo="o:" href={null} flutuando />
-        )}
-      </DragOverlay>
-    </DndContext>
+      {Motor && (
+        <Motor
+          ponte={ponte}
+          colisao="ponteiro"
+          onDragStart={aoComecar}
+          onDragOver={(e: DragOverEvent) =>
+            setSobre(e.over ? String(e.over.id) : null)
+          }
+          onDragEnd={aoTerminar}
+          onDragCancel={aoCancelar}
+          accessibility={{
+            screenReaderInstructions: {
+              draggable:
+                "Para mudar o prazo, aperte espaço, use as setas para escolher o dia e aperte espaço de novo. Esc cancela.",
+            },
+          }}
+          sobreposicao={
+            arrastando && (
+              <Chip item={arrastando} prefixo="o:" href={null} flutuando />
+            )
+          }
+        />
+      )}
+    </PonteDoArraste>
   );
 }
 
@@ -245,6 +257,10 @@ interface PropsGrade {
   hoje: string;
   hrefItem: (i: ItemCalendario) => string | null;
   hrefDia: (d: string) => string;
+  /** Dia (com o prefixo) sob o prazo arrastado. */
+  sobre: string | null;
+  /** Chip arrastado (com o prefixo). */
+  arrastandoId: string | null;
 }
 
 function Legenda({
@@ -320,14 +336,18 @@ function Dia({
   hoje,
   hrefItem,
   hrefDia,
+  sobre,
+  arrastandoId,
 }: PropsGrade & { dia: string; foraDoMes: boolean }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `${prefixo}${dia}` });
+  const ponte = usePonte();
+  const id = `${prefixo}${dia}`;
+  const isOver = sobre === id;
   const itens = porDia.get(dia) ?? [];
   const sobra = itens.length - MAX_NO_DIA;
   const ehHoje = dia === hoje;
   return (
     <div
-      ref={setNodeRef}
+      ref={ponte.soltavel(id)}
       className={`flex min-h-32 flex-col gap-1 border-r border-neutral-900/[0.06] p-1.5 transition last:border-0 ${foraDoMes ? "bg-neutral-900/[0.02]" : ""} ${isOver ? "bg-marca/15" : ""}`}
     >
       <Link
@@ -344,6 +364,7 @@ function Dia({
           item={i}
           prefixo={prefixo}
           href={hrefItem(i)}
+          arrastandoId={arrastandoId}
           compacto
         />
       ))}
@@ -378,12 +399,16 @@ function ColunaDaSemana({
   hoje,
   hrefItem,
   hrefDia,
+  sobre,
+  arrastandoId,
 }: PropsGrade & { dia: string }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `${prefixo}${dia}` });
+  const ponte = usePonte();
+  const id = `${prefixo}${dia}`;
+  const isOver = sobre === id;
   const itens = porDia.get(dia) ?? [];
   return (
     <div
-      ref={setNodeRef}
+      ref={ponte.soltavel(id)}
       className={`flex min-h-[28rem] flex-col gap-1.5 border-r border-neutral-900/[0.06] p-2 transition last:border-0 ${isOver ? "bg-marca/15" : ""}`}
     >
       <Link
@@ -394,7 +419,13 @@ function ColunaDaSemana({
         {rotuloDoDia(dia)}
       </Link>
       {itens.map((i) => (
-        <Chip key={i.chave} item={i} prefixo={prefixo} href={hrefItem(i)} />
+        <Chip
+          key={i.chave}
+          item={i}
+          prefixo={prefixo}
+          href={hrefItem(i)}
+          arrastandoId={arrastandoId}
+        />
       ))}
     </div>
   );
@@ -428,12 +459,16 @@ function DiaDaLista({
   porDia,
   hoje,
   hrefItem,
+  sobre,
+  arrastandoId,
 }: PropsGrade & { dia: string }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `${prefixo}${dia}` });
+  const ponte = usePonte();
+  const id = `${prefixo}${dia}`;
+  const isOver = sobre === id;
   const itens = porDia.get(dia) ?? [];
   return (
     <section
-      ref={setNodeRef}
+      ref={ponte.soltavel(id)}
       aria-label={rotuloDoDia(dia)}
       className={`vidro flex flex-col gap-2 rounded-[1.75rem] p-3 transition md:p-4 ${isOver ? "ring-2 ring-marca" : ""}`}
     >
@@ -452,6 +487,7 @@ function DiaDaLista({
             item={i}
             prefixo={prefixo}
             href={hrefItem(i)}
+            arrastandoId={arrastandoId}
             largo
           />
         ))
@@ -470,6 +506,7 @@ function Chip({
   compacto = false,
   largo = false,
   flutuando = false,
+  arrastandoId = null,
 }: {
   item: ItemCalendario;
   prefixo: string;
@@ -477,11 +514,14 @@ function Chip({
   compacto?: boolean;
   largo?: boolean;
   flutuando?: boolean;
+  /** Chip arrastado (com o prefixo): este fica apagado no lugar. */
+  arrastandoId?: string | null;
 }) {
-  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
-    id: `${prefixo}${item.chave}`,
-    disabled: !item.arrastavel || flutuando,
-  });
+  const ponte = usePonte();
+  const id = `${prefixo}${item.chave}`;
+  const isDragging = arrastandoId === id;
+  const arrasta = item.arrastavel && !flutuando;
+  const attributes = useAtributos(isDragging);
   const cor = TIPOS_ITEM[item.tipo].cor;
   const conteudo = (
     <>
@@ -511,7 +551,7 @@ function Chip({
   const classe = `flex min-w-0 flex-1 items-start gap-1.5 text-left ${compacto ? "text-[11px] leading-4" : "text-xs"}`;
   return (
     <div
-      ref={flutuando ? undefined : setNodeRef}
+      ref={arrasta ? ponte.arrastavel(id) : undefined}
       className={`flex items-start gap-1 rounded-lg border-l-[3px] bg-white/70 px-1.5 py-1 transition ${largo ? "p-2" : ""} ${isDragging ? "opacity-30" : ""} ${flutuando ? "w-56 shadow-[0_20px_40px_-16px_rgb(0_0_0/0.5)]" : "hover:bg-white"}`}
       style={{ borderLeftColor: cor }}
     >
@@ -522,11 +562,11 @@ function Chip({
       ) : (
         <span className={classe}>{conteudo}</span>
       )}
-      {item.arrastavel && !flutuando && (
+      {arrasta && (
         <button
           type="button"
           {...attributes}
-          {...listeners}
+          {...ponte.eventos(id)}
           aria-label={`Arrastar o prazo de ${item.titulo} para outro dia`}
           className="-my-0.5 grid size-5 shrink-0 cursor-grab touch-none place-items-center rounded text-neutral-400 hover:bg-neutral-900/[0.06] hover:text-neutral-700"
         >

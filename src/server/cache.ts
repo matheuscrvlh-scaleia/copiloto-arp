@@ -29,6 +29,10 @@ export const TAG = {
     ativoCategorias: "os:ativo_categorias",
     /** Lojas (contratos): id, LUC, nome, bloco e situação. */
     lojas: "os:lojas",
+    /** Metas dos painéis (% no prazo e tempo médio por setor/categoria). */
+    metas: "os:metas",
+    /** Agendas (janela do dia, limite, dias da semana, orientação). */
+    agendas: "os:agendas",
   },
 
   rh: {

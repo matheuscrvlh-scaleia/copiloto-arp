@@ -318,11 +318,13 @@ export async function salvarAgenda(
   if (id) {
     const { error } = await db.from("agendas").update(agenda).eq("id", id);
     if (error) return erroDoBanco(error);
+    updateTag(TAG.os.agendas);
     refresh();
     return { ok: "Agenda salva. Vale para os próximos horários." };
   }
   const { error } = await db.from("agendas").insert(agenda);
   if (error) return erroDoBanco(error);
+  updateTag(TAG.os.agendas);
   redirect("/os/portal/agendas?salva=1");
 }
 

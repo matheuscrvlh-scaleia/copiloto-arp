@@ -9,6 +9,7 @@ import {
   type ItemGrafico,
   useDetalhes,
   useMontado,
+  usePreCarga,
 } from "./base";
 
 // Colunas.
@@ -37,6 +38,7 @@ export function Colunas({
   const padrao = destaque >= 0 ? destaque : ultimo;
   const [ativo, setAtivo] = useState<number | null>(null);
   const det = useDetalhes(detalhes);
+  usePreCarga(detalhes, ativo === null ? undefined : itens[ativo]?.chave);
   const montado = useMontado();
   const altura = (v: number) => (max > 0 ? Math.max((v / max) * 86, 2) : 2);
   const item = ativo === null ? undefined : itens[ativo];

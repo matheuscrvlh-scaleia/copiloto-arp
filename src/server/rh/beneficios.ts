@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { type AbaDaPlanilha, lerTabelaDoPlano } from "@/lib/rh/plano";
 import { createClient } from "@/lib/supabase/server";
+import { lerTudo } from "../supabase-paginas";
 import { beneficiosDoRh, tabelasDosPlanos } from "./configuracao";
 
 // Benefícios, vínculos por funcionário e tabelas do plano. O catálogo e as
@@ -67,14 +68,18 @@ export const beneficiosCadastrados = cache(async (): Promise<Beneficio[]> => {
 });
 
 export const vinculosDeBeneficio = cache(async (): Promise<Vinculo[]> => {
-  const { data, error } = await (await rh())
-    .from("colaborador_beneficios")
-    .select(
-      "id, beneficio_id, colaborador_id, desde, ate, valor_manual, colaborador:colaboradores(nome, matricula, nascimento)",
-    )
-    .order("desde", { ascending: false });
-  falhar(error);
-  return (data ?? [])
+  const db = await rh();
+  // Todos os vínculos, inclusive os encerrados: de mil em mil.
+  const data = await lerTudo(() =>
+    db
+      .from("colaborador_beneficios")
+      .select(
+        "id, beneficio_id, colaborador_id, desde, ate, valor_manual, colaborador:colaboradores(nome, matricula, nascimento)",
+      )
+      .order("desde", { ascending: false })
+      .order("id"),
+  );
+  return data
     .map((v) => ({
       id: v.id,
       beneficio_id: v.beneficio_id,
@@ -111,13 +116,15 @@ export const vinculosPorContrato = cache(
 
 /** Quem pode receber benefício: cadastro ainda sem desligamento. */
 export const colaboradoresAtivos = cache(async () => {
-  const { data, error } = await (await rh())
-    .from("colaboradores")
-    .select("id, nome, matricula, tipo_contrato")
-    .is("desligamento", null)
-    .order("nome");
-  falhar(error);
-  return data ?? [];
+  const db = await rh();
+  return lerTudo(() =>
+    db
+      .from("colaboradores")
+      .select("id, nome, matricula, tipo_contrato")
+      .is("desligamento", null)
+      .order("nome")
+      .order("id"),
+  );
 });
 
 export interface TabelaCadastrada {

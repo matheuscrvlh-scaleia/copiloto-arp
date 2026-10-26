@@ -17,7 +17,7 @@ import {
   COLUNAS_DA_TELA,
   type Contagens,
   type ContextoLista,
-  cargaDosAbertos,
+  cargaDasContagens,
   criterioDoCartao,
   type Filtros,
   type LinhaChamado,
@@ -55,6 +55,7 @@ import {
   type Categoria,
   type ChamadoResumo,
   type Contexto,
+  cargaPorResponsavel,
   categorias,
   contarChamados,
   contexto,
@@ -63,7 +64,6 @@ import {
   type Pessoa,
   parametros,
   pessoas,
-  responsaveisEPrazos,
   type Setor,
   setores,
   todosOsChamados,
@@ -372,21 +372,20 @@ export async function contarCartoes(
 
 /**
  * Carga por pessoa do Meu setor: abertos e atrasados de cada pessoa do
- * setor e da fila, com os filtros da barra. Uma consulta só, com o
- * responsável e o prazo dos abertos (antes eram duas contagens por pessoa);
- * os atrasados são os abertos com prazo antes de agora, como o cartão.
- * Filtrando por um responsável, os outros ficam com zero (como a lista).
+ * setor e da fila, com os filtros da barra, contados no banco (uma linha
+ * por responsável); os atrasados são os abertos com prazo antes de agora,
+ * como o cartão. Filtrando por um responsável, os outros ficam com zero
+ * (como a lista).
  */
 export async function cargaDoSetor(
   e: EstadoDaLista,
   membros: { id: string; nome: string }[],
 ): Promise<Carga[]> {
-  const ctx = contextoDaLista(e.a);
-  const abertos = await responsaveisEPrazos({
-    ...consultaDaLista(e, null, false),
-    cartao: criterioDoCartao("abertos", ctx),
-  });
-  return cargaDosAbertos(abertos, membros, e.a.agora);
+  const contagens = await cargaPorResponsavel(
+    consultaDaLista(e, null, false),
+    e.a.agora,
+  );
+  return cargaDasContagens(contagens, membros);
 }
 
 /** Exportação: o resultado filtrado inteiro, agrupado como na tela. */

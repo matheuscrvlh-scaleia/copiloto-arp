@@ -21,6 +21,7 @@ import {
 } from "@/lib/rh/ponto-periodo";
 import { tipoDoDesligamento } from "@/lib/rh/turnover";
 import { createClient } from "@/lib/supabase/server";
+import { lerTudo } from "../supabase-paginas";
 import {
   beneficiosDoRh,
   cargosDoRh,
@@ -61,19 +62,22 @@ export const departamentos = cache(
 /** Ponto do mês de todos, menos quem o RH tirou do ponto. */
 export const pontoDoMes = cache(
   async (competencia: string): Promise<LinhaPonto[]> => {
-    const { data, error } = await (await rh())
-      .from("ponto_mensal")
-      .select(
-        `colaborador_id, departamento_id, previstas_min, faltas_min, atrasos_min,
-         faltas_dias, abonos_min, banco_saldo_min, banco_creditos_min, banco_debitos_min,
-         extras_min, noturnas_min, dsr_debito_min,
-         colaborador:colaboradores!inner(nome, matricula),
-         departamento:departamentos(nome)`,
-      )
-      .eq("competencia", competencia)
-      .eq("colaborador.fora_do_ponto", false);
-    falhar(error);
-    return (data ?? []).map((l) => ({
+    const db = await rh();
+    const data = await lerTudo(() =>
+      db
+        .from("ponto_mensal")
+        .select(
+          `colaborador_id, departamento_id, previstas_min, faltas_min, atrasos_min,
+           faltas_dias, abonos_min, banco_saldo_min, banco_creditos_min, banco_debitos_min,
+           extras_min, noturnas_min, dsr_debito_min,
+           colaborador:colaboradores!inner(nome, matricula),
+           departamento:departamentos(nome)`,
+        )
+        .eq("competencia", competencia)
+        .eq("colaborador.fora_do_ponto", false)
+        .order("colaborador_id"),
+    );
+    return data.map((l) => ({
       colaborador_id: l.colaborador_id,
       nome: l.colaborador?.nome ?? "—",
       matricula: l.colaborador?.matricula ?? null,
@@ -105,12 +109,11 @@ const diasDoTrecho = cache(
     de: string,
     ate: string,
   ): Promise<{ linhas: LinhaPonto[]; primeiro: string | null }> => {
-    const { data, error } = await (await rh()).rpc("ponto_dos_dias", {
-      de,
-      ate,
-    });
-    falhar(error);
-    const somados = data ?? [];
+    const db = await rh();
+    // Uma linha por pessoa: de mil em mil, pela pessoa.
+    const somados = await lerTudo(() =>
+      db.rpc("ponto_dos_dias", { de, ate }).order("colaborador_id"),
+    );
     return {
       linhas: somados.map(linhaDosDias),
       primeiro: somados.reduce<string | null>(
@@ -172,21 +175,25 @@ export const socios = cache(async (): Promise<Set<string>> => {
  */
 export const colaboradoresDoQuadro = cache(
   async (): Promise<ColaboradorQuadro[]> => {
-    const [{ data, error }, deFora] = await Promise.all([
-      (await rh())
-        .from("colaboradores")
-        .select(
-          `id, nome, matricula, departamento_id, cargo_id, admissao, desligamento,
-           tipo_contrato, motivo_desligamento_copiloto,
-           decisao_desligamento_copiloto,
-           departamento:departamentos(nome),
-           cargo:cargos(nome)`,
-        )
-        .order("nome"),
+    const db = await rh();
+    // Todos, desde sempre (o turnover olha os desligados): de mil em mil.
+    const [data, deFora] = await Promise.all([
+      lerTudo(() =>
+        db
+          .from("colaboradores")
+          .select(
+            `id, nome, matricula, departamento_id, cargo_id, admissao, desligamento,
+             tipo_contrato, motivo_desligamento_copiloto,
+             decisao_desligamento_copiloto,
+             departamento:departamentos(nome),
+             cargo:cargos(nome)`,
+          )
+          .order("nome")
+          .order("id"),
+      ),
       socios(),
     ]);
-    falhar(error);
-    return (data ?? [])
+    return data
       .filter((c) => !deFora.has(c.id))
       .map((c) => ({
         id: c.id,
@@ -253,16 +260,25 @@ export const folhasImportadas = cache(async (): Promise<FolhaImportada[]> => {
       .from("importacoes")
       .select("id, arquivo_nome, confirmado_em")
       .in("id", ids),
-    supabase.schema("rh").rpc("quadro_mensal", {
-      inicio: competencias[0] as string,
-      fim: competencias.at(-1) as string,
-    }),
+    // Uma linha por mês × departamento × contrato × situação, de todas as
+    // folhas: de mil em mil, pelas colunas do agrupamento.
+    lerTudo(() =>
+      supabase
+        .schema("rh")
+        .rpc("quadro_mensal", {
+          inicio: competencias[0] as string,
+          fim: competencias.at(-1) as string,
+        })
+        .order("competencia")
+        .order("departamento_id")
+        .order("tipo_contrato")
+        .order("situacao"),
+    ),
   ]);
   falhar(importacoes.error);
-  falhar(quadro.error);
   const porId = new Map((importacoes.data ?? []).map((i) => [i.id, i]));
   const pessoas = new Map<string, number>();
-  for (const q of quadro.data ?? []) {
+  for (const q of quadro) {
     pessoas.set(
       q.competencia,
       (pessoas.get(q.competencia) ?? 0) + Number(q.colaboradores),
@@ -312,12 +328,18 @@ export const folhasDoCusto = cache(async (): Promise<FolhaDoCusto[]> => {
 /** Somas por competência, departamento, cargo e contrato (exige rh.custo_pessoal). */
 export const custoAgregado = cache(
   async (inicio: string, fim: string): Promise<CustoAgregado[]> => {
-    const { data, error } = await (await rh()).rpc("custo_agregado", {
-      inicio,
-      fim,
-    });
-    falhar(error);
-    return (data ?? []).map((l) => ({
+    const db = await rh();
+    // Uma linha por mês × departamento × cargo × contrato: num período longo
+    // passa de mil. De mil em mil, pelas colunas do agrupamento.
+    const data = await lerTudo(() =>
+      db
+        .rpc("custo_agregado", { inicio, fim })
+        .order("competencia")
+        .order("departamento_id")
+        .order("cargo_id")
+        .order("tipo_contrato"),
+    );
+    return data.map((l) => ({
       competencia: l.competencia,
       departamento_id: l.departamento_id,
       cargo_id: l.cargo_id,
@@ -338,20 +360,23 @@ export const custoAgregado = cache(
 /** Custo de cada pessoa na competência (o RLS exige rh.custo_pessoal.individual). */
 export const custosIndividuais = cache(
   async (competencia: string): Promise<CustoIndividual[]> => {
-    const { data, error } = await (await rh())
-      .from("custos_colaborador")
-      .select(
-        `colaborador_id, departamento_id, tipo_contrato, remuneracao, encargos,
-         provisao_13, provisao_ferias, multa_rescisoria, beneficios, rescisao,
-         custo_total, custo_hora, salario_hora, jornada_min,
-         pendencias:memoria->pendencias, valor_informado,
-         colaborador:colaboradores(nome, matricula),
-         departamento:departamentos(nome),
-         cargo:cargos(nome)`,
-      )
-      .eq("competencia", competencia);
-    falhar(error);
-    return (data ?? [])
+    const db = await rh();
+    const data = await lerTudo(() =>
+      db
+        .from("custos_colaborador")
+        .select(
+          `colaborador_id, departamento_id, tipo_contrato, remuneracao, encargos,
+           provisao_13, provisao_ferias, multa_rescisoria, beneficios, rescisao,
+           custo_total, custo_hora, salario_hora, jornada_min,
+           pendencias:memoria->pendencias, valor_informado,
+           colaborador:colaboradores(nome, matricula),
+           departamento:departamentos(nome),
+           cargo:cargos(nome)`,
+        )
+        .eq("competencia", competencia)
+        .order("colaborador_id"),
+    );
+    return data
       .map((c) => ({
         colaborador_id: c.colaborador_id,
         nome: c.colaborador?.nome ?? "—",
@@ -475,16 +500,19 @@ export const valorDaHora = cache(
     falhar(ultima.error);
     const folha = ultima.data?.competencia ?? null;
     if (!folha) return { folha, adicional, salarioHora: new Map() };
-    const { data, error } = await (await rh())
-      .from("custos_colaborador")
-      .select("colaborador_id, salario_hora")
-      .eq("competencia", folha);
-    falhar(error);
+    const db = await rh();
+    const data = await lerTudo(() =>
+      db
+        .from("custos_colaborador")
+        .select("colaborador_id, salario_hora")
+        .eq("competencia", folha)
+        .order("colaborador_id"),
+    );
     return {
       folha,
       adicional,
       salarioHora: new Map(
-        (data ?? []).map((c) => [
+        data.map((c) => [
           c.colaborador_id,
           c.salario_hora === null ? null : Number(c.salario_hora),
         ]),

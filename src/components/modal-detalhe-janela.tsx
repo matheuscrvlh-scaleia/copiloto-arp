@@ -9,9 +9,15 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useReducer, useRef, useState } from "react";
 import { iniciais } from "@/lib/formato";
-import type { Detalhe, LinhaDetalhe, TabelaDetalhe } from "./modal-detalhe";
+import {
+  type Detalhe,
+  type LinhaDetalhe,
+  pedidoDe,
+  pedirTabelas,
+  type TabelaDetalhe,
+} from "./modal-detalhe";
 
 // Janela do modal "quem forma este número" (ver modal-detalhe.tsx). Fica
 // num arquivo à parte para ser baixada só depois da página.
@@ -149,44 +155,35 @@ function Tabela({ tabela, busca }: { tabela: TabelaDetalhe; busca: string }) {
 
 /**
  * Tabelas do detalhe aberto: as que vieram prontas ou, com carregarTabelas,
- * as pedidas ao servidor (uma vez por detalhe). null enquanto carregam.
+ * as do pedido ao servidor (modal-detalhe.tsx), que em geral já começou na
+ * pré-carga e às vezes já chegou: aí aparecem direto, sem esqueleto. null
+ * enquanto o pedido não volta.
  */
 function useTabelasDo(detalhe: Detalhe | null): {
   lista: TabelaDetalhe[] | null;
   erro: boolean;
 } {
-  const guardadas = useRef(new WeakMap<Detalhe, TabelaDetalhe[]>());
-  const [estado, setEstado] = useState<{
-    de: Detalhe;
-    lista: TabelaDetalhe[] | null;
-    erro: boolean;
-  } | null>(null);
+  const [, redesenhar] = useReducer((n: number) => n + 1, 0);
+  const pedido = pedidoDe(detalhe);
 
   useEffect(() => {
-    const carregar = detalhe?.carregarTabelas;
-    if (!detalhe || !carregar || guardadas.current.has(detalhe)) return;
+    if (!detalhe?.carregarTabelas) return;
+    // Aberto sem pedido (ou o anterior falhou e o modal reabriu): pede.
+    const atual = pedido ?? pedirTabelas(detalhe);
+    if (!atual) return;
     let vivo = true;
-    setEstado({ de: detalhe, lista: null, erro: false });
-    carregar().then(
-      (lista) => {
-        guardadas.current.set(detalhe, lista);
-        if (vivo) setEstado({ de: detalhe, lista, erro: false });
-      },
-      () => {
-        if (vivo) setEstado({ de: detalhe, lista: null, erro: true });
-      },
-    );
+    const chegou = () => {
+      if (vivo) redesenhar();
+    };
+    atual.promessa.then(chegou, chegou);
     return () => {
       vivo = false;
     };
-  }, [detalhe]);
+  }, [detalhe, pedido]);
 
   if (!detalhe) return { lista: [], erro: false };
   if (!detalhe.carregarTabelas) return { lista: detalhe.tabelas, erro: false };
-  const guardada = guardadas.current.get(detalhe);
-  if (guardada) return { lista: guardada, erro: false };
-  if (estado?.de === detalhe) return { lista: estado.lista, erro: estado.erro };
-  return { lista: null, erro: false };
+  return { lista: pedido?.lista ?? null, erro: pedido?.erro ?? false };
 }
 
 export function ModalDetalhe({

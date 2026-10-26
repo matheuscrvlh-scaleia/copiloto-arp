@@ -516,6 +516,7 @@ export async function salvarMeta(
       return erroDoBanco(error);
     }
   }
+  updateTag(TAG.os.metas);
   refresh();
   return { ok: "Meta salva." };
 }
@@ -535,6 +536,7 @@ export async function removerMeta(
     .select("id");
   if (error) return erroDoBanco(error);
   if (!removida?.length) return NADA_ALTERADO;
+  updateTag(TAG.os.metas);
   refresh();
   return {};
 }

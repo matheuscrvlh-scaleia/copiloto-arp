@@ -243,6 +243,16 @@ feriados e textos do laudo).
   com os destinos e só conclui quando todos concluírem.
 - **Agenda** (`os.reservar_horario`): limite por dia, choque e bloqueio numa
   transação; bloqueio manda os marcados para "Remarcar".
+- **Carga por pessoa do Meu setor** (`os.carga_do_setor`,
+  `20261026190000_os_carga_setor.sql`): uma linha por responsável do setor
+  (a fila com `responsavel_id` nulo) com os chamados em aberto (aberto, em
+  andamento ou aguardando, fora da lixeira) e os atrasados (prazo antes de
+  `p_agora`), com os filtros da barra (status, tipo, categoria, responsável,
+  prioridade, etiqueta e o período de abertura, já em Brasília). `security
+  invoker`: conta só o que quem pede vê (RLS de `os.chamados`). O servidor
+  manda o "agora" da visita e põe as contagens nas pessoas do setor
+  (`cargaDasContagens`, `src/lib/os/lista.ts`); o teste compara com a conta
+  antiga em JavaScript (`supabase/tests/os-carga.test.ts`).
 - **Custo da OS**: calculado em `src/lib/os/calculos.ts` (regras exatas do
   sistema atual, centavo a centavo) e gravado por `os.gravar_calculo_os`
   (só service role). Cada sessão usa o valor por minuto vigente na data dela.

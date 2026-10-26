@@ -11,6 +11,7 @@ import { erroDoBanco, primeiroErro } from "@/server/acoes";
 import { pode, podeAgora, usuarioAtual } from "@/server/auth";
 import { TAG } from "@/server/cache";
 import { recalcularEmAberto, tentarRecalcular } from "@/server/rh/custo";
+import { lerTudo } from "@/server/supabase-paginas";
 
 // Cadastros manuais do RH. Toda gravação passa pelo RLS e cai em
 // core.auditoria. O recálculo do custo usa a service role: quem o dispara é
@@ -336,7 +337,7 @@ export async function vincularPelaFolha(
   const rh = (await createClient()).schema("rh");
   const admin = createAdminClient().schema("rh");
   // O benefício, a última folha e quem já recebe não dependem um do outro.
-  const [{ data: b }, { data: folha }, { data: atuais }] = await Promise.all([
+  const [{ data: b }, { data: folha }, atuais] = await Promise.all([
     rh
       .from("beneficios")
       .select("rubricas_desconto")
@@ -348,26 +349,34 @@ export async function vincularPelaFolha(
       .order("competencia", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    rh
-      .from("colaborador_beneficios")
-      .select("colaborador_id")
-      .eq("beneficio_id", id.data)
-      .is("ate", null),
+    // Quem já recebe e quem tem o desconto crescem com o quadro: de mil em mil.
+    lerTudo(() =>
+      rh
+        .from("colaborador_beneficios")
+        .select("colaborador_id")
+        .eq("beneficio_id", id.data)
+        .is("ate", null)
+        .order("id"),
+    ).catch(() => null),
   ]);
+  if (!atuais) return { erro: "Não consegui ler os vínculos. Tente de novo." };
   if (!b?.rubricas_desconto.length)
     return { erro: "Informe antes as rubricas de desconto do titular." };
   if (!folha) return { erro: "Nenhuma folha importada ainda." };
-  const { data: comDesconto, error: erroFolha } = await admin
-    .from("folha_rubricas")
-    .select("colaborador_id")
-    .eq("folha_id", folha.id)
-    .in("rubrica_codigo", b.rubricas_desconto);
-  if (erroFolha) return { erro: "Não consegui ler a folha. Tente de novo." };
+  const comDesconto = await lerTudo(() =>
+    admin
+      .from("folha_rubricas")
+      .select("colaborador_id")
+      .eq("folha_id", folha.id)
+      .in("rubrica_codigo", b.rubricas_desconto)
+      .order("id"),
+  ).catch(() => null);
+  if (!comDesconto) return { erro: "Não consegui ler a folha. Tente de novo." };
 
-  const jaTem = new Set((atuais ?? []).map((v) => v.colaborador_id));
-  const novos = [
-    ...new Set((comDesconto ?? []).map((r) => r.colaborador_id)),
-  ].filter((c) => !jaTem.has(c));
+  const jaTem = new Set(atuais.map((v) => v.colaborador_id));
+  const novos = [...new Set(comDesconto.map((r) => r.colaborador_id))].filter(
+    (c) => !jaTem.has(c),
+  );
   if (!novos.length)
     return {
       ok: `Todos com desconto na folha de ${formatarMes(folha.competencia)} já estão vinculados.`,

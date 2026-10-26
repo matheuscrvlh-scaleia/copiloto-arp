@@ -24,7 +24,8 @@ import { TAG } from "@/server/cache";
 // arquivos no bucket privado, cálculo da OS) e atende os links públicos.
 //
 // Exceção, com cache: a configuração do módulo (parâmetros, feriados,
-// setores, catálogo, pessoas) é a mesma para todo mundo que usa o módulo.
+// setores, catálogo, metas, agendas, pessoas) é a mesma para todo mundo que
+// usa o módulo.
 // É lida uma vez pela service role e guardada no cache ("use cache"),
 // sempre depois de conferir aqui o mesmo acesso que o RLS exige
 // (core.pode_modulo('os')). Quem grava chama updateTag(TAG.os.*).
@@ -188,6 +189,43 @@ async function categoriasDoModulo(): Promise<Categoria[]> {
   return data ?? [];
 }
 
+export type Meta = Tabela<"metas">;
+
+/** Metas dos painéis (Configurações › Parâmetros). */
+export const metas = cache(async (): Promise<Meta[]> => {
+  await exigirModulo();
+  return metasDoModulo();
+});
+
+async function metasDoModulo(): Promise<Meta[]> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.os.metas);
+  const { data, error } = await osAdmin().from("metas").select("*");
+  falhar(error);
+  return data ?? [];
+}
+
+export type Agenda = Tabela<"agendas">;
+
+/** Agendas (ativas e inativas; a tela filtra), pelo nome. */
+export const agendas = cache(async (): Promise<Agenda[]> => {
+  await exigirModulo();
+  return agendasDoModulo();
+});
+
+async function agendasDoModulo(): Promise<Agenda[]> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.os.agendas);
+  const { data, error } = await osAdmin()
+    .from("agendas")
+    .select("*")
+    .order("nome");
+  falhar(error);
+  return data ?? [];
+}
+
 export interface Pessoa {
   id: string;
   nome: string;
@@ -340,7 +378,6 @@ export interface FiltroChamados {
 async function montarConsulta(
   f: FiltroChamados,
   contar?: Contar,
-  colunas?: typeof COLUNAS_CARGA,
 ): Promise<{ q: Consulta } | null> {
   const status = f.cartao ? statusComCartao(f.status, f.cartao) : f.status;
   if (f.cartao && !status?.length) return null;
@@ -358,14 +395,9 @@ async function montarConsulta(
   const ids = destinos
     .filter((d) => !status?.length || status.includes(d.status))
     .map((d) => d.id);
-  // A carga por pessoa lê só duas colunas: os filtros são os mesmos, e quem
-  // pede sabe que a linha só traz essas.
-  const sel = colunas
-    ? (cliente.from("chamados").select(colunas, contar) as unknown as Consulta)
-    : selecionar(cliente, contar);
   // Num objeto: o construtor é "thenable" e o await de uma função async
   // dispararia a consulta antes da ordem e da página.
-  return { q: filtrar(sel, f, status, ctx, ids) };
+  return { q: filtrar(selecionar(cliente, contar), f, status, ctx, ids) };
 }
 
 type Contar = { count: "exact"; head?: boolean };
@@ -375,31 +407,47 @@ function selecionar(cliente: Awaited<ReturnType<typeof os>>, contar?: Contar) {
   return cliente.from("chamados").select(COLUNAS_RESUMO, contar);
 }
 
-const COLUNAS_CARGA = "responsavel_id, prazo" as const;
+/** Período de abertura da barra (aaaa-mm-dd, inclusive), em Brasília. */
+const criadoDesde = (de: string) => `${de}T00:00:00-03:00`;
+const criadoAte = (ate: string) => `${ate}T23:59:59-03:00`;
+
+/** Em aberto e atrasados de um responsável (null: a fila do setor). */
+export interface ContagemDaCarga {
+  responsavel_id: string | null;
+  abertos: number;
+  atrasados: number;
+}
 
 /**
- * Responsável e prazo de cada chamado que passa nos filtros, numa consulta
- * só (o PostgREST não agrupa): a carga por pessoa conta daqui em vez de
- * duas contagens por pessoa. De mil em mil, até `maximo`.
+ * Carga por pessoa do Meu setor, agregada no banco (os.carga_do_setor, com
+ * o RLS de quem pede): chamados em aberto e atrasados (prazo antes de
+ * `agora`) de cada responsável do setor `f.setor`, com os filtros da barra.
+ * A busca e o cartão da lista não entram, como antes.
  */
-export async function responsaveisEPrazos(
+export async function cargaPorResponsavel(
   f: FiltroChamados,
-  maximo = 5000,
-): Promise<Pick<ChamadoResumo, "responsavel_id" | "prazo">[]> {
-  const LOTE = 1000;
-  const linhas: Pick<ChamadoResumo, "responsavel_id" | "prazo">[] = [];
-  for (let de = 0; de < maximo; de += LOTE) {
-    const m = await montarConsulta(f, undefined, COLUNAS_CARGA);
-    if (!m) break;
-    const { data, error } = await m.q
-      .order("id")
-      .range(de, Math.min(de + LOTE, maximo) - 1);
-    falhar(error);
-    for (const c of data ?? [])
-      linhas.push({ responsavel_id: c.responsavel_id, prazo: c.prazo });
-    if ((data ?? []).length < LOTE) break;
-  }
-  return linhas;
+  agora: Date,
+): Promise<ContagemDaCarga[]> {
+  if (!f.setor) return [];
+  const { data, error } = await (await os()).rpc("carga_do_setor", {
+    p_setor: f.setor,
+    p_agora: agora.toISOString(),
+    p_status: f.status?.length ? f.status : undefined,
+    p_tipos: f.tipos?.length ? f.tipos : undefined,
+    p_categoria: f.categoria ?? undefined,
+    p_responsavel: f.responsavel ?? undefined,
+    p_prioridade: f.prioridade ?? undefined,
+    p_etiqueta: f.etiqueta ?? undefined,
+    p_criado_desde: f.de ? criadoDesde(f.de) : undefined,
+    p_criado_ate: f.ate ? criadoAte(f.ate) : undefined,
+  });
+  falhar(error);
+  // O tipo gerado não marca a coluna como opcional: a fila vem com null.
+  return (data ?? []).map((c) => ({
+    responsavel_id: c.responsavel_id ?? null,
+    abertos: c.abertos,
+    atrasados: c.atrasados,
+  }));
 }
 
 function filtrar(
@@ -419,8 +467,8 @@ function filtrar(
   if (f.responsavel) q = q.eq("responsavel_id", f.responsavel);
   if (f.prioridade) q = q.eq("prioridade", f.prioridade);
   if (f.etiqueta) q = q.contains("etiquetas", [f.etiqueta]);
-  if (f.de) q = q.gte("criado_em", `${f.de}T00:00:00-03:00`);
-  if (f.ate) q = q.lte("criado_em", `${f.ate}T23:59:59-03:00`);
+  if (f.de) q = q.gte("criado_em", criadoDesde(f.de));
+  if (f.ate) q = q.lte("criado_em", criadoAte(f.ate));
   if (f.prazoEntre)
     q = q.gte("prazo", f.prazoEntre.de).lt("prazo", f.prazoEntre.ate);
   if (f.visitaEntre)
