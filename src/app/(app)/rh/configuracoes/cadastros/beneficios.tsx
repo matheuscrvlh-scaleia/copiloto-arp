@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Secao } from "@/components/dashboard/tabela";
 import { classeCampo } from "@/components/estilos";
@@ -207,8 +208,12 @@ function CartaoBeneficio({
   const temTabela = tabelas.length > 0;
   const faixas = vigenteEm(tabelas, mesAtual)?.faixas ?? null;
   return (
-    <details className="rounded-2xl bg-white/50 px-4 py-3 ring-1 ring-neutral-900/[0.06]">
+    <details className="group rounded-2xl bg-white/50 px-4 py-3 ring-1 ring-neutral-900/[0.06]">
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1">
+        <ChevronRight
+          className="size-4 text-neutral-500 transition-transform group-open:rotate-90"
+          aria-hidden
+        />
         <span className="text-sm font-semibold">{b.nome}</span>
         <span className="rounded-full bg-neutral-900/[0.06] px-2.5 py-0.5 text-xs text-neutral-600">
           {TIPOS_BENEFICIO[b.tipo]}
@@ -226,6 +231,9 @@ function CartaoBeneficio({
             `${ativos.length} ${ativos.length === 1 ? "pessoa" : "pessoas"}`,
           ].join(" + ")}
           {!b.ativo && " · inativo"}
+        </span>
+        <span className="rounded-full bg-neutral-900 px-3 py-1 text-xs font-medium text-white group-open:hidden">
+          Editar e vincular
         </span>
       </summary>
 
