@@ -199,7 +199,9 @@ export async function confirmarTabelaPlano(
   const { error } = await supabase.schema("rh").rpc("importar_tabela_plano", {
     p_importacao_id: dados.data.importacao_id,
     p_beneficio_id: dados.data.beneficio_id,
-    p_reajuste_pct: dados.data.reajuste,
+    // null = sem reajuste (o banco aceita; o gerador de tipos não marca
+    // argumento de função como anulável).
+    p_reajuste_pct: dados.data.reajuste as number,
     p_faixas: tabela.faixas.map((f) => ({ ...f })),
     p_coparticipacao: tabela.coparticipacao.map(({ periodo: _, ...c }) => c),
   });

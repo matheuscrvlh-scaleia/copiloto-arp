@@ -2622,7 +2622,7 @@ export type Database = {
           {
             foreignKeyName: "portal_links_loja_id_fkey"
             columns: ["loja_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "lojas"
             referencedColumns: ["id"]
           },
@@ -2964,7 +2964,7 @@ export type Database = {
           {
             foreignKeyName: "terceirizado_links_chamado_id_fkey"
             columns: ["chamado_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "chamados"
             referencedColumns: ["id"]
           },
@@ -3153,10 +3153,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      ajustar_numeracao: {
-        Args: never
-        Returns: number
-      }
+      ajustar_numeracao: { Args: never; Returns: number }
       ativos_para_vincular: {
         Args: never
         Returns: {
@@ -3168,7 +3165,18 @@ export type Database = {
         }[]
       }
       carga_do_setor: {
-        Args: { p_agora: string; p_categoria?: string; p_criado_ate?: string; p_criado_desde?: string; p_etiqueta?: string; p_prioridade?: Database["os"]["Enums"]["prioridade"]; p_responsavel?: string; p_setor: string; p_status?: Database["os"]["Enums"]["status_chamado"][]; p_tipos?: Database["os"]["Enums"]["tipo_chamado"][] }
+        Args: {
+          p_agora: string
+          p_categoria?: string
+          p_criado_ate?: string
+          p_criado_desde?: string
+          p_etiqueta?: string
+          p_prioridade?: Database["os"]["Enums"]["prioridade"]
+          p_responsavel?: string
+          p_setor: string
+          p_status?: Database["os"]["Enums"]["status_chamado"][]
+          p_tipos?: Database["os"]["Enums"]["tipo_chamado"][]
+        }
         Returns: {
           abertos: number
           atrasados: number
@@ -3180,25 +3188,22 @@ export type Database = {
         Returns: undefined
       }
       edita_chamado: {
-        Args: { p_aberto_por: string; p_id: string; p_responsavel: string; p_setor: string }
+        Args: {
+          p_aberto_por: string
+          p_id: string
+          p_responsavel: string
+          p_setor: string
+        }
         Returns: boolean
       }
-      envolvido: {
-        Args: { p_chamado: string }
-        Returns: boolean
-      }
-      gerencia: {
-        Args: { p_setor: string }
-        Returns: boolean
-      }
+      envolvido: { Args: { p_chamado: string }; Returns: boolean }
+      gerencia: { Args: { p_setor: string }; Returns: boolean }
       gravar_calculo_os: {
         Args: { p_chamado: string; p_resultado: Json }
         Returns: undefined
       }
-      meus_setores: {
-        Args: never
-        Returns: string[]
-      }
+      meus_chamados_envolvidos: { Args: never; Returns: string[] }
+      meus_setores: { Args: never; Returns: string[] }
       pessoas: {
         Args: never
         Returns: {
@@ -3207,20 +3212,18 @@ export type Database = {
           setores: string[]
         }[]
       }
-      pode_editar_chamado: {
-        Args: { p_chamado: string }
-        Returns: boolean
-      }
-      pode_ver_chamado: {
-        Args: { p_chamado: string }
-        Returns: boolean
-      }
-      proximo_codigo_vistoria: {
-        Args: never
-        Returns: string
-      }
+      pode_editar_chamado: { Args: { p_chamado: string }; Returns: boolean }
+      pode_ver_chamado: { Args: { p_chamado: string }; Returns: boolean }
+      proximo_codigo_vistoria: { Args: never; Returns: string }
       reservar_horario: {
-        Args: { p_agenda: string; p_chamado: string; p_fim: string; p_inicio: string; p_loja: string; p_observacao?: string }
+        Args: {
+          p_agenda: string
+          p_chamado: string
+          p_fim: string
+          p_inicio: string
+          p_loja: string
+          p_observacao?: string
+        }
         Returns: string
       }
       resumo_ativos: {
@@ -3235,19 +3238,19 @@ export type Database = {
           ultima_os: string
         }[]
       }
-      solicitante_de: {
-        Args: { p_chamado: string }
-        Returns: string
-      }
+      solicitante_de: { Args: { p_chamado: string }; Returns: string }
       ve_chamado: {
-        Args: { p_aberto_por: string; p_id: string; p_responsavel: string; p_setor: string }
+        Args: {
+          p_aberto_por: string
+          p_id: string
+          p_responsavel: string
+          p_setor: string
+        }
         Returns: boolean
       }
     }
     Enums: {
-      execucao:
-        | "interna"
-        | "terceirizada"
+      execucao: "interna" | "terceirizada"
       motivo_aguardando:
         | "material"
         | "terceirizado"
@@ -3262,34 +3265,12 @@ export type Database = {
         | "recorrencia"
         | "vistoria"
         | "importacao"
-      periodo_visita:
-        | "manha"
-        | "tarde"
-        | "noite"
-      prioridade:
-        | "baixa"
-        | "media"
-        | "alta"
-        | "urgente"
-      regra_rateio:
-        | "hora_trabalhada"
-        | "manual"
-        | "percentual"
-        | "terceirizado"
-      resposta_ambiente:
-        | "respondido"
-        | "nao_se_aplica"
-        | "pendente"
-      situacao_ativo:
-        | "em_uso"
-        | "em_manutencao"
-        | "parado"
-        | "baixado"
-      status_agendamento:
-        | "marcado"
-        | "remarcar"
-        | "cancelado"
-        | "realizado"
+      periodo_visita: "manha" | "tarde" | "noite"
+      prioridade: "baixa" | "media" | "alta" | "urgente"
+      regra_rateio: "hora_trabalhada" | "manual" | "percentual" | "terceirizado"
+      resposta_ambiente: "respondido" | "nao_se_aplica" | "pendente"
+      situacao_ativo: "em_uso" | "em_manutencao" | "parado" | "baixado"
+      status_agendamento: "marcado" | "remarcar" | "cancelado" | "realizado"
       status_chamado:
         | "aberto"
         | "em_andamento"
@@ -3297,28 +3278,11 @@ export type Database = {
         | "concluido"
         | "fechado"
         | "cancelado"
-      status_destino:
-        | "aberto"
-        | "em_andamento"
-        | "aguardando"
-        | "concluido"
-      status_vistoria:
-        | "andamento"
-        | "finalizado"
-        | "cancelado"
-      tipo_chamado:
-        | "tarefa"
-        | "solicitacao"
-        | "os"
-        | "aviso"
-      tipo_vistoria:
-        | "entrada"
-        | "saida"
-        | "preventiva"
-        | "extraordinaria"
-      unidade_prazo:
-        | "horas"
-        | "dias_uteis"
+      status_destino: "aberto" | "em_andamento" | "aguardando" | "concluido"
+      status_vistoria: "andamento" | "finalizado" | "cancelado"
+      tipo_chamado: "tarefa" | "solicitacao" | "os" | "aviso"
+      tipo_vistoria: "entrada" | "saida" | "preventiva" | "extraordinaria"
+      unidade_prazo: "horas" | "dias_uteis"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3528,8 +3492,8 @@ export type Database = {
           atualizado_em: string
           cargo_id: string | null
           copiloto_id: string
-          decisao_desligamento_copiloto: string | null
           criado_em: string
+          decisao_desligamento_copiloto: string | null
           departamento_id: string | null
           desligamento: string | null
           fora_do_ponto: boolean
@@ -3548,8 +3512,8 @@ export type Database = {
           atualizado_em?: string
           cargo_id?: string | null
           copiloto_id: string
-          decisao_desligamento_copiloto?: string | null
           criado_em?: string
+          decisao_desligamento_copiloto?: string | null
           departamento_id?: string | null
           desligamento?: string | null
           fora_do_ponto?: boolean
@@ -3568,8 +3532,8 @@ export type Database = {
           atualizado_em?: string
           cargo_id?: string | null
           copiloto_id?: string
-          decisao_desligamento_copiloto?: string | null
           criado_em?: string
+          decisao_desligamento_copiloto?: string | null
           departamento_id?: string | null
           desligamento?: string | null
           fora_do_ponto?: boolean
@@ -3829,7 +3793,7 @@ export type Database = {
           multa_rescisoria_pct: number
           provisiona_13: boolean
           provisiona_ferias: boolean
-          provisiona_recesso: boolean
+          provisiona_recesso?: boolean
           terceiros_pct: number
           tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"]
           vigente_desde: string
@@ -4570,30 +4534,6 @@ export type Database = {
         Args: { p_competencia: string; p_linhas: Json }
         Returns: number
       }
-      importar_tabela_plano: {
-        Args: {
-          p_beneficio_id: string
-          p_coparticipacao: Json
-          p_faixas: Json
-          p_importacao_id: string
-          p_reajuste_pct: number | null
-        }
-        Returns: string
-      }
-      socios: { Args: never; Returns: string[] }
-      salvar_faixas_plano: {
-        Args: { p_faixas: Json; p_tabela_id: string }
-        Returns: undefined
-      }
-      salvar_pessoa_folha: {
-        Args: {
-          p_colaborador_id: string
-          p_folha_id: string
-          p_pessoa: Json
-          p_rubricas: Json
-        }
-        Returns: undefined
-      }
       importar_folha: {
         Args: {
           p_departamentos?: Json
@@ -4602,6 +4542,16 @@ export type Database = {
           p_substituir?: boolean
         }
         Returns: Json
+      }
+      importar_tabela_plano: {
+        Args: {
+          p_beneficio_id: string
+          p_coparticipacao: Json
+          p_faixas: Json
+          p_importacao_id: string
+          p_reajuste_pct: number
+        }
+        Returns: string
       }
       ponto_dos_dias: {
         Args: { ate: string; de: string }
@@ -4612,12 +4562,12 @@ export type Database = {
           banco_debitos_min: number
           banco_saldo_min: number
           colaborador_id: string
-          departamento: string | null
-          departamento_id: string | null
+          departamento: string
+          departamento_id: string
           extras_min: Json
           faltas_dias: number
           faltas_min: number
-          matricula: number | null
+          matricula: number
           nome: string
           noturnas_min: number
           previstas_min: number
@@ -4634,6 +4584,20 @@ export type Database = {
           tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"]
         }[]
       }
+      salvar_faixas_plano: {
+        Args: { p_faixas: Json; p_tabela_id: string }
+        Returns: undefined
+      }
+      salvar_pessoa_folha: {
+        Args: {
+          p_colaborador_id: string
+          p_folha_id: string
+          p_pessoa: Json
+          p_rubricas: Json
+        }
+        Returns: undefined
+      }
+      socios: { Args: never; Returns: string[] }
     }
     Enums: {
       grupo_rubrica:
@@ -4818,15 +4782,36 @@ export const Constants = {
   os: {
     Enums: {
       execucao: ["interna", "terceirizada"],
-      motivo_aguardando: ["material", "terceirizado", "lojista", "aprovacao", "outro"],
-      origem_chamado: ["sistema", "portal", "modelo", "preventiva", "recorrencia", "vistoria", "importacao"],
+      motivo_aguardando: [
+        "material",
+        "terceirizado",
+        "lojista",
+        "aprovacao",
+        "outro",
+      ],
+      origem_chamado: [
+        "sistema",
+        "portal",
+        "modelo",
+        "preventiva",
+        "recorrencia",
+        "vistoria",
+        "importacao",
+      ],
       periodo_visita: ["manha", "tarde", "noite"],
       prioridade: ["baixa", "media", "alta", "urgente"],
       regra_rateio: ["hora_trabalhada", "manual", "percentual", "terceirizado"],
       resposta_ambiente: ["respondido", "nao_se_aplica", "pendente"],
       situacao_ativo: ["em_uso", "em_manutencao", "parado", "baixado"],
       status_agendamento: ["marcado", "remarcar", "cancelado", "realizado"],
-      status_chamado: ["aberto", "em_andamento", "aguardando", "concluido", "fechado", "cancelado"],
+      status_chamado: [
+        "aberto",
+        "em_andamento",
+        "aguardando",
+        "concluido",
+        "fechado",
+        "cancelado",
+      ],
       status_destino: ["aberto", "em_andamento", "aguardando", "concluido"],
       status_vistoria: ["andamento", "finalizado", "cancelado"],
       tipo_chamado: ["tarefa", "solicitacao", "os", "aviso"],
