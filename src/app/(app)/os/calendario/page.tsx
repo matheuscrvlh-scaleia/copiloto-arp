@@ -11,7 +11,7 @@ import {
   campoTipo,
   campoVisao,
 } from "@/components/os/filtros/opcoes";
-import { Atualizado, PainelDaLista } from "@/components/os/lista/topo";
+import { Atualizado, PainelDaBusca } from "@/components/os/lista/topo";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
@@ -21,7 +21,7 @@ import {
   tituloDoPeriodo,
 } from "@/lib/os/calendario";
 import { type Busca, descreverFiltros, type Recorte } from "@/lib/os/lista";
-import { hojeEmBrasilia } from "@/lib/os/tempo";
+import { deBrasilia, hojeEmBrasilia, somarDias } from "@/lib/os/tempo";
 import { buscarChamados } from "@/server/os/base";
 import {
   apoio,
@@ -65,6 +65,9 @@ export default function Page({
           <Suspense fallback={null}>
             <SeuDia />
           </Suspense>
+          <Suspense fallback={null}>
+            <PainelDaBusca busca={searchParams} caminho="/os/calendario" />
+          </Suspense>
         </Protegido>
       </Suspense>
     </>
@@ -103,21 +106,26 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
     setor: comSetor ? filtros.setor : undefined,
   };
 
-  const chamados = await buscarChamados(
-    paraConsulta({ ...valores, status: undefined }, recorte),
-  );
-  const linhas = chamados.map((c) => paraLinha(c, a));
-  const [visitas, agendamentos, planos] = await Promise.all([
+  // Tudo de uma vez: os prazos do período (filtrados no banco), as visitas
+  // dos chamados do recorte, os agendamentos e as preventivas.
+  const consulta = paraConsulta({ ...valores, status: undefined }, recorte);
+  const [chamados, visitas, agendamentos, planos] = await Promise.all([
+    buscarChamados({
+      ...consulta,
+      prazoEntre: {
+        de: deBrasilia(de).toISOString(),
+        ate: deBrasilia(somarDias(ate, 1)).toISOString(),
+      },
+    }),
     itensDeVisita(
       de,
       ate,
-      recorte === "todos" && !valores.setor
-        ? null
-        : new Set(chamados.map((c) => c.id)),
+      recorte === "todos" && !valores.setor ? null : consulta,
     ),
     itensDeAgendamento(de, ate),
     itensDePlano(a, de, ate, valores.setor ?? null),
   ]);
+  const linhas = chamados.map((c) => paraLinha(c, a));
   const itens = [
     ...itensDePrazo(linhas, de, ate),
     ...visitas,
@@ -196,7 +204,6 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
         })}
         podeExportar={a.ctx.pode("os.exportar")}
       />
-      <PainelDaLista busca={params} caminho="/os/calendario" />
     </div>
   );
 }

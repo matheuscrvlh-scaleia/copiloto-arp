@@ -6,10 +6,11 @@ import { FormularioPedido } from "@/components/os/portal/publico/formulario-pedi
 import { LinkInativo } from "@/components/os/portal/publico/visual";
 import { type DiaDaEscolha, paraEscolha } from "@/lib/os/portal";
 import { rotaPortal } from "@/lib/os/rotas";
-import { diasLivres } from "@/server/os/agenda";
-import { osAdmin } from "@/server/os/base";
-import { agendaDoPortal, categoriasDoPortal } from "@/server/os/portal-publico";
-import { acessoDaPagina } from "../../acesso";
+import { acessoDaPagina } from "@/server/os/portal-acesso";
+import {
+  categoriasDoPortal,
+  horariosDaAgenda,
+} from "@/server/os/portal-publico";
 
 // Novo pedido de uma categoria: campos do catálogo e, com agenda, só os
 // horários livres (janela, limite do dia, bloqueios e o que já foi marcado).
@@ -62,10 +63,9 @@ async function Novo({
   let dias: DiaDaEscolha[] | null = null;
   let orientacao = categoria.orientacao;
   if (categoria.agendaId) {
-    const agenda = await agendaDoPortal(categoria.agendaId);
-    dias = agenda
-      ? paraEscolha(await diasLivres(osAdmin(), agenda, new Date()))
-      : [];
+    const h = await horariosDaAgenda(categoria.agendaId, new Date());
+    const agenda = h.agenda;
+    dias = agenda ? paraEscolha(h.dias) : [];
     if (agenda?.orientacao && agenda.orientacao !== orientacao)
       orientacao = [orientacao, agenda.orientacao].filter(Boolean).join(" ");
   }

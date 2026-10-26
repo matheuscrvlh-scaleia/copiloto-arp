@@ -7,10 +7,10 @@ import { Abas, Avatar, BotaoLink, Situacao } from "@/components/admin/ui";
 import { Carregando, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarDataHora, formatarNumero } from "@/lib/formato";
+import { alternarUsuario, excluirUsuario } from "@/server/admin/acoes/usuarios";
 import { cargos, type UsuarioAdmin, usuarios } from "@/server/admin/dados";
 import { usuarioAtual } from "@/server/auth";
 import { ABAS_USUARIOS } from "./abas";
-import { alternarUsuario, excluirUsuario } from "./actions";
 
 export const metadata: Metadata = { title: "Usuários e cargos" };
 

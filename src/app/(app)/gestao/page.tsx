@@ -5,17 +5,16 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { FiltroPeriodo } from "@/components/dashboard/filtro-periodo";
-import {
-  AreaLinha,
-  BarrasDivergentes,
-  ColunasEspelhadas,
-  Faixas,
-  Rosca,
-} from "@/components/dashboard/graficos";
+import { AreaLinha } from "@/components/dashboard/graficos/area-linha";
+import { BarrasDivergentes } from "@/components/dashboard/graficos/barras-divergentes";
+import { ColunasEspelhadas } from "@/components/dashboard/graficos/colunas-espelhadas";
+import { Faixas } from "@/components/dashboard/graficos/faixas";
+import { Rosca } from "@/components/dashboard/graficos/rosca";
 import {
   AbreDetalhe,
   type Detalhe,
   ProvedorDetalhe,
+  type TabelaDetalhe,
 } from "@/components/modal-detalhe";
 import {
   fimDoMes,
@@ -32,15 +31,15 @@ import { ativosEm, mesesDeCasa, porSetor, somarPonto } from "@/lib/rh/calculos";
 import {
   movimentoEntre,
   tabelaDeHorasPerdidas,
-  tabelaDeSaidas,
   tabelaDoBanco,
   tabelaDoPonto,
   tabelaDoQuadro,
 } from "@/lib/rh/detalhes";
 import { avisoDoPonto } from "@/lib/rh/ponto-periodo";
 import { empresa } from "@/server/admin/dados";
-import { usuarioAtual } from "@/server/auth";
-import { avisosDo } from "@/server/avisos";
+import { type Usuario, usuarioAtual } from "@/server/auth";
+import { type Aviso, avisosDo } from "@/server/avisos";
+import { tabelasDoMes } from "@/server/gestao/acoes/detalhes";
 import {
   colaboradoresDoQuadro,
   folhasImportadas,
@@ -77,13 +76,30 @@ const FAIXAS_TEMPO_DE_CASA = [
   { rotulo: "10+ anos", ate: Number.POSITIVE_INFINITY },
 ];
 
+// O banner entra no esqueleto estático; o nome, os filtros e os números
+// chegam cada um no seu <Suspense>. As consultas do RH começam juntas assim
+// que a sessão e o período são conhecidos.
+
 export default function Page({ searchParams }: PageProps<"/gestao">) {
   return (
-    <Suspense fallback={<EsqueletoDashboard />}>
-      <Dashboard busca={searchParams} />
-    </Suspense>
+    <ProvedorDetalhe>
+      <div className="flex flex-col gap-5">
+        <Boasvindas>
+          <Suspense fallback={<SaudacaoCarregando />}>
+            <Saudacao />
+          </Suspense>
+        </Boasvindas>
+        <Suspense fallback={<EsqueletoPessoas />}>
+          <Dashboard busca={searchParams} />
+        </Suspense>
+      </div>
+    </ProvedorDetalhe>
   );
 }
+
+const veRh = (u: Usuario) => u.permissoes.some((p) => p.startsWith("rh."));
+const veFinanceiro = (u: Usuario) =>
+  u.permissoes.some((p) => p.startsWith("financeiro."));
 
 /** Ponto de status: cor + texto (nunca só a cor). */
 function PontoStatus({ s }: { s: Status }) {
@@ -99,70 +115,78 @@ function PontoStatus({ s }: { s: Status }) {
   );
 }
 
-async function Dashboard({ busca }: { busca: Promise<Busca> }) {
-  const usuario = await usuarioAtual();
-  const veRh = usuario.permissoes.some((p) => p.startsWith("rh."));
-  const veFinanceiro = usuario.permissoes.some((p) =>
-    p.startsWith("financeiro."),
-  );
-  const [avisos, dadosEmpresa, filtros] = await Promise.all([
-    avisosDo(usuario),
+/** Nome de quem entrou e da empresa (do cache) no banner. */
+async function Saudacao() {
+  const [usuario, dadosEmpresa] = await Promise.all([
+    usuarioAtual(),
     empresa(),
+  ]);
+  const nome = usuario.nome.split(/\s+/)[0] || usuario.nome;
+  return (
+    <>
+      <p className="text-xs font-semibold tracking-[0.2em] text-[#8fd99b] uppercase">
+        Gestão · {dadosEmpresa?.nome ?? "ARP"}
+      </p>
+      <h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">
+        Olá, {nome}
+      </h1>
+      <p className="mt-3 max-w-xl text-sm text-[rgb(255_255_255/0.82)] md:text-base">
+        {veRh(usuario)
+          ? "Quadro, jornada, banco de horas e movimento de pessoas em um só lugar."
+          : veFinanceiro(usuario)
+            ? "Os números do Financeiro entram aqui assim que a API do ENET for liberada."
+            : "Seu acesso ainda não foi liberado. Fale com o administrador."}
+      </p>
+    </>
+  );
+}
+
+/** Filtro e cartões do RH; aviso do Financeiro. */
+async function Dashboard({ busca }: { busca: Promise<Busca> }) {
+  const [usuario, filtros] = await Promise.all([
+    usuarioAtual(),
     busca.then((b) => lerFiltrosDoPeriodo(b)),
   ]);
-  const primeiroNome = usuario.nome.split(/\s+/)[0];
+  const comRh = veRh(usuario);
 
   return (
-    <ProvedorDetalhe>
-      <div className="flex flex-col gap-5">
-        <Boasvindas
-          nome={primeiroNome ?? usuario.nome}
-          empresa={dadosEmpresa?.nome ?? "ARP"}
-          texto={
-            veRh
-              ? "Quadro, jornada, banco de horas e movimento de pessoas em um só lugar."
-              : veFinanceiro
-                ? "Os números do Financeiro entram aqui assim que a API do ENET for liberada."
-                : "Seu acesso ainda não foi liberado. Fale com o administrador."
-          }
+    <>
+      {comRh && (
+        <FiltroPeriodo
+          de={filtros.periodo.de}
+          ate={filtros.periodo.ate}
+          atalho={filtros.periodo.atalho}
+          hoje={filtros.hoje}
         />
+      )}
 
-        {veRh && (
-          <FiltroPeriodo
-            de={filtros.periodo.de}
-            ate={filtros.periodo.ate}
-            atalho={filtros.periodo.atalho}
-            hoje={filtros.hoje}
+      {comRh && (
+        <Suspense fallback={<EsqueletoPessoas />}>
+          <Pessoas
+            filtros={filtros}
+            podeFolha={usuario.permissoes.includes("rh.folha")}
+            // Já sai buscando; é o mesmo resultado do sino (cache()).
+            avisos={avisosDo(usuario)}
+            // Lista de pessoas só para quem já as vê nas telas do RH.
+            veJornada={usuario.permissoes.includes("rh.jornada")}
+            veQuadro={usuario.permissoes.includes("rh.quadro")}
           />
-        )}
+        </Suspense>
+      )}
 
-        {veRh && (
-          <Suspense fallback={<EsqueletoPessoas />}>
-            <Pessoas
-              filtros={filtros}
-              podeFolha={usuario.permissoes.includes("rh.folha")}
-              pendencias={avisos.length}
-              // Lista de pessoas só para quem já as vê nas telas do RH.
-              veJornada={usuario.permissoes.includes("rh.jornada")}
-              veQuadro={usuario.permissoes.includes("rh.quadro")}
-            />
-          </Suspense>
-        )}
-
-        {veFinanceiro && (
-          <section className="vidro flex flex-wrap items-center gap-4 rounded-[2rem] px-6 py-4">
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-900 text-white">
-              <Landmark className="size-4" aria-hidden />
-            </span>
-            <p className="min-w-0 flex-1 text-sm text-neutral-600">
-              <span className="font-medium text-neutral-900">Financeiro:</span>{" "}
-              inadimplência, faturado × recebido, contas a pagar e Performance &
-              Capital ganham gráficos aqui quando a API do ENET for liberada.
-            </p>
-          </section>
-        )}
-      </div>
-    </ProvedorDetalhe>
+      {veFinanceiro(usuario) && (
+        <section className="vidro flex flex-wrap items-center gap-4 rounded-[2rem] px-6 py-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-900 text-white">
+            <Landmark className="size-4" aria-hidden />
+          </span>
+          <p className="min-w-0 flex-1 text-sm text-neutral-600">
+            <span className="font-medium text-neutral-900">Financeiro:</span>{" "}
+            inadimplência, faturado × recebido, contas a pagar e Performance &
+            Capital ganham gráficos aqui quando a API do ENET for liberada.
+          </p>
+        </section>
+      )}
+    </>
   );
 }
 
@@ -179,13 +203,14 @@ function variacao(
 async function Pessoas({
   filtros,
   podeFolha,
-  pendencias,
+  avisos,
   veJornada,
   veQuadro,
 }: {
   filtros: FiltrosDoPeriodo;
   podeFolha: boolean;
-  pendencias: number;
+  /** Pendências do sino, já pedidas por quem chamou. */
+  avisos: Promise<Aviso[]>;
   veJornada: boolean;
   veQuadro: boolean;
 }) {
@@ -200,6 +225,7 @@ async function Pessoas({
     metaBanco,
     metaTurnover,
     turnover,
+    pendentes,
   ] = await Promise.all([
     colaboradoresDoQuadro(),
     podeFolha ? folhasImportadas() : Promise.resolve([]),
@@ -213,7 +239,9 @@ async function Pessoas({
       turnoverDoPeriodo(periodo.de, periodo.ate),
       turnoverDoPeriodo(doze[0] as string, fimConsiderado(mes)),
     ]),
+    avisos,
   ]);
+  const pendencias = pendentes.length;
 
   const aviso = avisoDoPonto(pontoP);
   const ponto = pontoP.linhas;
@@ -303,8 +331,33 @@ async function Pessoas({
 
   // Quem forma cada número (modal ao clicar). Ponto: só com rh.jornada;
   // cadastro e movimento: só com rh.quadro.
+  // As tabelas do ponto por setor e do banco positivo são recortes das
+  // tabelas de todos: reaproveitam as mesmas linhas, que o React manda uma
+  // vez só para o navegador.
+  const pontoDeTodos = tabelaDoPonto(ponto);
+  const bancoDeTodos = tabelaDoBanco(ponto);
+  const linhaDe = new Map(ponto.map((l) => [l.colaborador_id, l]));
+  const recorte = linhaDe.size === ponto.length;
   const doSetor = (id: string | null) =>
     ponto.filter((l) => l.departamento_id === id);
+  const recortar = (
+    t: TabelaDetalhe,
+    fica: (l: (typeof ponto)[number]) => boolean,
+  ): TabelaDetalhe => ({
+    ...t,
+    linhas: t.linhas.filter((r) => {
+      const l = linhaDe.get(r.chave);
+      return l !== undefined && fica(l);
+    }),
+  });
+  const pontoDoSetor = (id: string | null) =>
+    recorte
+      ? recortar(pontoDeTodos, (l) => l.departamento_id === id)
+      : tabelaDoPonto(doSetor(id));
+  const bancoDoSetor = (id: string | null) =>
+    recorte
+      ? recortar(bancoDeTodos, (l) => l.departamento_id === id)
+      : tabelaDoBanco(doSetor(id));
   const linkJornada = (dep?: string | null) => `/rh/jornada?${qs(dep)}`;
   const detalhesDoMes = (c: string): Detalhe => {
     const fim = fimConsiderado(c);
@@ -331,17 +384,9 @@ async function Pessoas({
         },
         { rotulo: "Turnover", valor: formatarPct(m?.turnover ?? null) },
       ],
-      tabelas: [
-        {
-          ...tabelaDoQuadro(admitidos, fim, "Admitidos no mês"),
-          vazio: "Nenhuma admissão no mês.",
-        },
-        {
-          ...tabelaDeSaidas(desligados, "Desligados no mês"),
-          vazio: "Nenhum desligamento no mês.",
-        },
-        tabelaDoQuadro(lista, fim, "Ativos no fim do mês"),
-      ],
+      // As listas (todos os ativos de cada um dos 12 meses) vêm ao abrir.
+      tabelas: [],
+      carregarTabelas: tabelasDoMes.bind(null, c),
       link: {
         href: `/rh/quadro?mes=${c.slice(0, 7)}`,
         rotulo: "Abrir Quadro e turnover",
@@ -365,7 +410,7 @@ async function Pessoas({
               { rotulo: "Faltas", valor: formatarHoras(s.faltas_min) },
               { rotulo: "Atrasos", valor: formatarHoras(s.atrasos_min) },
             ],
-            tabelas: [tabelaDoPonto(doSetor(s.departamento_id))],
+            tabelas: [pontoDoSetor(s.departamento_id)],
             link: {
               href: linkJornada(s.departamento_id),
               rotulo: "Abrir a Jornada do setor",
@@ -394,7 +439,7 @@ async function Pessoas({
               },
               { rotulo: "Saldo", valor: formatarHoras(s.banco_saldo_min) },
             ],
-            tabelas: [tabelaDoBanco(doSetor(s.departamento_id))],
+            tabelas: [bancoDoSetor(s.departamento_id)],
             link: {
               href: linkJornada(s.departamento_id),
               rotulo: "Abrir a Jornada do setor",
@@ -450,9 +495,9 @@ async function Pessoas({
         ]),
       )
     : undefined;
-  const bancoPositivo = tabelaDoBanco(
-    ponto.filter((l) => l.banco_saldo_min > 0),
-  );
+  const bancoPositivo = recorte
+    ? recortar(bancoDeTodos, (l) => l.banco_saldo_min > 0)
+    : tabelaDoBanco(ponto.filter((l) => l.banco_saldo_min > 0));
   const detIndicadores = {
     absenteismo: veJornada
       ? ({
@@ -465,7 +510,7 @@ async function Pessoas({
             { rotulo: "Atrasos", valor: formatarHoras(totais.atrasos_min) },
             { rotulo: "Pessoas", valor: String(ponto.length) },
           ],
-          tabelas: [tabelaDoPonto(ponto)],
+          tabelas: [pontoDeTodos],
           link: { href: linkJornada(), rotulo: "Abrir a Jornada" },
         } satisfies Detalhe)
       : undefined,
@@ -842,17 +887,10 @@ async function Pessoas({
 /**
  * Banner de boas-vindas: fachada do Espaço ARP (letreiro à direita, à
  * mostra) levemente desfocada, sob um degradê preto à esquerda, onde fica o
- * texto. Escuro nos dois temas.
+ * texto. Escuro nos dois temas. A moldura e a foto não dependem da pessoa
+ * (esqueleto estático); o texto chega em `children`.
  */
-function Boasvindas({
-  nome,
-  empresa,
-  texto,
-}: {
-  nome: string;
-  empresa: string;
-  texto: string;
-}) {
+function Boasvindas({ children }: { children: React.ReactNode }) {
   return (
     <header className="relative isolate overflow-hidden rounded-[2rem] px-6 py-10 text-[#fff] shadow-[0_24px_50px_-28px_rgb(0_0_0/0.55)] md:px-10 md:py-12">
       <Image
@@ -867,26 +905,21 @@ function Boasvindas({
         aria-hidden
         className="absolute inset-0 -z-20 bg-[linear-gradient(100deg,#0a0a0a_0%,rgb(10_10_10/0.92)_30%,rgb(10_10_10/0.55)_55%,rgb(10_10_10/0.12)_100%)]"
       />
-      <p className="text-xs font-semibold tracking-[0.2em] text-[#8fd99b] uppercase">
-        Gestão · {empresa}
-      </p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">
-        Olá, {nome}
-      </h1>
-      <p className="mt-3 max-w-xl text-sm text-[rgb(255_255_255/0.82)] md:text-base">
-        {texto}
-      </p>
+      {children}
     </header>
   );
 }
 
-/** Blocos no lugar das boas-vindas e dos cartões de pessoas. */
-function EsqueletoDashboard() {
+/** No lugar do texto do banner: as três linhas, na mesma altura. */
+function SaudacaoCarregando() {
+  const barra =
+    "block animate-pulse rounded-full motion-reduce:animate-none bg-[rgb(255_255_255/0.12)]";
   return (
-    <TelaCarregando>
-      <CartaoCarregando altura="h-56" />
-      <CartoesPessoasCarregando />
-    </TelaCarregando>
+    <div aria-hidden>
+      <span className={`${barra} h-4 w-40`} />
+      <span className={`${barra} mt-2 h-10 w-64 md:h-12`} />
+      <span className={`${barra} mt-3 h-5 w-full max-w-md md:h-6`} />
+    </div>
   );
 }
 

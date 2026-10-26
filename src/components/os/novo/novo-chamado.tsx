@@ -1,9 +1,11 @@
 "use client";
 
 import { ArrowUpRight, CircleCheck, Plus, TriangleAlert } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { CartaoCarregando } from "@/components/carregando";
 import {
   BOTAO_PRIMARIO,
   BOTAO_SECUNDARIO,
@@ -11,8 +13,15 @@ import {
 } from "@/components/os/chamado/janela";
 import { formatarNumeroChamado } from "@/lib/os/numeros";
 import { rotaChamado } from "@/lib/os/rotas";
-import { FormularioChamado } from "./formulario";
 import type { DadosDoFormulario } from "./tipos";
+
+// O formulário (com o catálogo de ícones e a citação com @) só vem quando
+// a janela abre; o botão já adianta a carga ao passar o mouse ou focar.
+const carregarFormulario = () => import("./formulario");
+const FormularioChamado = dynamic(
+  () => carregarFormulario().then((m) => m.FormularioChamado),
+  { loading: () => <CartaoCarregando altura="h-[28rem]" /> },
+);
 
 // Botão "+ Novo" flutuante de todas as telas do módulo. Fica no canto
 // inferior direito; se a página tiver avisos (que usam o mesmo canto), sobe
@@ -92,6 +101,8 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
     <button
       type="button"
       onClick={() => setAberta(true)}
+      onPointerEnter={carregarFormulario}
+      onFocus={carregarFormulario}
       aria-haspopup="dialog"
       aria-label="Abrir novo chamado"
       title="Novo chamado"

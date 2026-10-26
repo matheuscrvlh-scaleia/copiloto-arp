@@ -8,6 +8,7 @@ import {
   POR_PAGINA_HISTORICO,
 } from "@/lib/os/configuracoes";
 import { createClient } from "@/lib/supabase/server";
+import { categoriasDeAtivo } from "@/server/os/ativos";
 import { CAMINHOS_PAPEL_TIMBRADO } from "@/server/os/pdf/papel-timbrado";
 import {
   contexto,
@@ -146,14 +147,8 @@ export async function metas(): Promise<Tabela<"metas">[]> {
   return data ?? [];
 }
 
-export async function ativoCategorias(): Promise<Tabela<"ativo_categorias">[]> {
-  const { data, error } = await (await os())
-    .from("ativo_categorias")
-    .select("*")
-    .order("nome");
-  falhar(error);
-  return data ?? [];
-}
+/** Categorias de ativo (do cache, como na tela de Ativos). */
+export const ativoCategorias = categoriasDeAtivo;
 
 // ---------------------------------------------------------------------------
 // Auditoria (core.auditoria): o RLS libera as tabelas os.* com os.historico

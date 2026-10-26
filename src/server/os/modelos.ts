@@ -11,7 +11,7 @@ import {
 } from "@/lib/os/modelos";
 import type { Calendario } from "@/lib/os/prazo";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
-import { registrarEvento } from "@/server/logs";
+import { registrarDepois } from "@/server/logs";
 import { configDoSistema } from "./automacao";
 import { os, osAdmin, registrarComoSistema, type Tabela } from "./base";
 import { criarChamadoSistema } from "./criar";
@@ -101,7 +101,7 @@ export async function dispararModelo(p: {
       .from("disparos")
       .update({ chamado_id: disparo.chamadoId })
       .eq("id", reserva.data.id);
-    await registrarEvento({
+    registrarDepois({
       modulo: "os",
       evento: "os_modelo_disparado",
       descricao: `${p.automatico ? "Rotina disparou" : "Disparou"} o modelo ${p.modelo.nome} para ${p.loja.nome} (${p.loja.luc}): aviso #${disparo.numero}`,

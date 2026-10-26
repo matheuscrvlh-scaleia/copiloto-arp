@@ -2,13 +2,10 @@
 
 import { CalendarClock, Printer, X } from "lucide-react";
 import { useState } from "react";
-import {
-  atribuirResponsavel,
-  mudarPrioridade,
-} from "@/app/(app)/os/visoes-actions";
 import { Selecao } from "@/components/selecao";
 import type { LinhaChamado } from "@/lib/os/lista";
 import { PRIORIDADES } from "@/lib/os/rotulos";
+import { atribuirResponsavel, mudarPrioridade } from "@/server/os/acoes/visoes";
 import { JanelaPrazo, type PessoaOpcao, useAcaoRapida } from "./edicao";
 
 // Ações em lote sobre os chamados marcados (como nos service desks):

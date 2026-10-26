@@ -90,9 +90,12 @@ async function Conteudo({
   params,
   searchParams,
 }: Pick<PageProps<"/os/vistorias/[id]">, "params" | "searchParams">) {
-  const ctx = await contexto();
+  const [ctx, { id }, sp] = await Promise.all([
+    contexto(),
+    params,
+    searchParams,
+  ]);
   if (!ctx.pode("os.vistorias")) return <SemAcesso />;
-  const [{ id }, sp] = await Promise.all([params, searchParams]);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const [dados, lojas, todasPessoas, padroes] = await Promise.all([
     vistoriaCompleta(id),

@@ -10,7 +10,7 @@ import {
 } from "react";
 import { classeCampo } from "@/components/estilos";
 import { formatarDataHora } from "@/lib/formato";
-import { assinarOS } from "@/server/os/ordem-arquivos";
+import { assinarOS } from "@/server/os/acoes/ordem-arquivos";
 import { botao, rotulo } from "./estilos";
 import type { EstadoOS } from "./tipos";
 

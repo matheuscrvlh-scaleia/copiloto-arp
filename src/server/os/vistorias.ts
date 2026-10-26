@@ -34,11 +34,13 @@ import {
   vistoriadorDe,
 } from "@/lib/os/vistorias-lista";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { configDoSistema } from "./automacao";
 import {
   baixarArquivo,
   os,
   osAdmin,
   type Parametros,
+  parametros as parametrosDoModulo,
   registrarComoSistema,
   type Tabela,
   urlsAssinadas,
@@ -136,19 +138,10 @@ export function padroesDe(
   };
 }
 
-const COLUNAS_PADROES =
-  "vistoria_locador, vistoria_local, vistoria_ambientes, vistoria_textos, mensagens" as const;
-
-/** Padrões lidos pela sessão (telas). */
-export const padroesVistoria = cache(async (): Promise<PadroesVistoria> => {
-  const { data, error } = await (await os())
-    .from("parametros")
-    .select(COLUNAS_PADROES)
-    .eq("id", 1)
-    .single();
-  falhar(error);
-  return padroesDe(data);
-});
+/** Padrões das telas (Parâmetros do cache, depois de conferir o acesso). */
+export const padroesVistoria = cache(
+  async (): Promise<PadroesVistoria> => padroesDe(await parametrosDoModulo()),
+);
 
 // ---------------------------------------------------------------------------
 // Lista
@@ -307,11 +300,13 @@ export async function vistoriasDoFiltro(
       .order("id")
       .range(de, ate),
   );
-  // As OS de todas, de 100 em 100 ids (vão na URL).
-  const resultado: VistoriaResumo[] = [];
-  for (let i = 0; i < lista.length; i += 100)
-    resultado.push(...(await comOrdens(lista.slice(i, i + 100))));
-  return resultado;
+  // As OS de todas, de 100 em 100 ids (vão na URL), os lotes juntos.
+  const lotes = await Promise.all(
+    Array.from({ length: Math.ceil(lista.length / 100) }, (_, k) =>
+      comOrdens(lista.slice(k * 100, k * 100 + 100)),
+    ),
+  );
+  return lotes.flat();
 }
 
 /** Os cartões do topo (todas as vistorias, como antes): contagens no banco. */
@@ -437,21 +432,34 @@ export async function vistoriaCompleta(
   id: string,
 ): Promise<VistoriaCompleta | null> {
   const db = await os();
-  const { data: vistoria, error } = await db
-    .from("vistorias")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  falhar(error);
-  if (!vistoria) return null;
-
-  const [ambientes, loja, entrada, chamados] = await Promise.all([
+  // Ambientes e chamados só dependem do id: vêm junto com a vistoria (o
+  // RLS é o mesmo; sem a vistoria, nada disso é usado).
+  const [lida, ambientes, chamados] = await Promise.all([
+    db.from("vistorias").select("*").eq("id", id).maybeSingle(),
     db
       .from("vistoria_ambientes")
       .select("*")
       .eq("vistoria_id", id)
       .order("ordem")
       .order("criado_em"),
+    db
+      .from("chamados")
+      .select("id, numero, tipo, titulo, status, ambiente_id, criado_em")
+      .eq("vistoria_id", id)
+      .is("lixeira_em", null)
+      .order("criado_em"),
+  ]);
+  falhar(lida.error);
+  const vistoria = lida.data;
+  if (!vistoria) return null;
+  falhar(ambientes.error);
+  falhar(chamados.error);
+
+  const lista = ambientes.data ?? [];
+  const idsEntrada = lista
+    .map((a) => a.entrada_ambiente_id)
+    .filter((x): x is string => !!x);
+  const [loja, entrada, comEntrada, fotos] = await Promise.all([
     vistoria.loja_id
       ? db.from("lojas").select("*").eq("id", vistoria.loja_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -462,31 +470,15 @@ export async function vistoriaCompleta(
           .eq("id", vistoria.entrada_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    db
-      .from("chamados")
-      .select("id, numero, tipo, titulo, status, ambiente_id, criado_em")
-      .eq("vistoria_id", id)
-      .is("lixeira_em", null)
-      .order("criado_em"),
+    idsEntrada.length
+      ? db.from("vistoria_ambientes").select("*").in("id", idsEntrada)
+      : Promise.resolve({ data: [] as Ambiente[], error: null }),
+    fotosDosAmbientes(db, [...lista.map((a) => a.id), ...idsEntrada]),
   ]);
-  falhar(ambientes.error);
   falhar(loja.error);
   falhar(entrada.error);
-  falhar(chamados.error);
-
-  const lista = ambientes.data ?? [];
-  const idsEntrada = lista
-    .map((a) => a.entrada_ambiente_id)
-    .filter((x): x is string => !!x);
-  const { data: daEntrada, error: e2 } = idsEntrada.length
-    ? await db.from("vistoria_ambientes").select("*").in("id", idsEntrada)
-    : { data: [] as Ambiente[], error: null };
-  falhar(e2);
-
-  const fotos = await fotosDosAmbientes(db, [
-    ...lista.map((a) => a.id),
-    ...idsEntrada,
-  ]);
+  falhar(comEntrada.error);
+  const daEntrada = comEntrada.data;
   const assinaturas = [
     vistoria.assinatura_locador_path,
     vistoria.assinatura_locatario_path,
@@ -564,23 +556,33 @@ export async function entradaDoAmbiente(
   };
 }
 
+export type LojaParaVistoria = Pick<
+  Loja,
+  "id" | "nome" | "luc" | "bloco" | "locatario" | "situacao"
+>;
+
 /** Lojas para escolher o contrato (vigentes primeiro). */
-export const lojasParaVistoria = cache(async (): Promise<Loja[]> => {
-  const db = await os();
-  return emPaginas((de, ate) =>
-    db
-      .from("lojas")
-      .select("*")
-      .order("situacao", { ascending: false })
-      .order("bloco")
-      .order("luc")
-      .order("id")
-      .range(de, ate),
-  );
-});
+export const lojasParaVistoria = cache(
+  async (): Promise<LojaParaVistoria[]> => {
+    const db = await os();
+    // Só o que a escolha do contrato mostra e preenche.
+    return emPaginas((de, ate) =>
+      db
+        .from("lojas")
+        .select("id, nome, luc, bloco, locatario, situacao")
+        .order("situacao", { ascending: false })
+        .order("bloco")
+        .order("luc")
+        .order("id")
+        .range(de, ate),
+    );
+  },
+);
 
 /** Locatário, bloco e unidade que a loja (contrato) preenche. */
-export function dadosDaLoja(l: Loja): {
+export function dadosDaLoja(
+  l: Pick<Loja, "locatario" | "nome" | "bloco" | "luc">,
+): {
   locatario: string;
   bloco: string;
   unidade: string;
@@ -742,9 +744,9 @@ export async function criarVistoriaDoContrato(p: {
   chamadoId?: string | null;
 }): Promise<string> {
   const db = osAdmin();
-  const [loja, parametros, vistoriador] = await Promise.all([
+  const [loja, config, vistoriador] = await Promise.all([
     db.from("lojas").select("*").eq("id", p.lojaId).single(),
-    db.from("parametros").select(COLUNAS_PADROES).eq("id", 1).single(),
+    configDoSistema(),
     p.vistoriadorId
       ? createAdminClient()
           .schema("core")
@@ -755,8 +757,6 @@ export async function criarVistoriaDoContrato(p: {
       : Promise.resolve({ data: null, error: null }),
   ]);
   if (loja.error) throw new Error(`Loja da vistoria: ${loja.error.message}`);
-  if (parametros.error)
-    throw new Error(`Parâmetros: ${parametros.error.message}`);
   if (vistoriador.error)
     throw new Error(`Vistoriador: ${vistoriador.error.message}`);
 
@@ -770,7 +770,7 @@ export async function criarVistoriaDoContrato(p: {
       loja: loja.data,
       criadoPor: null,
     },
-    padroesDe(parametros.data),
+    padroesDe(config.p),
   );
 
   if (p.chamadoId) {
@@ -837,21 +837,21 @@ export async function dadosDoLaudo(
   opcoes: { comparar: boolean },
 ): Promise<DadosDoLaudo | null> {
   const db = await os();
-  const { data: vistoria, error } = await db
-    .from("vistorias")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  falhar(error);
+  // A vistoria e os ambientes juntos (os ambientes só dependem do id).
+  const [lida, ambientes] = await Promise.all([
+    db.from("vistorias").select("*").eq("id", id).maybeSingle(),
+    db
+      .from("vistoria_ambientes")
+      .select("*")
+      .eq("vistoria_id", id)
+      .order("ordem")
+      .order("criado_em"),
+  ]);
+  falhar(lida.error);
+  const vistoria = lida.data;
   if (!vistoria) return null;
-  const { data: ambientes, error: e1 } = await db
-    .from("vistoria_ambientes")
-    .select("*")
-    .eq("vistoria_id", id)
-    .order("ordem")
-    .order("criado_em");
-  falhar(e1);
-  const lista = ambientes ?? [];
+  falhar(ambientes.error);
+  const lista = ambientes.data ?? [];
   const comparar = opcoes.comparar && vistoria.tipo === "saida";
   const idsEntrada = comparar
     ? lista.map((a) => a.entrada_ambiente_id).filter((x): x is string => !!x)

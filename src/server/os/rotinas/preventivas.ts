@@ -2,6 +2,7 @@ import "server-only";
 import { preventivasAGerar } from "@/lib/os/ativos";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import { type AtivoDaOS, criarPreventiva } from "../ativos-preventivas";
+import { configDoSistema } from "../automacao";
 import { osAdmin, type Tabela } from "../base";
 
 // Planos preventivos: cria a OS preventiva N dias antes da data (uma vez só
@@ -32,17 +33,11 @@ async function planosAtivos(db: ReturnType<typeof osAdmin>) {
 export async function rotinaPreventivas(agora: Date): Promise<number> {
   const db = osAdmin();
   const hoje = hojeEmBrasilia(agora);
-  const [planos, parametros] = await Promise.all([
+  const [planos, { p: parametros }] = await Promise.all([
     planosAtivos(db),
-    db
-      .from("parametros")
-      .select("preventiva_antecedencia_dias, expediente_fim")
-      .eq("id", 1)
-      .single(),
+    configDoSistema(),
   ]);
-  if (parametros.error)
-    throw new Error(`Parâmetros: ${parametros.error.message}`);
-  const padrao = parametros.data.preventiva_antecedencia_dias;
+  const padrao = parametros.preventiva_antecedencia_dias;
 
   const devidos = planos
     .map((p) => ({ plano: p, ...preventivasAGerar(p, padrao, hoje) }))
@@ -68,7 +63,7 @@ export async function rotinaPreventivas(agora: Date): Promise<number> {
     try {
       for (const data of datas) {
         const criado = await criarPreventiva(plano, ativo, data, {
-          expedienteFim: parametros.data.expediente_fim,
+          expedienteFim: parametros.expediente_fim,
           autorNome: AUTOR,
           agora,
         });

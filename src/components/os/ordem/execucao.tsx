@@ -6,7 +6,7 @@ import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { type Opcao, Selecao } from "@/components/selecao";
 import { PERIODOS } from "@/lib/os/rotulos";
-import { salvarExecucao } from "@/server/os/ordem-acoes";
+import { salvarExecucao } from "@/server/os/acoes/ordem";
 import { pilulaEscolha, rotulo } from "./estilos";
 
 // Quem executa (equipe interna ou terceirizado), onde (bloco, loja ou área

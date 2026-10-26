@@ -11,8 +11,8 @@ import {
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { marcarSeuDiaVisto } from "@/app/(app)/os/visoes-actions";
 import { formatarNumero } from "@/lib/formato";
+import { marcarSeuDiaVisto } from "@/server/os/acoes/visoes";
 
 // "Seu dia": na primeira entrada do dia no módulo, um resumo do que pede
 // atenção (atrasados, vencem hoje, aguardando a sua confirmação), com

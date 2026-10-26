@@ -18,15 +18,15 @@ import {
   type IndicadorRh,
   metaVigente,
 } from "@/lib/indicadores";
-import { metasDoRh } from "@/server/rh/dados";
-import { dadosDosParametros, type NivelJornada } from "@/server/rh/parametros";
 import {
   removerJornada,
   salvarEmpresa,
   salvarEncargos,
   salvarJornada,
   salvarMeta,
-} from "./actions";
+} from "@/server/rh/acoes/parametros";
+import { metasDoRh } from "@/server/rh/dados";
+import { dadosDosParametros, type NivelJornada } from "@/server/rh/parametros";
 
 export const metadata: Metadata = { title: "Parâmetros do RH" };
 

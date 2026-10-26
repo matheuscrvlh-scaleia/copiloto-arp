@@ -17,7 +17,7 @@ import {
   COLUNAS_DA_TELA,
   type Contagens,
   type ContextoLista,
-  type CriterioCartao,
+  cargaDosAbertos,
   criterioDoCartao,
   type Filtros,
   type LinhaChamado,
@@ -29,7 +29,6 @@ import {
   modoDaLista,
   type Ordem,
   ordemDaConsulta,
-  ordenarCarga,
   type PassoOrdem,
   PREFERENCIA_FILTROS,
   paraExportar,
@@ -51,6 +50,7 @@ import { rotaAtivo } from "@/lib/os/rotas";
 import { PRIORIDADES, STATUS, type StatusChamado } from "@/lib/os/rotulos";
 import { deBrasilia, instante, paraBrasilia, somarDias } from "@/lib/os/tempo";
 import {
+  buscarChamados,
   buscarPaginaDeChamados,
   type Categoria,
   type ChamadoResumo,
@@ -63,11 +63,12 @@ import {
   type Pessoa,
   parametros,
   pessoas,
+  responsaveisEPrazos,
   type Setor,
   setores,
   todosOsChamados,
 } from "./base";
-import { lerPreferencias } from "./preferencias";
+import { lerPreferencia } from "./preferencias";
 
 // Dados das visões do dia a dia (Minha caixa, Meu setor, Abertos por mim,
 // Quadro e Calendário). Tudo pela sessão (RLS). As listas e o quadro pedem
@@ -201,8 +202,8 @@ export interface FiltrosDaTela {
 }
 
 /**
- * Filtros da tela: os da URL; sem nenhum na URL, os lembrados. Lê também
- * outras preferências pedidas (ex.: o "Seu dia") na mesma consulta.
+ * Filtros da tela: os da URL; sem nenhum na URL, os lembrados (a mesma
+ * leitura das preferências serve ao "Seu dia").
  */
 export async function filtrosDaTela(
   tela: Tela,
@@ -210,8 +211,7 @@ export async function filtrosDaTela(
 ): Promise<FiltrosDaTela> {
   if (temFiltrosNaUrl(tela, busca))
     return { filtros: lerFiltros(tela, busca), lembrados: false };
-  const prefs = await lerPreferencias([PREFERENCIA_FILTROS[tela]]);
-  const guardado = prefs.get(PREFERENCIA_FILTROS[tela]);
+  const guardado = await lerPreferencia(PREFERENCIA_FILTROS[tela]);
   const filtros = lerFiltros(
     tela,
     guardado && typeof guardado === "object" && !Array.isArray(guardado)
@@ -371,40 +371,22 @@ export async function contarCartoes(
 }
 
 /**
- * Carga por pessoa do Meu setor, contada no banco: abertos e atrasados de
- * cada pessoa do setor e da fila, com os filtros da barra. Filtrando por um
- * responsável, os outros ficam com zero (como a lista).
+ * Carga por pessoa do Meu setor: abertos e atrasados de cada pessoa do
+ * setor e da fila, com os filtros da barra. Uma consulta só, com o
+ * responsável e o prazo dos abertos (antes eram duas contagens por pessoa);
+ * os atrasados são os abertos com prazo antes de agora, como o cartão.
+ * Filtrando por um responsável, os outros ficam com zero (como a lista).
  */
 export async function cargaDoSetor(
   e: EstadoDaLista,
   membros: { id: string; nome: string }[],
 ): Promise<Carga[]> {
-  const base = consultaDaLista(e, null, false);
   const ctx = contextoDaLista(e.a);
-  const abertos = criterioDoCartao("abertos", ctx);
-  const atrasados = criterioDoCartao("atrasados", ctx);
-  const contar = (responsavel: string | null, criterio: CriterioCartao) =>
-    base.responsavel && base.responsavel !== responsavel
-      ? Promise.resolve(0)
-      : contarChamados({
-          ...base,
-          responsavel,
-          cartao: responsavel
-            ? criterio
-            : { ...criterio, semResponsavel: true },
-        });
-  const quanto = async (id: string | null, nome: string): Promise<Carga> => {
-    const [a, b] = await Promise.all([
-      contar(id, abertos),
-      contar(id, atrasados),
-    ]);
-    return { id, nome, abertos: a, atrasados: b };
-  };
-  const [pessoas, fila] = await Promise.all([
-    Promise.all(membros.map((p) => quanto(p.id, p.nome))),
-    quanto(null, "Na fila"),
-  ]);
-  return ordenarCarga(pessoas, fila);
+  const abertos = await responsaveisEPrazos({
+    ...consultaDaLista(e, null, false),
+    cartao: criterioDoCartao("abertos", ctx),
+  });
+  return cargaDosAbertos(abertos, membros, e.a.agora);
 }
 
 /** Exportação: o resultado filtrado inteiro, agrupado como na tela. */
@@ -491,19 +473,29 @@ const ordemDaColuna = (s: StatusChamado): PassoOrdem[] => [
   { coluna: "numero", asc: false, nullsFirst: false },
 ];
 
+/**
+ * Consulta de uma coluna: o status dela como "cartão" sobre o conjunto das
+ * colunas, para todas dividirem a mesma leitura dos destinos (Minha caixa).
+ */
+const consultaDaColuna = (
+  e: EstadoDoQuadro,
+  status: StatusChamado,
+): FiltroChamados => ({
+  ...e.consulta,
+  status: colunasConsultadas(e),
+  cartao: { status: [status] },
+});
+
 export async function colunasDoQuadro(
   e: EstadoDoQuadro,
 ): Promise<ColunaDoQuadro[]> {
   const colunas = await Promise.all(
     colunasConsultadas(e).map(async (status) => {
-      const r = await buscarPaginaDeChamados(
-        { ...e.consulta, status: [status] },
-        {
-          pagina: 1,
-          porPagina: limiteDaColuna(e.mais, status),
-          ordem: ordemDaColuna(status),
-        },
-      );
+      const r = await buscarPaginaDeChamados(consultaDaColuna(e, status), {
+        pagina: 1,
+        porPagina: limiteDaColuna(e.mais, status),
+        ordem: ordemDaColuna(status),
+      });
       return { status, chamados: r.linhas, total: r.total };
     }),
   );
@@ -525,10 +517,7 @@ export async function exportacaoDoQuadro(e: EstadoDoQuadro) {
   const porColuna = await Promise.all(
     colunasConsultadas(e).map(async (s) => ({
       s,
-      chamados: await todosOsChamados(
-        { ...e.consulta, status: [s] },
-        ordemDaColuna(s),
-      ),
+      chamados: await todosOsChamados(consultaDaColuna(e, s), ordemDaColuna(s)),
     })),
   );
   return {
@@ -734,21 +723,30 @@ export function itensDePrazo(
   });
 }
 
-/** Visitas de terceirizados (OS com data de visita) no intervalo. */
+/**
+ * Visitas de terceirizados (OS com data de visita) no intervalo. Com um
+ * recorte, só as dos chamados dele: as duas consultas saem juntas.
+ */
 export async function itensDeVisita(
   de: string,
   ate: string,
-  soEstes: Set<string> | null,
+  recorte: FiltroChamados | null,
 ): Promise<ItemCalendario[]> {
-  const { data, error } = await (await os())
-    .from("chamados")
-    .select("id, numero, titulo, status, visita_data, visita_periodo")
-    .gte("visita_data", de)
-    .lte("visita_data", ate)
-    .is("lixeira_em", null)
-    .neq("status", "cancelado")
-    .limit(500);
+  const [{ data, error }, doRecorte] = await Promise.all([
+    (await os())
+      .from("chamados")
+      .select("id, numero, titulo, status, visita_data, visita_periodo")
+      .gte("visita_data", de)
+      .lte("visita_data", ate)
+      .is("lixeira_em", null)
+      .neq("status", "cancelado")
+      .limit(500),
+    recorte
+      ? buscarChamados({ ...recorte, visitaEntre: { de, ate }, limite: 500 })
+      : null,
+  ]);
   falhou("visitas", error);
+  const soEstes = doRecorte ? new Set(doRecorte.map((c) => c.id)) : null;
   return (data ?? [])
     .filter((c) => c.visita_data && (!soEstes || soEstes.has(c.id)))
     .map((c) => ({
@@ -772,46 +770,30 @@ export async function itensDeAgendamento(
   de: string,
   ate: string,
 ): Promise<ItemCalendario[]> {
-  const cliente = await os();
-  const [ags, agendas] = await Promise.all([
-    cliente
-      .from("agendamentos")
-      .select(
-        "id, agenda_id, chamado_id, loja_id, inicio, fim, status, observacao",
-      )
-      .gte("inicio", deBrasilia(de).toISOString())
-      .lt("inicio", deBrasilia(somarDias(ate, 1)).toISOString())
-      .neq("status", "cancelado")
-      .order("inicio")
-      .limit(500),
-    cliente.from("agendas").select("id, nome"),
-  ]);
-  falhou("agendamentos", ags.error);
-  falhou("agendas", agendas.error);
-  const lista = ags.data ?? [];
-  const lojaIds = [
-    ...new Set(lista.map((g) => g.loja_id).filter((x): x is string => !!x)),
-  ];
-  const lojas = lojaIds.length
-    ? await cliente.from("lojas").select("id, nome, luc").in("id", lojaIds)
-    : { data: [], error: null };
-  falhou("lojas", lojas.error);
-  const nomeAgenda = new Map((agendas.data ?? []).map((a) => [a.id, a.nome]));
-  const nomeLoja = new Map(
-    (lojas.data ?? []).map((l) => [l.id, `${l.nome} (${l.luc})`]),
-  );
+  // Nome da agenda e da loja na mesma consulta (o RLS vale para os dois).
+  const { data, error } = await (await os())
+    .from("agendamentos")
+    .select(
+      "id, chamado_id, inicio, fim, status, observacao, agendas(nome), lojas(nome, luc)",
+    )
+    .gte("inicio", deBrasilia(de).toISOString())
+    .lt("inicio", deBrasilia(somarDias(ate, 1)).toISOString())
+    .neq("status", "cancelado")
+    .order("inicio")
+    .limit(500);
+  falhou("agendamentos", error);
 
-  return lista.map((g) => {
+  return (data ?? []).map((g) => {
     const ini = paraBrasilia(instante(g.inicio));
     const fim = paraBrasilia(instante(g.fim));
-    const loja = g.loja_id ? nomeLoja.get(g.loja_id) : null;
+    const loja = g.lojas ? `${g.lojas.nome} (${g.lojas.luc})` : null;
     return {
       chave: `agendamento:${g.id}`,
       tipo: "agendamento",
       dia: ini.data,
       hora: ini.hora,
       quando: `${ini.hora}–${fim.hora}`,
-      titulo: `${nomeAgenda.get(g.agenda_id) ?? "Agenda"}${loja ? ` · ${loja}` : ""}`,
+      titulo: `${g.agendas?.nome ?? "Agenda"}${loja ? ` · ${loja}` : ""}`,
       detalhe:
         g.status === "remarcar"
           ? "Precisa remarcar"

@@ -54,6 +54,16 @@ import { formatarNumeroChamado } from "@/lib/os/numeros";
 import { ROTAS_OS, rotaAtivo, rotaChamado } from "@/lib/os/rotas";
 import { hojeEmBrasilia, paraBrasilia } from "@/lib/os/tempo";
 import { linkWhatsApp } from "@/lib/os/whatsapp";
+import {
+  alternarPlano,
+  darBaixa,
+  enviarAnexo,
+  excluirPlano,
+  gerarPreventivaAgora,
+  mudarSituacao,
+  removerAnexo,
+  salvarPlano,
+} from "@/server/os/acoes/ativos";
 import { type Ficha, fichaDoAtivo, type OSDoAtivo } from "@/server/os/ativos";
 import {
   categorias,
@@ -64,16 +74,6 @@ import {
   setores,
   urlDoSistema,
 } from "@/server/os/base";
-import {
-  alternarPlano,
-  darBaixa,
-  enviarAnexo,
-  excluirPlano,
-  gerarPreventivaAgora,
-  mudarSituacao,
-  removerAnexo,
-  salvarPlano,
-} from "../actions";
 
 export const metadata: Metadata = { title: "Ativo" };
 
@@ -99,10 +99,13 @@ export default function Page({ params, searchParams }: Props) {
 }
 
 async function Conteudo({ params, searchParams }: Props) {
-  const ctx = await contexto();
+  const [ctx, { id }, sp] = await Promise.all([
+    contexto(),
+    params,
+    searchParams,
+  ]);
   if (!ctx.pode("os.ativos") && !ctx.pode("os.ativos_gerenciar"))
     return <SemAcesso />;
-  const [{ id }, sp] = await Promise.all([params, searchParams]);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const agora = new Date();
   const [ficha, { garantia_aviso_dias: avisoGarantiaDias }] = await Promise.all(

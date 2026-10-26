@@ -7,7 +7,7 @@ import { SeloExemplo, SeloStatusChamado } from "@/components/os/selos";
 import { formatarMoeda, formatarNumero } from "@/lib/formato";
 import { formatarDuracao } from "@/lib/os/calculos";
 import { MAXIMO_LOTE_PDF, rotaPdfOS } from "@/lib/os/ordem";
-import type { LinhaOSTela } from "./tabela";
+import type { LinhaOSTela } from "@/lib/os/tabela-ordens";
 
 // Lista das OS: tabela no computador (a partir de xl, cabendo na largura,
 // sem rolagem lateral) e cartões no tablet e no celular. Marcar várias
@@ -16,7 +16,7 @@ import type { LinhaOSTela } from "./tabela";
 // abreviados (o nome inteiro fica na dica) e, abaixo de 2xl, duração com
 // H.H. e valor com rateio dividem a mesma coluna.
 
-export type { LinhaOSTela } from "./tabela";
+export type { LinhaOSTela } from "@/lib/os/tabela-ordens";
 
 /** "Ana Souza, Bruno Lima, Caio" → "Ana" e mais 2 (terceirizada: a empresa). */
 function abreviarTecnicos(l: LinhaOSTela): { curto: string; mais: number } {

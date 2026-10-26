@@ -20,6 +20,13 @@ import { Protegido } from "@/components/protegido";
 import { Selecao } from "@/components/selecao";
 import { CONFIGURACOES_OS } from "@/config/navigation";
 import {
+  incluirMembro,
+  marcarGestor,
+  moverSetor,
+  removerMembro,
+  salvarSetor,
+} from "@/server/os/acoes/config-setores";
+import {
   categorias,
   type Pessoa,
   pessoas,
@@ -27,13 +34,6 @@ import {
   setores,
 } from "@/server/os/base";
 import { type Membro, membros } from "@/server/os/configuracoes";
-import {
-  incluirMembro,
-  marcarGestor,
-  moverSetor,
-  removerMembro,
-  salvarSetor,
-} from "./actions";
 
 export const metadata: Metadata = { title: "Setores e pessoas" };
 

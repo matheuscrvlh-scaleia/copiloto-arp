@@ -14,7 +14,7 @@ import { CargaPorPessoa } from "@/components/os/lista/carga";
 import {
   Atualizado,
   EsqueletoVisao,
-  PainelDaLista,
+  PainelDaBusca,
 } from "@/components/os/lista/topo";
 import { VisaoLista } from "@/components/os/lista/visao-lista";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
@@ -65,6 +65,9 @@ export default function Page({
           <Setor busca={searchParams} />
           <Suspense fallback={null}>
             <SeuDia />
+          </Suspense>
+          <Suspense fallback={null}>
+            <PainelDaBusca busca={searchParams} caminho="/os/meu-setor" />
           </Suspense>
         </Protegido>
       </Suspense>
@@ -179,7 +182,6 @@ async function Setor({ busca }: { busca: Promise<Busca> }) {
         }
         vazio="Nenhum chamado do setor com esses filtros."
       />
-      <PainelDaLista busca={params} caminho="/os/meu-setor" />
     </div>
   );
 }

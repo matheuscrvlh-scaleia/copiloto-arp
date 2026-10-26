@@ -6,7 +6,7 @@ import type { EstadoAcao } from "@/components/form-acao";
 import { Selecao } from "@/components/selecao";
 import { formatarMes, formatarNumero } from "@/lib/formato";
 import { ROTULO_CONTRATO, ROTULO_SITUACAO } from "@/lib/rh/rubricas";
-import type { EstadoLeitura } from "./actions";
+import type { EstadoLeitura } from "@/server/rh/acoes/importacoes";
 
 type Ler = (anterior: EstadoLeitura, form: FormData) => Promise<EstadoLeitura>;
 type Confirmar = (anterior: EstadoAcao, form: FormData) => Promise<EstadoAcao>;

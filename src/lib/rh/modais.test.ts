@@ -7,6 +7,7 @@ import {
   origemDoComponente,
   origemDoCustoSobreReceita,
   origemDoQuadro,
+  tabelasDaMemoria,
 } from "./modais";
 
 const colab = (c: Partial<ColaboradorQuadro>): ColaboradorQuadro => ({
@@ -202,7 +203,7 @@ describe("modais do custo", () => {
     custo_hora: null,
     salario_hora: null,
     jornada_min: null,
-    memoria: { linhas: [], pendencias: [] },
+    pendencias: [],
   });
   const o = {
     competencia: "2026-07-01",
@@ -241,5 +242,31 @@ describe("modais do custo", () => {
     expect(d.fontes?.find((f) => f.rotulo === "Faturamento")?.valor).toMatch(
       /pendente/,
     );
+  });
+});
+
+describe("memória de cálculo (modal da tabela por funcionário)", () => {
+  it("cada linha da conta, com o valor cru para ordenar; pendências à parte", () => {
+    const [conta, pendencias, ...resto] = tabelasDaMemoria({
+      linhas: [
+        { rotulo: "Salário", valor: 2000, regra: "Rubrica 1" },
+        { rotulo: "Encargos", valor: 700.5, regra: "35% da remuneração" },
+      ],
+      pendencias: ["Plano, dependente: falta a data de nascimento."],
+    });
+    expect(resto).toEqual([]);
+    expect(conta?.titulo).toBe("Cada linha da conta");
+    expect(conta?.linhas[1]).toEqual({
+      chave: "1",
+      celulas: ["Encargos", "R$ 700,50", "35% da remuneração"],
+      ordem: [1, 700.5, "35% da remuneração"],
+    });
+    expect(pendencias?.linhas.map((l) => l.celulas[0])).toEqual([
+      "Plano, dependente: falta a data de nascimento.",
+    ]);
+  });
+
+  it("sem pendência, só a conta", () => {
+    expect(tabelasDaMemoria({ linhas: [], pendencias: [] })).toHaveLength(1);
   });
 });

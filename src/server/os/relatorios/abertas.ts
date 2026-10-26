@@ -97,10 +97,13 @@ const LIMITE = Math.min(297 - MARGENS.base, 249);
 export async function pdfDeAbertas(
   agora: Date,
 ): Promise<{ bytes: Uint8Array; nome: string }> {
-  const { oss, comCustos } = await abertas();
   const doc = await PDFDocument.create();
   doc.setTitle("DASHBOARD DE O.S. ABERTAS");
-  const papel = await prepararPapel(doc);
+  // As OS e o papel timbrado (arquivo no bucket) saem juntos.
+  const [{ oss, comCustos }, papel] = await Promise.all([
+    abertas(),
+    prepararPapel(doc),
+  ]);
   const { normal, negrito } = papel.fontes;
   let pagina = novaPagina(papel);
   let atual = MARGENS.topo;

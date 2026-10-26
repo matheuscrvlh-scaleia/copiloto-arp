@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { z } from "zod";
 import { Avatar } from "@/components/admin/ui";
 import {
   CartaoCarregando,
@@ -52,6 +53,7 @@ import {
   ROTULO_SITUACAO,
 } from "@/lib/rh/rubricas";
 import { pode } from "@/server/auth";
+import { marcarForaDoPonto } from "@/server/rh/acoes/funcionarios";
 import { TIPOS_BENEFICIO, type TipoBeneficio } from "@/server/rh/beneficios";
 import { adicionalDoBanco } from "@/server/rh/dados";
 import { lerFiltrosDoPeriodo } from "@/server/rh/filtros";
@@ -72,7 +74,6 @@ import {
   type RubricaDoFuncionario,
   rubricasDe,
 } from "@/server/rh/funcionarios";
-import { marcarForaDoPonto } from "./actions";
 
 export const metadata: Metadata = { title: "Funcionário" };
 
@@ -144,25 +145,44 @@ async function Perfil({
   searchParams,
 }: Pick<PageProps<"/rh/funcionarios/[id]">, "params" | "searchParams">) {
   const [{ id }, busca] = await Promise.all([params, searchParams]);
-  const f = await funcionario(id);
-  if (!f) notFound();
+  // Id que não é uuid não existe: nem chega ao banco.
+  if (!z.uuid().safeParse(id).success) notFound();
 
-  const { periodo, rotulo, mes, hoje } = await lerFiltrosDoPeriodo(busca);
-  const [ponto, mensal, afastamentos, verBeneficios, verSalario, editar] =
-    await Promise.all([
-      pontoDoPeriodoDe(f, periodo.de, periodo.ate),
-      pontoMensalDe(id),
-      afastamentosDe(id),
-      pode("rh.beneficios"),
-      pode("rh.custo_pessoal.individual"),
-      pode("rh.parametros"),
-    ]);
-  const [beneficios, folhas, custos, adicional] = await Promise.all([
-    verBeneficios ? beneficiosDe(id) : Promise.resolve(null),
-    verSalario ? folhasDe(id) : Promise.resolve(null),
-    verSalario ? custosDe(id) : Promise.resolve(null),
-    verSalario ? adicionalDoBanco(mes) : Promise.resolve(null),
+  // Tudo o que só depende do id e da URL começa junto. O ponto do período
+  // espera a pessoa e o filtro; as rubricas, a folha escolhida.
+  const pessoa = funcionario(id);
+  const filtros = lerFiltrosDoPeriodo(busca);
+  const verSalarioP = pode("rh.custo_pessoal.individual");
+  const [
+    f,
+    { periodo, rotulo, mes, hoje },
+    ponto,
+    mensal,
+    afastamentos,
+    beneficios,
+    verSalario,
+    folhas,
+    custos,
+    adicional,
+    editar,
+  ] = await Promise.all([
+    pessoa,
+    filtros,
+    Promise.all([pessoa, filtros]).then(([p, { periodo: x }]) =>
+      p ? pontoDoPeriodoDe(p, x.de, x.ate) : null,
+    ),
+    pontoMensalDe(id),
+    afastamentosDe(id),
+    pode("rh.beneficios").then((p) => (p ? beneficiosDe(id) : null)),
+    verSalarioP,
+    verSalarioP.then((p) => (p ? folhasDe(id) : null)),
+    verSalarioP.then((p) => (p ? custosDe(id) : null)),
+    Promise.all([verSalarioP, filtros]).then(([p, { mes: m }]) =>
+      p ? adicionalDoBanco(m) : null,
+    ),
+    pode("rh.parametros"),
   ]);
+  if (!f || !ponto) notFound();
   // Folha do mês do fim do período; sem ela, a última antes (ou a última).
   const folha =
     folhas?.find((x) => x.competencia <= mes) ?? folhas?.[0] ?? null;

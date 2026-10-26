@@ -6,9 +6,9 @@ import {
 } from "@/components/os/configuracoes/form-categoria";
 import { SeloIcone } from "@/components/os/configuracoes/icones";
 import { CONFIGURACOES_OS } from "@/config/navigation";
+import { salvarCategoria } from "@/server/os/acoes/config-catalogo";
 import { categorias, pessoas, setores } from "@/server/os/base";
 import { agendas } from "@/server/os/configuracoes";
-import { salvarCategoria } from "./actions";
 
 // Tela da categoria (nova ou existente): carrega as listas do formulário.
 

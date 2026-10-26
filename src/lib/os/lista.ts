@@ -483,6 +483,36 @@ export function cargaPorPessoa(
 }
 
 /**
+ * Carga do Meu setor a partir do responsável e do prazo dos chamados em
+ * aberto (o banco já filtrou: barra e "Em aberto"), lidos de uma vez:
+ * atrasado é prazo antes de agora, como o cartão. Só entram as pessoas do
+ * setor e a fila; quem tem mais vem primeiro.
+ */
+export function cargaDosAbertos(
+  abertos: { responsavel_id: string | null; prazo: string | null }[],
+  membros: { id: string; nome: string }[],
+  agora: Date,
+): Carga[] {
+  const limite = agora.getTime();
+  const cargas = new Map<string | null, Carga>([
+    ...membros.map((p): [string, Carga] => [
+      p.id,
+      { id: p.id, nome: p.nome, abertos: 0, atrasados: 0 },
+    ]),
+    [null, { id: null, nome: "Na fila", abertos: 0, atrasados: 0 }],
+  ]);
+  for (const c of abertos) {
+    const alvo = cargas.get(c.responsavel_id);
+    if (!alvo) continue;
+    alvo.abertos++;
+    if (c.prazo && instante(c.prazo).getTime() < limite) alvo.atrasados++;
+  }
+  const fila = cargas.get(null) as Carga;
+  cargas.delete(null);
+  return ordenarCarga([...cargas.values()], fila);
+}
+
+/**
  * Carga já contada (no banco, por pessoa): quem tem mais vem primeiro; a
  * fila fica no topo se tiver algo.
  */

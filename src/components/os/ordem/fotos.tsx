@@ -9,7 +9,10 @@ import {
   Galeria,
 } from "@/components/os/chamado/galeria";
 import { envioGrandeDemais } from "@/lib/os/ordem";
-import { enviarArquivos, removerArquivo } from "@/server/os/ordem-arquivos";
+import {
+  enviarArquivos,
+  removerArquivo,
+} from "@/server/os/acoes/ordem-arquivos";
 import { botao } from "./estilos";
 import type { EstadoOS } from "./tipos";
 

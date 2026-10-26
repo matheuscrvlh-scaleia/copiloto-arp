@@ -10,9 +10,9 @@ import {
   UserRound,
 } from "lucide-react";
 import { useActionState } from "react";
-import { andarDestino } from "@/app/(app)/os/chamados/actions";
 import { formatarDataHora } from "@/lib/formato";
 import type { StatusDestino } from "@/lib/os/ciclo";
+import { andarDestino } from "@/server/os/acoes/chamados";
 
 // Andamento de cada destinatário (Aviso para vários setores, pessoas
 // extras): cada um confirma que leu e conclui a própria parte; o chamado

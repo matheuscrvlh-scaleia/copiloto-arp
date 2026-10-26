@@ -8,8 +8,8 @@ import {
   useState,
   useTransition,
 } from "react";
-import { comentar } from "@/app/(app)/os/chamados/actions";
 import type { EstadoAcao } from "@/components/form-acao";
+import { comentar } from "@/server/os/acoes/chamados";
 import { LIMITE_ENVIO, tamanhoTotal } from "./arquivos";
 import { EscolherArquivos, ListaDeArquivos } from "./escolher-arquivos";
 import { CampoComMencao, type PessoaMencao } from "./mencao";

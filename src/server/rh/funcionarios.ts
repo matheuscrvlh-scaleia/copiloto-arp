@@ -4,7 +4,7 @@ import { z } from "zod";
 import { isoLocal } from "@/lib/formato";
 import { diaAnterior, ultimoDiaFechado } from "@/lib/periodo";
 import type { LinhaPonto } from "@/lib/rh/calculos";
-import type { CustoIndividual } from "@/lib/rh/custo";
+import type { CustoIndividual, MemoriaDoCusto } from "@/lib/rh/custo";
 import { type Situacao, situacaoDe } from "@/lib/rh/funcionarios";
 import {
   type DiaDoPonto as DiaSomavel,
@@ -486,8 +486,9 @@ export const rubricasDe = cache(
 
 export type CustoDoMes = Omit<
   CustoIndividual,
-  "nome" | "matricula" | "departamento" | "cargo"
+  "nome" | "matricula" | "departamento" | "cargo" | "pendencias"
 > & {
+  memoria: MemoriaDoCusto;
   competencia: string;
   provisao_13: number;
   provisao_ferias: number;
@@ -530,6 +531,6 @@ export const custosDe = cache(async (id: string): Promise<CustoDoMes[]> => {
     salario_hora: num(c.salario_hora),
     jornada_min: c.jornada_min,
     valor_informado: c.valor_informado,
-    memoria: c.memoria as CustoIndividual["memoria"],
+    memoria: c.memoria as unknown as MemoriaDoCusto,
   }));
 });

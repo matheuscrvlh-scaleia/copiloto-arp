@@ -1,6 +1,5 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { getDocumentProxy } from "unpdf";
 import { type Conferencia, conferir } from "@/lib/rh/folha/conferencia";
 import {
   type ExtratoMensal,
@@ -10,6 +9,7 @@ import {
 import { aplicarSalarioFicticio } from "@/lib/rh/folha/ficticio";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { cargosDoRh, departamentosDoRh, rubricasDoRh } from "./configuracao";
 
 export const BUCKET = "importacoes";
 export const TAMANHO_MAXIMO = 10 * 1024 * 1024;
@@ -28,6 +28,8 @@ export function sha256(bytes: Uint8Array): string {
 
 /** Textos de cada página do PDF, com posição. */
 export async function textosDoPdf(bytes: Uint8Array): Promise<ItemTexto[][]> {
+  // Só quem importa a folha carrega o leitor de PDF.
+  const { getDocumentProxy } = await import("unpdf");
   const pdf = await getDocumentProxy(new Uint8Array(bytes));
   const paginas: ItemTexto[][] = [];
   for (let p = 1; p <= pdf.numPages; p++) {
@@ -229,31 +231,40 @@ const PAGINA = 1000;
 
 /**
  * Uma folha inteira para conferir e corrigir na tela: pessoas, rubricas e as
- * opções dos campos. Lê com a sessão de quem pediu (RLS: valores individuais).
+ * opções dos campos. Lê com a sessão de quem pediu (RLS: valores individuais);
+ * departamentos, cargos e rubricas vêm do cache do módulo. Tudo em paralelo:
+ * as consultas só dependem do id da folha.
  */
 export async function folhaParaEditar(id: string) {
   const rh = (await createClient()).schema("rh");
-  const { data: folha, error } = await rh
-    .from("folhas")
-    .select("id, competencia, status, ficticia")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(`Falha ao ler o banco: ${error.message}`);
-  if (!folha) return null;
-
-  const [pessoas, departamentos, cargos, rubricas] = await Promise.all([
+  const paginaDeRubricas = (de: number) =>
     rh
-      .from("folha_colaboradores")
-      .select(
-        "colaborador_id, situacao, tipo_contrato, departamento_id, cargo_id, horas_mes_min, salario, liquido, colaborador:colaboradores(nome, matricula)",
-      )
-      .eq("folha_id", id),
-    rh.from("departamentos").select("id, nome").order("nome"),
-    rh.from("cargos").select("id, nome").order("nome"),
-    rh.from("rubricas").select("codigo, descricao, grupo").order("codigo"),
-  ]);
-  for (const r of [pessoas, departamentos, cargos, rubricas])
+      .from("folha_rubricas")
+      .select("colaborador_id, rubrica_codigo, natureza, referencia, valor")
+      .eq("folha_id", id)
+      .order("id")
+      .range(de, de + PAGINA - 1);
+  const [folha, pessoas, departamentos, cargos, rubricas, primeiras] =
+    await Promise.all([
+      rh
+        .from("folhas")
+        .select("id, competencia, status, ficticia")
+        .eq("id", id)
+        .maybeSingle(),
+      rh
+        .from("folha_colaboradores")
+        .select(
+          "colaborador_id, situacao, tipo_contrato, departamento_id, cargo_id, horas_mes_min, salario, liquido, colaborador:colaboradores(nome, matricula)",
+        )
+        .eq("folha_id", id),
+      departamentosDoRh(),
+      cargosDoRh(),
+      rubricasDoRh(),
+      paginaDeRubricas(0),
+    ]);
+  for (const r of [folha, pessoas, primeiras])
     if (r.error) throw new Error(`Falha ao ler o banco: ${r.error.message}`);
+  if (!folha.data) return null;
 
   const linhas: {
     colaborador_id: string;
@@ -261,27 +272,27 @@ export async function folhaParaEditar(id: string) {
     natureza: string;
     referencia: number | null;
     valor: number;
-  }[] = [];
-  for (let de = 0; ; de += PAGINA) {
-    const { data, error: e } = await rh
-      .from("folha_rubricas")
-      .select("colaborador_id, rubrica_codigo, natureza, referencia, valor")
-      .eq("folha_id", id)
-      .order("id")
-      .range(de, de + PAGINA - 1);
+  }[] = [...(primeiras.data ?? [])];
+  // Mais de mil rubricas: o resto, de mil em mil.
+  for (
+    let de = PAGINA, ultima = primeiras.data?.length ?? 0;
+    ultima === PAGINA;
+    de += PAGINA
+  ) {
+    const { data, error: e } = await paginaDeRubricas(de);
     if (e) throw new Error(`Falha ao ler o banco: ${e.message}`);
     linhas.push(...(data ?? []));
-    if (!data || data.length < PAGINA) break;
+    ultima = data?.length ?? 0;
   }
 
-  const catalogo = new Map((rubricas.data ?? []).map((r) => [r.codigo, r]));
+  const catalogo = new Map(rubricas.map((r) => [r.codigo, r]));
   const porPessoa = Map.groupBy(linhas, (l) => l.colaborador_id);
   const num = (v: number | null) => (v === null ? null : Number(v));
   return {
-    folha,
-    departamentos: departamentos.data ?? [],
-    cargos: cargos.data ?? [],
-    rubricas: rubricas.data ?? [],
+    folha: folha.data,
+    departamentos: departamentos.map(({ id, nome }) => ({ id, nome })),
+    cargos,
+    rubricas,
     pessoas: (pessoas.data ?? [])
       .map(
         (p): PessoaParaEditar => ({

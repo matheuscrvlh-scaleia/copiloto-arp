@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import {
   descreverHorario,
   erroDoArquivo,
@@ -123,15 +124,18 @@ async function avisarEquipe(
   tipo: string,
   texto: string,
 ) {
-  const quem = p.responsavel_id
-    ? [p.responsavel_id]
-    : await membrosDoSetor(p.setor_id);
-  await notificar(quem, {
-    tipo,
-    titulo: `#${p.numero} ${p.titulo}`,
-    texto,
-    href: rotaChamado(p.id),
-    chamadoId: p.id,
+  // O aviso não muda a resposta ao lojista: sai depois dela.
+  after(async () => {
+    const quem = p.responsavel_id
+      ? [p.responsavel_id]
+      : await membrosDoSetor(p.setor_id);
+    await notificar(quem, {
+      tipo,
+      titulo: `#${p.numero} ${p.titulo}`,
+      texto,
+      href: rotaChamado(p.id),
+      chamadoId: p.id,
+    });
   });
 }
 

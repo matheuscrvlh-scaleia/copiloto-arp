@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import type { Evento, Modulo } from "@/lib/historico";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
@@ -8,7 +9,7 @@ import type { Json } from "@/lib/supabase/database.types";
 // Grava com a service role porque parte deles não tem sessão. Nunca falha
 // a ação de quem pediu: sem registro, só fica o aviso no log do servidor.
 
-export async function registrarEvento(e: {
+export interface EventoDoSistema {
   modulo: Modulo;
   evento: Evento;
   descricao: string;
@@ -16,7 +17,9 @@ export async function registrarEvento(e: {
   usuarioId: string | null;
   /** Contexto (e-mail digitado, sistema, resultado). Nunca senha nem token. */
   detalhes?: Record<string, Json | undefined>;
-}): Promise<void> {
+}
+
+export async function registrarEvento(e: EventoDoSistema): Promise<void> {
   try {
     const { error } = await createAdminClient()
       .schema("core")
@@ -32,4 +35,13 @@ export async function registrarEvento(e: {
   } catch (erro) {
     console.error("registro do evento", e.evento, erro);
   }
+}
+
+/**
+ * Registra depois de responder (after): o log não atrasa a ação. Use em
+ * Server Actions, Route Handlers e Server Components; fora de uma
+ * requisição (script, teste), use registrarEvento.
+ */
+export function registrarDepois(e: EventoDoSistema): void {
+  after(() => registrarEvento(e));
 }

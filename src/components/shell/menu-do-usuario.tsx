@@ -1,18 +1,22 @@
-import { LogOut } from "lucide-react";
-import { sair } from "@/app/login/actions";
-import { navigationFor } from "@/config/navigation";
+import { Bell, LogOut } from "lucide-react";
+import { Suspense } from "react";
 import { iniciais } from "@/lib/formato";
-import { usuarioAtual } from "@/server/auth";
+import { sair } from "@/server/acesso/acoes/login";
+import { type Usuario, usuarioAtual } from "@/server/auth";
 import { avisosDo } from "@/server/avisos";
 import { AlternarTema } from "./alternar-tema";
 import { Notificacoes } from "./notificacoes";
+import { secoesDo } from "./secoes";
 import { SidebarNav } from "./sidebar-nav";
 
-/** Menu com só o que o usuário pode ver, notificações, tema e o cartão dele. Lê a sessão. */
+/**
+ * Menu com só o que o usuário pode ver, notificações, tema e o cartão dele.
+ * Lê a sessão. O menu sai assim que o perfil chega (cache); as pendências
+ * do sino vêm do banco e chegam no próprio <Suspense>.
+ */
 export async function MenuDoUsuario() {
   const usuario = await usuarioAtual();
-  const avisos = await avisosDo(usuario);
-  const sections = navigationFor((p) => usuario.permissoes.includes(p));
+  const sections = secoesDo(usuario);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -29,7 +33,9 @@ export async function MenuDoUsuario() {
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2 rounded-2xl bg-neutral-100 p-1.5">
           <AlternarTema />
-          <Notificacoes avisos={avisos} />
+          <Suspense fallback={<SinoCarregando />}>
+            <SinoDoUsuario usuario={usuario} />
+          </Suspense>
         </div>
 
         <div className="flex items-center gap-3 px-1">
@@ -69,5 +75,21 @@ export async function MenuDoUsuario() {
         </p>
       </div>
     </div>
+  );
+}
+
+async function SinoDoUsuario({ usuario }: { usuario: Usuario }) {
+  return <Notificacoes avisos={await avisosDo(usuario)} />;
+}
+
+/** No lugar do sino enquanto as pendências chegam (mesmo tamanho). */
+function SinoCarregando() {
+  return (
+    <span
+      aria-hidden
+      className="grid size-10 place-items-center rounded-xl bg-white text-neutral-400 shadow-sm ring-1 ring-black/5"
+    >
+      <Bell className="size-4" />
+    </span>
   );
 }

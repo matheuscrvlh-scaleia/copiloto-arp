@@ -19,18 +19,22 @@ import {
 import { GRUPOS_CLASSIFICAVEIS, GRUPOS_RUBRICA } from "@/lib/rh/rubricas";
 import { pode } from "@/server/auth";
 import {
+  classificarRubrica,
+  confirmarFolha,
+  lerFolha,
+} from "@/server/rh/acoes/importacoes";
+import {
+  confirmarTabelaPlano,
+  lerTabelaPlano,
+  salvarFaixasPlano,
+} from "@/server/rh/acoes/importacoes-plano";
+import {
   beneficiosCadastrados,
   type TabelaCadastrada,
   tabelasDoPlano,
 } from "@/server/rh/beneficios";
 import { folhasImportadas, rubricasNaoClassificadas } from "@/server/rh/dados";
 import { salarioFicticioAtivo } from "@/server/rh/folha";
-import { classificarRubrica, confirmarFolha, lerFolha } from "./actions";
-import {
-  confirmarTabelaPlano,
-  lerTabelaPlano,
-  salvarFaixasPlano,
-} from "./actions-plano";
 import { ImportarFolha } from "./importar-folha";
 import { ImportarPlano } from "./importar-plano";
 

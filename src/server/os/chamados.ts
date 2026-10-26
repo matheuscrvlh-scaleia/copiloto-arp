@@ -1,5 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { after } from "next/server";
 import {
   checklistInicial,
   extrairMencoes,
@@ -283,20 +284,22 @@ export async function criarChamado(
   const db = await os();
   const agora = new Date();
 
+  // A categoria (lida com a sessão: só a que a pessoa vê) e a original da
+  // conversão não dependem uma da outra.
+  const [lidaCategoria, original] = await Promise.all([
+    n.categoriaId
+      ? db.from("categorias").select("*").eq("id", n.categoriaId).maybeSingle()
+      : null,
+    n.convertidoDeId ? lerChamado(n.convertidoDeId) : null,
+  ]);
   let categoria: Tabela<"categorias"> | null = null;
   if (n.categoriaId) {
-    const { data } = await db
-      .from("categorias")
-      .select("*")
-      .eq("id", n.categoriaId)
-      .maybeSingle();
+    const data = lidaCategoria?.data;
     if (!data || !data.ativo) return { erro: "Categoria indisponível." };
     if (data.setor_id !== n.setorId)
       return { erro: "A categoria não é deste setor." };
     categoria = data;
   }
-
-  const original = n.convertidoDeId ? await lerChamado(n.convertidoDeId) : null;
   if (n.convertidoDeId) {
     if (!original) return NAO_ENCONTRADO as { erro: string };
     if (!["aberto", "em_andamento", "aguardando"].includes(original.status))
@@ -360,21 +363,14 @@ export async function criarChamado(
     serie_data: n.recorrencia ? paraBrasilia(prazo ?? agora).data : null,
   });
   if (error) return { erro: erroDoBanco(error).erro ?? "Falha ao abrir." };
-  const lido = await numeroDe(novoId);
+  // O número e os destinos juntos; depois, com os destinos já gravados (o
+  // RLS dos anexos e da linha do tempo olha quem mexe no chamado), os
+  // arquivos, a linha do tempo e o horário, também juntos.
+  const [lido, destinos] = await Promise.all([
+    numeroDe(novoId),
+    gravarDestinos(novoId, n, responsavel),
+  ]);
   const ch = { id: novoId, numero: lido.numero };
-
-  const avisos: string[] = [];
-  // Converter em OS para outro setor: a OS fica no nome de quem pediu e
-  // quem converteu pode não vê-la (a tela não leva a um chamado vazio).
-  if (!lido.vejo)
-    avisos.push(
-      "A OS ficou no nome de quem pediu o chamado original e você não tem acesso a ela.",
-    );
-  const destinos = await gravarDestinos(ch.id, n, responsavel);
-  if (destinos.erro) avisos.push(destinos.erro);
-
-  const arquivos = await gravarArquivos(ch.id, n);
-  if (arquivos.erro) avisos.push(arquivos.erro);
 
   const criado = {
     tipo: "criado" as const,
@@ -383,22 +379,34 @@ export async function criarChamado(
       : `${TIPOS[n.tipo]} aberta.`,
     dados: { origem: "sistema", convertido_por: original ? eu : undefined },
   };
-  // Quem converte e não vê a OS fica registrado pelo nome.
-  if ((await registrar(ch.id, criado)) === null && original)
-    await registrarComoSistema(ch.id, {
-      ...criado,
-      autorNome: ctx.usuario.nome,
-    });
+  const [arquivos, , reserva, gente] = await Promise.all([
+    gravarArquivos(ch.id, n),
+    // Quem converte e não vê a OS fica registrado pelo nome.
+    registrar(ch.id, criado).then((r) =>
+      r === null && original
+        ? registrarComoSistema(ch.id, {
+            ...criado,
+            autorNome: ctx.usuario.nome,
+          })
+        : r,
+    ),
+    n.horario ? reservar(ch.id, n.horario, n.lojaId) : null,
+    n.descricao ? pessoas() : [],
+  ]);
 
-  if (n.horario) {
-    const r = await reservar(ch.id, n.horario, n.lojaId);
-    if (r) avisos.push(r);
-  }
+  const avisos: string[] = [];
+  // Converter em OS para outro setor: a OS fica no nome de quem pediu e
+  // quem converteu pode não vê-la (a tela não leva a um chamado vazio).
+  if (!lido.vejo)
+    avisos.push(
+      "A OS ficou no nome de quem pediu o chamado original e você não tem acesso a ela.",
+    );
+  if (destinos.erro) avisos.push(destinos.erro);
+  if (arquivos.erro) avisos.push(arquivos.erro);
+  if (reserva) avisos.push(reserva);
   if (original) await fecharConvertido(original, ch);
 
-  const citados = n.descricao
-    ? extrairMencoes(n.descricao, await pessoas())
-    : [];
+  const citados = n.descricao ? extrairMencoes(n.descricao, gente) : [];
   await avisarNovo(
     { id: ch.id, numero: ch.numero, titulo: n.titulo, setorId: n.setorId },
     { responsavel, destinos: destinos.lista, citados, autor: eu },
@@ -544,6 +552,8 @@ async function fecharConvertido(
 /**
  * Avisos de chamado novo: o responsável; sem responsável, a fila do setor;
  * cada destino extra; e quem foi citado na descrição. Nunca quem abriu.
+ * Quem foi citado passa a acompanhar o chamado já (é acesso); os avisos
+ * saem depois da resposta (after), sem segurar quem abriu.
  */
 async function avisarNovo(
   ch: { id: string; numero: number; titulo: string; setorId: string },
@@ -554,30 +564,7 @@ async function avisarNovo(
     autor: string;
   },
 ) {
-  const href = rotaChamado(ch.id);
-  const titulo = `${formatarNumeroChamado(ch.numero)} ${ch.titulo}`;
-  const quem = new Set<string>();
-  if (p.responsavel) quem.add(p.responsavel);
-  else for (const m of await membrosDoSetor(ch.setorId)) quem.add(m);
-  for (const d of p.destinos.slice(1)) {
-    if (d.usuario_id) quem.add(d.usuario_id);
-    if (d.setor_id)
-      for (const m of await membrosDoSetor(d.setor_id)) quem.add(m);
-  }
-  await notificar(
-    [...quem],
-    {
-      tipo: "novo",
-      titulo,
-      texto: p.responsavel
-        ? "Novo chamado para você."
-        : "Novo chamado na fila do seu setor.",
-      href,
-      chamadoId: ch.id,
-    },
-    p.autor,
-  );
-  if (p.citados.length) {
+  if (p.citados.length)
     await (await os()).from("participantes").upsert(
       p.citados.map((usuario_id) => ({
         chamado_id: ch.id,
@@ -586,18 +573,47 @@ async function avisarNovo(
       })),
       { onConflict: "chamado_id,usuario_id", ignoreDuplicates: true },
     );
-    await notificar(
-      p.citados.filter((c) => !quem.has(c)),
-      {
-        tipo: "mencao",
-        titulo,
-        texto: "Você foi citado num chamado novo.",
-        href,
-        chamadoId: ch.id,
-      },
-      p.autor,
+  after(async () => {
+    const href = rotaChamado(ch.id);
+    const titulo = `${formatarNumeroChamado(ch.numero)} ${ch.titulo}`;
+    const setoresAvisados = [
+      ...(p.responsavel ? [] : [ch.setorId]),
+      ...p.destinos.slice(1).flatMap((d) => (d.setor_id ? [d.setor_id] : [])),
+    ];
+    const membros = await Promise.all(
+      setoresAvisados.map((s) => membrosDoSetor(s)),
     );
-  }
+    const quem = new Set<string>(membros.flat());
+    if (p.responsavel) quem.add(p.responsavel);
+    for (const d of p.destinos.slice(1))
+      if (d.usuario_id) quem.add(d.usuario_id);
+    await Promise.all([
+      notificar(
+        [...quem],
+        {
+          tipo: "novo",
+          titulo,
+          texto: p.responsavel
+            ? "Novo chamado para você."
+            : "Novo chamado na fila do seu setor.",
+          href,
+          chamadoId: ch.id,
+        },
+        p.autor,
+      ),
+      notificar(
+        p.citados.filter((c) => !quem.has(c)),
+        {
+          tipo: "mencao",
+          titulo,
+          texto: "Você foi citado num chamado novo.",
+          href,
+          chamadoId: ch.id,
+        },
+        p.autor,
+      ),
+    ]);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -706,10 +722,15 @@ export async function executarAcao(
   acao: AcaoChamado,
   x: ExtraDaAcao = {},
 ): Promise<Resultado> {
-  const [ctx, ch] = await Promise.all([contexto(), lerChamado(chamadoId)]);
+  // Os destinos só dependem do id: saem junto com o chamado.
+  const [ctx, ch, destinos] = await Promise.all([
+    contexto(),
+    lerChamado(chamadoId),
+    contarDestinos(chamadoId),
+  ]);
   if (!ch) return NAO_ENCONTRADO;
   const eu = ctx.usuario.id;
-  const multiplos = (await contarDestinos(ch.id)) > 1;
+  const multiplos = destinos > 1;
   const permitidas = acoesDisponiveis(
     { ...ch, multiplos },
     papelNoChamado(ch, ctx),
@@ -744,7 +765,9 @@ export async function executarAcao(
       motivo: x.motivo?.trim() || undefined,
     },
   });
-  await avisarAcao(acao, { ...ch, ...patch } as Chamado, eu);
+  // Os avisos saem depois da resposta: não seguram quem agiu.
+  const depois = { ...ch, ...patch } as Chamado;
+  after(() => avisarAcao(acao, depois, eu));
   return { ok: `${STATUS[(patch.status ?? ch.status) as Chamado["status"]]}.` };
 }
 

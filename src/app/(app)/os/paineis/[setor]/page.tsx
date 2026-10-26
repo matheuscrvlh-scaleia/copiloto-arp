@@ -4,8 +4,8 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { setores } from "@/server/os/base";
-import type { Busca } from "@/server/os/paineis";
-import { acharSetor, setoresDoPainel } from "../_painel/acesso";
+import { acharSetor, setoresDoPainel } from "@/server/os/paineis/acesso";
+import type { Busca } from "@/server/os/paineis/consultas";
 import { EsqueletoDoPainel, Painel } from "../_painel/tela";
 
 export const metadata: Metadata = { title: "Painel do setor" };

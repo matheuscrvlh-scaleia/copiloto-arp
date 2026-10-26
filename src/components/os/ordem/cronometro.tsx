@@ -3,7 +3,7 @@
 import { CircleCheck, Flag, Pause, Play, TimerReset } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 import { relogio } from "@/lib/os/ordem";
-import { concluirOS, iniciarTempo, pausarTempo } from "@/server/os/ordem-acoes";
+import { concluirOS, iniciarTempo, pausarTempo } from "@/server/os/acoes/ordem";
 import { aviso, botao } from "./estilos";
 import type { EstadoOS } from "./tipos";
 

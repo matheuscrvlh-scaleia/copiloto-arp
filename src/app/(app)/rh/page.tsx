@@ -16,7 +16,11 @@ import {
   type Variacao,
 } from "@/components/dashboard/indicador";
 import { Nota, Secao } from "@/components/dashboard/tabela";
-import { AbreDetalhe, ProvedorDetalhe } from "@/components/modal-detalhe";
+import {
+  AbreDetalhe,
+  type Detalhe,
+  ProvedorDetalhe,
+} from "@/components/modal-detalhe";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
@@ -49,13 +53,14 @@ import {
 } from "@/lib/rh/modais";
 import { avisoDoPonto } from "@/lib/rh/ponto-periodo";
 import { pode } from "@/server/auth";
+import { tabelasDoQuadro } from "@/server/rh/acoes/detalhes";
 import {
   type BancoEmReais,
   bancoHorasEmReais,
   colaboradoresDoQuadro,
   custoAgregado,
   custosIndividuais,
-  faturamentoDe,
+  dadosFinanceiros,
   folhasDoCusto,
   metaDe,
   pontoDoPeriodo,
@@ -208,6 +213,8 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
     pessoas: veJornada,
     link: veJornada ? linkJornada() : undefined,
   };
+  // Com a lista de pessoas (rh.quadro), as tabelas vêm ao abrir o modal: são
+  // todos os ativos de cada um dos 12 meses e iriam todas no HTML da tela.
   const quadroDe = (
     foco: FocoQuadro,
     de: string,
@@ -216,8 +223,8 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
     numeros = de === periodo.de && ate === periodo.ate
       ? tv
       : (doMes.get(de) ?? null),
-  ) =>
-    origemDoQuadro(todos, de, ate, {
+  ): Detalhe => {
+    const detalhe = origemDoQuadro(todos, de, ate, {
       foco,
       pessoas: veQuadro,
       numeros,
@@ -230,6 +237,20 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
           }
         : undefined,
     });
+    return veQuadro
+      ? {
+          ...detalhe,
+          tabelas: [],
+          carregarTabelas: tabelasDoQuadro.bind(null, {
+            de,
+            fim: ate,
+            foco,
+            rotulo: nome,
+            departamento,
+          }),
+        }
+      : detalhe;
+  };
   const quadroDoPeriodo = (foco: FocoQuadro) =>
     quadroDe(foco, periodo.de, periodo.ate, rotulo);
   const linkCusto = custo.competencia
@@ -556,10 +577,12 @@ async function custoDoPainel(
   const doPeriodo = competenciasDoPeriodo(periodo);
   const ultimoMes = doPeriodo.at(-1) as string;
   const janela = ultimasCompetencias(ultimoMes, 12 + doPeriodo.length);
-  const [todas, folhas, banco] = await Promise.all([
+  // O faturamento (lançado mês a mês) vem numa consulta só, junto com o resto.
+  const [todas, folhas, banco, financeiros] = await Promise.all([
     custoAgregado(janela[0] as string, ultimoMes),
     folhasDoCusto(),
     bancoHorasEmReais(ultimoMes),
+    departamento ? Promise.resolve(null) : dadosFinanceiros(),
   ]);
   const linhas = departamento
     ? todas.filter((l) => l.departamento_id === departamento)
@@ -599,12 +622,16 @@ async function custoDoPainel(
     antes.length === usados.length
       ? antes.reduce((s, c) => s + doMes(c).custo_total, 0)
       : null;
-  const [faturamentos, pessoas] = await Promise.all([
-    departamento
-      ? Promise.resolve(null)
-      : Promise.all(usados.map((c) => faturamentoDe(c))),
-    individual && usados.length === 1 ? custosIndividuais(competencia) : null,
-  ]);
+  const faturamentoDe = new Map(
+    (financeiros ?? []).map((f) => [f.competencia, f.faturamento_bruto]),
+  );
+  const faturamentos = financeiros
+    ? usados.map((c) => faturamentoDe.get(c) ?? null)
+    : null;
+  const pessoas =
+    individual && usados.length === 1
+      ? await custosIndividuais(competencia)
+      : null;
   const semFaturamento = faturamentos
     ? usados.filter((_, i) => !faturamentos[i])
     : [];

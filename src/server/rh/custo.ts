@@ -43,26 +43,20 @@ async function todas<T>(
 async function carregar(admin: AdminClient, competencia: string) {
   const rh = admin.schema("rh");
   const fim = fimDoMes(competencia);
-  const [{ data: folha, error }, rubricas] = await Promise.all([
-    rh
-      .from("folhas")
-      .select("id, status")
-      .eq("competencia", competencia)
-      .maybeSingle(),
-    todas((de, ate) =>
-      rh
-        .from("rubricas")
-        .select("codigo, grupo")
-        .order("codigo")
-        .range(de, ate),
-    ),
-  ]);
-  falhar(error);
-  const codigosProLabore = rubricas
-    .filter((r) => r.grupo === "pro_labore")
-    .map((r) => r.codigo);
-
+  // Tudo começa junto; só as pessoas e as rubricas da folha esperam o id da
+  // folha (e não o resto).
+  const folhaDoMes = rh
+    .from("folhas")
+    .select("id, status")
+    .eq("competencia", competencia)
+    .maybeSingle()
+    .then(({ data, error }) => {
+      falhar(error);
+      return data;
+    });
   const [
+    folha,
+    rubricas,
     pessoas,
     rubricasFolha,
     cadastro,
@@ -76,30 +70,42 @@ async function carregar(admin: AdminClient, competencia: string) {
     dependentes,
     valoresPj,
   ] = await Promise.all([
-    folha
-      ? todas((de, ate) =>
-          rh
-            .from("folha_colaboradores")
-            .select(
-              "colaborador_id, tipo_contrato, departamento_id, cargo_id, horas_mes_min, salario",
-            )
-            .eq("folha_id", folha.id)
-            .order("colaborador_id")
-            .range(de, ate),
-        )
-      : [],
-    folha
-      ? todas((de, ate) =>
-          rh
-            .from("folha_rubricas")
-            .select(
-              "colaborador_id, rubrica_codigo, natureza, valor, rubrica:rubricas(descricao)",
-            )
-            .eq("folha_id", folha.id)
-            .order("id")
-            .range(de, ate),
-        )
-      : [],
+    folhaDoMes,
+    todas((de, ate) =>
+      rh
+        .from("rubricas")
+        .select("codigo, grupo")
+        .order("codigo")
+        .range(de, ate),
+    ),
+    folhaDoMes.then((folha) =>
+      folha
+        ? todas((de, ate) =>
+            rh
+              .from("folha_colaboradores")
+              .select(
+                "colaborador_id, tipo_contrato, departamento_id, cargo_id, horas_mes_min, salario",
+              )
+              .eq("folha_id", folha.id)
+              .order("colaborador_id")
+              .range(de, ate),
+          )
+        : [],
+    ),
+    folhaDoMes.then((folha) =>
+      folha
+        ? todas((de, ate) =>
+            rh
+              .from("folha_rubricas")
+              .select(
+                "colaborador_id, rubrica_codigo, natureza, valor, rubrica:rubricas(descricao)",
+              )
+              .eq("folha_id", folha.id)
+              .order("id")
+              .range(de, ate),
+          )
+        : [],
+    ),
     todas((de, ate) =>
       rh
         .from("colaboradores")
@@ -109,8 +115,12 @@ async function carregar(admin: AdminClient, competencia: string) {
         .order("id")
         .range(de, ate),
     ),
-    sociosDoCusto(admin, codigosProLabore),
-    rh.from("encargos_por_contrato").select("*"),
+    sociosDoCusto(admin),
+    rh
+      .from("encargos_por_contrato")
+      .select(
+        "tipo_contrato, vigente_desde, inss_patronal_pct, terceiros_pct, fgts_pct, aplica_rat, provisiona_13, provisiona_ferias, provisiona_recesso, multa_rescisoria_pct",
+      ),
     rh.from("parametros_empresa").select("vigente_desde, rat_pct, fap"),
     rh
       .from("jornadas")
@@ -182,12 +192,9 @@ async function carregar(admin: AdminClient, competencia: string) {
 /**
  * Sócios (como rh.socios(), que a service role não roda por não ter usuário):
  * contrato de pró-labore no Copiloto ou em alguma folha, ou rubrica de
- * pró-labore em alguma folha.
+ * pró-labore em alguma folha (o grupo vem junto, pela rubrica).
  */
-async function sociosDoCusto(
-  admin: AdminClient,
-  codigosProLabore: number[],
-): Promise<Set<string>> {
+async function sociosDoCusto(admin: AdminClient): Promise<Set<string>> {
   const rh = admin.schema("rh");
   const [cadastro, folha, rubricas] = await Promise.all([
     rh.from("colaboradores").select("id").eq("tipo_contrato", "pro_labore"),
@@ -195,12 +202,10 @@ async function sociosDoCusto(
       .from("folha_colaboradores")
       .select("colaborador_id")
       .eq("tipo_contrato", "pro_labore"),
-    codigosProLabore.length
-      ? rh
-          .from("folha_rubricas")
-          .select("colaborador_id")
-          .in("rubrica_codigo", codigosProLabore)
-      : Promise.resolve({ data: [], error: null }),
+    rh
+      .from("folha_rubricas")
+      .select("colaborador_id, rubrica:rubricas!inner(grupo)")
+      .eq("rubrica.grupo", "pro_labore"),
   ]);
   for (const r of [cadastro, folha, rubricas]) falhar(r.error);
   return new Set([
@@ -221,18 +226,24 @@ function beneficiosPorPessoa(
   competencia: string,
   tipoDe: Map<string, string>,
 ): Map<string, { beneficios: BeneficioDoMes[]; pendencias: string[] }> {
+  // Uma vez por benefício e por pessoa, não uma busca na lista inteira a
+  // cada vínculo (a ordem dentro de cada grupo é a da consulta).
+  const tabelasDe = Map.groupBy(d.tabelas, (t) => t.beneficio_id);
+  const dependentesDe = Map.groupBy(d.dependentes, (x) => x.colaborador_id);
+  const faixasPorBeneficio = new Map<string, FaixaEtaria[] | null>();
   const faixasDe = (beneficioId: string): FaixaEtaria[] | null => {
-    const t = vigenteEm(
-      d.tabelas.filter((t) => t.beneficio_id === beneficioId),
-      competencia,
-    );
-    return t
+    if (faixasPorBeneficio.has(beneficioId))
+      return faixasPorBeneficio.get(beneficioId) ?? null;
+    const t = vigenteEm(tabelasDe.get(beneficioId) ?? [], competencia);
+    const faixas = t
       ? t.faixas.map((f) => ({
           idade_min: f.idade_min,
           idade_max: f.idade_max,
           mensalidade: Number(f.mensalidade),
         }))
       : null;
+    faixasPorBeneficio.set(beneficioId, faixas);
+    return faixas;
   };
   const porFaixa = (faixas: FaixaEtaria[] | null, nascimento: string | null) =>
     valorPelaFaixa(faixas, nascimento, competencia);
@@ -282,11 +293,10 @@ function beneficiosPorPessoa(
     // Dependentes: só plano e odonto; a empresa paga o que a regra mandar.
     let dependentes = 0;
     if (b.dependente_regra !== "nao_paga" && b.dependente_valor !== null) {
-      const deps = d.dependentes.filter(
+      const deps = (dependentesDe.get(v.colaborador_id) ?? []).filter(
         (x) =>
-          x.colaborador_id === v.colaborador_id &&
-          ((b.tipo === "plano_saude" && x.tem_plano) ||
-            (b.tipo === "odonto" && x.tem_odonto)),
+          (b.tipo === "plano_saude" && x.tem_plano) ||
+          (b.tipo === "odonto" && x.tem_odonto),
       );
       for (const dep of deps) {
         if (b.dependente_regra === "valor_fixo") {
@@ -484,12 +494,12 @@ export async function recalcularEmAberto(): Promise<ResultadoCusto[]> {
     .neq("status", "fechada")
     .order("competencia");
   falhar(error);
-  const feitos: ResultadoCusto[] = [];
-  for (const f of data ?? []) {
-    const r = await recalcularCusto(f.competencia, admin);
-    if (r) feitos.push(r);
-  }
-  return feitos;
+  // Cada competência é independente (lê e grava só o próprio mês): todas ao
+  // mesmo tempo, na ordem dos meses no resultado.
+  const feitos = await Promise.all(
+    (data ?? []).map((f) => recalcularCusto(f.competencia, admin)),
+  );
+  return feitos.filter((r): r is ResultadoCusto => r !== null);
 }
 
 /**

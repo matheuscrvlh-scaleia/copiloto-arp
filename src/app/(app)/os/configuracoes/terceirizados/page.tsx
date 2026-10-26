@@ -10,14 +10,14 @@ import { FormAcao } from "@/components/form-acao";
 import { TelefoneComWhatsApp } from "@/components/os/configuracoes/whatsapp";
 import { SeloExemplo } from "@/components/os/selos";
 import { SemAcesso } from "@/components/protegido";
-import { contexto, type Tabela } from "@/server/os/base";
-import { contatos, type Empresa, empresas } from "@/server/os/configuracoes";
 import {
   removerContato,
   salvarContato,
   salvarEmpresa,
   salvarProfissional,
-} from "./actions";
+} from "@/server/os/acoes/config-terceirizados";
+import { contexto, type Tabela } from "@/server/os/base";
+import { contatos, type Empresa, empresas } from "@/server/os/configuracoes";
 
 export const metadata: Metadata = { title: "Terceirizados e contatos" };
 
@@ -49,11 +49,10 @@ function Esqueleto() {
 }
 
 async function Terceirizados({ busca }: { busca: Promise<Busca> }) {
-  const ctx = await contexto();
+  const [ctx, b] = await Promise.all([contexto(), busca]);
   const verEmpresas = ctx.pode("os.terceirizados");
   const verContatos = verEmpresas || ctx.pode("os.parametros");
   if (!verContatos) return <SemAcesso />;
-  const b = await busca;
   const termo = typeof b.q === "string" ? b.q.trim() : "";
   const [listaEmpresas, listaContatos] = await Promise.all([
     verEmpresas ? empresas() : Promise.resolve([]),

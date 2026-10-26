@@ -2,12 +2,9 @@
 
 import { CalendarClock } from "lucide-react";
 import { useEffect, useId, useState, useTransition } from "react";
-import {
-  type HorariosDoDia,
-  horariosDoDia,
-} from "@/app/(app)/os/chamados/actions";
 import { classeCampo } from "@/components/estilos";
 import { hojeEmBrasilia, paraBrasilia } from "@/lib/os/tempo";
+import { type HorariosDoDia, horariosDoDia } from "@/server/os/acoes/chamados";
 import { PILULA_OPCAO } from "./repetir";
 
 // Reservar horário: a categoria tem agenda (ex.: acesso ao telhado). A

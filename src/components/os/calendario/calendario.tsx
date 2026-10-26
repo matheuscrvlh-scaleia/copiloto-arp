@@ -18,7 +18,6 @@ import { GripVertical } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { mudarPrazo } from "@/app/(app)/os/visoes-actions";
 import { BotaoExportar } from "@/components/os/exportar";
 import { ProvedorAvisos, useAvisar } from "@/components/os/lista/avisos";
 import {
@@ -36,6 +35,7 @@ import type { VisaoCalendario } from "@/lib/os/lista";
 import { PARAM_PAINEL } from "@/lib/os/rotas";
 import { STATUS } from "@/lib/os/rotulos";
 import { somarDias } from "@/lib/os/tempo";
+import { mudarPrazo } from "@/server/os/acoes/visoes";
 
 // Calendário do módulo: mês, semana e dia, com cores por tipo de item e a
 // legenda (que também liga e desliga cada tipo). Arrastar um prazo para

@@ -20,7 +20,6 @@ import {
 import { Ban, ChevronLeft, ChevronRight, Loader } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { exportarQuadro, moverChamado } from "@/app/(app)/os/visoes-actions";
 import { classeCampo } from "@/components/estilos";
 import { BotaoExportar } from "@/components/os/exportar";
 import { ProvedorAvisos, useAvisar } from "@/components/os/lista/avisos";
@@ -47,6 +46,7 @@ import {
   STATUS,
   type StatusChamado,
 } from "@/lib/os/rotulos";
+import { exportarQuadro, moverChamado } from "@/server/os/acoes/visoes";
 import { CartaoDoQuadro } from "./cartao";
 
 // Quadro dos chamados: colunas por status, arrastando o cartão de uma para

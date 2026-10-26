@@ -2,12 +2,12 @@
 
 import { CalendarClock, MessageCircle } from "lucide-react";
 import { useState } from "react";
+import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
+import type { DiaDaEscolha } from "@/lib/os/portal";
 import {
   cancelarAgendamento,
   remarcarAgendamento,
-} from "@/app/(app)/os/portal/actions";
-import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
-import type { DiaDaEscolha } from "@/lib/os/portal";
+} from "@/server/os/acoes/portal";
 import { EscolhaHorario } from "./publico/campos";
 
 // Ações de um horário: avisar pelo WhatsApp (mensagem "remarcar"), marcar

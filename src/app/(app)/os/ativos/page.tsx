@@ -21,15 +21,13 @@ import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { formatarNumero, formatarPct } from "@/lib/formato";
 import { type FiltroAtivos, lerFiltroAtivos } from "@/lib/os/ativos-lista";
-import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 import { intervalo, paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
 import { ROTAS_OS } from "@/lib/os/rotas";
 import { SITUACOES_ATIVO, type SituacaoAtivo } from "@/lib/os/rotulos";
 import { SINAIS, type Sinal } from "@/lib/os/sinal";
 import { hojeEmBrasilia, paraBrasilia } from "@/lib/os/tempo";
+import { exportarAtivos } from "@/server/os/acoes/ativos";
 import {
-  type AtivoNaLista,
-  ativosDoFiltro,
   type CategoriaAtivo,
   indicadoresDosAtivos,
   paginaDeAtivos,
@@ -78,60 +76,6 @@ function link(sp: Busca, mudancas: Record<string, string>): string {
   return q ? `${ROTAS_OS.ativos}?${q}` : ROTAS_OS.ativos;
 }
 
-function colunasExportar(verCustos: boolean): ColunaExportar[] {
-  return [
-    { titulo: "Código" },
-    { titulo: "Nome" },
-    { titulo: "Categoria" },
-    { titulo: "Local" },
-    { titulo: "Situação" },
-    { titulo: "Corretivas 12m", numero: true },
-    ...(verCustos
-      ? [
-          { titulo: "Custo 12m (R$)", numero: true, formato: "#,##0.00" },
-          { titulo: "Reposição (R$)", numero: true, formato: "#,##0.00" },
-        ]
-      : []),
-    { titulo: "Peso (%)", numero: true, formato: "0.0" },
-    { titulo: "Idade (% da vida útil)", numero: true, formato: "0" },
-    { titulo: "Sinal" },
-  ];
-}
-
-function linhaExportar(a: AtivoNaLista, verCustos: boolean): CelulaExportar[] {
-  return [
-    a.ativo.codigo,
-    a.ativo.nome,
-    a.categoria ?? "",
-    a.local,
-    SITUACOES_ATIVO[a.ativo.situacao],
-    a.resumo.corretivas12m,
-    ...(verCustos ? [a.resumo.custo12m, a.ativo.valor_reposicao] : []),
-    a.sinal.pesoPct === null ? null : Math.round(a.sinal.pesoPct * 10) / 10,
-    a.sinal.idadePct === null ? null : Math.round(a.sinal.idadePct),
-    SINAIS[a.sinal.sinal],
-  ];
-}
-
-/** Exportar: o filtro inteiro, lido só no clique (não só a página). */
-async function exportarAtivos(
-  busca: Record<string, string>,
-): Promise<{ colunas: ColunaExportar[]; linhas: CelulaExportar[][] }> {
-  "use server";
-  const ctx = await contexto();
-  if (
-    !ctx.pode("os.exportar") ||
-    (!ctx.pode("os.ativos") && !ctx.pode("os.ativos_gerenciar"))
-  )
-    throw new Error("Sem permissão para exportar.");
-  const verCustos = ctx.pode("os.custos");
-  const lista = await ativosDoFiltro(lerFiltroAtivos(busca), new Date());
-  return {
-    colunas: colunasExportar(verCustos),
-    linhas: lista.map((a) => linhaExportar(a, verCustos)),
-  };
-}
-
 function descreverFiltros(
   f: FiltroAtivos,
   categorias: CategoriaAtivo[],
@@ -152,10 +96,9 @@ function descreverFiltros(
 }
 
 async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
-  const ctx = await contexto();
+  const [ctx, sp] = await Promise.all([contexto(), searchParams]);
   if (!ctx.pode("os.ativos") && !ctx.pode("os.ativos_gerenciar"))
     return <SemAcesso />;
-  const sp = await searchParams;
   const agora = new Date();
   const hoje = hojeEmBrasilia(agora);
   const f = lerFiltroAtivos(sp);

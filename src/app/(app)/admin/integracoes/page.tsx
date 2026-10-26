@@ -21,16 +21,16 @@ import { Protegido } from "@/components/protegido";
 import { formatarDataHora, formatarNumero } from "@/lib/formato";
 import { INTEGRACOES, type Sistema } from "@/lib/integracoes";
 import {
-  type Execucao,
-  type IntegracaoNaTela,
-  integracoesNaTela,
-} from "@/server/admin/dados";
-import {
   removerIntegracao,
   salvarIntegracao,
   sincronizarAgora,
   testarIntegracao,
-} from "./actions";
+} from "@/server/admin/acoes/integracoes";
+import {
+  type Execucao,
+  type IntegracaoNaTela,
+  integracoesNaTela,
+} from "@/server/admin/dados";
 
 export const metadata: Metadata = { title: "Integrações" };
 

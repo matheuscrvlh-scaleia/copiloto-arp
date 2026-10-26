@@ -74,6 +74,8 @@ import {
 } from "@/lib/rh/retorno";
 import { ROTULO_CONTRATO } from "@/lib/rh/rubricas";
 import { pode } from "@/server/auth";
+import { recalcularCustos } from "@/server/rh/acoes/custo-de-pessoal";
+import { tabelasDaMemoriaDoCusto } from "@/server/rh/acoes/detalhes";
 import {
   type CustoIndividual,
   cargos,
@@ -90,7 +92,6 @@ import {
   fimConsiderado,
   lerFiltrosDoPeriodo,
 } from "@/server/rh/filtros";
-import { recalcularCustos } from "./actions";
 
 export const metadata: Metadata = { title: "Custo de pessoal" };
 
@@ -115,11 +116,26 @@ export default function Page({
 const moeda = (v: number) => formatarMoeda(v, 0);
 
 async function Custo({ busca }: { busca: Promise<Busca> }) {
-  const folhas = await folhasDoCusto();
-  const [podeRecalcular, podeIndividual, faltas] = await Promise.all([
+  // Tudo o que não depende do mês da folha começa junto; só o custo do mês
+  // (e o de cada pessoa) espera saber quais folhas o período usa.
+  const [
+    folhas,
+    podeRecalcular,
+    podeIndividual,
+    faltas,
+    filtrosDaUrl,
+    listaCargos,
+    financeiros,
+    quadro,
+  ] = await Promise.all([
+    folhasDoCusto(),
     pode("rh.folha").then(async (p) => p || pode("rh.parametros")),
     pode("rh.custo_pessoal.individual"),
     faltasDoCusto(),
+    busca.then((b) => lerFiltrosDoPeriodo(b)),
+    cargos(),
+    dadosFinanceiros(),
+    colaboradoresDoQuadro(),
   ]);
   if (!folhas.length) {
     return (
@@ -130,8 +146,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   // Folha é mensal: o período usa as folhas dos meses que toca (soma); sem
   // nenhuma, a última folha antes dele.
   const meses = folhas.map((f) => f.competencia).sort();
-  const { periodo, hoje, departamento, departamentos } =
-    await lerFiltrosDoPeriodo(await busca);
+  const { periodo, hoje, departamento, departamentos } = filtrosDaUrl;
   const doPeriodo = competenciasDoPeriodo(periodo);
   const comFolha = meses.filter((c) => doPeriodo.includes(c));
   const anteriores = meses.filter((c) => c < (doPeriodo[0] as string));
@@ -173,15 +188,11 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
       ? formatarMes(antes[0] as string)
       : `${formatarMes(antes[0] ?? mes)} a ${formatarMes(antes.at(-1) ?? mes)}`;
   const folha = folhas.find((f) => f.competencia === mes);
-  const [todas, listaCargos, pessoasTodas, financeiros, metaReceita, quadro] =
-    await Promise.all([
-      custoAgregado(antes[0] ?? (usados[0] as string), mes),
-      cargos(),
-      podeIndividual ? custosIndividuais(mes) : Promise.resolve(null),
-      dadosFinanceiros(),
-      metaDe("rh.custo_sobre_receita", mes),
-      colaboradoresDoQuadro(),
-    ]);
+  const [todas, pessoasTodas, metaReceita] = await Promise.all([
+    custoAgregado(antes[0] ?? (usados[0] as string), mes),
+    podeIndividual ? custosIndividuais(mes) : Promise.resolve(null),
+    metaDe("rh.custo_sobre_receita", mes),
+  ]);
   const doDep = <T extends { departamento_id: string | null }>(ls: T[]) =>
     departamento ? ls.filter((l) => l.departamento_id === departamento) : ls;
   const linhas = doDep(todas.filter((l) => usados.includes(l.competencia)));
@@ -217,8 +228,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   const tAnt = linhasAnt.length ? somarCustos(linhasAnt) : null;
   const nomeDep = new Map(departamentos.map((d) => [d.id, d.nome]));
   const nomeCargo = new Map(listaCargos.map((c) => [c.id, c.nome]));
-  const comPendencia =
-    pessoas?.filter((p) => p.memoria.pendencias.length) ?? [];
+  const comPendencia = pessoas?.filter((p) => p.pendencias.length) ?? [];
 
   // Receita e custo total da ARP são da empresa inteira, mesmo com
   // departamento no filtro. Sem o faturamento dos meses da folha, um
@@ -707,7 +717,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
               <TabelaBusca
                 placeholder="Buscar pelo nome, departamento ou cargo…"
                 {...paraBusca(
-                  colunasPessoa,
+                  colunasPessoa(mes),
                   [...pessoas].sort((a, b) => b.custo_total - a.custo_total),
                   (p) => p.colaborador_id,
                   (p) => `${p.nome} ${p.departamento} ${p.cargo}`,
@@ -759,7 +769,8 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   );
 }
 
-const colunasPessoa: Coluna<CustoIndividual>[] = [
+/** Colunas da tabela por funcionário; a memória é a da folha de `mes`. */
+const colunasPessoa = (mes: string): Coluna<CustoIndividual>[] => [
   { titulo: "Colaborador", valor: (p) => p.nome, inteiro: true },
   // "Departamento 4" vira "Dep. 4" para sobrar largura para o nome inteiro;
   // a busca segue pelo nome completo.
@@ -795,12 +806,10 @@ const colunasPessoa: Coluna<CustoIndividual>[] = [
     titulo: "Memória",
     valor: (p) => (
       <AbreDetalhe
-        detalhe={memoria(p)}
+        detalhe={memoria(p, mes)}
         className="rounded-full px-2 py-0.5 text-xs font-medium underline-offset-4 hover:underline"
       >
-        {p.memoria.pendencias.length
-          ? `Ver (${p.memoria.pendencias.length} pend.)`
-          : "Ver"}
+        {p.pendencias.length ? `Ver (${p.pendencias.length} pend.)` : "Ver"}
       </AbreDetalhe>
     ),
     inteiro: true,
@@ -826,7 +835,11 @@ interface Grupo {
   ativos: number;
 }
 
-function memoria(p: CustoIndividual): Detalhe {
+/**
+ * Memória de cálculo de uma pessoa. As linhas da conta vêm ao abrir (uma por
+ * pessoa da tabela iriam todas no HTML da tela); o resumo vai pronto.
+ */
+function memoria(p: CustoIndividual, mes: string): Detalhe {
   return {
     secao: "Memória de cálculo",
     titulo: p.nome,
@@ -846,33 +859,11 @@ function memoria(p: CustoIndividual): Detalhe {
         valor: p.jornada_min === null ? "—" : formatarHoras(p.jornada_min),
       },
     ],
-    tabelas: [
-      {
-        titulo: "Cada linha da conta",
-        colunas: [
-          { titulo: "Linha" },
-          { titulo: "Valor", numero: true },
-          { titulo: "Regra" },
-        ],
-        linhas: p.memoria.linhas.map((l, i) => ({
-          chave: `${i}`,
-          celulas: [l.rotulo, formatarMoeda(l.valor), l.regra],
-          ordem: [i, l.valor, l.regra],
-        })),
-      },
-      ...(p.memoria.pendencias.length
-        ? [
-            {
-              titulo: "Pendências",
-              colunas: [{ titulo: "O que ficou de fora" }],
-              linhas: p.memoria.pendencias.map((t, i) => ({
-                chave: `${i}`,
-                celulas: [t],
-              })),
-            },
-          ]
-        : []),
-    ],
+    tabelas: [],
+    carregarTabelas: tabelasDaMemoriaDoCusto.bind(null, {
+      competencia: mes,
+      colaboradorId: p.colaborador_id,
+    }),
   };
 }
 

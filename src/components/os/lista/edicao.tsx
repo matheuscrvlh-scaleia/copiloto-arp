@@ -2,13 +2,6 @@
 
 import { Check, Pencil, RotateCcw } from "lucide-react";
 import { useState, useTransition } from "react";
-import {
-  atribuirResponsavel,
-  confirmarChamado,
-  mudarPrazo,
-  mudarPrioridade,
-  reabrirChamado,
-} from "@/app/(app)/os/visoes-actions";
 import { classeCampo } from "@/components/estilos";
 import type { EstadoAcao } from "@/components/form-acao";
 import { SeloPrazo, SeloPrioridade } from "@/components/os/selos";
@@ -17,6 +10,13 @@ import { iniciais } from "@/lib/formato";
 import type { LinhaChamado } from "@/lib/os/lista";
 import { PRIORIDADES, type Prioridade } from "@/lib/os/rotulos";
 import { paraBrasilia } from "@/lib/os/tempo";
+import {
+  atribuirResponsavel,
+  confirmarChamado,
+  mudarPrazo,
+  mudarPrioridade,
+  reabrirChamado,
+} from "@/server/os/acoes/visoes";
 import { useAvisar } from "./avisos";
 import { BotoesDaJanela, JanelaRapida } from "./janela";
 

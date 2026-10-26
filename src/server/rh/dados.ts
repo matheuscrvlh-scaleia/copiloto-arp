@@ -9,23 +9,33 @@ import type { ColaboradorQuadro, LinhaPonto } from "@/lib/rh/calculos";
 import {
   type CustoAgregado,
   type CustoIndividual,
+  type MemoriaDoCusto,
   vigenteEm,
 } from "@/lib/rh/custo";
 import {
-  type DiaDoPonto,
   juntarPonto,
+  linhaDosDias,
   type PontoDoPeriodo,
   planejarPonto,
-  somarDias,
   type TrechoDoPonto,
 } from "@/lib/rh/ponto-periodo";
 import { tipoDoDesligamento } from "@/lib/rh/turnover";
+import { createClient } from "@/lib/supabase/server";
+import {
+  beneficiosDoRh,
+  cargosDoRh,
+  departamentosDoRh,
+  empresaDoRh,
+  metasDoRh,
+  rubricasDoRh,
+} from "./configuracao";
 
 export type { CustoIndividual };
+export { type MetaRegistrada, metasDoRh } from "./configuracao";
 
-import { createClient } from "@/lib/supabase/server";
-
-// Todas as leituras usam a sessão do usuário: o RLS decide o que ele vê.
+// Leituras do RH com a sessão do usuário: o RLS decide o que ele vê. A
+// configuração do módulo (departamentos, cargos, rubricas, parâmetros,
+// metas, benefícios) vem do cache, em configuracao.ts.
 
 async function rh() {
   return (await createClient()).schema("rh");
@@ -40,24 +50,13 @@ export interface Departamento {
   nome: string;
 }
 
-export const departamentos = cache(async (): Promise<Departamento[]> => {
-  const { data, error } = await (await rh())
-    .from("departamentos")
-    .select("id, nome")
-    .eq("ativo", true)
-    .order("nome");
-  falhar(error);
-  return data ?? [];
-});
-
-/** Competências com ponto sincronizado, da mais recente para a mais antiga. */
-export const competenciasDoPonto = cache(async (): Promise<string[]> => {
-  const { data, error } = await (await rh())
-    .from("ponto_mensal")
-    .select("competencia");
-  falhar(error);
-  return [...new Set((data ?? []).map((l) => l.competencia))].sort().reverse();
-});
+/** Departamentos ativos, por nome (filtros e listas). */
+export const departamentos = cache(
+  async (): Promise<Departamento[]> =>
+    (await departamentosDoRh())
+      .filter((d) => d.ativo)
+      .map(({ id, nome }) => ({ id, nome })),
+);
 
 /** Ponto do mês de todos, menos quem o RH tirou do ponto. */
 export const pontoDoMes = cache(
@@ -96,42 +95,29 @@ export const pontoDoMes = cache(
 );
 
 /**
- * Dias do ponto de um trecho (rh.ponto_diario), com nome e departamento,
- * menos quem o RH tirou do ponto.
+ * Ponto de um trecho já somado por pessoa no banco (rh.ponto_dos_dias, com
+ * a regra de somarDias), menos quem o RH tirou do ponto. `primeiro` é o
+ * primeiro dia guardado no trecho (null sem nenhum). Antes vinha um dia por
+ * pessoa e a soma era feita aqui.
  */
 const diasDoTrecho = cache(
-  async (de: string, ate: string): Promise<DiaDoPonto[]> => {
-    const { data, error } = await (await rh())
-      .from("ponto_diario")
-      .select(
-        `colaborador_id, data, ocorrencia, previstas_min, faltas_min, atrasos_min,
-         abonos_min, extras_min, noturnas_min,
-         banco_saldo_min, banco_creditos_min, banco_debitos_min,
-         colaborador:colaboradores!inner(nome, matricula, departamento_id,
-           departamento:departamentos(nome))`,
-      )
-      .gte("data", de)
-      .lte("data", ate)
-      .eq("colaborador.fora_do_ponto", false);
+  async (
+    de: string,
+    ate: string,
+  ): Promise<{ linhas: LinhaPonto[]; primeiro: string | null }> => {
+    const { data, error } = await (await rh()).rpc("ponto_dos_dias", {
+      de,
+      ate,
+    });
     falhar(error);
-    return (data ?? []).map((d) => ({
-      colaborador_id: d.colaborador_id,
-      data: d.data,
-      ocorrencia: d.ocorrencia,
-      nome: d.colaborador?.nome ?? "—",
-      matricula: d.colaborador?.matricula ?? null,
-      departamento_id: d.colaborador?.departamento_id ?? null,
-      departamento: d.colaborador?.departamento?.nome ?? "Sem departamento",
-      previstas_min: d.previstas_min,
-      faltas_min: d.faltas_min,
-      atrasos_min: d.atrasos_min,
-      abonos_min: (d.abonos_min ?? {}) as Record<string, number>,
-      extras_min: (d.extras_min ?? {}) as Record<string, number>,
-      noturnas_min: d.noturnas_min,
-      banco_saldo_min: d.banco_saldo_min,
-      banco_creditos_min: d.banco_creditos_min,
-      banco_debitos_min: d.banco_debitos_min,
-    }));
+    const somados = data ?? [];
+    return {
+      linhas: somados.map(linhaDosDias),
+      primeiro: somados.reduce<string | null>(
+        (m, l) => (m === null || l.primeiro_dia < m ? l.primeiro_dia : m),
+        null,
+      ),
+    };
   },
 );
 
@@ -151,17 +137,13 @@ export const pontoDoPeriodo = cache(
         linhas: await pontoDoMes(c),
       })),
       ...plano.trechos.map(async (t) => {
-        const dias = await diasDoTrecho(t.de, t.ate);
+        const { linhas, primeiro } = await diasDoTrecho(t.de, t.ate);
         // Dias guardados só a partir de quando o ponto do dia começou a ser
         // gravado: o que vem antes fica de fora (e a tela avisa).
-        const primeiro = dias.reduce<string | null>(
-          (m, d) => (m === null || d.data < m ? d.data : m),
-          null,
-        );
         if (primeiro === null) semDias.push(t);
         else if (primeiro > t.de)
           semDias.push({ ...t, ate: diaAnterior(primeiro) });
-        return { chave: t.de, linhas: somarDias(dias) };
+        return { chave: t.de, linhas };
       }),
     ]);
     pedacos.sort((a, b) => a.chave.localeCompare(b.chave));
@@ -228,28 +210,6 @@ export const colaboradoresDoQuadro = cache(
       }));
   },
 );
-
-export interface MetaRegistrada {
-  indicador: string;
-  vigente_desde: string;
-  meta: number;
-  limite_atencao: number | null;
-  direcao: "maior_melhor" | "menor_melhor";
-}
-
-export const metasDoRh = cache(async (): Promise<MetaRegistrada[]> => {
-  const { data, error } = await (await createClient())
-    .schema("core")
-    .from("metas")
-    .select("indicador, vigente_desde, meta, limite_atencao, direcao")
-    .like("indicador", "rh.%");
-  falhar(error);
-  return (data ?? []).map((m) => ({
-    ...m,
-    meta: Number(m.meta),
-    limite_atencao: m.limite_atencao === null ? null : Number(m.limite_atencao),
-  }));
-});
 
 /** Meta vigente do indicador na competência, no formato do semáforo. */
 export async function metaDe(
@@ -322,15 +282,12 @@ export const folhasImportadas = cache(async (): Promise<FolhaImportada[]> => {
   });
 });
 
-export const rubricasNaoClassificadas = cache(async () => {
-  const { data, error } = await (await rh())
-    .from("rubricas")
-    .select("codigo, descricao")
-    .eq("grupo", "nao_classificada")
-    .order("codigo");
-  falhar(error);
-  return data ?? [];
-});
+/** Rubricas que vieram na folha e ainda não dizem como entram no custo. */
+export const rubricasNaoClassificadas = cache(async () =>
+  (await rubricasDoRh())
+    .filter((r) => r.grupo === "nao_classificada")
+    .map(({ codigo, descricao }) => ({ codigo, descricao })),
+);
 
 // ---------------------------------------------------------------------------
 // Custo de pessoal (calculado por src/server/rh/custo.ts)
@@ -386,8 +343,8 @@ export const custosIndividuais = cache(
       .select(
         `colaborador_id, departamento_id, tipo_contrato, remuneracao, encargos,
          provisao_13, provisao_ferias, multa_rescisoria, beneficios, rescisao,
-         custo_total, custo_hora, salario_hora, jornada_min, memoria,
-         valor_informado,
+         custo_total, custo_hora, salario_hora, jornada_min,
+         pendencias:memoria->pendencias, valor_informado,
          colaborador:colaboradores(nome, matricula),
          departamento:departamentos(nome),
          cargo:cargos(nome)`,
@@ -416,9 +373,30 @@ export const custosIndividuais = cache(
         salario_hora: c.salario_hora === null ? null : Number(c.salario_hora),
         jornada_min: c.jornada_min,
         valor_informado: c.valor_informado,
-        memoria: c.memoria as CustoIndividual["memoria"],
+        // A memória inteira vem ao abrir o modal (memoriaDoCusto).
+        pendencias: (c.pendencias ?? []) as string[],
       }))
       .sort((a, b) => b.custo_total - a.custo_total);
+  },
+);
+
+/**
+ * Memória de cálculo de uma pessoa num mês, para o modal da tabela por
+ * funcionário (o RLS exige rh.custo_pessoal.individual). null sem custo.
+ */
+export const memoriaDoCusto = cache(
+  async (
+    competencia: string,
+    colaboradorId: string,
+  ): Promise<MemoriaDoCusto | null> => {
+    const { data, error } = await (await rh())
+      .from("custos_colaborador")
+      .select("memoria")
+      .eq("competencia", competencia)
+      .eq("colaborador_id", colaboradorId)
+      .maybeSingle();
+    falhar(error);
+    return data ? (data.memoria as unknown as MemoriaDoCusto) : null;
   },
 );
 
@@ -465,12 +443,8 @@ export const bancoHorasEmReais = cache(
  */
 export const adicionalDoBanco = cache(
   async (competencia: string): Promise<number | null> => {
-    const { data, error } = await (await rh())
-      .from("parametros_empresa")
-      .select("vigente_desde, banco_horas_adicional_pct")
-      .order("vigente_desde");
-    falhar(error);
-    const p = vigenteEm(data ?? [], competencia) ?? data?.[0];
+    const data = await empresaDoRh();
+    const p = vigenteEm(data, competencia) ?? data[0];
     return p ? Number(p.banco_horas_adicional_pct) : null;
   },
 );
@@ -519,43 +493,19 @@ export const valorDaHora = cache(
   },
 );
 
-export const cargos = cache(async (): Promise<Departamento[]> => {
-  const { data, error } = await (await rh())
-    .from("cargos")
-    .select("id, nome")
-    .order("nome");
-  falhar(error);
-  return data ?? [];
-});
-
-/** Faturamento bruto da competência (manual até a integração com o ENET). */
-export const faturamentoDe = cache(
-  async (competencia: string): Promise<number | null> => {
-    const { data, error } = await (await rh())
-      .from("dados_financeiros_mensais")
-      .select("faturamento_bruto")
-      .eq("competencia", competencia)
-      .maybeSingle();
-    falhar(error);
-    return data?.faturamento_bruto == null
-      ? null
-      : Number(data.faturamento_bruto);
-  },
+/** Cargos, por nome. */
+export const cargos = cache(
+  async (): Promise<Departamento[]> => await cargosDoRh(),
 );
 
 /** O que ainda falta configurar para o custo sair completo. */
 export const faltasDoCusto = cache(async (): Promise<AvisoDaPagina[]> => {
   const [empresa, beneficios] = await Promise.all([
-    (await rh()).from("parametros_empresa").select("vigente_desde").limit(1),
-    (await rh())
-      .from("beneficios")
-      .select("id", { count: "exact", head: true })
-      .eq("ativo", true),
+    empresaDoRh(),
+    beneficiosDoRh(),
   ]);
-  falhar(empresa.error);
-  falhar(beneficios.error);
   const faltas: AvisoDaPagina[] = [];
-  if (!empresa.data?.length)
+  if (!empresa.length)
     faltas.push({
       id: "rat-fap",
       tipo: "atencao",
@@ -564,7 +514,7 @@ export const faltasDoCusto = cache(async (): Promise<AvisoDaPagina[]> => {
         "Os encargos estão saindo sem o RAT. Preencha em Parâmetros e o custo é recalculado na hora.",
       acao: { href: CONFIGURACOES_RH.parametros, rotulo: "Abrir Parâmetros" },
     });
-  if (!beneficios.count)
+  if (!beneficios.some((b) => b.ativo))
     faltas.push({
       id: "sem-beneficios",
       tipo: "atencao",

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { TelaDeAcesso } from "@/components/tela-de-acesso";
-import { sair } from "../login/actions";
+import { sair } from "@/server/acesso/acoes/login";
 import { FormTrocarSenha } from "./form";
 
 export const metadata: Metadata = { title: "Definir senha" };

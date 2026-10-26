@@ -11,13 +11,13 @@ import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { formatarNumero } from "@/lib/formato";
 import { ROTAS_OS } from "@/lib/os/rotas";
+import { excluirCategoria, salvarCategoria } from "@/server/os/acoes/ativos";
 import {
   ativosPorCategoria,
   type CategoriaAtivo,
   categoriasDeAtivo,
 } from "@/server/os/ativos";
 import { contexto } from "@/server/os/base";
-import { excluirCategoria, salvarCategoria } from "../actions";
 
 export const metadata: Metadata = { title: "Categorias de ativo" };
 

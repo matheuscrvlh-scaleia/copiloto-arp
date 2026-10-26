@@ -13,26 +13,22 @@ import { SemAcesso } from "@/components/protegido";
 import { formatarDataHora } from "@/lib/formato";
 import {
   DIAS_CURTOS,
-  type DiaDaEscolha,
   descreverHorario,
   modeloDaMensagem,
-  paraEscolha,
 } from "@/lib/os/portal";
 import { hojeEmBrasilia, paraBrasilia } from "@/lib/os/tempo";
 import { linkWhatsApp, preencher } from "@/lib/os/whatsapp";
+import { removerBloqueio } from "@/server/os/acoes/portal";
 import {
-  type Agenda,
   type Agendamento,
   agendas,
   bloqueiosFuturos,
   categoriasPorAgenda,
-  diasLivres,
   paraRemarcar,
   proximosHorarios,
 } from "@/server/os/agenda";
-import { contexto, os, parametros } from "@/server/os/base";
-import { linkDoPortalDaLoja } from "@/server/os/portal";
-import { removerBloqueio } from "../actions";
+import { contexto, parametros } from "@/server/os/base";
+import { diasParaRemarcar, linkDoPortalDaLoja } from "@/server/os/portal";
 
 export const metadata: Metadata = { title: "Agendas · Portal e agenda" };
 
@@ -60,9 +56,8 @@ export default function Page({
 async function Agendas({
   searchParams,
 }: Pick<PageProps<"/os/portal/agendas">, "searchParams">) {
-  const ctx = await contexto();
+  const [ctx, sp] = await Promise.all([contexto(), searchParams]);
   if (!ctx.pode("os.portal_agenda")) return <SemAcesso />;
-  const sp = await searchParams;
   const agora = new Date();
   const [lista, bloqueios, remarcar, proximos, usos, p] = await Promise.all([
     agendas(),
@@ -73,8 +68,11 @@ async function Agendas({
     parametros(),
   ]);
   const nomeDa = new Map(lista.map((a) => [a.id, a.nome]));
-  const dias = await diasPorAgenda(lista, remarcar, agora);
-  const avisos = await mensagensDeRemarcar(remarcar, nomeDa, p.mensagens);
+  // Os dias livres e as mensagens não dependem um do outro.
+  const [dias, avisos] = await Promise.all([
+    diasParaRemarcar(lista, new Set(remarcar.map((a) => a.agenda_id)), agora),
+    mensagensDeRemarcar(remarcar, nomeDa, p.mensagens),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -289,25 +287,6 @@ function Horario({
       )}
     </div>
   );
-}
-
-/** Dias livres de cada agenda que tem alguém para remarcar. */
-async function diasPorAgenda(
-  lista: Agenda[],
-  remarcar: Agendamento[],
-  agora: Date,
-): Promise<Map<string, DiaDaEscolha[]>> {
-  const ids = new Set(remarcar.map((a) => a.agenda_id));
-  const db = await os();
-  const pares = await Promise.all(
-    lista
-      .filter((a) => ids.has(a.id))
-      .map(
-        async (a) =>
-          [a.id, paraEscolha(await diasLivres(db, a, agora))] as const,
-      ),
-  );
-  return new Map(pares);
 }
 
 /** Mensagem "remarcar" pronta para o WhatsApp de cada agendamento. */

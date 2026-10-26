@@ -8,8 +8,8 @@ import { classeCampo } from "@/components/estilos";
 import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
 import { Carregando, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
-import { cargos } from "@/server/admin/dados";
-import { criarUsuario } from "../actions";
+import { criarUsuario } from "@/server/admin/acoes/usuarios";
+import { cargos, cargosParaEscolha } from "@/server/admin/dados";
 
 export const metadata: Metadata = { title: "Novo usuário" };
 
@@ -84,7 +84,10 @@ async function Formulario() {
           titulo="Acesso"
           descricao="O cargo define as telas e ações liberadas."
         >
-          <EscolhaDeCargo cargos={lista} cargoInicial={null} />
+          <EscolhaDeCargo
+            cargos={cargosParaEscolha(lista)}
+            cargoInicial={null}
+          />
         </Secao>
         <Secao
           titulo="Senha provisória"

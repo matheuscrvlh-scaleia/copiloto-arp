@@ -4595,6 +4595,27 @@ export type Database = {
         }
         Returns: Json
       }
+      ponto_dos_dias: {
+        Args: { ate: string; de: string }
+        Returns: {
+          abonos_min: Json
+          atrasos_min: number
+          banco_creditos_min: number
+          banco_debitos_min: number
+          banco_saldo_min: number
+          colaborador_id: string
+          departamento: string | null
+          departamento_id: string | null
+          extras_min: Json
+          faltas_dias: number
+          faltas_min: number
+          matricula: number | null
+          nome: string
+          noturnas_min: number
+          previstas_min: number
+          primeiro_dia: string
+        }[]
+      }
       quadro_mensal: {
         Args: { fim: string; inicio: string }
         Returns: {

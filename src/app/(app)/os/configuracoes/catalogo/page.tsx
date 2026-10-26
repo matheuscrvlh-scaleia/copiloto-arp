@@ -24,6 +24,11 @@ import { formatarNumero } from "@/lib/formato";
 import { arvore, textoDoPrazo } from "@/lib/os/catalogo";
 import { TIPOS } from "@/lib/os/rotulos";
 import {
+  alternarCategoria,
+  duplicarCategoria,
+  moverCategoria,
+} from "@/server/os/acoes/config-catalogo";
+import {
   type Categoria,
   categorias,
   nomes,
@@ -36,11 +41,6 @@ import {
   chamadosPorCategoria,
   etiquetasRecentes,
 } from "@/server/os/configuracoes";
-import {
-  alternarCategoria,
-  duplicarCategoria,
-  moverCategoria,
-} from "./actions";
 
 export const metadata: Metadata = { title: "Catálogo de chamados" };
 
@@ -76,8 +76,11 @@ function Esqueleto() {
 }
 
 async function Catalogo({ busca }: { busca: Promise<Busca> }) {
-  const b = await busca;
-  const [todosSetores, todas, listaAgendas, nomesPorId] = await Promise.all([
+  // Etiquetas e parâmetros não dependem do setor: começam já.
+  const extras = Promise.all([etiquetasRecentes(), parametros()]);
+  extras.catch(() => {});
+  const [b, todosSetores, todas, listaAgendas, nomesPorId] = await Promise.all([
+    busca,
     setores(),
     categorias(),
     agendas(),
@@ -102,10 +105,9 @@ async function Catalogo({ busca }: { busca: Promise<Busca> }) {
     );
 
   const doSetor = todas.filter((c) => c.setor_id === setor.id);
-  const [contagens, etiquetas, p] = await Promise.all([
+  const [contagens, [etiquetas, p]] = await Promise.all([
     chamadosPorCategoria(doSetor.map((c) => c.id)),
-    etiquetasRecentes(),
-    parametros(),
+    extras,
   ]);
   const grupos = arvore(doSetor);
   const nomeAgenda = new Map(listaAgendas.map((a) => [a.id, a.nome]));

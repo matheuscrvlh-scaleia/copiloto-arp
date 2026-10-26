@@ -37,9 +37,8 @@ export default function Page({
 async function Conteudo({
   params,
 }: Pick<PageProps<"/os/vistorias/[id]/comparar">, "params">) {
-  const ctx = await contexto();
+  const [ctx, { id }] = await Promise.all([contexto(), params]);
   if (!ctx.pode("os.vistorias")) return <SemAcesso />;
-  const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const dados = await vistoriaCompleta(id);
   if (!dados) notFound();

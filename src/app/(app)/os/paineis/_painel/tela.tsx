@@ -22,9 +22,9 @@ import {
   pessoas as lerPessoas,
   type Setor,
 } from "@/server/os/base";
-import { type Busca, lerFiltrosDoPainel } from "@/server/os/paineis";
-import { setoresDoPainel } from "./acesso";
-import { montarPainel } from "./montar";
+import { setoresDoPainel } from "@/server/os/paineis/acesso";
+import { type Busca, lerFiltrosDoPainel } from "@/server/os/paineis/consultas";
+import { montarPainel } from "@/server/os/paineis/montar";
 
 // Tela de um painel (geral ou de setor): abas dos setores, filtros, os 4
 // cartões e os blocos. Os números vêm prontos de montarPainel.

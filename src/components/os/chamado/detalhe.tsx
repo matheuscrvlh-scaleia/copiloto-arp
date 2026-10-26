@@ -11,7 +11,6 @@ import {
 import Link from "next/link";
 import { Suspense } from "react";
 import { CartaoCarregando } from "@/components/carregando";
-import { dadosDoFormulario } from "@/components/os/novo/dados";
 import { BlocoOS } from "@/components/os/ordem/bloco-os";
 import {
   SeloExemplo,
@@ -35,6 +34,7 @@ import {
   contatosSalvos,
   type DetalheChamado as Detalhe,
 } from "@/server/os/chamado-detalhe";
+import { dadosDoFormulario } from "@/server/os/formulario";
 import { AcoesDoChamado } from "./acoes";
 import { Checklist } from "./checklist";
 import { Comentario } from "./comentario";
@@ -57,6 +57,15 @@ export async function DetalheChamado({
   id: string;
   compacto?: boolean;
 }) {
+  // Contatos, pessoas e o formulário da gestão não dependem do chamado:
+  // começam junto com ele (o formulário já é lido pelo botão "+ Novo").
+  const pedidos = Promise.all([
+    dadosDoFormulario(),
+    contatosSalvos(),
+    pessoas(),
+  ]);
+  // Sem o chamado ninguém espera por eles: a falha não fica solta.
+  pedidos.catch(() => null);
   const d = await carregarDetalhe(id);
   if (!d)
     return (
@@ -78,11 +87,8 @@ export async function DetalheChamado({
   const comGestao =
     emAberto &&
     (podeGestao.responsavel || podeGestao.prazo || podeGestao.setor);
-  const [formulario, contatos, gente] = await Promise.all([
-    comGestao ? dadosDoFormulario() : null,
-    contatosSalvos(),
-    pessoas(),
-  ]);
+  const [dados, contatos, gente] = await pedidos;
+  const formulario = comGestao ? dados : null;
   const nome = (u: string | null) => (u ? (d.nomes[u] ?? "—") : null);
   const ehOS = ch.tipo === "os";
   const registraTempo = ehOS || Boolean(d.categoria?.registrar_tempo);
@@ -254,7 +260,10 @@ export async function DetalheChamado({
           <Checklist
             id={ch.id}
             itens={d.checklist}
-            nomes={d.nomes}
+            nomes={soOs(
+              d.nomes,
+              d.checklist.map((i) => i.por),
+            )}
             editavel={d.pode.editar && emAberto}
           />
         </section>
@@ -276,7 +285,10 @@ export async function DetalheChamado({
               meu: x.meu,
             }))}
             andamento={d.andamento}
-            nomes={d.nomes}
+            nomes={soOs(
+              d.nomes,
+              d.destinos.map((x) => x.concluido_por),
+            )}
             encerrado={!emAberto && ch.status !== "concluido"}
           />
         </section>
@@ -625,4 +637,14 @@ export function DetalheCarregando({
       </div>
     </output>
   );
+}
+
+/** Só os nomes que o componente do navegador usa (não a lista inteira). */
+function soOs(
+  nomes: Record<string, string>,
+  ids: (string | null | undefined)[],
+): Record<string, string> {
+  const r: Record<string, string> = {};
+  for (const id of ids) if (id && nomes[id]) r[id] = nomes[id];
+  return r;
 }

@@ -41,7 +41,7 @@ export async function planilhaDeRateio(
   de: string,
   ate: string,
 ): Promise<{ bytes: Uint8Array; nome: string }> {
-  const [ctx, cad, lista] = await Promise.all([
+  const [ctx, cad, lista, vigencias] = await Promise.all([
     contexto(),
     cadastros(),
     consultarOS({
@@ -50,6 +50,8 @@ export async function planilhaDeRateio(
       fechadoAte: ate,
       limite: LIMITE,
     }),
+    // Valor por minuto vigente (quem vê custos), junto com as OS.
+    contexto().then((c) => (c.pode("os.custos") ? lerVigencias() : [])),
   ]);
   const comCustos = ctx.pode("os.custos");
   const fechadas = lista
@@ -57,8 +59,6 @@ export async function planilhaDeRateio(
     .sort((a, b) => (a.fechado_em ?? "").localeCompare(b.fechado_em ?? ""));
   const oss = fechadas.map((o) => paraRelatorio(o, cad, comCustos));
 
-  // Valor por minuto vigente no fim do período, pelo nome do colaborador.
-  const vigencias = comCustos ? await lerVigencias() : [];
   const idPorNome = new Map(
     [...cad.tecnicos.values()].map((t) => [t.nome, t.id]),
   );

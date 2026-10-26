@@ -8,9 +8,9 @@ import { Carregando, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarNumero } from "@/lib/formato";
 import { PERMISSOES } from "@/lib/permissions";
+import { alternarCargo, apagarCargo } from "@/server/admin/acoes/usuarios";
 import { cargos } from "@/server/admin/dados";
 import { ABAS_USUARIOS } from "../abas";
-import { alternarCargo, apagarCargo } from "../actions";
 import { confirmarExclusao, confirmarInativacao } from "./textos";
 
 export const metadata: Metadata = { title: "Cargos" };

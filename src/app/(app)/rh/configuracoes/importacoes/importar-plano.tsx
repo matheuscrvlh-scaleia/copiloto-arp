@@ -5,7 +5,7 @@ import type { EstadoAcao } from "@/components/form-acao";
 import { Selecao } from "@/components/selecao";
 import { formatarMes, formatarMoeda, formatarNumero } from "@/lib/formato";
 import { faixaTexto } from "@/lib/rh/plano";
-import type { EstadoPlano } from "./actions-plano";
+import type { EstadoPlano } from "@/server/rh/acoes/importacoes-plano";
 
 type Ler = (anterior: EstadoPlano, form: FormData) => Promise<EstadoPlano>;
 type Confirmar = (anterior: EstadoAcao, form: FormData) => Promise<EstadoAcao>;

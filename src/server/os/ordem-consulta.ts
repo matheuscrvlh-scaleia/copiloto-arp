@@ -24,6 +24,7 @@ import { intervalo } from "@/lib/os/paginacao";
 import type { OSRelatorio } from "@/lib/os/relatorios";
 import type { Execucao, StatusChamado } from "@/lib/os/rotulos";
 import { categorias, nomes, os, type Tabela } from "./base";
+import { lojasDoModulo } from "./lojas";
 
 // Consulta das Ordens de Serviço com tudo o que as listas, o PDF e os
 // relatórios mostram (sessões, técnicos, terceirizado e, para quem vê
@@ -129,20 +130,13 @@ export interface Cadastros {
 /** Nomes de técnicos, empresas, lojas, categorias e pessoas (uma vez por tela). */
 export const cadastros = cache(async (): Promise<Cadastros> => {
   const db = await os();
-  // Lojas: um contrato por linha, o histórico cresce (passa de 1000).
+  // Lojas: um contrato por linha (passa de mil), do cache do módulo.
   const [tecnicos, empresas, profissionais, lojas, cats, pessoas] =
     await Promise.all([
       db.from("tecnicos").select("*").order("nome"),
       db.from("empresas").select("*").order("nome"),
       db.from("profissionais").select("*").order("nome"),
-      todasAsLinhas((de, ate) =>
-        db
-          .from("lojas")
-          .select("id, luc, nome, bloco, situacao, telefone")
-          .order("luc")
-          .order("id")
-          .range(de, ate),
-      ),
+      lojasDoModulo(),
       categorias(),
       nomes(),
     ]);

@@ -660,10 +660,14 @@ export interface CustoIndividual {
   jornada_min: number | null;
   /** PJ sem valor informado no Copiloto RH. */
   valor_informado: boolean;
-  memoria: {
-    linhas: { rotulo: string; valor: number; regra: string }[];
-    pendencias: string[];
-  };
+  /** O que ficou fora da conta (a memória inteira vem ao abrir o modal). */
+  pendencias: string[];
+}
+
+/** Memória de cálculo gravada com o custo de cada pessoa. */
+export interface MemoriaDoCusto {
+  linhas: { rotulo: string; valor: number; regra: string }[];
+  pendencias: string[];
 }
 
 // ---------------------------------------------------------------------------

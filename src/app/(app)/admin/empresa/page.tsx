@@ -8,8 +8,8 @@ import { Protegido } from "@/components/protegido";
 import { Selecao } from "@/components/selecao";
 import { formatarCep, formatarCnpj, UFS } from "@/lib/documentos";
 import { formatarDataHora } from "@/lib/formato";
+import { salvarEmpresa } from "@/server/admin/acoes/empresa";
 import { empresa } from "@/server/admin/dados";
-import { salvarEmpresa } from "./actions";
 
 export const metadata: Metadata = { title: "Empresa" };
 

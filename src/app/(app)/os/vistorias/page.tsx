@@ -19,12 +19,10 @@ import { FiltrosVistorias } from "@/components/os/vistorias/filtros";
 import {
   SeloSituacaoVistoria,
   SeloTipoVistoria,
-  tipoCurto,
 } from "@/components/os/vistorias/selos";
 import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { formatarData, formatarNumero } from "@/lib/formato";
-import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
 import { ROTAS_OS, rotaVistoria } from "@/lib/os/rotas";
 import {
@@ -34,23 +32,19 @@ import {
   type TipoVistoria,
 } from "@/lib/os/rotulos";
 import { hojeEmBrasilia, paraBrasilia } from "@/lib/os/tempo";
-import {
-  localDaUnidade,
-  ROTULOS_SITUACAO,
-  situacaoDaVistoria,
-} from "@/lib/os/vistoria-regras";
+import { localDaUnidade, situacaoDaVistoria } from "@/lib/os/vistoria-regras";
 import {
   CARTOES_VISTORIA as CARTOES,
   type CartaoVistoria as Cartao,
   lerFiltroVistorias,
 } from "@/lib/os/vistorias-lista";
+import { exportarVistorias } from "@/server/os/acoes/vistorias";
 import { contexto } from "@/server/os/base";
 import {
   contarCartoesVistoria,
   opcoesDosFiltrosDeVistoria,
   paginaDeVistorias,
   type VistoriaResumo,
-  vistoriasDoFiltro,
 } from "@/server/os/vistorias";
 
 const TONS = tonsDaTela("vistorias");
@@ -91,52 +85,9 @@ function link(sp: Busca, mudancas: Record<string, string>): string {
   return q ? `${ROTAS_OS.vistorias}?${q}` : ROTAS_OS.vistorias;
 }
 
-const COLUNAS_EXPORTAR: ColunaExportar[] = [
-  { titulo: "Código" },
-  { titulo: "Tipo" },
-  { titulo: "Locatário(a)" },
-  { titulo: "Bloco / Área" },
-  { titulo: "Locação / Unidade" },
-  { titulo: "Data" },
-  { titulo: "Vistoriador" },
-  { titulo: "Status" },
-  { titulo: "Situação" },
-  { titulo: "OS geradas", numero: true },
-];
-
-/** Exportar: o filtro inteiro, lido só no clique (não só a página). */
-async function exportarVistorias(
-  busca: Record<string, string>,
-): Promise<{ colunas: ColunaExportar[]; linhas: CelulaExportar[][] }> {
-  "use server";
-  const ctx = await contexto();
-  if (!ctx.pode("os.vistorias") || !ctx.pode("os.exportar"))
-    throw new Error("Sem permissão para exportar.");
-  const lista = await vistoriasDoFiltro(
-    lerFiltroVistorias(busca),
-    hojeEmBrasilia(new Date()),
-  );
-  return {
-    colunas: COLUNAS_EXPORTAR,
-    linhas: lista.map((v) => [
-      v.codigo,
-      tipoCurto(v.tipo),
-      v.locatario,
-      v.bloco,
-      v.unidade,
-      formatarData(v.data),
-      v.vistoriador_nome,
-      STATUS_VISTORIA[v.status],
-      ROTULOS_SITUACAO[situacaoDaVistoria(v)],
-      v.ordens,
-    ]),
-  };
-}
-
 async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
-  const ctx = await contexto();
+  const [ctx, sp] = await Promise.all([contexto(), searchParams]);
   if (!ctx.pode("os.vistorias")) return <SemAcesso />;
-  const sp = await searchParams;
   const agora = new Date();
   const hoje = hojeEmBrasilia(agora);
   const f = lerFiltroVistorias(sp);

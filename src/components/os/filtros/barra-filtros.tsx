@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { lembrarFiltros } from "@/app/(app)/os/visoes-actions";
 import { type Opcao, Selecao } from "@/components/selecao";
 import {
   type CampoFiltro,
@@ -29,6 +28,7 @@ import {
 } from "@/lib/os/lista";
 import { PARAM_PAINEL } from "@/lib/os/rotas";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
+import { lembrarFiltros } from "@/server/os/acoes/visoes";
 import { PainelFiltros } from "./painel-filtros";
 
 // Barra de filtros das visões, numa linha limpa: os 3–4 filtros principais,

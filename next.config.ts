@@ -19,6 +19,14 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  // Perfis de cache dos dados (src/server/cache.ts). Toda gravação chama
+  // updateTag na tag do que mudou; o tempo é só a rede de segurança.
+  cacheLife: {
+    // Perfil e permissões de quem está logado.
+    sessao: { stale: 60, revalidate: 60, expire: 300 },
+    // Configuração dos módulos: setores, catálogo, parâmetros, empresa.
+    referencia: { stale: 300, revalidate: 3600, expire: 86400 },
+  },
   poweredByHeader: false,
   experimental: {
     // Envio do Extrato Mensal (PDF) pela Server Action da folha.

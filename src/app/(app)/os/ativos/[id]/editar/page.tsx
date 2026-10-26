@@ -7,9 +7,9 @@ import { FormAtivo } from "@/components/os/ativos/form-ativo";
 import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { rotaAtivo } from "@/lib/os/rotas";
-import { opcoesDoCadastro } from "@/server/os/ativos";
-import { contexto, os } from "@/server/os/base";
-import { salvarAtivo } from "../../actions";
+import { salvarAtivo } from "@/server/os/acoes/ativos";
+import { ativoParaEditar, opcoesDoCadastro } from "@/server/os/ativos";
+import { contexto } from "@/server/os/base";
 
 export const metadata: Metadata = { title: "Editar ativo" };
 
@@ -30,18 +30,13 @@ export default function Page({ params }: Props) {
 }
 
 async function Formulario({ params }: Props) {
-  const ctx = await contexto();
+  const [ctx, { id }] = await Promise.all([contexto(), params]);
   if (!ctx.pode("os.ativos_gerenciar")) return <SemAcesso />;
-  const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const { data: ativo, error } = await (await os())
-    .from("ativos")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(`Falha ao ler o ativo: ${error.message}`);
+  // O ativo e as listas do formulário vêm juntos.
+  const lendo = ativoParaEditar(id);
+  const [ativo, opcoes] = await Promise.all([lendo, opcoesDoCadastro(lendo)]);
   if (!ativo) notFound();
-  const opcoes = await opcoesDoCadastro(ativo);
   // Sem os.custos, os reais nem chegam ao navegador.
   const verCustos = ctx.pode("os.custos");
   const reais = (v: number | null) =>

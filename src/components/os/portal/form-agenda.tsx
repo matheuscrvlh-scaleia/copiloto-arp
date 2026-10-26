@@ -1,10 +1,10 @@
 "use client";
 
-import { salvarAgenda } from "@/app/(app)/os/portal/actions";
 import { Secao } from "@/components/admin/ui";
 import { classeCampo } from "@/components/estilos";
 import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
 import { DIAS_CURTOS } from "@/lib/os/portal";
+import { salvarAgenda } from "@/server/os/acoes/portal";
 
 // Regras de uma agenda (telhado, vistorias, doca): janela do dia, duração
 // de cada horário, limite por dia e dias da semana. Valem para os próximos

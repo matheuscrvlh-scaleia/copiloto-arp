@@ -2,12 +2,12 @@
 
 import { SlidersHorizontal } from "lucide-react";
 import { useId, useState } from "react";
-import { alterarChamado } from "@/app/(app)/os/chamados/actions";
 import { classeCampo } from "@/components/estilos";
 import { PILULA_OPCAO } from "@/components/os/novo/repetir";
 import { Selecao } from "@/components/selecao";
 import { PRIORIDADES, type Prioridade } from "@/lib/os/rotulos";
 import { paraBrasilia } from "@/lib/os/tempo";
+import { alterarChamado } from "@/server/os/acoes/chamados";
 import { FormNaJanela, Janela } from "./janela";
 
 // Gestão do chamado: responsável, prazo, prioridade e transferência de

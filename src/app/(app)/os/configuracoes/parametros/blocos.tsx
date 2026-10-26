@@ -19,14 +19,6 @@ import {
 import { ROTAS_OS } from "@/lib/os/rotas";
 import { FAIXAS_SINAL_PADRAO } from "@/lib/os/sinal";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
-import { parametros, pessoas, setores } from "@/server/os/base";
-import {
-  ativoCategorias,
-  feriados,
-  type Tecnico,
-  tecnicos,
-  ultimasAlteracoes,
-} from "@/server/os/configuracoes";
 import {
   incluirFeriado,
   incluirVigencia,
@@ -38,7 +30,15 @@ import {
   salvarCiclo,
   salvarOperacoes,
   salvarTecnico,
-} from "./actions";
+} from "@/server/os/acoes/config-parametros";
+import { parametros, pessoas, setores } from "@/server/os/base";
+import {
+  ativoCategorias,
+  feriados,
+  type Tecnico,
+  tecnicos,
+  ultimasAlteracoes,
+} from "@/server/os/configuracoes";
 
 // Blocos de números e cadastros: ciclo do chamado (com feriados),
 // operações (técnicos e valor por minuto) e ativos (sinal de troca).

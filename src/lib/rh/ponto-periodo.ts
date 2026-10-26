@@ -107,6 +107,59 @@ export function somarDias(dias: DiaDoPonto[]): LinhaPonto[] {
 }
 
 /**
+ * Uma linha de rh.ponto_dos_dias(de, ate): os dias de uma pessoa já somados
+ * no banco, com a regra de somarDias. Abonos e extras vêm como pares
+ * [coluna, minutos], na ordem em que somarDias criaria as chaves.
+ */
+export interface DiasSomados {
+  colaborador_id: string;
+  nome: string;
+  matricula: number | null;
+  departamento_id: string | null;
+  departamento: string | null;
+  primeiro_dia: string;
+  previstas_min: number | string;
+  faltas_min: number | string;
+  atrasos_min: number | string;
+  faltas_dias: number | string;
+  abonos_min: unknown;
+  extras_min: unknown;
+  noturnas_min: number | string;
+  banco_saldo_min: number | string;
+  banco_creditos_min: number | string;
+  banco_debitos_min: number | string;
+}
+
+const mapaDosPares = (v: unknown): Record<string, number> =>
+  Object.fromEntries(
+    (Array.isArray(v) ? (v as [string, number | string][]) : []).map(
+      ([k, m]) => [k, Number(m)],
+    ),
+  );
+
+/** A linha somada pelo banco no formato de somarDias (mesmos números). */
+export function linhaDosDias(l: DiasSomados): LinhaPonto {
+  return {
+    colaborador_id: l.colaborador_id,
+    nome: l.nome,
+    matricula: l.matricula,
+    departamento_id: l.departamento_id,
+    departamento: l.departamento ?? "Sem departamento",
+    previstas_min: Number(l.previstas_min),
+    faltas_min: Number(l.faltas_min),
+    atrasos_min: Number(l.atrasos_min),
+    abonos_min: mapaDosPares(l.abonos_min),
+    extras_min: mapaDosPares(l.extras_min),
+    noturnas_min: Number(l.noturnas_min),
+    banco_saldo_min: Number(l.banco_saldo_min),
+    banco_creditos_min: Number(l.banco_creditos_min),
+    banco_debitos_min: Number(l.banco_debitos_min),
+    faltas_dias: Math.round(Number(l.faltas_dias) * 100) / 100,
+    dsr_debito_min: 0,
+  };
+}
+
+/**
  * Junta pedaços do período em ordem (meses e trechos, do mais antigo ao mais
  * novo): soma o que é movimento e fica com o saldo e o departamento do
  * pedaço mais recente de cada pessoa.

@@ -1,4 +1,4 @@
-import { dadosDoFormulario } from "./dados";
+import { dadosDoFormulario } from "@/server/os/formulario";
 import { NovoChamado } from "./novo-chamado";
 
 // Botão flutuante "+ Novo" de todas as telas do módulo (o layout de /os o

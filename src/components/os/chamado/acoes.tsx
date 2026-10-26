@@ -11,11 +11,11 @@ import {
   XCircle,
 } from "lucide-react";
 import { useActionState, useId, useState } from "react";
-import { agir } from "@/app/(app)/os/chamados/actions";
 import { classeCampo } from "@/components/estilos";
 import { PILULA_OPCAO } from "@/components/os/novo/repetir";
 import { type AcaoChamado, ROTULOS_ACAO } from "@/lib/os/ciclo";
 import { MOTIVOS_AGUARDANDO, type MotivoAguardando } from "@/lib/os/rotulos";
+import { agir } from "@/server/os/acoes/chamados";
 import {
   BOTAO_PRIMARIO,
   BOTAO_SECUNDARIO,

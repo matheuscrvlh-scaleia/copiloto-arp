@@ -19,7 +19,7 @@ import {
   marcarTodasLidas,
   minhasNotificacoes,
   type NotificacaoDoSino,
-} from "@/server/os/chamado-notificacoes";
+} from "@/server/os/acoes/notificacoes";
 
 const LARGURA = 352; // 22rem
 const MARGEM = 16;

@@ -9,7 +9,7 @@ import {
 import {
   Atualizado,
   EsqueletoVisao,
-  PainelDaLista,
+  PainelDaBusca,
 } from "@/components/os/lista/topo";
 import { VisaoLista } from "@/components/os/lista/visao-lista";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
@@ -56,6 +56,9 @@ export default function Page({
           <Caixa busca={searchParams} />
           <Suspense fallback={null}>
             <SeuDia />
+          </Suspense>
+          <Suspense fallback={null}>
+            <PainelDaBusca busca={searchParams} caminho="/os" />
           </Suspense>
         </Protegido>
       </Suspense>
@@ -137,7 +140,6 @@ async function Caixa({ busca }: { busca: Promise<Busca> }) {
         }
         vazio="Nada com você agora. Quando um chamado chegar para você ou para o seu setor, ele aparece aqui."
       />
-      <PainelDaLista busca={params} caminho="/os" />
     </div>
   );
 }

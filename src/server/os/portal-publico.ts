@@ -1,4 +1,5 @@
 import "server-only";
+import { cacheLife, cacheTag } from "next/cache";
 import { cache } from "react";
 import {
   camposDaCategoria,
@@ -7,13 +8,20 @@ import {
 } from "@/lib/os/portal";
 import type { Calendario } from "@/lib/os/prazo";
 import type { CampoExtra } from "@/lib/os/rotulos";
-import { calendarioDe, osAdmin, type Tabela, urlsAssinadas } from "./base";
+import { TAG } from "@/server/cache";
+import { diasLivres } from "./agenda";
+import { configDoSistema } from "./automacao";
+import { osAdmin, type Tabela, urlsAssinadas } from "./base";
 
 // Leitura do portal do lojista (link público, sem login). Tudo passa pela
 // service role, então TODA função aqui recebe o acesso já conferido
 // (`abrirPortal`) e filtra pela loja do link: o lojista só vê os pedidos
 // que a loja fez pelo portal, e nunca dado interno (responsável, prazo
 // interno, notas internas, custos).
+//
+// O catálogo do portal, os parâmetros e os feriados são iguais para todas
+// as lojas e vêm do cache (sem nada do token na chave nem na tag); a
+// página só chega a eles depois de conferir o token.
 
 export interface AcessoPortal {
   linkId: string;
@@ -72,54 +80,56 @@ export interface CategoriaDoPortal {
 
 /** Categorias marcadas "Aparece no portal", ativas e de setor ativo. */
 export const categoriasDoPortal = cache(
-  async (): Promise<CategoriaDoPortal[]> => {
-    const { data, error } = await osAdmin()
-      .from("categorias")
-      .select(
-        "id, nome, icone, orientacao_portal, campos, setor_id, agenda_id, prazo_terceirizado_dias, setor:setores!inner(nome, ativo)",
-      )
-      .eq("no_portal", true)
-      .eq("ativo", true)
-      .eq("setor.ativo", true)
-      .order("ordem")
-      .order("nome");
-    if (error) throw new Error(`Portal: ${error.message}`);
-    return (data ?? []).map((c) => ({
-      id: c.id,
-      nome: c.nome,
-      icone: c.icone,
-      orientacao: c.orientacao_portal,
-      campos: camposDaCategoria(c.campos),
-      setorId: c.setor_id,
-      setor: c.setor.nome,
-      agendaId: c.agenda_id,
-      prazoTerceirizadoDias: c.prazo_terceirizado_dias,
-    }));
-  },
+  async (): Promise<CategoriaDoPortal[]> => catalogoEmCache(),
 );
 
-/** Texto de boas-vindas e modelos de mensagem (Parâmetros). */
-export const parametrosDoPortal = cache(async () => {
+// Não exportar: só depois de conferir o token (abrirPortal).
+async function catalogoEmCache(): Promise<CategoriaDoPortal[]> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.os.categorias, TAG.os.setores);
   const { data, error } = await osAdmin()
-    .from("parametros")
-    .select("portal_boas_vindas, dias_uteis, expediente_fim")
-    .eq("id", 1)
-    .single();
+    .from("categorias")
+    .select(
+      "id, nome, icone, orientacao_portal, campos, setor_id, agenda_id, prazo_terceirizado_dias, setor:setores!inner(nome, ativo)",
+    )
+    .eq("no_portal", true)
+    .eq("ativo", true)
+    .eq("setor.ativo", true)
+    .order("ordem")
+    .order("nome");
   if (error) throw new Error(`Portal: ${error.message}`);
-  return data;
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    icone: c.icone,
+    orientacao: c.orientacao_portal,
+    campos: camposDaCategoria(c.campos),
+    setorId: c.setor_id,
+    setor: c.setor.nome,
+    agendaId: c.agenda_id,
+    prazoTerceirizadoDias: c.prazo_terceirizado_dias,
+  }));
+}
+
+/** Texto de boas-vindas (Parâmetros, do cache). */
+export const parametrosDoPortal = cache(async () => {
+  const { p } = await configDoSistema();
+  return { portal_boas_vindas: p.portal_boas_vindas };
 });
 
 /** Calendário de dias úteis sem sessão (prazo do terceirizado). */
 export async function calendarioDoSistema(): Promise<Calendario> {
-  const [p, feriados] = await Promise.all([
-    parametrosDoPortal(),
-    osAdmin().from("feriados").select("data"),
-  ]);
-  if (feriados.error) throw new Error(`Feriados: ${feriados.error.message}`);
-  return calendarioDe(
-    p,
-    (feriados.data ?? []).map((f) => f.data),
-  );
+  return (await configDoSistema()).cal;
+}
+
+/** A agenda e os dias com horário livre (novo pedido e remarcação). */
+export async function horariosDaAgenda(agendaId: string, agora: Date) {
+  const agenda = await agendaDoPortal(agendaId);
+  return {
+    agenda,
+    dias: agenda ? await diasLivres(osAdmin(), agenda, agora) : [],
+  };
 }
 
 export async function agendaDoPortal(id: string) {
@@ -260,18 +270,17 @@ export async function pedidoDaLoja(
   id: string,
 ): Promise<DetalheDoPedido | null> {
   const db = osAdmin();
-  const { data, error } = await db
-    .from("chamados")
-    .select(COLUNAS_PEDIDO)
-    .eq("id", id)
-    .eq("loja_id", lojaId)
-    .eq("origem", "portal")
-    .is("lixeira_em", null)
-    .maybeSingle();
-  if (error) throw new Error(`Pedido: ${error.message}`);
-  if (!data) return null;
-
-  const [eventos, anexos, agendamentos] = await Promise.all([
+  // Tudo de uma vez: a conversa, os arquivos e os horários só saem daqui se
+  // o pedido for desta loja (conferido logo abaixo, antes de usar).
+  const [pedido, eventos, anexos, agendamentos] = await Promise.all([
+    db
+      .from("chamados")
+      .select(COLUNAS_PEDIDO)
+      .eq("id", id)
+      .eq("loja_id", lojaId)
+      .eq("origem", "portal")
+      .is("lixeira_em", null)
+      .maybeSingle(),
     db
       .from("eventos")
       .select("id, tipo, texto, dados, em")
@@ -293,6 +302,9 @@ export async function pedidoDaLoja(
       .neq("status", "cancelado")
       .order("inicio"),
   ]);
+  if (pedido.error) throw new Error(`Pedido: ${pedido.error.message}`);
+  const data = pedido.data;
+  if (!data) return null;
   for (const r of [eventos, anexos, agendamentos])
     if (r.error) throw new Error(`Pedido: ${r.error.message}`);
 
@@ -337,20 +349,13 @@ export interface DocumentoDaLoja {
 export async function documentosDaLoja(
   lojaId: string,
 ): Promise<DocumentoDaLoja[]> {
-  const db = osAdmin();
-  const { data: vistorias, error: e1 } = await db
-    .from("vistorias")
-    .select("id")
-    .eq("loja_id", lojaId);
-  if (e1) throw new Error(`Documentos: ${e1.message}`);
-  const ids = (vistorias ?? []).map((v) => v.id);
-  if (!ids.length) return [];
-  const { data, error } = await db
+  // Uma consulta só: o laudo pela vistoria da loja (junção no banco).
+  const { data, error } = await osAdmin()
     .from("anexos")
-    .select("id, nome, path, em")
+    .select("id, nome, path, em, vistoria:vistorias!inner(loja_id)")
     .eq("categoria", "laudo")
     .eq("visivel_lojista", true)
-    .in("vistoria_id", ids)
+    .eq("vistoria.loja_id", lojaId)
     .order("em", { ascending: false });
   if (error) throw new Error(`Documentos: ${error.message}`);
   const urls = await urlsAssinadas((data ?? []).map((a) => a.path));

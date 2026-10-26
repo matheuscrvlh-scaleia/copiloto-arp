@@ -13,13 +13,13 @@ import {
   type GrupoRubrica,
 } from "@/lib/rh/rubricas";
 import { pode } from "@/server/auth";
-import { dadosFinanceiros } from "@/server/rh/dados";
-import { dadosDosParametros } from "@/server/rh/parametros";
 import {
   salvarDepartamento,
   salvarFinanceiro,
   trocarGrupoRubrica,
-} from "./actions";
+} from "@/server/rh/acoes/cadastros";
+import { departamentosDoRh, rubricasDoRh } from "@/server/rh/configuracao";
+import { dadosFinanceiros } from "@/server/rh/dados";
 import { Beneficios } from "./beneficios";
 
 export const metadata: Metadata = { title: "Cadastros do RH" };
@@ -166,9 +166,13 @@ async function Financeiro() {
   );
 }
 
-/** Departamentos e rubricas (vieram de Parâmetros). */
+/** Departamentos e rubricas (vieram de Parâmetros), do cache do módulo. */
 async function Estrutura() {
-  const dados = await dadosDosParametros();
+  const [departamentos, rubricas] = await Promise.all([
+    departamentosDoRh(),
+    rubricasDoRh(),
+  ]);
+  const dados = { departamentos, rubricas };
   return (
     <>
       <Secao

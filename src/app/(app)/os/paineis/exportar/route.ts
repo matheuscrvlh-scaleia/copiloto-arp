@@ -2,10 +2,10 @@ import { formatarData } from "@/lib/formato";
 import { slugDoSetor } from "@/lib/os/indicadores-setor";
 import { paraBrasilia } from "@/lib/os/tempo";
 import { contexto, setores } from "@/server/os/base";
-import { lerFiltrosDoPainel } from "@/server/os/paineis";
-import { setoresDoPainel } from "../_painel/acesso";
-import { montarPainel } from "../_painel/montar";
-import { pdfDoPainel } from "./pdf";
+import { setoresDoPainel } from "@/server/os/paineis/acesso";
+import { lerFiltrosDoPainel } from "@/server/os/paineis/consultas";
+import { montarPainel } from "@/server/os/paineis/montar";
+import { pdfDoPainel } from "@/server/os/paineis/pdf";
 
 // PDF do painel (?setor=<id> e os mesmos filtros da tela). Lê tudo pela
 // sessão (RLS) e confere os.exportar e o acesso ao painel pedido.

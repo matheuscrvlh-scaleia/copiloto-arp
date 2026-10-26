@@ -1,6 +1,8 @@
 import "server-only";
+import { cacheLife, cacheTag } from "next/cache";
 import type { Calendario } from "@/lib/os/prazo";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { TAG } from "@/server/cache";
 import {
   calendarioDe,
   membrosDoSetor,
@@ -12,7 +14,9 @@ import {
 
 // Apoio das rotinas (cron, service role, sem sessão): parâmetros e
 // calendário lidos sem RLS, quem usa o módulo e notificação que não se
-// repete. As telas usam as versões com sessão de base.ts.
+// repete. As telas usam as versões com sessão de base.ts. Parâmetros e
+// feriados são os mesmos para todos: vêm do cache (as telas que gravam
+// neles invalidam TAG.os.parametros e TAG.os.feriados).
 
 export interface ConfigDoSistema {
   p: Parametros;
@@ -20,6 +24,15 @@ export interface ConfigDoSistema {
 }
 
 export async function configDoSistema(): Promise<ConfigDoSistema> {
+  const { p, feriados } = await configEmCache();
+  return { p, cal: calendarioDe(p, feriados) };
+}
+
+// Sem argumentos e sem nada da sessão: a mesma linha para todo mundo.
+async function configEmCache(): Promise<{ p: Parametros; feriados: string[] }> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.os.parametros, TAG.os.feriados);
   const db = osAdmin();
   const [p, feriados] = await Promise.all([
     db.from("parametros").select("*").eq("id", 1).single(),
@@ -27,13 +40,7 @@ export async function configDoSistema(): Promise<ConfigDoSistema> {
   ]);
   if (p.error) throw new Error(`Parâmetros: ${p.error.message}`);
   if (feriados.error) throw new Error(`Feriados: ${feriados.error.message}`);
-  return {
-    p: p.data,
-    cal: calendarioDe(
-      p.data,
-      (feriados.data ?? []).map((f) => f.data),
-    ),
-  };
+  return { p: p.data, feriados: (feriados.data ?? []).map((f) => f.data) };
 }
 
 /** Membros de cada setor, lidos uma vez por rodada. */

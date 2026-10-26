@@ -3,8 +3,8 @@ import { CaixasDePermissao } from "@/components/admin/permissoes";
 import { Secao } from "@/components/admin/ui";
 import { classeCampo } from "@/components/estilos";
 import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
+import { salvarCargo } from "@/server/admin/acoes/usuarios";
 import type { Cargo } from "@/server/admin/dados";
-import { salvarCargo } from "../actions";
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 

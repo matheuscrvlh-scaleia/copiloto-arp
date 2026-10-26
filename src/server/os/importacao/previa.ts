@@ -62,6 +62,17 @@ export function lerMapeamento(json: Json): Record<string, string> {
   );
 }
 
+/** As últimas importações (histórico da tela), pela sessão. */
+export async function importacoesRecentes(): Promise<Importacao[]> {
+  const { data, error } = await (await os())
+    .from("importacoes")
+    .select("*")
+    .order("criado_em", { ascending: false })
+    .limit(30);
+  if (error) throw new Error(`Importações: ${error.message}`);
+  return data ?? [];
+}
+
 export async function importacao(id: string): Promise<Importacao | null> {
   const { data, error } = await (await os())
     .from("importacoes")

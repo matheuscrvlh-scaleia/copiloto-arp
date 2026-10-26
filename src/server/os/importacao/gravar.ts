@@ -24,7 +24,7 @@ import type {
 import { resultadoParaBanco } from "@/lib/os/ordem";
 import { localEData } from "@/lib/os/vistoria";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import { registrarEvento } from "@/server/logs";
+import { registrarDepois } from "@/server/logs";
 import { configDoSistema } from "../automacao";
 import { os, osAdmin } from "../base";
 import {
@@ -177,7 +177,7 @@ export async function confirmarImportacao(
       avisos: resultado.avisos,
       fotos: { total: g.fotos.length, copiadas: 0, plano: g.fotos },
     });
-    await registrarEvento({
+    registrarDepois({
       modulo: "os",
       evento: "os_importacao_confirmada",
       descricao: `Confirmou a importação do sistema de OS: ${resultado.gravacao.os ?? 0} OS, ${resultado.gravacao.tarefas ?? 0} tarefas e ${resultado.gravacao.vistorias ?? 0} vistorias`,
@@ -1307,7 +1307,7 @@ export async function desfazerImportacao(
     p_importacao: importacaoId,
   });
   if (e) throw new Error(e.message);
-  await registrarEvento({
+  registrarDepois({
     modulo: "os",
     evento: "os_importacao_desfeita",
     descricao: `Desfez a importação do sistema de OS de ${new Date(imp.criado_em).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,

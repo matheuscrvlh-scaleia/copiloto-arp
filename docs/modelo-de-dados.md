@@ -129,6 +129,9 @@ Funções (`security definer`, só somas):
   permissão do RH.
 - `rh.quadro_mensal(inicio, fim)`: headcount por competência, departamento,
   tipo de contrato e situação. Exige qualquer permissão do RH.
+- `rh.ponto_dos_dias(de, ate)`: o ponto de um trecho de mês somado por
+  pessoa (a regra de `somarDias` em `src/lib/rh/ponto-periodo.ts`), sem quem
+  está fora do ponto. `security invoker`: vale o RLS de `ponto_diario`.
 - `rh.banco_horas_em_reais(competencia)`: banco de horas positivo × salário
   por hora da última folha calculada × (1 + adicional), por departamento.
   Exige `rh.custo_pessoal`.

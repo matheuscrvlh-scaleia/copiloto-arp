@@ -15,6 +15,15 @@ import { valorPelaFaixa, vigenteEm } from "@/lib/rh/custo";
 import { faixaTexto } from "@/lib/rh/plano";
 import { ROTULO_CONTRATO } from "@/lib/rh/rubricas";
 import {
+  removerVinculo,
+  removerVinculoContrato,
+  salvarBeneficio,
+  salvarValorManual,
+  vincularBeneficio,
+  vincularContrato,
+  vincularPelaFolha,
+} from "@/server/rh/acoes/cadastros";
+import {
   type Beneficio,
   beneficiosCadastrados,
   colaboradoresAtivos,
@@ -28,15 +37,6 @@ import {
   vinculosPorContrato,
 } from "@/server/rh/beneficios";
 import { folhasDoCusto } from "@/server/rh/dados";
-import {
-  removerVinculo,
-  removerVinculoContrato,
-  salvarBeneficio,
-  salvarValorManual,
-  vincularBeneficio,
-  vincularContrato,
-  vincularPelaFolha,
-} from "./actions";
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 const valorBr = (v: number | null) => (v === null ? "" : formatarNumero(v, 2));

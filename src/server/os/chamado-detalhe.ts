@@ -94,15 +94,19 @@ export interface DetalheChamado {
 }
 
 const COLUNAS_CURTO = "id, numero, titulo, status, tipo";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function curto(id: string | null): Promise<ChamadoCurto | null> {
-  if (!id) return null;
+/** Vínculo, origem e conversão numa consulta só (pelos ids). */
+async function curtos(
+  ids: (string | null)[],
+): Promise<Map<string, ChamadoCurto>> {
+  const unicos = [...new Set(ids.filter((x): x is string => !!x))];
+  if (!unicos.length) return new Map();
   const { data } = await (await os())
     .from("chamados")
     .select(COLUNAS_CURTO)
-    .eq("id", id)
-    .maybeSingle();
-  return data;
+    .in("id", unicos);
+  return new Map((data ?? []).map((c) => [c.id, c]));
 }
 
 async function lerLoja(id: string | null) {
@@ -116,12 +120,15 @@ async function lerLoja(id: string | null) {
 }
 
 /** Ativo pelo RPC de vínculo (quem abre pode não ter acesso a Ativos). */
-async function lerAtivo(id: string | null) {
+export async function lerAtivo(id: string | null) {
   if (!id) return null;
-  const { data } = await (await os()).rpc("ativos_para_vincular");
-  const a = (data ?? []).find((x) => x.id === id);
-  return a
-    ? { id: a.id, codigo: a.codigo, nome: a.nome, local: a.local }
+  // Só a linha do ativo (o filtro vai para o banco, não a lista inteira).
+  const { data } = await (await os())
+    .rpc("ativos_para_vincular")
+    .eq("id", id)
+    .maybeSingle();
+  return data
+    ? { id: data.id, codigo: data.codigo, nome: data.nome, local: data.local }
     : null;
 }
 
@@ -135,43 +142,53 @@ async function lerVistoria(id: string | null, pode: boolean) {
   return data;
 }
 
-/** Detalhe completo; null se não existe ou a pessoa não vê. */
+/** Destinos, linha do tempo, anexos e seguidores: só dependem do id. */
+async function filhosDoChamado(id: string) {
+  const db = await os();
+  return Promise.all([
+    db.from("destinatarios").select("*").eq("chamado_id", id).order("ordem"),
+    db
+      .from("eventos")
+      .select("*")
+      .eq("chamado_id", id)
+      .order("em", { ascending: true }),
+    db
+      .from("anexos")
+      .select("*")
+      .eq("chamado_id", id)
+      .order("em", { ascending: true }),
+    db.from("participantes").select("usuario_id, motivo").eq("chamado_id", id),
+  ]);
+}
+
+/**
+ * Detalhe completo; null se não existe ou a pessoa não vê. Duas idas ao
+ * banco: o chamado junto com as tabelas filhas (o RLS delas também confere
+ * o acesso), depois o que depende do chamado (loja, ativo, vínculos,
+ * bloqueio) junto com os endereços dos anexos.
+ */
 export const carregarDetalhe = cache(
   async (id: string): Promise<DetalheChamado | null> => {
-    const [ctx, ch] = await Promise.all([contexto(), lerChamado(id)]);
-    if (!ch) return null;
-    const db = await os();
-    const eu = ctx.usuario.id;
+    if (!UUID.test(id)) return null;
     const [
+      ctx,
+      ch,
+      [destinos, eventos, anexos, participantes],
       todosSetores,
       todasCategorias,
       mapaNomes,
       p,
-      destinos,
-      eventos,
-      anexos,
-      participantes,
     ] = await Promise.all([
+      contexto(),
+      lerChamado(id),
+      filhosDoChamado(id),
       setores(),
       categorias(),
       nomes(),
       parametros(),
-      db.from("destinatarios").select("*").eq("chamado_id", id).order("ordem"),
-      db
-        .from("eventos")
-        .select("*")
-        .eq("chamado_id", id)
-        .order("em", { ascending: true }),
-      db
-        .from("anexos")
-        .select("*")
-        .eq("chamado_id", id)
-        .order("em", { ascending: true }),
-      db
-        .from("participantes")
-        .select("usuario_id, motivo")
-        .eq("chamado_id", id),
     ]);
+    if (!ch) return null;
+    const eu = ctx.usuario.id;
 
     const categoria =
       todasCategorias.find((c) => c.id === ch.categoria_id) ?? null;
@@ -192,22 +209,22 @@ export const carregarDetalhe = cache(
         d.responsavel_id === eu ||
         (!!d.setor_id && ctx.setores.includes(d.setor_id)),
     }));
-
+    const multiplos = lista.length > 1;
+    const acoes = acoesDisponiveis({ ...ch, multiplos }, papel);
     const arquivos = anexos.data ?? [];
-    const urls = await urlsAssinadas(arquivos.map((a) => a.path));
 
-    const [loja, ativo, vistoria, vinculado, convertidoDe, convertidoEm] =
-      await Promise.all([
+    const [urls, loja, ativo, vistoria, vinculos, bloqueio] = await Promise.all(
+      [
+        urlsAssinadas(arquivos.map((a) => a.path)),
         lerLoja(ch.loja_id),
         lerAtivo(ch.ativo_id),
         lerVistoria(ch.vistoria_id, ctx.pode("os.vistorias")),
-        curto(ch.vinculado_a_id),
-        curto(ch.convertido_de_id),
-        curto(ch.convertido_em_id),
-      ]);
+        curtos([ch.vinculado_a_id, ch.convertido_de_id, ch.convertido_em_id]),
+        acoes.includes("concluir") ? motivoDoBloqueio(ch) : null,
+      ],
+    );
+    const curto = (x: string | null) => (x ? (vinculos.get(x) ?? null) : null);
 
-    const multiplos = lista.length > 1;
-    const acoes = acoesDisponiveis({ ...ch, multiplos }, papel);
     const seguidores = (participantes.data ?? []).map((x) => x.usuario_id);
     const aberto = ["aberto", "em_andamento", "aguardando"].includes(ch.status);
     const mensagens = (p.mensagens ?? {}) as Record<string, unknown>;
@@ -231,12 +248,12 @@ export const carregarDetalhe = cache(
       loja,
       ativo,
       vistoria,
-      vinculado,
-      convertidoDe,
-      convertidoEm,
+      vinculado: curto(ch.vinculado_a_id),
+      convertidoDe: curto(ch.convertido_de_id),
+      convertidoEm: curto(ch.convertido_em_id),
       papel,
       acoes,
-      bloqueio: acoes.includes("concluir") ? await motivoDoBloqueio(ch) : null,
+      bloqueio,
       pode: {
         gerenciar: ehGestor,
         editarPrazo: ehGestor || papel.solicitante,

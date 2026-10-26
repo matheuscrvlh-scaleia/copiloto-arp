@@ -6,9 +6,9 @@ import { FormAtivo } from "@/components/os/ativos/form-ativo";
 import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { ROTAS_OS } from "@/lib/os/rotas";
+import { salvarAtivo } from "@/server/os/acoes/ativos";
 import { opcoesDoCadastro } from "@/server/os/ativos";
 import { contexto } from "@/server/os/base";
-import { salvarAtivo } from "../actions";
 
 export const metadata: Metadata = { title: "Novo ativo" };
 

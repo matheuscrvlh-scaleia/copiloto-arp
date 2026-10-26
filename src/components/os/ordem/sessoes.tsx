@@ -5,7 +5,7 @@ import { useActionState, useEffect, useId, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { formatarData } from "@/lib/formato";
-import { excluirSessao, salvarSessao } from "@/server/os/ordem-acoes";
+import { excluirSessao, salvarSessao } from "@/server/os/acoes/ordem";
 import { aviso, botao, pilulaEscolha, rotulo } from "./estilos";
 import type { EstadoOS } from "./tipos";
 

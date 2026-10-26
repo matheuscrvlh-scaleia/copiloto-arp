@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { bloquearAgenda } from "@/app/(app)/os/portal/actions";
 import { classeCampo } from "@/components/estilos";
 import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
 import { Selecao } from "@/components/selecao";
+import { bloquearAgenda } from "@/server/os/acoes/portal";
 
 // Bloqueio por clima: um dia, vários dias ou um trecho do dia, com motivo.
 // Quem já tinha horário no período vai para "Remarcar".

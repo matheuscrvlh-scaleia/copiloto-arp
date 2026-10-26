@@ -17,18 +17,18 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  adicionarAmbiente,
-  ordenarAmbientes,
-  removerAmbiente,
-  salvarAmbiente,
-} from "@/app/(app)/os/vistorias/actions";
 import { classeCampo } from "@/components/estilos";
 import { ModalConfirmacao } from "@/components/modal-confirmacao";
 import { SeloStatusChamado } from "@/components/os/selos";
 import { rotaChamado } from "@/lib/os/rotas";
 import { RESPOSTAS_AMBIENTE, type RespostaAmbiente } from "@/lib/os/rotulos";
 import { mover } from "@/lib/os/vistoria-regras";
+import {
+  adicionarAmbiente,
+  ordenarAmbientes,
+  removerAmbiente,
+  salvarAmbiente,
+} from "@/server/os/acoes/vistorias";
 import { BotoesDeEscolha } from "./escolha";
 import { FotosDoAmbiente } from "./fotos";
 import type { AmbienteEditado, ChamadoDaVistoria } from "./tipos";

@@ -1,10 +1,10 @@
 "use client";
 
-import { salvarLoja } from "@/app/(app)/os/portal/actions";
 import { Secao } from "@/components/admin/ui";
 import { classeCampo } from "@/components/estilos";
 import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
 import { Selecao } from "@/components/selecao";
+import { salvarLoja } from "@/server/os/acoes/portal";
 
 // Cadastro de uma loja (contrato). Até a API do ENET, à mão; depois, o
 // ENET grava e esta tela fica só para consulta.

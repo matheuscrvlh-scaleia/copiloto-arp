@@ -14,11 +14,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useId, useState } from "react";
-import { lixeira, seguirChamado } from "@/app/(app)/os/chamados/actions";
 import { classeCampo } from "@/components/estilos";
 import { PILULA_OPCAO } from "@/components/os/novo/repetir";
 import { Selecao } from "@/components/selecao";
 import { limparTelefone, linkWhatsApp } from "@/lib/os/whatsapp";
+import { lixeira, seguirChamado } from "@/server/os/acoes/chamados";
 import { BOTAO_PRIMARIO, FormNaJanela, Janela } from "./janela";
 
 // Ferramentas do chamado: WhatsApp, imprimir/PDF, converter em OS,

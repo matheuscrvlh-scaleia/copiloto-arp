@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { contexto } from "./base";
@@ -11,33 +12,26 @@ async function core() {
   return (await createClient()).schema("core");
 }
 
-/** Valor guardado na chave; null se não houver ou não der para ler. */
-export async function lerPreferencia(chave: string): Promise<Json | null> {
-  const { data, error } = await (await core())
-    .from("preferencias")
-    .select("valor")
-    .eq("chave", chave)
-    .maybeSingle();
-  if (error) {
-    console.error("preferência", chave, error);
-    return null;
-  }
-  return data?.valor ?? null;
-}
-
-/** Várias chaves numa leitura só (filtros da tela + "Seu dia"). */
-export async function lerPreferencias(
-  chaves: string[],
-): Promise<Map<string, Json>> {
+/**
+ * Todas as preferências de Tickets da pessoa, numa leitura por requisição:
+ * os filtros da tela e o "Seu dia" saem da mesma consulta (são poucas
+ * linhas, só as da própria pessoa).
+ */
+const preferenciasDoModulo = cache(async (): Promise<Map<string, Json>> => {
   const { data, error } = await (await core())
     .from("preferencias")
     .select("chave, valor")
-    .in("chave", chaves);
+    .like("chave", "os.%");
   if (error) {
-    console.error("preferências", chaves, error);
+    console.error("preferências", error);
     return new Map();
   }
   return new Map((data ?? []).map((p) => [p.chave, p.valor]));
+});
+
+/** Valor guardado na chave; null se não houver ou não der para ler. */
+export async function lerPreferencia(chave: string): Promise<Json | null> {
+  return (await preferenciasDoModulo()).get(chave) ?? null;
 }
 
 export async function gravarPreferencia(

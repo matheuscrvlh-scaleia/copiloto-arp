@@ -19,7 +19,6 @@ import { SeloExemplo } from "@/components/os/selos";
 import { tonsDaTela } from "@/components/os/tons";
 import { SemAcesso } from "@/components/protegido";
 import { formatarData, formatarNumero } from "@/lib/formato";
-import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
 import {
   FILTROS_PORTAL,
@@ -28,15 +27,14 @@ import {
 } from "@/lib/os/portal-lista";
 import { paraBrasilia } from "@/lib/os/tempo";
 import { tempoAtras } from "@/lib/os/texto";
+import { exportarLinks, gerarLinksEmLote } from "@/server/os/acoes/portal";
 import { contexto } from "@/server/os/base";
 import {
   DIAS_DA_MEDIA,
   indicadoresDoPortal,
   type LinhaDoPortal,
-  lojasDoPortal,
   paginaDoPortal,
 } from "@/server/os/portal";
-import { gerarLinksEmLote } from "./actions";
 
 const TONS = tonsDaTela("portal");
 
@@ -64,51 +62,14 @@ function Esqueleto() {
 const dia = (iso: string | null) =>
   iso ? formatarData(paraBrasilia(new Date(iso)).data) : null;
 
-const COLUNAS_EXPORTAR: ColunaExportar[] = [
-  { titulo: "LUC" },
-  { titulo: "Loja" },
-  { titulo: "Bloco" },
-  { titulo: "Link" },
-  { titulo: "Enviado em" },
-  { titulo: "Último acesso" },
-  { titulo: "Pedidos no mês", numero: true },
-  { titulo: "Avaliação", numero: true },
-];
-
-/** Exportar: o filtro inteiro, lido só no clique (não só a página). */
-async function exportarLinks(
-  busca: Record<string, string>,
-): Promise<{ colunas: ColunaExportar[]; linhas: CelulaExportar[][] }> {
-  "use server";
-  const ctx = await contexto();
-  if (!ctx.pode("os.portal") || !ctx.pode("os.exportar"))
-    throw new Error("Sem permissão para exportar.");
-  const { f, q } = lerFiltroPortal(busca);
-  const linhas = await lojasDoPortal(f, q, new Date());
-  return {
-    colunas: COLUNAS_EXPORTAR,
-    linhas: linhas.map((l) => [
-      l.loja.luc,
-      l.loja.nome,
-      l.loja.bloco,
-      l.link ? "Ativo" : "Sem link",
-      dia(l.link?.enviado_em ?? null),
-      dia(l.link?.ultimo_acesso_em ?? null),
-      l.pedidosNoMes,
-      l.media,
-    ]),
-  };
-}
-
 async function Links({
   searchParams,
 }: Pick<PageProps<"/os/portal">, "searchParams">) {
-  const ctx = await contexto();
+  const [ctx, sp] = await Promise.all([contexto(), searchParams]);
   if (!ctx.pode("os.portal")) {
     if (ctx.pode("os.portal_agenda")) redirect("/os/portal/agendas");
     return <SemAcesso />;
   }
-  const sp = await searchParams;
   const { f, q } = lerFiltroPortal(sp);
   const pagina = paginaDaUrl(sp.pagina);
   const agora = new Date();

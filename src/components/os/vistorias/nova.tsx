@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { iniciarVistoria } from "@/app/(app)/os/vistorias/actions";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { type Opcao, Selecao } from "@/components/selecao";
 import { TIPOS_VISTORIA, type TipoVistoria } from "@/lib/os/rotulos";
 import { rotuloDaData } from "@/lib/os/vistoria";
+import { iniciarVistoria } from "@/server/os/acoes/vistorias";
 import { BotoesDeEscolha } from "./escolha";
 
 // Começar uma vistoria: o tipo e o contrato (a loja preenche locatário,

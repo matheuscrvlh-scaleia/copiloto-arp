@@ -17,12 +17,6 @@ import {
   useState,
   useTransition,
 } from "react";
-import {
-  abrirChamado,
-  type EstadoCriacao,
-  type OpcoesDeVinculo,
-  opcoesDeVinculo,
-} from "@/app/(app)/os/chamados/actions";
 import { classeCampo } from "@/components/estilos";
 import { LIMITE_ENVIO, tamanhoTotal } from "@/components/os/chamado/arquivos";
 import { EscolherArquivos } from "@/components/os/chamado/escolher-arquivos";
@@ -39,6 +33,12 @@ import {
   TIPOS,
   type TipoChamado,
 } from "@/lib/os/rotulos";
+import {
+  abrirChamado,
+  type EstadoCriacao,
+  type OpcoesDeVinculo,
+  opcoesDeVinculo,
+} from "@/server/os/acoes/chamados";
 import { Horario } from "./horario";
 import { PILULA_OPCAO, Repetir } from "./repetir";
 import type {

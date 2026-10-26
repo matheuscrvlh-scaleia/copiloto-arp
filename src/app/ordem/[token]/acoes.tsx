@@ -22,7 +22,7 @@ import {
   recusar,
   salvarRelatorio,
   terminei,
-} from "./actions";
+} from "@/server/os/acoes/ordem-link";
 
 // O que o terceirizado faz pelo link: aceitar ou recusar, "Cheguei" e
 // "Terminei" (com a localização, se ele permitir), mandar fotos e o

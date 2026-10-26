@@ -2,7 +2,8 @@ import { FlaskConical, Maximize2 } from "lucide-react";
 import { TOM, type Tom } from "@/components/estilos";
 import { type Direcao, rotuloStatus, type Status } from "@/lib/indicadores";
 import { AbreDetalhe, type Detalhe } from "../modal-detalhe";
-import { type ItemGrafico, MiniArea } from "./graficos";
+import type { ItemGrafico } from "./graficos/base";
+import { MiniArea } from "./graficos/mini-area";
 
 // Cores de status reservadas (nunca usadas para série); sempre com ícone e texto.
 const STATUS: Record<Status, { cor: string; icone: string }> = {

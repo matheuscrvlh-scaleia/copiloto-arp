@@ -1,4 +1,5 @@
 import "server-only";
+import { cacheLife, cacheTag } from "next/cache";
 import { cache } from "react";
 import {
   custoPorMes,
@@ -30,22 +31,27 @@ import {
   tempoMedioEntreFalhasDias,
 } from "@/lib/os/sinal";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
+import { usuarioAtual } from "@/server/auth";
+import { TAG } from "@/server/cache";
 import {
   categorias,
   contexto,
   nomes,
   os,
+  osAdmin,
   parametros,
   pessoas as pessoasDoModulo,
   setores,
   type Tabela,
   urlsAssinadas,
 } from "./base";
+import { lojasDoModulo } from "./lojas";
 
 // Leitura dos ativos para a lista, a decisão de troca e a ficha. Tudo pela
 // sessão (RLS). O custo por ativo vem de os.resumo_ativos (soma de todas as
 // OS do ativo, mesmo as de setores que a pessoa não vê); a linha do tempo e
-// o gráfico mês a mês mostram as OS que ela vê.
+// o gráfico mês a mês mostram as OS que ela vê. As categorias de ativo e
+// as lojas (iguais para todos do módulo) vêm do cache.
 
 export type Ativo = Tabela<"ativos">;
 export type CategoriaAtivo = Tabela<"ativo_categorias">;
@@ -125,14 +131,29 @@ async function resumos(hoje: string, ativoId?: string) {
   );
 }
 
-export const categoriasDeAtivo = async (): Promise<CategoriaAtivo[]> => {
-  const { data, error } = await (await os())
+/**
+ * Categorias de ativo, do cache. Mesmo acesso do RLS da tabela
+ * (core.pode_modulo('os')): usuário ativo com alguma permissão os.*.
+ */
+export const categoriasDeAtivo = cache(async (): Promise<CategoriaAtivo[]> => {
+  const u = await usuarioAtual();
+  if (!u.ativo || !u.permissoes.some((p) => p.startsWith("os.")))
+    throw new Error("Sem acesso ao módulo Tickets.");
+  return categoriasDeAtivoEmCache();
+});
+
+// Não exportar: lê pela service role (quem chama já conferiu o acesso).
+async function categoriasDeAtivoEmCache(): Promise<CategoriaAtivo[]> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.os.ativoCategorias);
+  const { data, error } = await osAdmin()
     .from("ativo_categorias")
     .select("*")
     .order("nome");
   falhar(error);
   return data ?? [];
-};
+}
 
 /** Quantos ativos cada categoria tem (página de categorias). */
 export async function ativosPorCategoria(): Promise<Map<string, number>> {
@@ -162,17 +183,7 @@ export interface Loja {
 
 /** Lojas (contratos) para o local do ativo. */
 export async function lojas(): Promise<Loja[]> {
-  const db = await os();
-  // Um contrato por linha: com o histórico, passa de mil.
-  const data = await todas((de, ate) =>
-    db
-      .from("lojas")
-      .select("id, luc, nome, bloco, situacao")
-      .order("luc")
-      .order("id")
-      .range(de, ate),
-  );
-  return data.map(({ situacao, ...l }) => ({
+  return (await lojasDoModulo()).map(({ situacao, telefone: _, ...l }) => ({
     ...l,
     vigente: situacao === "vigente",
   }));
@@ -444,13 +455,17 @@ async function idsPeloSinal(
 /** Linhas completas de uma lista de ids, na ordem pedida. */
 async function ativosPorId(ids: string[]): Promise<Ativo[]> {
   const db = await os();
+  // Em lotes (os ids vão na URL), todos ao mesmo tempo.
+  const lotes = await Promise.all(
+    Array.from({ length: Math.ceil(ids.length / 100) }, (_, k) =>
+      db
+        .from("ativos")
+        .select("*")
+        .in("id", ids.slice(k * 100, k * 100 + 100)),
+    ),
+  );
   const linhas: Ativo[] = [];
-  // Em lotes: os ids vão na URL.
-  for (let i = 0; i < ids.length; i += 100) {
-    const { data, error } = await db
-      .from("ativos")
-      .select("*")
-      .in("id", ids.slice(i, i + 100));
+  for (const { data, error } of lotes) {
     falhar(error);
     linhas.push(...(data ?? []));
   }
@@ -466,13 +481,18 @@ export async function paginaDeAtivos(
 ): Promise<{ ativos: AtivoNaLista[]; total: number }> {
   const hoje = hojeEmBrasilia(agora);
   const { de, ate } = intervalo(pagina);
+  // Já começa o que completar() vai pedir (React cache: uma vez só).
+  adiantar(hoje, agora);
   if (precisaDoSinal(f)) {
     const ids = await idsPeloSinal(f, hoje, agora);
     const linhas = await ativosPorId(ids.slice(de, ate + 1));
     return { ativos: await completar(linhas, hoje, agora), total: ids.length };
   }
   const db = await os();
-  const atrasadas = await atrasadasPorAtivo(agora.toISOString());
+  // Só o filtro "preventiva atrasada" depende da lista de atrasadas.
+  const atrasadas = f.preventiva
+    ? await atrasadasPorAtivo(agora.toISOString())
+    : new Map<string, number>();
   const { data, error, count } = await filtrarAtivos(
     db.from("ativos").select("*", { count: "exact" }),
     f,
@@ -492,12 +512,23 @@ export async function paginaDeAtivos(
   };
 }
 
+/** Dispara as leituras comuns da lista sem esperar (o erro aparece no await). */
+function adiantar(hoje: string, agora: Date) {
+  for (const p of [
+    categoriasDeAtivo(),
+    sinaisDosAtivos(hoje),
+    atrasadasPorAtivo(agora.toISOString()),
+  ])
+    p.catch(() => {});
+}
+
 /** Todos os ativos do filtro, na ordem da tela (exportar, no clique). */
 export async function ativosDoFiltro(
   f: FiltroAtivos,
   agora: Date,
 ): Promise<AtivoNaLista[]> {
   const hoje = hojeEmBrasilia(agora);
+  adiantar(hoje, agora);
   if (precisaDoSinal(f))
     return completar(
       await ativosPorId(await idsPeloSinal(f, hoje, agora)),
@@ -505,7 +536,9 @@ export async function ativosDoFiltro(
       agora,
     );
   const db = await os();
-  const atrasadas = await atrasadasPorAtivo(agora.toISOString());
+  const atrasadas = f.preventiva
+    ? await atrasadasPorAtivo(agora.toISOString())
+    : new Map<string, number>();
   const lista = await todas((de, ate) =>
     filtrarAtivos(db.from("ativos").select("*"), f, [...atrasadas.keys()])
       .order("codigo")
@@ -647,15 +680,13 @@ export async function fichaDoAtivo(
 ): Promise<Ficha | null> {
   const hoje = hojeEmBrasilia(agora);
   const db = await os();
-  const { data: ativo, error } = await db
-    .from("ativos")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data: ativo, error }, ctx] = await Promise.all([
+    db.from("ativos").select("*").eq("id", id).maybeSingle(),
+    contexto(),
+  ]);
   falhar(error);
   if (!ativo) return null;
 
-  const ctx = await contexto();
   const verCustos = ctx.pode("os.custos");
   const [
     cats,
@@ -726,9 +757,11 @@ export async function fichaDoAtivo(
     catsChamado.filter((c) => c.preventiva).map((c) => c.id),
   );
   const visiveis = chamados.data ?? [];
-  const custos = verCustos
-    ? await custosDasOS(visiveis.map((c) => c.id))
-    : null;
+  // Custos e links dos anexos não dependem um do outro.
+  const [custos, urls] = await Promise.all([
+    verCustos ? custosDasOS(visiveis.map((c) => c.id)) : null,
+    urlsAssinadas((anexos.data ?? []).map((a) => a.path)),
+  ]);
   const ordens: OSDoAtivo[] = visiveis.map((c) => ({
     id: c.id,
     numero: c.numero,
@@ -750,7 +783,6 @@ export async function fichaDoAtivo(
     (o) => o.tipo === "os" && o.status !== "cancelado" && !o.preventiva,
   );
 
-  const urls = await urlsAssinadas((anexos.data ?? []).map((a) => a.path));
   const listaAnexos: Anexo[] = (anexos.data ?? []).map((a) => ({
     id: a.id,
     nome: a.nome,
@@ -829,17 +861,33 @@ export async function fichaDoAtivo(
 /** Custo total de cada OS (só com os.custos; o RLS confere). */
 async function custosDasOS(ids: string[]): Promise<Map<string, number>> {
   const mapa = new Map<string, number>();
-  // Em lotes: a lista de ids vai na URL.
-  for (let i = 0; i < ids.length; i += 150) {
-    const { data, error } = await (await os())
-      .from("os_custos")
-      .select("chamado_id, custo_total")
-      .in("chamado_id", ids.slice(i, i + 150));
+  const db = await os();
+  // Em lotes (a lista de ids vai na URL), todos ao mesmo tempo.
+  const lotes = await Promise.all(
+    Array.from({ length: Math.ceil(ids.length / 150) }, (_, k) =>
+      db
+        .from("os_custos")
+        .select("chamado_id, custo_total")
+        .in("chamado_id", ids.slice(k * 150, k * 150 + 150)),
+    ),
+  );
+  for (const { data, error } of lotes) {
     falhar(error);
     for (const c of data ?? [])
       if (c.custo_total !== null) mapa.set(c.chamado_id, Number(c.custo_total));
   }
   return mapa;
+}
+
+/** O ativo inteiro para o formulário de edição (pela sessão). */
+export async function ativoParaEditar(id: string): Promise<Ativo | null> {
+  const { data, error } = await (await os())
+    .from("ativos")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Falha ao ler o ativo: ${error.message}`);
+  return data;
 }
 
 /** Ativos para a página de etiquetas (código, nome e local). */
@@ -884,11 +932,16 @@ export async function ativosParaEtiqueta(ids?: string[]): Promise<
  * Listas do formulário do ativo (categoria, loja, fornecedor, setor,
  * pessoa). Contrato encerrado só aparece se já é o do ativo.
  */
-export async function opcoesDoCadastro(atual?: {
+type AtualDoCadastro = {
   loja_id: string | null;
   fornecedor_id: string | null;
-}) {
-  const [cats, todasLojas, todasEmpresas, listaSetores, quem, blocos] =
+} | null;
+
+export async function opcoesDoCadastro(
+  /** O ativo em edição; pode ser a promessa (lê junto com as listas). */
+  atualOuPromessa?: AtualDoCadastro | Promise<AtualDoCadastro>,
+) {
+  const [cats, todasLojas, todasEmpresas, listaSetores, quem, blocos, atual] =
     await Promise.all([
       categoriasDeAtivo(),
       lojas(),
@@ -896,6 +949,7 @@ export async function opcoesDoCadastro(atual?: {
       setores(),
       pessoasDoModulo(),
       blocosUsados(),
+      atualOuPromessa ?? null,
     ]);
   return {
     categorias: cats.map((c) => ({

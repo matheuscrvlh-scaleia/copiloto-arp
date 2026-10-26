@@ -1,5 +1,6 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
+import { cacheLife, cacheTag } from "next/cache";
 import { cache } from "react";
 import {
   type CriterioCartao,
@@ -14,12 +15,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { type Usuario, usuarioAtual } from "@/server/auth";
+import { TAG } from "@/server/cache";
 
 // Base do módulo Tickets: quem é o usuário no módulo, parâmetros,
 // catálogo, pessoas, a consulta padrão de chamados, a linha do tempo, as
 // notificações e os arquivos. Tudo o que é lido em nome do usuário passa
 // pelo RLS; a service role só grava o que é do sistema (notificações,
 // arquivos no bucket privado, cálculo da OS) e atende os links públicos.
+//
+// Exceção, com cache: a configuração do módulo (parâmetros, feriados,
+// setores, catálogo, pessoas) é a mesma para todo mundo que usa o módulo.
+// É lida uma vez pela service role e guardada no cache ("use cache"),
+// sempre depois de conferir aqui o mesmo acesso que o RLS exige
+// (core.pode_modulo('os')). Quem grava chama updateTag(TAG.os.*).
 
 type Os = Database["os"];
 export type Tabela<T extends keyof Os["Tables"]> = Os["Tables"][T]["Row"];
@@ -59,45 +67,77 @@ export interface Contexto {
 /** Usuário logado, permissões e setores. Lê a sessão: use em <Suspense>. */
 export const contexto = cache(async (): Promise<Contexto> => {
   const usuario = await usuarioAtual();
-  const { data, error } = await (await os())
-    .from("setor_membros")
-    .select("setor_id, gestor")
-    .eq("usuario_id", usuario.id);
-  falhar(error);
+  const membro = usaOModulo(usuario) ? await setoresDe(usuario.id) : [];
   return {
     usuario,
     pode: (p) => usuario.permissoes.includes(p),
-    setores: (data ?? []).map((m) => m.setor_id),
-    gestorDe: (data ?? []).filter((m) => m.gestor).map((m) => m.setor_id),
+    setores: membro.map((m) => m.setor_id),
+    gestorDe: membro.filter((m) => m.gestor).map((m) => m.setor_id),
   };
 });
+
+// Não exportar: o id só pode vir da sessão validada (contexto()).
+async function setoresDe(usuarioId: string) {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.os.membros, TAG.usuario(usuarioId));
+  const { data, error } = await osAdmin()
+    .from("setor_membros")
+    .select("setor_id, gestor")
+    .eq("usuario_id", usuarioId);
+  falhar(error);
+  return data ?? [];
+}
+
+/**
+ * Libera a leitura da configuração do módulo pela service role: o mesmo
+ * acesso que o RLS exige dela (alguma permissão os.*, usuário ativo).
+ */
+async function exigirModulo(): Promise<void> {
+  if (!usaOModulo(await usuarioAtual()))
+    throw new Error("Sem acesso ao módulo Tickets.");
+}
+
+function usaOModulo(usuario: Usuario): boolean {
+  return usuario.ativo && usuario.permissoes.some((p) => p.startsWith("os."));
+}
 
 // ---------------------------------------------------------------------------
 // Parâmetros, calendário e catálogo
 // ---------------------------------------------------------------------------
 
 export const parametros = cache(async (): Promise<Parametros> => {
-  const { data, error } = await (await os())
+  await exigirModulo();
+  return parametrosDoModulo();
+});
+
+async function parametrosDoModulo(): Promise<Parametros> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.os.parametros);
+  const { data, error } = await osAdmin()
     .from("parametros")
     .select("*")
     .eq("id", 1)
     .single();
   falhar(error);
   return data;
-});
+}
 
 /** Dias úteis, feriados e fim do expediente (prazos e aceite automático). */
 export const calendario = cache(async (): Promise<Calendario> => {
-  const [p, feriados] = await Promise.all([
-    parametros(),
-    (await os()).from("feriados").select("data"),
-  ]);
-  falhar(feriados.error);
-  return calendarioDe(
-    p,
-    (feriados.data ?? []).map((f) => f.data),
-  );
+  const [p, feriados] = await Promise.all([parametros(), feriadosDoModulo()]);
+  return calendarioDe(p, feriados);
 });
+
+async function feriadosDoModulo(): Promise<string[]> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.os.feriados);
+  const { data, error } = await osAdmin().from("feriados").select("data");
+  falhar(error);
+  return (data ?? []).map((f) => f.data);
+}
 
 export function calendarioDe(
   p: Pick<Parametros, "dias_uteis" | "expediente_fim">,
@@ -112,25 +152,41 @@ export function calendarioDe(
 
 /** Setores ativos, na ordem da tela. */
 export const setores = cache(async (): Promise<Setor[]> => {
-  const { data, error } = await (await os())
+  await exigirModulo();
+  return setoresDoModulo();
+});
+
+async function setoresDoModulo(): Promise<Setor[]> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.os.setores);
+  const { data, error } = await osAdmin()
     .from("setores")
     .select("*")
     .order("ordem")
     .order("nome");
   falhar(error);
   return data ?? [];
-});
+}
 
 /** Categorias (ativas e inativas; a tela filtra), na ordem do catálogo. */
 export const categorias = cache(async (): Promise<Categoria[]> => {
-  const { data, error } = await (await os())
+  await exigirModulo();
+  return categoriasDoModulo();
+});
+
+async function categoriasDoModulo(): Promise<Categoria[]> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.os.categorias);
+  const { data, error } = await osAdmin()
     .from("categorias")
     .select("*")
     .order("ordem")
     .order("nome");
   falhar(error);
   return data ?? [];
-});
+}
 
 export interface Pessoa {
   id: string;
@@ -140,10 +196,60 @@ export interface Pessoa {
 
 /** Quem usa o módulo (responsável, citação com @). */
 export const pessoas = cache(async (): Promise<Pessoa[]> => {
-  const { data, error } = await (await os()).rpc("pessoas");
-  falhar(error);
-  return data ?? [];
+  await exigirModulo();
+  return pessoasDoModulo();
 });
+
+// Mesma regra de os.pessoas() (que depende de auth.uid() e por isso não
+// roda pela service role): usuários ativos com alguma permissão os.*,
+// individual ou de cargo ativo.
+async function pessoasDoModulo(): Promise<Pessoa[]> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.permissoes, TAG.os.pessoas, TAG.os.membros);
+  const core = createAdminClient().schema("core");
+  const [usuarios, individuais, doCargo, membros] = await Promise.all([
+    core.from("usuarios").select("id, nome, cargo_id").eq("ativo", true),
+    core
+      .from("usuario_permissoes")
+      .select("usuario_id")
+      .like("permissao", "os.%"),
+    core
+      .from("cargo_permissoes")
+      .select("cargo_id, cargos!inner(ativo)")
+      .like("permissao", "os.%")
+      .eq("cargos.ativo", true),
+    osAdmin().from("setor_membros").select("usuario_id, setor_id"),
+  ]);
+  falhar(usuarios.error);
+  falhar(individuais.error);
+  falhar(doCargo.error);
+  falhar(membros.error);
+
+  const comPermissao = new Set(
+    (individuais.data ?? []).map((p) => p.usuario_id),
+  );
+  const cargos = new Set((doCargo.data ?? []).map((c) => c.cargo_id));
+  const setoresDe = new Map<string, string[]>();
+  for (const m of membros.data ?? []) {
+    setoresDe.set(m.usuario_id, [
+      ...(setoresDe.get(m.usuario_id) ?? []),
+      m.setor_id,
+    ]);
+  }
+  return (usuarios.data ?? [])
+    .filter(
+      (u) =>
+        comPermissao.has(u.id) ||
+        (u.cargo_id !== null && cargos.has(u.cargo_id)),
+    )
+    .map((u) => ({
+      id: u.id,
+      nome: u.nome,
+      setores: setoresDe.get(u.id) ?? [],
+    }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
 
 /** Nome de cada pessoa pelo id (para listas e linha do tempo). */
 export const nomes = cache(async (): Promise<Map<string, string>> => {
@@ -220,6 +326,10 @@ export interface FiltroChamados {
   busca?: string | null;
   /** O que o cartão clicado (ou o contador) conta. */
   cartao?: CriterioCartao | null;
+  /** Calendário: prazo no intervalo (ISO; de inclusive, até exclusive). */
+  prazoEntre?: { de: string; ate: string } | null;
+  /** Calendário: visita do terceirizado no intervalo (aaaa-mm-dd). */
+  visitaEntre?: { de: string; ate: string } | null;
 }
 
 /**
@@ -230,19 +340,32 @@ export interface FiltroChamados {
 async function montarConsulta(
   f: FiltroChamados,
   contar?: Contar,
+  colunas?: typeof COLUNAS_CARGA,
 ): Promise<{ q: Consulta } | null> {
-  const ctx = await contexto();
   const status = f.cartao ? statusComCartao(f.status, f.cartao) : f.status;
   if (f.cartao && !status?.length) return null;
-  const destinos =
+  // Os destinos saem uma vez com o status da barra; cada cartão (ou coluna
+  // do quadro) só filtra a mesma lista pelo status dele.
+  const daBarra =
+    f.cartao && (f.cartao.foraDaBarra || !f.status?.length) ? status : f.status;
+  const [ctx, cliente, destinos] = await Promise.all([
+    contexto(),
+    os(),
     f.recorte === "minha_caixa"
-      ? await destinosEmCache(!!f.lixeira, (status ?? []).join(","))
-      : [];
+      ? destinosEmCache(!!f.lixeira, (daBarra ?? []).join(","))
+      : [],
+  ]);
+  const ids = destinos
+    .filter((d) => !status?.length || status.includes(d.status))
+    .map((d) => d.id);
+  // A carga por pessoa lê só duas colunas: os filtros são os mesmos, e quem
+  // pede sabe que a linha só traz essas.
+  const sel = colunas
+    ? (cliente.from("chamados").select(colunas, contar) as unknown as Consulta)
+    : selecionar(cliente, contar);
   // Num objeto: o construtor é "thenable" e o await de uma função async
   // dispararia a consulta antes da ordem e da página.
-  return {
-    q: filtrar(selecionar(await os(), contar), f, status, ctx, destinos),
-  };
+  return { q: filtrar(sel, f, status, ctx, ids) };
 }
 
 type Contar = { count: "exact"; head?: boolean };
@@ -250,6 +373,33 @@ type Consulta = ReturnType<typeof selecionar>;
 
 function selecionar(cliente: Awaited<ReturnType<typeof os>>, contar?: Contar) {
   return cliente.from("chamados").select(COLUNAS_RESUMO, contar);
+}
+
+const COLUNAS_CARGA = "responsavel_id, prazo" as const;
+
+/**
+ * Responsável e prazo de cada chamado que passa nos filtros, numa consulta
+ * só (o PostgREST não agrupa): a carga por pessoa conta daqui em vez de
+ * duas contagens por pessoa. De mil em mil, até `maximo`.
+ */
+export async function responsaveisEPrazos(
+  f: FiltroChamados,
+  maximo = 5000,
+): Promise<Pick<ChamadoResumo, "responsavel_id" | "prazo">[]> {
+  const LOTE = 1000;
+  const linhas: Pick<ChamadoResumo, "responsavel_id" | "prazo">[] = [];
+  for (let de = 0; de < maximo; de += LOTE) {
+    const m = await montarConsulta(f, undefined, COLUNAS_CARGA);
+    if (!m) break;
+    const { data, error } = await m.q
+      .order("id")
+      .range(de, Math.min(de + LOTE, maximo) - 1);
+    falhar(error);
+    for (const c of data ?? [])
+      linhas.push({ responsavel_id: c.responsavel_id, prazo: c.prazo });
+    if ((data ?? []).length < LOTE) break;
+  }
+  return linhas;
 }
 
 function filtrar(
@@ -271,6 +421,12 @@ function filtrar(
   if (f.etiqueta) q = q.contains("etiquetas", [f.etiqueta]);
   if (f.de) q = q.gte("criado_em", `${f.de}T00:00:00-03:00`);
   if (f.ate) q = q.lte("criado_em", `${f.ate}T23:59:59-03:00`);
+  if (f.prazoEntre)
+    q = q.gte("prazo", f.prazoEntre.de).lt("prazo", f.prazoEntre.ate);
+  if (f.visitaEntre)
+    q = q
+      .gte("visita_data", f.visitaEntre.de)
+      .lte("visita_data", f.visitaEntre.ate);
 
   const c = f.cartao;
   if (c?.abertoPor) q = q.eq("aberto_por", c.abertoPor);
@@ -393,12 +549,19 @@ export async function todosOsChamados(
   return linhas;
 }
 
+/** Chamado com um destino meu, e o status dele (para cada cartão filtrar). */
+interface DestinoMeu {
+  id: string;
+  status: Enum<"status_chamado">;
+}
+
 /**
- * Os destinos por requisição: a página e os cartões da Minha caixa pedem
- * a mesma lista (mudando só o status), sem repetir a consulta.
+ * Os destinos por requisição: a página, os cartões da Minha caixa, o
+ * "Seu dia" e as colunas do quadro pedem a mesma lista, sem repetir a
+ * consulta.
  */
 const destinosEmCache = cache(
-  async (lixeira: boolean, status: string): Promise<string[]> =>
+  async (lixeira: boolean, status: string): Promise<DestinoMeu[]> =>
     destinosDaMinhaCaixa(await contexto(), {
       lixeira,
       status: status ? (status.split(",") as Enum<"status_chamado">[]) : [],
@@ -414,7 +577,7 @@ const destinosEmCache = cache(
 async function destinosDaMinhaCaixa(
   ctx: Contexto,
   f: FiltroChamados,
-): Promise<string[]> {
+): Promise<DestinoMeu[]> {
   const eu = ctx.usuario.id;
   const ou = [`usuario_id.eq.${eu}`, `responsavel_id.eq.${eu}`];
   if (ctx.setores.length) ou.push(`setor_id.in.(${ctx.setores.join(",")})`);
@@ -429,7 +592,10 @@ async function destinosDaMinhaCaixa(
   if (f.status?.length) q = q.in("chamados.status", f.status);
   const { data, error } = await q;
   falhar(error);
-  return [...new Set((data ?? []).map((d) => d.chamado_id))];
+  const unicos = new Map<string, DestinoMeu>();
+  for (const d of data ?? [])
+    unicos.set(d.chamado_id, { id: d.chamado_id, status: d.chamados.status });
+  return [...unicos.values()];
 }
 
 // ---------------------------------------------------------------------------

@@ -3,10 +3,10 @@
 import { CircleCheck, Info } from "lucide-react";
 import Link from "next/link";
 import { useId } from "react";
-import { enviarPedido } from "@/app/portal/[token]/actions";
 import { Selecao } from "@/components/selecao";
 import type { DiaDaEscolha } from "@/lib/os/portal";
 import type { CampoExtra } from "@/lib/os/rotulos";
+import { enviarPedido } from "@/server/os/acoes/portal-publico";
 import {
   BotaoEnviar,
   CAMPO,

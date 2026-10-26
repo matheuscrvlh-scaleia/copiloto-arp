@@ -2,10 +2,6 @@
 
 import { Eraser, Loader } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
-import {
-  duplicarVistoria,
-  salvarVistoria,
-} from "@/app/(app)/os/vistorias/actions";
 import { Secao } from "@/components/admin/ui";
 import { classeCampo } from "@/components/estilos";
 import { type EstadoAcao, FormAcao } from "@/components/form-acao";
@@ -23,6 +19,7 @@ import {
   type TextosDoTipo,
   textosEditados,
 } from "@/lib/os/vistoria-regras";
+import { duplicarVistoria, salvarVistoria } from "@/server/os/acoes/vistorias";
 import { Ambientes } from "./ambientes";
 import { Assinatura } from "./assinatura";
 import { BotoesDeEscolha } from "./escolha";

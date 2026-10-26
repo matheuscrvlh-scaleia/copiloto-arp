@@ -12,7 +12,6 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { exportarLista } from "@/app/(app)/os/visoes-actions";
 import { BotaoExportar } from "@/components/os/exportar";
 import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import {
@@ -41,6 +40,7 @@ import {
 import { POR_PAGINA } from "@/lib/os/paginacao";
 import { PARAM_PAINEL } from "@/lib/os/rotas";
 import { ORIGENS, TIPOS } from "@/lib/os/rotulos";
+import { exportarLista } from "@/server/os/acoes/visoes";
 import { ProvedorAvisos } from "./avisos";
 import { type CartaoVisao, CartoesFiltro } from "./cartoes";
 import {

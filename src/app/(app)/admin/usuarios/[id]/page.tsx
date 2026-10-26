@@ -13,15 +13,15 @@ import { Carregando } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarData, formatarDataHora } from "@/lib/formato";
 import { PERMISSOES } from "@/lib/permissions";
-import { cargos, usuarios } from "@/server/admin/dados";
-import { usuarioAtual } from "@/server/auth";
 import {
   alternarUsuario,
   excluirUsuario,
   removerIndividuais,
   salvarUsuario,
   trocarSenha,
-} from "../actions";
+} from "@/server/admin/acoes/usuarios";
+import { cargos, cargosParaEscolha, usuarioAdmin } from "@/server/admin/dados";
+import { usuarioAtual } from "@/server/auth";
 
 export const metadata: Metadata = { title: "Usuário" };
 
@@ -55,12 +55,11 @@ async function Edicao({
   searchParams,
 }: Pick<PageProps<"/admin/usuarios/[id]">, "params" | "searchParams">) {
   const [{ id }, busca] = await Promise.all([params, searchParams]);
-  const [lista, todosCargos, eu] = await Promise.all([
-    usuarios(),
+  const [u, todosCargos, eu] = await Promise.all([
+    usuarioAdmin(id),
     cargos(),
     usuarioAtual(),
   ]);
-  const u = lista.find((x) => x.id === id);
   if (!u) notFound();
   const souEu = u.id === eu.id;
 
@@ -153,7 +152,10 @@ async function Edicao({
           titulo="Acesso"
           descricao="O cargo define as telas e ações liberadas. Mudar vale na hora."
         >
-          <EscolhaDeCargo cargos={todosCargos} cargoInicial={u.cargoId} />
+          <EscolhaDeCargo
+            cargos={cargosParaEscolha(todosCargos)}
+            cargoInicial={u.cargoId}
+          />
         </Secao>
         <EnvioDaAcao className={ALINHADO} />
       </FormAcao>

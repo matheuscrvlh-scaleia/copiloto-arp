@@ -508,7 +508,8 @@ export async function podeConcluirOS(
       .select("valor_terceirizado, orcamento_aprovado_em")
       .eq("chamado_id", chamadoId)
       .maybeSingle(),
-    db.from("parametros").select("teto_terceirizado").eq("id", 1).single(),
+    // O teto vem do cache (quem conclui usa o módulo).
+    parametros(),
   ]);
   if (!ch.data) return "Chamado não encontrado.";
   return motivoParaNaoConcluir({
@@ -517,7 +518,7 @@ export async function podeConcluirOS(
     solucao: ch.data.solucao,
     sessoesAbertas: abertas.count ?? 0,
     valorTerceirizado: custos.data?.valor_terceirizado ?? null,
-    teto: p.data?.teto_terceirizado ?? null,
+    teto: p.teto_terceirizado,
     orcamentoAprovado: !!custos.data?.orcamento_aprovado_em,
   });
 }

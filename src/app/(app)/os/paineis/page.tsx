@@ -6,8 +6,8 @@ import { SemAcesso } from "@/components/protegido";
 import { slugDoSetor } from "@/lib/os/indicadores-setor";
 import { ROTAS_OS } from "@/lib/os/rotas";
 import { contexto } from "@/server/os/base";
-import type { Busca } from "@/server/os/paineis";
-import { setoresDoPainel } from "./_painel/acesso";
+import { setoresDoPainel } from "@/server/os/paineis/acesso";
+import type { Busca } from "@/server/os/paineis/consultas";
 import { EsqueletoDoPainel, Painel } from "./_painel/tela";
 
 export const metadata: Metadata = { title: "Painéis" };

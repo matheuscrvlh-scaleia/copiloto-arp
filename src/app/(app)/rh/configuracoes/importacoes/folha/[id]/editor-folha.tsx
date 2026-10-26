@@ -7,8 +7,8 @@ import { type Opcao, Selecao } from "@/components/selecao";
 import { formatarMoeda, formatarNumero } from "@/lib/formato";
 import { NATUREZAS } from "@/lib/rh/folha/edicao";
 import { ROTULO_CONTRATO, ROTULO_SITUACAO } from "@/lib/rh/rubricas";
+import { salvarPessoaFolha } from "@/server/rh/acoes/folha";
 import type { PessoaParaEditar } from "@/server/rh/folha";
-import { salvarPessoaFolha } from "./actions";
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 const colunas =

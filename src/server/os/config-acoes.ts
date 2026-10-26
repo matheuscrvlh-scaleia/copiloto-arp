@@ -1,8 +1,11 @@
 import "server-only";
+import { updateTag } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
 import { lerValorBr } from "@/lib/formato";
 import type { Permissao } from "@/lib/permissions";
+import { podeAgora } from "@/server/auth";
+import { TAG } from "@/server/cache";
 import { type Contexto, contexto } from "./base";
 
 // Apoio às Server Actions das Configurações: campos do formulário (caixa de
@@ -101,6 +104,39 @@ export async function exigir(
   const ctx = await contexto();
   if (permissoes.some((p) => ctx.pode(p))) return { ctx };
   return { erro: { erro: "Você não tem permissão para esta alteração." } };
+}
+
+/**
+ * Como exigir(), mas confere a permissão agora no banco (sem o cache da
+ * sessão): para as ações que gravam com a service role.
+ */
+export async function exigirAgora(
+  ...permissoes: Permissao[]
+): Promise<
+  { ctx: Contexto; erro?: undefined } | { ctx?: undefined; erro: EstadoAcao }
+> {
+  const [ctx, ...agora] = await Promise.all([
+    contexto(),
+    ...permissoes.map((p) => podeAgora(p)),
+  ]);
+  if (agora.some(Boolean)) return { ctx };
+  return { erro: { erro: "Você não tem permissão para esta alteração." } };
+}
+
+/**
+ * Importação e dados de exemplo gravam em quase todo o cadastro do módulo
+ * (setores, pessoas nos setores, catálogo, lojas, categorias de ativo):
+ * invalida todo o cache de configuração. Só dentro de Server Action.
+ */
+export function invalidarCadastros(): void {
+  for (const tag of [
+    TAG.os.setores,
+    TAG.os.membros,
+    TAG.os.categorias,
+    TAG.os.ativoCategorias,
+    TAG.os.lojas,
+  ])
+    updateTag(tag);
 }
 
 /** Linha que o RLS escondeu ou que sumiu: nada foi alterado. */

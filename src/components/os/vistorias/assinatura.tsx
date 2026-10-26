@@ -2,11 +2,11 @@
 
 import { Eraser, Loader, PenLine, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { ModalConfirmacao } from "@/components/modal-confirmacao";
 import {
   removerAssinatura,
   salvarAssinatura,
-} from "@/app/(app)/os/vistorias/actions";
-import { ModalConfirmacao } from "@/components/modal-confirmacao";
+} from "@/server/os/acoes/vistorias";
 
 // Assinatura feita na tela, com o dedo ou a caneta. Vira um PNG no bucket e
 // sai no laudo sobre a linha da parte; sem ela, a linha fica em branco para

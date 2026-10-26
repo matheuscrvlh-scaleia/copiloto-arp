@@ -10,7 +10,7 @@ import {
 import {
   Atualizado,
   EsqueletoVisao,
-  PainelDaLista,
+  PainelDaBusca,
 } from "@/components/os/lista/topo";
 import { VisaoLista } from "@/components/os/lista/visao-lista";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
@@ -57,6 +57,9 @@ export default function Page({
           <Abertos busca={searchParams} />
           <Suspense fallback={null}>
             <SeuDia />
+          </Suspense>
+          <Suspense fallback={null}>
+            <PainelDaBusca busca={searchParams} caminho="/os/abertos-por-mim" />
           </Suspense>
         </Protegido>
       </Suspense>
@@ -127,7 +130,6 @@ async function Abertos({ busca }: { busca: Promise<Busca> }) {
         }
         vazio="Você não tem pedidos em aberto. Use o botão + Novo para abrir um chamado."
       />
-      <PainelDaLista busca={params} caminho="/os/abertos-por-mim" />
     </div>
   );
 }

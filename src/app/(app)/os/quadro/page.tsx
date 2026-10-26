@@ -8,7 +8,7 @@ import {
   campoSetor,
   campoTipo,
 } from "@/components/os/filtros/opcoes";
-import { Atualizado, PainelDaLista } from "@/components/os/lista/topo";
+import { Atualizado, PainelDaBusca } from "@/components/os/lista/topo";
 import { Quadro } from "@/components/os/quadro/quadro";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
 import { PageHeader } from "@/components/page-header";
@@ -40,6 +40,9 @@ export default function Page({
           <QuadroDaTela busca={searchParams} />
           <Suspense fallback={null}>
             <SeuDia />
+          </Suspense>
+          <Suspense fallback={null}>
+            <PainelDaBusca busca={searchParams} caminho="/os/quadro" />
           </Suspense>
         </Protegido>
       </Suspense>
@@ -128,7 +131,6 @@ async function QuadroDaTela({ busca }: { busca: Promise<Busca> }) {
             : null
         }
       />
-      <PainelDaLista busca={params} caminho="/os/quadro" />
     </div>
   );
 }

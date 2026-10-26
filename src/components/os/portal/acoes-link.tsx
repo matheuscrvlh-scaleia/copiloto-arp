@@ -2,13 +2,13 @@
 
 import { Check, Copy, MessageCircle } from "lucide-react";
 import { startTransition, useState } from "react";
+import { FormAcao } from "@/components/form-acao";
 import {
   cancelarLink,
   gerarLink,
   marcarLinkEnviado,
   trocarLink,
-} from "@/app/(app)/os/portal/actions";
-import { FormAcao } from "@/components/form-acao";
+} from "@/server/os/acoes/portal";
 
 // Ações do link de uma loja: gerar, copiar, enviar pelo WhatsApp (com a
 // mensagem pronta), cancelar e gerar outro, cancelar.

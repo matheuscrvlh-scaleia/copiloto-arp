@@ -14,4 +14,9 @@ Especificações dos módulos (RH e Financeiro), atas e arquivos de exemplo:
 - Nunca copiar dados reais de clientes, funcionários ou credenciais para o repo.
 - Banco: mudanças só por nova migration em `supabase/migrations` (nunca editar uma já aplicada);
   toda tabela nova com RLS e coberta em `supabase/tests`. Modelo: docs/modelo-de-dados.md.
+- Organização, leitura, cache e gravação seguem docs/arquitetura.md: `src/app` só
+  rotas; Supabase e `"use server"` em `src/server/<modulo>`; tags do cache em
+  `src/server/cache.ts`; toda gravação chama `updateTag` do que mudou; service
+  role só depois de `podeAgora()` (ou, em leitura de configuração, da mesma
+  regra do RLS); política de RLS com `(select core.pode(...))`.
 - Antes de concluir: `npm run check` e `npm test`.

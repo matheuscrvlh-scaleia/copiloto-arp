@@ -16,7 +16,7 @@ import {
   somarPonto,
   type TotaisSetor,
 } from "./calculos";
-import type { CustoIndividual, TotaisCusto } from "./custo";
+import type { CustoIndividual, MemoriaDoCusto, TotaisCusto } from "./custo";
 import {
   movimentoEntre,
   tabelaDeHorasPerdidas,
@@ -896,6 +896,37 @@ export function origemDoCustoSobreReceita(
     tabelas: [],
     link: o.link,
   };
+}
+
+/** Memória de cálculo de uma pessoa: cada linha da conta e as pendências. */
+export function tabelasDaMemoria(memoria: MemoriaDoCusto): TabelaDetalhe[] {
+  return [
+    {
+      titulo: "Cada linha da conta",
+      colunas: [
+        { titulo: "Linha" },
+        { titulo: "Valor", numero: true },
+        { titulo: "Regra" },
+      ],
+      linhas: memoria.linhas.map((l, i) => ({
+        chave: `${i}`,
+        celulas: [l.rotulo, formatarMoeda(l.valor), l.regra],
+        ordem: [i, l.valor, l.regra],
+      })),
+    },
+    ...(memoria.pendencias.length
+      ? [
+          {
+            titulo: "Pendências",
+            colunas: [{ titulo: "O que ficou de fora" }],
+            linhas: memoria.pendencias.map((t, i) => ({
+              chave: `${i}`,
+              celulas: [t],
+            })),
+          },
+        ]
+      : []),
+  ];
 }
 
 // ---------------------------------------------------------------------------

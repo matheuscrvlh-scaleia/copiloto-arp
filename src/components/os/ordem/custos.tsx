@@ -6,8 +6,8 @@ import { Selecao } from "@/components/selecao";
 import { formatarDataHora, formatarMoeda, formatarNumero } from "@/lib/formato";
 import { formatarDuracao, type ResultadoOS } from "@/lib/os/calculos";
 import { REGRAS_RATEIO, type RegraRateio } from "@/lib/os/rotulos";
+import { salvarCustoTerceirizado, salvarRateio } from "@/server/os/acoes/ordem";
 import type { Tabela } from "@/server/os/base";
-import { salvarCustoTerceirizado, salvarRateio } from "@/server/os/ordem-acoes";
 import { rotulo } from "./estilos";
 
 // Quadro de custos (só os.custos): mão de obra por técnico com o valor por

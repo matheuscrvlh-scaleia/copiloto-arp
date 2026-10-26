@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useActionState, useState } from "react";
-import { type EstadoLogin, entrar } from "./actions";
+import { type EstadoLogin, entrar } from "@/server/acesso/acoes/login";
 
 const campo =
   "w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5";

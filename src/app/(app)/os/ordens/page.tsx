@@ -17,7 +17,7 @@ import {
 } from "@/components/carregando";
 import { TOM } from "@/components/estilos";
 import { BotaoExportar } from "@/components/os/exportar";
-import { Atualizado, PainelDaLista } from "@/components/os/lista/topo";
+import { Atualizado, PainelDaBusca } from "@/components/os/lista/topo";
 import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import { CLASSE_MARCADO, tonsDaTela } from "@/components/os/tons";
 import { PageHeader } from "@/components/page-header";
@@ -34,6 +34,7 @@ import {
 import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
 import { PARAM_PAINEL } from "@/lib/os/rotas";
 import { paraBrasilia } from "@/lib/os/tempo";
+import { exportarOrdens } from "@/server/os/acoes/ordens";
 import { contexto } from "@/server/os/base";
 import {
   cadastros,
@@ -41,15 +42,14 @@ import {
   filtroDaListaOS,
   paginaDeOS,
 } from "@/server/os/ordem-consulta";
-import { exportarOrdens } from "./actions";
-import { FiltrosOrdens } from "./filtros";
-import { ListaOrdens } from "./lista";
 import {
   CAMINHO_ORDENS as CAMINHO,
   descreverFiltros,
   opcoesDeCategoria,
   paraTela,
-} from "./montar";
+} from "@/server/os/ordens-tela";
+import { FiltrosOrdens } from "./filtros";
+import { ListaOrdens } from "./lista";
 import { Relatorios } from "./relatorios";
 
 export const metadata: Metadata = { title: "Ordens de serviço" };
@@ -70,6 +70,9 @@ export default function Page({
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="os.acessar">
           <Ordens busca={searchParams} />
+          <Suspense fallback={null}>
+            <PainelDaBusca busca={searchParams} caminho={CAMINHO} />
+          </Suspense>
         </Protegido>
       </Suspense>
     </>
@@ -143,7 +146,6 @@ async function Ordens({ busca }: { busca: Promise<Busca> }) {
       {ctx.pode("os.exportar") && (
         <Relatorios hoje={paraBrasilia(agora).data} comCustos={comCustos} />
       )}
-      <PainelDaLista busca={params} caminho={CAMINHO} />
     </div>
   );
 }

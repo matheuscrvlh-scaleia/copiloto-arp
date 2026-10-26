@@ -5,7 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { formatarMoeda, formatarNumero } from "@/lib/formato";
-import { excluirMaterial, salvarMaterial } from "@/server/os/ordem-acoes";
+import { excluirMaterial, salvarMaterial } from "@/server/os/acoes/ordem";
 import { aviso, botao, rotulo } from "./estilos";
 import type { EstadoOS } from "./tipos";
 

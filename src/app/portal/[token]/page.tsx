@@ -11,6 +11,7 @@ import {
 } from "@/components/os/portal/publico/visual";
 import { podeAvaliar } from "@/lib/os/portal";
 import { rotaPortal } from "@/lib/os/rotas";
+import { acessoDaPagina } from "@/server/os/portal-acesso";
 import {
   categoriasDoPortal,
   documentosDaLoja,
@@ -18,7 +19,6 @@ import {
   parametrosDoPortal,
   pedidosDaLoja,
 } from "@/server/os/portal-publico";
-import { acessoDaPagina } from "./acesso";
 
 // Início do portal: nome da loja, "Fazer um pedido", os tipos de pedido
 // do catálogo, "Meus pedidos" com o status em palavras simples e os

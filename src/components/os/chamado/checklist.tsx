@@ -2,9 +2,9 @@
 
 import { Check } from "lucide-react";
 import { useActionState, useOptimistic, useTransition } from "react";
-import { marcarChecklist } from "@/app/(app)/os/chamados/actions";
 import { formatarDataHora } from "@/lib/formato";
 import type { ItemChecklist } from "@/lib/os/chamado";
+import { marcarChecklist } from "@/server/os/acoes/chamados";
 
 // Checklist do chamado: tocar no item marca (com quem e quando). Item
 // obrigatório pendente impede concluir. Marca na hora e confirma no

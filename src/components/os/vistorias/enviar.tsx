@@ -2,7 +2,7 @@
 
 import { Check, Copy, Loader, MessageCircle, Send } from "lucide-react";
 import { useState } from "react";
-import { prepararEnvio } from "@/app/(app)/os/vistorias/actions";
+import { prepararEnvio } from "@/server/os/acoes/vistorias";
 
 // Envio do laudo ao locatário: gera o PDF, guarda na vistoria (e no portal
 // da loja) e abre o WhatsApp com a mensagem pronta e o link do PDF.

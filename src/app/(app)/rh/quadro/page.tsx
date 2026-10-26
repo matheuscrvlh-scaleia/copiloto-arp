@@ -27,7 +27,7 @@ import {
   Tabela,
 } from "@/components/dashboard/tabela";
 import { TabelaBusca } from "@/components/dashboard/tabela-busca";
-import { ProvedorDetalhe } from "@/components/modal-detalhe";
+import { type Detalhe, ProvedorDetalhe } from "@/components/modal-detalhe";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
@@ -64,6 +64,7 @@ import {
   ROTULO_TURNOVER,
   type TipoDesligamento,
 } from "@/lib/rh/turnover";
+import { tabelasDoQuadro } from "@/server/rh/acoes/detalhes";
 import { colaboradoresDoQuadro, metaDe } from "@/server/rh/dados";
 import {
   type Busca,
@@ -142,22 +143,35 @@ async function Quadro({ busca }: { busca: Promise<Busca> }) {
     }));
   // De onde vem cada número (modal ao clicar). A tela já exige rh.quadro.
   // Sem competência: o período do filtro; com ela, aquele mês do gráfico.
-  const doMes = (foco: FocoQuadro, c?: string) =>
-    c
-      ? origemDoQuadro(cs, c, fimConsiderado(c), {
-          foco,
-          pessoas: true,
+  // As listas de pessoas (todos os ativos de cada mês, 24 modais) vêm ao
+  // abrir; o resumo vai pronto com a página.
+  const doMes = (foco: FocoQuadro, c?: string): Detalhe => {
+    const { de, fim, nome, numeros } = c
+      ? {
+          de: c,
+          fim: fimConsiderado(c),
+          nome: formatarMes(c),
           numeros: doHistorico.get(c) ?? null,
-          semTurnover,
-          rotulo: formatarMes(c),
-        })
-      : origemDoQuadro(cs, periodo.de, ate, {
-          foco,
-          pessoas: true,
-          numeros: tv,
-          semTurnover,
-          rotulo,
-        });
+        }
+      : { de: periodo.de, fim: ate, nome: rotulo, numeros: tv };
+    return {
+      ...origemDoQuadro(cs, de, fim, {
+        foco,
+        pessoas: true,
+        numeros,
+        semTurnover,
+        rotulo: nome,
+      }),
+      tabelas: [],
+      carregarTabelas: tabelasDoQuadro.bind(null, {
+        de,
+        fim,
+        foco,
+        rotulo: nome,
+        departamento,
+      }),
+    };
+  };
   // O Acordo entra no tipo onde a ARP configurou no Copiloto.
   const tipoNaConta = (t: TipoDesligamento | null) =>
     t === "acordo" && tv && tv.acordoContaComo !== "separado"

@@ -65,6 +65,21 @@ export function PainelDaLista({
   );
 }
 
+/**
+ * A mesma janela, lida direto da URL: fica ao lado da lista (não dentro
+ * dela), para o detalhe ser lido junto com a lista, sem esperar por ela.
+ * Use dentro de <Suspense>.
+ */
+export async function PainelDaBusca({
+  busca,
+  caminho,
+}: {
+  busca: Promise<Busca>;
+  caminho: string;
+}) {
+  return <PainelDaLista busca={await busca} caminho={caminho} />;
+}
+
 /** Esqueleto das visões: hora, filtros, cartões e a lista. */
 export function EsqueletoVisao({
   cartoes = 4,

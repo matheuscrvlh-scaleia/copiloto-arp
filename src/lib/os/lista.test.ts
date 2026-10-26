@@ -6,6 +6,7 @@ import {
   CHAVES_CARTAO,
   type ContextoLista,
   type CriterioCartao,
+  cargaDosAbertos,
   cargaPorPessoa,
   contarCartao,
   criterioDoCartao,
@@ -553,6 +554,51 @@ describe("período do painel de filtros", () => {
     expect(descreverPeriodo("2026-10-02", undefined, hoje)).toBe(
       "Desde 02/10/2026",
     );
+  });
+});
+
+describe("carga dos abertos (uma leitura só)", () => {
+  const agora = new Date("2026-10-26T15:00:00Z");
+  const membros = [
+    { id: "ana", nome: "Ana" },
+    { id: "bia", nome: "Bia" },
+  ];
+
+  it("conta abertos e atrasados por pessoa e na fila", () => {
+    const r = cargaDosAbertos(
+      [
+        { responsavel_id: "ana", prazo: "2026-10-26T14:00:00+00:00" },
+        { responsavel_id: "ana", prazo: "2026-10-27T14:00:00+00:00" },
+        { responsavel_id: "ana", prazo: null },
+        { responsavel_id: null, prazo: "2026-10-20T10:00:00+00:00" },
+      ],
+      membros,
+      agora,
+    );
+    expect(r).toEqual([
+      { id: null, nome: "Na fila", abertos: 1, atrasados: 1 },
+      { id: "ana", nome: "Ana", abertos: 3, atrasados: 1 },
+      { id: "bia", nome: "Bia", abertos: 0, atrasados: 0 },
+    ]);
+  });
+
+  it("quem não é do setor não entra; fila vazia some", () => {
+    const r = cargaDosAbertos(
+      [{ responsavel_id: "caio", prazo: null }],
+      membros,
+      agora,
+    );
+    expect(r.map((c) => c.id)).toEqual(["ana", "bia"]);
+    expect(r.every((c) => c.abertos === 0)).toBe(true);
+  });
+
+  it("prazo exatamente agora ainda não atrasou", () => {
+    const [ana] = cargaDosAbertos(
+      [{ responsavel_id: "ana", prazo: agora.toISOString() }],
+      membros,
+      agora,
+    );
+    expect(ana).toMatchObject({ abertos: 1, atrasados: 0 });
   });
 });
 

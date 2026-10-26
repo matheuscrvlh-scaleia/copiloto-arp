@@ -1,4 +1,5 @@
 import "server-only";
+import { revalidateTag } from "next/cache";
 import { ConnectorError, mensagemSegura } from "@/connectors/http";
 import { diasDoCalculo, totaisDoCalculo } from "@/connectors/secullum/calculo";
 import {
@@ -6,6 +7,7 @@ import {
   type Periodo,
 } from "@/connectors/secullum/client";
 import { type AdminClient, createAdminClient } from "@/lib/supabase/admin";
+import { TAG } from "../cache";
 import { secullum as criarClienteSecullum } from "../integracoes";
 import { emLotes, emParalelo, executar, guardarBrutos } from "./execucao";
 import {
@@ -68,6 +70,8 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
         { onConflict: "secullum_id", ignoreDuplicates: true },
       );
       if (error) throw error;
+      // Departamento novo entra no cache do módulo (filtros, cadastros).
+      revalidateTag(TAG.rh.departamentos, "max");
     }
     const depPorSecullum = await mapa(
       rh.from("departamentos").select("id, secullum_id"),

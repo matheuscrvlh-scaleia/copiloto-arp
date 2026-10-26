@@ -1,7 +1,18 @@
 import "server-only";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import {
+  cargosDoRh,
+  departamentosDoRh,
+  type EncargosDoRh,
+  empresaDoRh,
+  encargosDoRh,
+  rubricasDoRh,
+} from "./configuracao";
 
-// Leituras da tela de Parâmetros, com a sessão do usuário (RLS).
+// Leituras da tela de Parâmetros. A configuração do módulo vem do cache
+// (configuracao.ts); jornadas (há uma por funcionário), funcionários e
+// histórico, com a sessão do usuário (RLS).
 
 export type NivelJornada = "empresa" | "departamento" | "cargo" | "colaborador";
 
@@ -9,12 +20,12 @@ function falhar(erro: { message: string } | null): asserts erro is null {
   if (erro) throw new Error(`Falha ao ler o banco: ${erro.message}`);
 }
 
-export async function dadosDosParametros() {
+export const dadosDosParametros = cache(async () => {
   const supabase = await createClient();
   const rh = supabase.schema("rh");
   const [
     deps,
-    empresa,
+    empresas,
     encargos,
     rubricas,
     auditoria,
@@ -22,21 +33,10 @@ export async function dadosDosParametros() {
     cargos,
     colaboradores,
   ] = await Promise.all([
-    rh
-      .from("departamentos")
-      .select("id, nome, codigo_folha, secullum_id, ativo")
-      .order("nome"),
-    rh
-      .from("parametros_empresa")
-      .select("*")
-      .order("vigente_desde", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    rh
-      .from("encargos_por_contrato")
-      .select("*")
-      .order("vigente_desde", { ascending: false }),
-    rh.from("rubricas").select("codigo, descricao, grupo").order("codigo"),
+    departamentosDoRh(),
+    empresaDoRh(),
+    encargosDoRh(),
+    rubricasDoRh(),
     supabase
       .schema("core")
       .from("auditoria")
@@ -49,20 +49,10 @@ export async function dadosDosParametros() {
         "departamento_id, cargo_id, colaborador_id, horas_mes_min, vigente_desde",
       )
       .order("vigente_desde", { ascending: false }),
-    rh.from("cargos").select("id, nome").order("nome"),
+    cargosDoRh(),
     rh.from("colaboradores").select("id, nome, desligamento").order("nome"),
   ]);
-  for (const r of [
-    deps,
-    empresa,
-    encargos,
-    rubricas,
-    auditoria,
-    jornadas,
-    cargos,
-    colaboradores,
-  ])
-    falhar(r.error);
+  for (const r of [auditoria, jornadas, colaboradores]) falhar(r.error);
 
   // Nomes de quem alterou: o RLS só mostra os que o usuário pode ver.
   const ids = [
@@ -83,16 +73,16 @@ export async function dadosDosParametros() {
   }
 
   // Encargos: só a linha vigente (mais recente) de cada tipo de contrato.
-  const vigentes = new Map<string, NonNullable<typeof encargos.data>[number]>();
-  for (const e of encargos.data ?? []) {
+  const vigentes = new Map<string, EncargosDoRh>();
+  for (const e of encargos) {
     if (!vigentes.has(e.tipo_contrato)) vigentes.set(e.tipo_contrato, e);
   }
 
   // Jornadas: a linha vigente de cada alvo (empresa, departamento, cargo ou
   // funcionário), com o nome de quem ela cobre.
   const nomeDe = new Map<string, string>([
-    ...(deps.data ?? []).map((d) => [`departamento:${d.id}`, d.nome] as const),
-    ...(cargos.data ?? []).map((c) => [`cargo:${c.id}`, c.nome] as const),
+    ...deps.map((d) => [`departamento:${d.id}`, d.nome] as const),
+    ...cargos.map((c) => [`cargo:${c.id}`, c.nome] as const),
     ...(colaboradores.data ?? []).map(
       (c) => [`colaborador:${c.id}`, c.nome] as const,
     ),
@@ -128,19 +118,20 @@ export async function dadosDosParametros() {
   const ordemNivel = ["empresa", "departamento", "cargo", "colaborador"];
 
   return {
-    departamentos: deps.data ?? [],
-    empresa: empresa.data,
+    departamentos: deps,
+    // A vigência mais recente (a lista vem da mais antiga para a mais nova).
+    empresa: empresas.at(-1) ?? null,
     encargos: [...vigentes.values()],
     jornadas: [...jornadasVigentes.values()].sort(
       (a, b) =>
         ordemNivel.indexOf(a.nivel) - ordemNivel.indexOf(b.nivel) ||
         a.nome.localeCompare(b.nome),
     ),
-    cargos: cargos.data ?? [],
+    cargos,
     colaboradoresAtivos: (colaboradores.data ?? []).filter(
       (c) => !c.desligamento,
     ),
-    rubricas: rubricas.data ?? [],
+    rubricas,
     auditoria: (auditoria.data ?? []).map((a) => ({
       ...a,
       autor: a.usuario_id
@@ -148,4 +139,4 @@ export async function dadosDosParametros() {
         : "Sistema (carga ou sincronização)",
     })),
   };
-}
+});

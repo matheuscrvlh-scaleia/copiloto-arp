@@ -1,11 +1,12 @@
 import "server-only";
 import { cache } from "react";
-import readXlsxFile from "read-excel-file/node";
 import { type AbaDaPlanilha, lerTabelaDoPlano } from "@/lib/rh/plano";
 import { createClient } from "@/lib/supabase/server";
+import { beneficiosDoRh, tabelasDosPlanos } from "./configuracao";
 
-// Benefícios, vínculos por funcionário e tabelas do plano. Leituras com a
-// sessão do usuário: o RLS decide o que ele vê (rh.beneficios).
+// Benefícios, vínculos por funcionário e tabelas do plano. O catálogo e as
+// tabelas do plano são configuração do módulo (cache, configuracao.ts); quem
+// recebe cada benefício é lido com a sessão: o RLS decide (rh.beneficios).
 
 function falhar(erro: { message: string } | null): asserts erro is null {
   if (erro) throw new Error(`Falha ao ler o banco: ${erro.message}`);
@@ -57,15 +58,7 @@ export interface Vinculo {
 }
 
 export const beneficiosCadastrados = cache(async (): Promise<Beneficio[]> => {
-  const { data, error } = await (await rh())
-    .from("beneficios")
-    .select(
-      "id, nome, tipo, valor_padrao, rubricas_desconto, rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo",
-    )
-    .order("ativo", { ascending: false })
-    .order("nome");
-  falhar(error);
-  return (data ?? []).map((b) => ({
+  return (await beneficiosDoRh()).map((b) => ({
     ...b,
     valor_padrao: b.valor_padrao === null ? null : Number(b.valor_padrao),
     dependente_valor:
@@ -142,31 +135,23 @@ export interface TabelaCadastrada {
 }
 
 export const tabelasDoPlano = cache(async (): Promise<TabelaCadastrada[]> => {
-  const { data, error } = await (await rh())
-    .from("plano_tabelas")
-    .select(
-      `id, beneficio_id, vigente_desde, reajuste_pct,
-       beneficio:beneficios(nome),
-       faixas:plano_faixas_etarias(idade_min, idade_max, mensalidade),
-       regras:plano_coparticipacao(meses_min)`,
-    )
-    .order("vigente_desde", { ascending: false });
-  falhar(error);
-  return (data ?? []).map((t) => ({
+  return (await tabelasDosPlanos()).map((t) => ({
     id: t.id,
     beneficio_id: t.beneficio_id,
-    beneficio: t.beneficio?.nome ?? "—",
+    beneficio: t.beneficio ?? "—",
     vigente_desde: t.vigente_desde,
     reajuste_pct: t.reajuste_pct === null ? null : Number(t.reajuste_pct),
     faixas: [...t.faixas]
       .map((f) => ({ ...f, mensalidade: Number(f.mensalidade) }))
       .sort((a, b) => a.idade_min - b.idade_min),
-    regras: t.regras.length,
+    regras: t.regras,
   }));
 });
 
 /** Lê a planilha da operadora (.xlsx) já no formato das tabelas do banco. */
 export async function lerPlanilhaDoPlano(bytes: Uint8Array) {
+  // Só quem importa a planilha carrega o leitor de Excel.
+  const { default: readXlsxFile } = await import("read-excel-file/node");
   const abas = await readXlsxFile(Buffer.from(bytes));
   return lerTabelaDoPlano(abas as AbaDaPlanilha[]);
 }

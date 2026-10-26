@@ -32,15 +32,13 @@ import {
 } from "@/lib/os/portal";
 import { rotaPortal } from "@/lib/os/rotas";
 import type { CampoExtra } from "@/lib/os/rotulos";
-import { diasLivres } from "@/server/os/agenda";
-import { osAdmin } from "@/server/os/base";
+import { acessoDaPagina } from "@/server/os/portal-acesso";
 import {
   type ArquivoDoPortal,
-  agendaDoPortal,
   type DetalheDoPedido,
+  horariosDaAgenda,
   pedidoDaLoja,
 } from "@/server/os/portal-publico";
-import { acessoDaPagina } from "../../acesso";
 
 // Um pedido da loja: andamento, horário marcado, conversa com o setor (só
 // o que a equipe marcou para o lojista), arquivos devolvidos (o laudo do
@@ -264,8 +262,7 @@ async function diasParaRemarcar(
   const agora = new Date();
   const pares = await Promise.all(
     ids.map(async (id) => {
-      const agenda = await agendaDoPortal(id);
-      const dias = agenda ? await diasLivres(osAdmin(), agenda, agora) : [];
+      const { dias } = await horariosDaAgenda(id, agora);
       return [id, paraEscolha(dias)] as const;
     }),
   );

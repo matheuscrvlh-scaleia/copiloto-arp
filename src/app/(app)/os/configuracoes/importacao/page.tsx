@@ -24,13 +24,6 @@ import {
 } from "@/lib/os/importacao-conferencia";
 import { LAYOUT_DO_PACOTE } from "@/lib/os/importacao-modelo";
 import { STATUS, STATUS_VISTORIA } from "@/lib/os/rotulos";
-import { nomes, os } from "@/server/os/base";
-import { exemploAtual } from "@/server/os/exemplo";
-import {
-  type Importacao,
-  lerResumo,
-  type ResumoDaImportacao,
-} from "@/server/os/importacao/previa";
 import {
   apagarExemplo,
   confirmar,
@@ -42,7 +35,15 @@ import {
   prepararEnvio,
   relerPrevia,
   salvarMapeamento,
-} from "./actions";
+} from "@/server/os/acoes/config-importacao";
+import { nomes } from "@/server/os/base";
+import { exemploAtual } from "@/server/os/exemplo";
+import {
+  type Importacao,
+  importacoesRecentes,
+  lerResumo,
+  type ResumoDaImportacao,
+} from "@/server/os/importacao/previa";
 
 export const metadata: Metadata = { title: "Importação e exemplos" };
 
@@ -74,20 +75,10 @@ function Esqueleto() {
   );
 }
 
-async function importacoes(): Promise<Importacao[]> {
-  const { data, error } = await (await os())
-    .from("importacoes")
-    .select("*")
-    .order("criado_em", { ascending: false })
-    .limit(30);
-  if (error) throw new Error(`Importações: ${error.message}`);
-  return data ?? [];
-}
-
 async function Tela() {
   const [exemplo, lista, nomesPorId] = await Promise.all([
     exemploAtual(),
-    importacoes(),
+    importacoesRecentes(),
     nomes(),
   ]);
   const aberta = lista.find((i) => i.status === "previa");

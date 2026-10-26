@@ -19,7 +19,7 @@ import {
   cancelarLinkTerceirizado,
   enviarAoTerceirizado,
   usarDoTerceirizado,
-} from "@/server/os/ordem-terceirizado-acoes";
+} from "@/server/os/acoes/ordem-terceirizado";
 import { aviso, botao, rotulo } from "./estilos";
 import type { EstadoOS } from "./tipos";
 

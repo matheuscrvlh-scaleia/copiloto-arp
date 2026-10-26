@@ -12,11 +12,11 @@ import { ListaBusca } from "@/components/os/portal/lista-busca";
 import { SeloExemplo } from "@/components/os/selos";
 import { SemAcesso } from "@/components/protegido";
 import { formatarData } from "@/lib/formato";
-import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
 import { lerFiltroLojas, SITUACOES_LOJA } from "@/lib/os/portal-lista";
+import { exportarLojas } from "@/server/os/acoes/portal";
 import { contexto } from "@/server/os/base";
-import { type Loja, lojasDoFiltro, paginaDeLojas } from "@/server/os/lojas";
+import { type Loja, paginaDeLojas } from "@/server/os/lojas";
 
 export const metadata: Metadata = { title: "Lojas · Portal e agenda" };
 
@@ -37,50 +37,11 @@ export default function Page({ searchParams }: PageProps<"/os/portal/lojas">) {
   );
 }
 
-const COLUNAS_EXPORTAR: ColunaExportar[] = [
-  { titulo: "LUC" },
-  { titulo: "Loja" },
-  { titulo: "Locatário" },
-  { titulo: "Bloco" },
-  { titulo: "Situação" },
-  { titulo: "Início" },
-  { titulo: "Fim" },
-  { titulo: "Telefone" },
-  { titulo: "Vaga" },
-];
-
-/** Exportar: o filtro inteiro, lido só no clique (não só a página). */
-async function exportarLojas(
-  busca: Record<string, string>,
-): Promise<{ colunas: ColunaExportar[]; linhas: CelulaExportar[][] }> {
-  "use server";
-  const ctx = await contexto();
-  if (!ctx.pode("os.portal") || !ctx.pode("os.exportar"))
-    throw new Error("Sem permissão para exportar.");
-  const { s, q } = lerFiltroLojas(busca);
-  const lista = await lojasDoFiltro(s, q);
-  return {
-    colunas: COLUNAS_EXPORTAR,
-    linhas: lista.map((l) => [
-      l.luc,
-      l.nome,
-      l.locatario,
-      l.bloco,
-      l.situacao === "vigente" ? "Vigente" : "Encerrado",
-      l.inicio ? formatarData(l.inicio) : null,
-      l.fim ? formatarData(l.fim) : null,
-      l.telefone,
-      l.tem_vaga === null ? null : l.tem_vaga ? "Sim" : "Não",
-    ]),
-  };
-}
-
 async function Lojas({
   searchParams,
 }: Pick<PageProps<"/os/portal/lojas">, "searchParams">) {
-  const ctx = await contexto();
+  const [ctx, sp] = await Promise.all([contexto(), searchParams]);
   if (!ctx.pode("os.portal")) return <SemAcesso />;
-  const sp = await searchParams;
   const { s, q } = lerFiltroLojas(sp);
   const pagina = paginaDaUrl(sp.pagina);
   // Só a página mostrada vem do banco, com a busca.

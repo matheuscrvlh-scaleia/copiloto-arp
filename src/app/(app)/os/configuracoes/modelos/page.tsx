@@ -37,6 +37,13 @@ import { rotaChamado } from "@/lib/os/rotas";
 import { TIPOS } from "@/lib/os/rotulos";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import {
+  alternarModelo,
+  dispararModeloManual,
+  pararSerie,
+  rodarRotinasAgora,
+  salvarModelo,
+} from "@/server/os/acoes/config-modelos";
+import {
   categorias,
   contexto,
   nomes,
@@ -53,13 +60,6 @@ import {
   type Serie,
   seriesAtivas,
 } from "@/server/os/modelos";
-import {
-  alternarModelo,
-  dispararModeloManual,
-  pararSerie,
-  rodarRotinasAgora,
-  salvarModelo,
-} from "./actions";
 
 export const metadata: Metadata = { title: "Modelos e lembretes" };
 

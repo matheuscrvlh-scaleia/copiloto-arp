@@ -5,11 +5,18 @@ import {
   totalForaDoIntervalo,
 } from "@/lib/os/filtro-postgrest";
 import { intervalo } from "@/lib/os/paginacao";
-import { inicioDoMes, mediaDasNotas, modeloDaMensagem } from "@/lib/os/portal";
+import {
+  type DiaDaEscolha,
+  inicioDoMes,
+  mediaDasNotas,
+  modeloDaMensagem,
+  paraEscolha,
+} from "@/lib/os/portal";
 import { buscaDeLojas, type FiltroPortal } from "@/lib/os/portal-lista";
 import { rotaPortal } from "@/lib/os/rotas";
 import { linkWhatsApp, preencher } from "@/lib/os/whatsapp";
-import { registrarEvento } from "@/server/logs";
+import { registrarDepois } from "@/server/logs";
+import { type Agenda, diasLivres } from "./agenda";
 import {
   novoToken,
   os,
@@ -30,6 +37,27 @@ import type { Loja } from "./lojas";
 // - Chamado ("Avisar lojista pelo WhatsApp"): linkDoPortalDaLoja.
 
 type ClienteOs = ReturnType<typeof osAdmin>;
+
+/**
+ * Dias livres de cada agenda que tem alguém para remarcar (tela das
+ * agendas), pela sessão: o RLS confere a agenda e a ocupação.
+ */
+export async function diasParaRemarcar(
+  lista: Agenda[],
+  agendaIds: Set<string>,
+  agora: Date,
+): Promise<Map<string, DiaDaEscolha[]>> {
+  const db = await os();
+  const pares = await Promise.all(
+    lista
+      .filter((a) => agendaIds.has(a.id))
+      .map(
+        async (a) =>
+          [a.id, paraEscolha(await diasLivres(db, a, agora))] as const,
+      ),
+  );
+  return new Map(pares);
+}
 
 export interface LinkDaLoja {
   lojaId: string;
@@ -90,7 +118,7 @@ async function gerar(
     if (outro) return paraLink(lojaId, outro.token, false);
     throw new Error(`Não foi possível gerar o link: ${e.message}`);
   }
-  await registrarEvento({
+  registrarDepois({
     modulo: "os",
     evento: "os_link_portal",
     descricao: `Gerou o link do portal da loja ${loja.nome}`,
@@ -118,7 +146,7 @@ async function cancelar(
     throw new Error(`Não foi possível cancelar o link: ${error.message}`);
   const cancelado = data?.[0];
   if (!cancelado) return false;
-  await registrarEvento({
+  registrarDepois({
     modulo: "os",
     evento: "os_link_portal",
     descricao: `Cancelou o link do portal da loja ${cancelado.loja?.nome ?? lojaId}`,
@@ -219,7 +247,7 @@ export async function gerarEmLote(usuarioId: string): Promise<number> {
   );
   if (error)
     throw new Error(`Não foi possível gerar os links: ${error.message}`);
-  await registrarEvento({
+  registrarDepois({
     modulo: "os",
     evento: "os_link_portal",
     descricao: `Gerou o link do portal de ${novas.length} lojas de uma vez`,
@@ -461,11 +489,13 @@ export async function lojasDoPortal(
     lojas.push(...(data ?? []));
     if ((data ?? []).length < 1000) break;
   }
-  const linhas: LinhaDoPortal[] = [];
-  // Os ids de cada lote vão na URL.
-  for (let i = 0; i < lojas.length; i += 100)
-    linhas.push(...(await completarLojas(lojas.slice(i, i + 100), agora)));
-  return linhas;
+  // Os ids de cada lote vão na URL; os lotes vão juntos.
+  const lotes = await Promise.all(
+    Array.from({ length: Math.ceil(lojas.length / 100) }, (_, k) =>
+      completarLojas(lojas.slice(k * 100, k * 100 + 100), agora),
+    ),
+  );
+  return lotes.flat();
 }
 
 /** Os cartões do topo: contagens no banco; a média, das notas recentes. */

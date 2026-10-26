@@ -1,13 +1,13 @@
 "use client";
 
 import { useId, useState } from "react";
+import type { DiaDaEscolha } from "@/lib/os/portal";
 import {
   avaliar,
   reabrir,
   remarcar,
   responder,
-} from "@/app/portal/[token]/actions";
-import type { DiaDaEscolha } from "@/lib/os/portal";
+} from "@/server/os/acoes/portal-publico";
 import {
   BotaoEnviar,
   CAMPO,

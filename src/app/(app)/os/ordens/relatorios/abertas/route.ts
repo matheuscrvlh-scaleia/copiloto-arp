@@ -3,8 +3,8 @@ import {
   pdfDeAbertas,
   planilhaDeAbertas,
 } from "@/server/os/relatorios/abertas";
+import { arquivo, podeExportar } from "@/server/os/relatorios/periodo";
 import { TIPO_XLSX } from "@/server/os/relatorios/planilha";
-import { arquivo, podeExportar } from "../periodo";
 
 // OS em aberto (impressão): ?formato=pdf (abre no navegador) ou xlsx.
 export const maxDuration = 120;

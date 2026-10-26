@@ -2,9 +2,9 @@
 
 import { Camera, ImagePlus, Loader, Trash2, TriangleAlert } from "lucide-react";
 import { useRef, useState } from "react";
-import { enviarFoto, removerFoto } from "@/app/(app)/os/vistorias/actions";
 import { ModalConfirmacao } from "@/components/modal-confirmacao";
 import { tamanhoReduzido } from "@/lib/os/vistoria-regras";
+import { enviarFoto, removerFoto } from "@/server/os/acoes/vistorias";
 import type { Foto } from "./tipos";
 
 // Fotos do ambiente: tiradas direto do telefone (ou da galeria), várias por

@@ -8,8 +8,8 @@ import { Situacao } from "@/components/admin/ui";
 import { Carregando } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarNumero } from "@/lib/formato";
+import { alternarCargo, apagarCargo } from "@/server/admin/acoes/usuarios";
 import { cargos } from "@/server/admin/dados";
-import { alternarCargo, apagarCargo } from "../../actions";
 import { FormCargo } from "../form-cargo";
 import { confirmarExclusao, confirmarInativacao } from "../textos";
 

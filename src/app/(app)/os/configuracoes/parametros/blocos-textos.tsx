@@ -22,14 +22,6 @@ import {
   LOCADOR_PADRAO,
   LOCAL_PADRAO,
 } from "@/lib/os/vistoria";
-import type { Tabela } from "@/server/os/base";
-import { categorias, parametros, setores } from "@/server/os/base";
-import {
-  metas,
-  papelTimbradoAtual,
-  ultimasAlteracoes,
-} from "@/server/os/configuracoes";
-import { MARGENS } from "@/server/os/pdf/papel-timbrado";
 import {
   enviarPapelTimbrado,
   removerMeta,
@@ -38,7 +30,15 @@ import {
   salvarMeta,
   salvarPortal,
   salvarVistorias,
-} from "./actions";
+} from "@/server/os/acoes/config-parametros";
+import type { Tabela } from "@/server/os/base";
+import { categorias, parametros, setores } from "@/server/os/base";
+import {
+  metas,
+  papelTimbradoAtual,
+  ultimasAlteracoes,
+} from "@/server/os/configuracoes";
+import { MARGENS } from "@/server/os/pdf/papel-timbrado";
 
 // Blocos de textos e metas: vistorias (laudo), portal, metas dos painéis,
 // mensagens do WhatsApp e o papel timbrado dos PDFs.

@@ -19,9 +19,9 @@ import { formatarDataHora } from "@/lib/formato";
 import { formatarNumeroChamado } from "@/lib/os/numeros";
 import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
 import { rotaChamado } from "@/lib/os/rotas";
+import { restaurarChamado } from "@/server/os/acoes/config-lixeira";
 import { nomes, setores } from "@/server/os/base";
-import { restaurarChamado } from "./actions";
-import { paginaDaLixeira } from "./consulta";
+import { paginaDaLixeira } from "@/server/os/lixeira";
 
 export const metadata: Metadata = { title: "Lixeira de chamados" };
 

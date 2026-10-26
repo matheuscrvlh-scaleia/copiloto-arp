@@ -10,7 +10,7 @@ import type { Gatilho } from "@/lib/os/modelos";
 import { resultadoParaBanco } from "@/lib/os/ordem";
 import { proximoCodigo, TEXTOS_PADRAO } from "@/lib/os/vistoria";
 import type { Json } from "@/lib/supabase/database.types";
-import { registrarEvento } from "@/server/logs";
+import { registrarDepois } from "@/server/logs";
 import { configDoSistema, usuariosDoModulo } from "./automacao";
 import { caminhoDoArquivo, enviarArquivo, os, osAdmin } from "./base";
 import { removerEmLotes } from "./importacao/arquivos";
@@ -173,7 +173,7 @@ export async function gerarDadosDeExemplo(
   const colocadosEmSetor = await colocarEmSetores(pessoas, setores.data ?? []);
 
   const contagens = contarExemplo(dados);
-  await registrarEvento({
+  registrarDepois({
     modulo: "os",
     evento: "os_exemplo_gerado",
     descricao: `Gerou dados de exemplo: ${contagens.lojas} lojas, ${contagens.chamados} chamados (${contagens.os} OS), ${contagens.ativos} ativos e ${contagens.vistorias} vistorias`,
@@ -429,7 +429,7 @@ export async function apagarDadosDeExemplo(
     db.from("lojas").delete({ count: "exact" }).eq("exemplo", true),
   );
 
-  await registrarEvento({
+  registrarDepois({
     modulo: "os",
     evento: "os_exemplo_apagado",
     descricao: `Apagou os dados de exemplo: ${contagens.chamados ?? 0} chamados, ${contagens.lojas ?? 0} lojas, ${contagens.ativos ?? 0} ativos e ${contagens.vistorias ?? 0} vistorias`,

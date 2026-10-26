@@ -1,4 +1,6 @@
 import "server-only";
+import { cacheLife, cacheTag } from "next/cache";
+import { after } from "next/server";
 import { formatarData } from "@/lib/formato";
 import { linkAtivo, localDaOS, tipoDeServico } from "@/lib/os/ordem";
 import { dataHoraBr } from "@/lib/os/relatorios";
@@ -7,6 +9,7 @@ import { PERIODOS, type Periodo, PRIORIDADES } from "@/lib/os/rotulos";
 import { preencher } from "@/lib/os/whatsapp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
+import { TAG } from "@/server/cache";
 import {
   notificar,
   osAdmin,
@@ -81,6 +84,10 @@ const COLUNAS_LINK =
 const COLUNAS_CHAMADO =
   "id, numero, titulo, descricao, status, prioridade, categoria_id, bloco, local, loja_id, empresa_id, visita_data, visita_periodo, prazo_terceirizado, responsavel_id, aberto_por, lixeira_em, solucao" as const;
 
+/** O link, a OS e a empresa (do link ou da OS) numa consulta só. */
+const COLUNAS_ACESSO =
+  `${COLUNAS_LINK}, empresa:empresas(nome, telefone), chamado:chamados!inner(${COLUNAS_CHAMADO}, empresa:empresas(nome, telefone))` as const;
+
 type Link = Pick<
   Tabela<"terceirizado_links">,
   | "id"
@@ -136,27 +143,20 @@ export interface Acesso {
  */
 export async function acessoPeloToken(token: string): Promise<Acesso | null> {
   if (!FORMATO_TOKEN.test(token)) return null;
-  const db = osAdmin();
-  const { data: link } = await db
+  const { data } = await osAdmin()
     .from("terceirizado_links")
-    .select(COLUNAS_LINK)
+    .select(COLUNAS_ACESSO)
     .eq("token", token)
     .maybeSingle();
-  if (!link) return null;
-  const { data: chamado } = await db
-    .from("chamados")
-    .select(COLUNAS_CHAMADO)
-    .eq("id", link.chamado_id)
-    .maybeSingle();
-  if (!chamado || !linkAtivo(link, chamado)) return null;
-  const empresaId = link.empresa_id ?? chamado.empresa_id;
-  const { data: empresa } = empresaId
-    ? await db
-        .from("empresas")
-        .select("nome, telefone")
-        .eq("id", empresaId)
-        .maybeSingle()
-    : { data: null };
+  if (!data) return null;
+  const {
+    empresa: doLink,
+    chamado: { empresa: daOS, ...chamado },
+    ...link
+  } = data;
+  if (!linkAtivo(link, chamado)) return null;
+  // A empresa do link vale; sem ela, a da OS (como antes, pelo id).
+  const empresa = link.empresa_id ? doLink : chamado.empresa_id ? daOS : null;
   return {
     link,
     chamado,
@@ -242,16 +242,20 @@ export async function paginaDoTerceirizado(
         )
         .eq("chamado_id", chamado.id)
         .order("em"),
-      createAdminClient()
-        .schema("core")
-        .from("empresa")
-        .select("nome, telefone, email, endereco, cidade, uf")
-        .maybeSingle(),
-      db
-        .from("terceirizado_links")
-        .update({ ultimo_acesso_em: new Date().toISOString() })
-        .eq("id", link.id),
+      // Sem o contato a página ainda serve (cai no "ARP" padrão).
+      contatoDaArp().catch((e) => {
+        console.error("contato da ARP no link da OS", e);
+        return null;
+      }),
     ]);
+  // O último acesso não muda a página: grava depois da resposta.
+  after(async () => {
+    const { error } = await osAdmin()
+      .from("terceirizado_links")
+      .update({ ultimo_acesso_em: new Date().toISOString() })
+      .eq("id", link.id);
+    if (error) console.error("último acesso do link da OS", error);
+  });
 
   // Fotos do pedido, de antes e depois e as que ele mandou. Foto de nota
   // interna (comentário não visível ao lojista) fica de fora, como o
@@ -265,7 +269,7 @@ export async function paginaDoTerceirizado(
           (a.evento_id === null || a.visivel_lojista))),
   );
   const urls = await urlsAssinadas(fotos.map((f) => f.path));
-  const e = empresaArp.data;
+  const e = empresaArp;
   return {
     token,
     numero: chamado.numero,
@@ -323,6 +327,21 @@ export async function paginaDoTerceirizado(
   };
 }
 
+// Contato da ARP no rodapé do link (o mesmo para todas as OS). Não
+// exportar: só depois de conferir o token.
+async function contatoDaArp() {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.empresa);
+  const { data, error } = await createAdminClient()
+    .schema("core")
+    .from("empresa")
+    .select("nome, telefone, email, endereco, cidade, uf")
+    .maybeSingle();
+  if (error) throw new Error(`Empresa: ${error.message}`);
+  return data;
+}
+
 /**
  * Linha do tempo (evento 'terceirizado') e aviso ao responsável da OS
  * (quem enviou o link, se não há responsável).
@@ -340,14 +359,17 @@ export async function avisarDoTerceirizado(
     dados: { link_id: a.link.id, ...dados },
   });
   if (!notificacao) return;
-  await notificar(
-    [a.chamado.responsavel_id ?? a.link.criado_por ?? a.chamado.aberto_por],
-    {
-      tipo: "terceirizado",
-      titulo: `#${a.chamado.numero} ${a.chamado.titulo}`,
-      texto: notificacao,
-      href: rotaChamado(a.chamado.id),
-      chamadoId: a.chamado.id,
-    },
+  // O aviso à equipe não muda a resposta ao terceirizado: sai depois.
+  after(() =>
+    notificar(
+      [a.chamado.responsavel_id ?? a.link.criado_por ?? a.chamado.aberto_por],
+      {
+        tipo: "terceirizado",
+        titulo: `#${a.chamado.numero} ${a.chamado.titulo}`,
+        texto: notificacao,
+        href: rotaChamado(a.chamado.id),
+        chamadoId: a.chamado.id,
+      },
+    ),
   );
 }
