@@ -21,6 +21,7 @@ import { pode } from "@/server/auth";
 import {
   classificarRubrica,
   confirmarFolha,
+  excluirFolha,
   lerFolha,
 } from "@/server/rh/acoes/importacoes";
 import {
@@ -236,7 +237,7 @@ async function Folha() {
       <Secao
         id="folha"
         titulo="Folha do mês: Extrato Mensal"
-        descricao="1. Envie o PDF · 2. Confira a prévia · 3. Confirme. Uma folha já importada só é substituída com a sua confirmação; folha fechada não é substituída."
+        descricao="1. Envie o PDF · 2. Confira a prévia · 3. Confirme. Subiu o arquivo errado? Envie o certo do mesmo mês e confirme a substituição, ou exclua a folha na lista abaixo. Folha fechada não é substituída nem excluída."
       >
         <ImportarFolha ler={lerFolha} confirmar={confirmarFolha} />
         <Importados titulo="Folhas importadas">
@@ -281,6 +282,23 @@ async function Folha() {
                     },
                   ]
                 : []),
+              {
+                titulo: "",
+                valor: (f) =>
+                  f.status === "fechada" ? null : (
+                    <FormAcao
+                      acao={excluirFolha}
+                      rotulo="Excluir"
+                      rotuloEnviando="Excluindo…"
+                      variante="perigo"
+                      confirmar={`Excluir a folha de ${formatarMes(f.competencia)}? Saem as pessoas, as rubricas e o custo de pessoal do mês.`}
+                      className="flex justify-end"
+                    >
+                      <input type="hidden" name="folha_id" value={f.id} />
+                    </FormAcao>
+                  ),
+                numero: true,
+              },
             ]}
             linhas={folhas}
             chave={(f) => f.id}

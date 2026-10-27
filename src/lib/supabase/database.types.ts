@@ -4530,6 +4530,7 @@ export type Database = {
           tipo_contrato: Database["rh"]["Enums"]["tipo_contrato"]
         }[]
       }
+      excluir_folha: { Args: { p_folha_id: string }; Returns: string }
       gravar_custos: {
         Args: { p_competencia: string; p_linhas: Json }
         Returns: number

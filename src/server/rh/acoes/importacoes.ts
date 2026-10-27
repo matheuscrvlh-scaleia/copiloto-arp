@@ -220,6 +220,31 @@ export async function confirmarFolha(
   };
 }
 
+/**
+ * Exclui a folha importada errada, com o custo do mês (regra no banco).
+ * Para trocar pelo arquivo certo do mesmo mês, basta importar de novo.
+ */
+export async function excluirFolha(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await podeAgora("rh.folha")))
+    return { erro: "Você não tem permissão para excluir a folha." };
+  const id = z.uuid().safeParse(form.get("folha_id"));
+  if (!id.success) return { erro: "Folha inválida." };
+  const { data: competencia, error } = await (await createClient())
+    .schema("rh")
+    .rpc("excluir_folha", { p_folha_id: id.data });
+  if (error) {
+    if (error.code === "P0001" || error.code === "42501")
+      return { erro: `${error.message}.` };
+    console.error("excluir_folha", error);
+    return { erro: "Não foi possível excluir. Nada foi alterado." };
+  }
+  refresh();
+  return { ok: `Folha de ${formatarMes(competencia)} excluída.` };
+}
+
 const classificacao = z.object({
   codigo: z.coerce.number().int().positive(),
   grupo: z.enum(GRUPOS_CLASSIFICAVEIS),

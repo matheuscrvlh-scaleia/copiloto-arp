@@ -498,6 +498,51 @@ describe("importação da folha (rh.importar_folha)", () => {
       expect(await erro(importar(id, true))).toMatch(/está fechada/);
     });
   });
+
+  it("excluir: só com rh.folha, nunca fechada, e leva folha, custo e importação", async () => {
+    const { rows } = await db.query<{ id: string; importacao_id: string }>(
+      `select id, importacao_id from rh.folhas where competencia = '${AGOSTO}'`,
+    );
+    const folhaId = rows[0]?.id as string;
+    const excluir = `select rh.excluir_folha('${folhaId}')`;
+    await como(U.gestora, async () => {
+      expect(await erro(excluir)).toMatch(/está fechada/);
+    });
+
+    await db.exec(`
+      update rh.folhas set status = 'importada', fechada_em = null where id = '${folhaId}';
+      insert into rh.custos_colaborador (competencia, colaborador_id, tipo_contrato, custo_total, memoria)
+        select '${AGOSTO}', id, 'clt', 0, '{}' from rh.colaboradores where matricula = 126;
+    `);
+    await como(U.analista, async () => {
+      expect(await erro(excluir)).toMatch(/permissão/);
+    });
+    await como(U.gestora, async () => {
+      expect(await erro(excluir)).toBeNull();
+    });
+    expect(
+      await linhas(`select 1 from rh.folhas where competencia = '${AGOSTO}'`),
+    ).toBe(0);
+    expect(
+      await linhas(
+        `select 1 from rh.folha_colaboradores where folha_id = '${folhaId}'`,
+      ),
+    ).toBe(0);
+    expect(
+      await linhas(
+        `select 1 from rh.custos_colaborador where competencia = '${AGOSTO}'`,
+      ),
+    ).toBe(0);
+    const { rows: imp } = await db.query<{ status: string }>(
+      `select status from core.importacoes where id = '${rows[0]?.importacao_id}'`,
+    );
+    expect(imp[0]?.status).toBe("revertida");
+    expect(
+      await linhas(
+        `select 1 from core.auditoria where tabela = 'rh.folhas' and registro_id = '${folhaId}' and acao = 'delete'`,
+      ),
+    ).toBe(1);
+  });
 });
 
 describe("saúde das integrações (core.saude_integracoes)", () => {
