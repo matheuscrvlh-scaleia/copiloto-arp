@@ -1,3 +1,4 @@
+import { Recolhivel } from "@/components/recolhivel";
 import { formatarMes, formatarMoeda, formatarNumero } from "@/lib/formato";
 import { type FaixaEtaria, valorPelaFaixa } from "@/lib/rh/custo";
 import { parteDoDependente, titularRecebe } from "@/lib/rh/dependentes";
@@ -56,64 +57,69 @@ export async function DependentesDoPlano({
           Nenhum dependente marcado no plano no Copiloto RH.
         </p>
       ) : (
-        <ul className="flex flex-col divide-y divide-neutral-900/[0.06] text-sm">
-          {dependentes.map((d) => {
-            const r = valorPelaFaixa(faixas, d.nascimento, mes);
-            const parte = parteDoDependente(
-              b.dependente_regra,
-              b.dependente_valor,
-              r.valor,
-            );
-            const recebe = titularRecebe(d, vinculos, contratos, mes);
-            return (
-              <li
-                key={`${d.colaborador_id}:${d.nome}:${d.nascimento}`}
-                className="py-2"
-              >
-                <p className="font-medium">{d.nome}</p>
-                <p className="text-xs text-neutral-500">
-                  dependente de {d.titular}
-                  {d.parentesco && ` · ${d.parentesco}`}
-                  {r.idade !== undefined && ` · ${r.idade} anos`}
-                  {r.valor !== null && r.faixa ? (
-                    <>
-                      {" "}
-                      · faixa {faixaTexto(r.faixa.idade_min, r.faixa.idade_max)}{" "}
-                      ·{" "}
-                      <span className="tabular-nums text-neutral-900">
-                        {formatarMoeda(r.valor)}
-                      </span>
-                      {parte.empresa > 0 ? (
-                        <>
-                          {" "}
-                          · empresa{" "}
-                          <span className="tabular-nums">
-                            {formatarMoeda(parte.empresa)}
-                          </span>
-                          , funcionário{" "}
-                          <span className="tabular-nums">
-                            {formatarMoeda(parte.funcionario)}
-                          </span>
-                        </>
-                      ) : (
-                        " · pago pelo funcionário"
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-amber-700"> · {r.pendencia}</span>
-                  )}
-                </p>
-                {!recebe && (
-                  <p className="text-xs text-amber-700">
-                    {d.titular} não recebe {b.nome} em {formatarMes(mes)}:
-                    vincule a pessoa ou o contrato dela acima para o dependente
-                    entrar.
+        <Recolhivel
+          rotulo={`${dependentes.length} ${dependentes.length === 1 ? "dependente" : "dependentes"}`}
+          quantidade={dependentes.length}
+        >
+          <ul className="flex flex-col divide-y divide-neutral-900/[0.06] text-sm">
+            {dependentes.map((d) => {
+              const r = valorPelaFaixa(faixas, d.nascimento, mes);
+              const parte = parteDoDependente(
+                b.dependente_regra,
+                b.dependente_valor,
+                r.valor,
+              );
+              const recebe = titularRecebe(d, vinculos, contratos, mes);
+              return (
+                <li
+                  key={`${d.colaborador_id}:${d.nome}:${d.nascimento}`}
+                  className="py-2"
+                >
+                  <p className="font-medium">{d.nome}</p>
+                  <p className="text-xs text-neutral-500">
+                    dependente de {d.titular}
+                    {d.parentesco && ` · ${d.parentesco}`}
+                    {r.idade !== undefined && ` · ${r.idade} anos`}
+                    {r.valor !== null && r.faixa ? (
+                      <>
+                        {" "}
+                        · faixa{" "}
+                        {faixaTexto(r.faixa.idade_min, r.faixa.idade_max)} ·{" "}
+                        <span className="tabular-nums text-neutral-900">
+                          {formatarMoeda(r.valor)}
+                        </span>
+                        {parte.empresa > 0 ? (
+                          <>
+                            {" "}
+                            · empresa{" "}
+                            <span className="tabular-nums">
+                              {formatarMoeda(parte.empresa)}
+                            </span>
+                            , funcionário{" "}
+                            <span className="tabular-nums">
+                              {formatarMoeda(parte.funcionario)}
+                            </span>
+                          </>
+                        ) : (
+                          " · pago pelo funcionário"
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-amber-700"> · {r.pendencia}</span>
+                    )}
                   </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                  {!recebe && (
+                    <p className="text-xs text-amber-700">
+                      {d.titular} não recebe {b.nome} em {formatarMes(mes)}:
+                      vincule a pessoa ou o contrato dela acima para o
+                      dependente entrar.
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Recolhivel>
       )}
     </div>
   );

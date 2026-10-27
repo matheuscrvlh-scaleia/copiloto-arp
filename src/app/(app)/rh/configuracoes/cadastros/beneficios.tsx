@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Secao } from "@/components/dashboard/tabela";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
+import { Recolhivel } from "@/components/recolhivel";
 import { Selecao } from "@/components/selecao";
 import { CONFIGURACOES_RH } from "@/config/navigation";
 import {
@@ -411,7 +412,10 @@ function CartaoBeneficio({
           {vinculos.length === 0 ? (
             <p className="text-sm text-neutral-500">Ninguém vinculado ainda.</p>
           ) : (
-            <>
+            <Recolhivel
+              rotulo={`${vinculos.length} ${vinculos.length === 1 ? "pessoa" : "pessoas"}`}
+              quantidade={vinculos.length}
+            >
               <p className="text-xs text-neutral-500">
                 Valor de {formatarMes(mesAtual)}
                 {porMes ? (
@@ -480,7 +484,7 @@ function CartaoBeneficio({
                   </li>
                 ))}
               </ul>
-            </>
+            </Recolhivel>
           )}
 
           <FormAcao
