@@ -8,7 +8,9 @@ const campo =
   "w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5";
 
 export function LoginForm() {
-  const next = useSearchParams().get("next") ?? "";
+  const params = useSearchParams();
+  const next = params.get("next") ?? "";
+  const expirou = params.get("motivo") === "expirou";
   const [estado, acao, enviando] = useActionState<EstadoLogin, FormData>(
     entrar,
     {},
@@ -51,6 +53,12 @@ export function LoginForm() {
           </button>
         </span>
       </label>
+
+      {expirou && !estado.erro && (
+        <output className="block rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Sua sessão expirou. Entre de novo para continuar.
+        </output>
+      )}
 
       {estado.erro && (
         <p
