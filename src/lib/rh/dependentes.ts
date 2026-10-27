@@ -29,3 +29,36 @@ export function parteDoDependente(
       mensalidade === null ? null : arred(Math.max(mensalidade - empresa, 0)),
   };
 }
+
+interface Periodo {
+  desde: string;
+  ate: string | null;
+}
+
+/** Vale no mês (aaaa-mm-01): começou até o fim dele e não acabou antes dele. */
+export function valeNoMes(p: Periodo, mes: string): boolean {
+  return (
+    p.desde.slice(0, 7) <= mes.slice(0, 7) && (p.ate === null || p.ate >= mes)
+  );
+}
+
+/**
+ * O titular recebe o benefício no mês pelo vínculo dele ou pelo tipo de
+ * contrato (como no custo). Sem isso, o dependente fica sem plano no
+ * Centralizador mesmo marcado no Copiloto.
+ */
+export function titularRecebe(
+  titular: { colaborador_id: string; tipo_contrato: string | null },
+  vinculos: (Periodo & { colaborador_id: string })[],
+  contratos: (Periodo & { tipo_contrato: string })[],
+  mes: string,
+): boolean {
+  return (
+    vinculos.some(
+      (v) => v.colaborador_id === titular.colaborador_id && valeNoMes(v, mes),
+    ) ||
+    contratos.some(
+      (c) => c.tipo_contrato === titular.tipo_contrato && valeNoMes(c, mes),
+    )
+  );
+}

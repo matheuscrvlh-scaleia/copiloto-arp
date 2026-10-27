@@ -6,6 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 // usuário: o RLS exige rh.beneficios.
 
 export interface DependenteDoCopiloto {
+  colaborador_id: string;
+  /** Nome do titular. */
+  titular: string;
+  /** Do titular: decide se ele recebe o benefício dado ao contrato. */
+  tipo_contrato: string | null;
   nome: string;
   nascimento: string | null;
   parentesco: string | null;
@@ -13,20 +18,26 @@ export interface DependenteDoCopiloto {
   tem_odonto: boolean;
 }
 
-/** Por colaborador (id do Centralizador), em ordem de nome. */
-export const dependentesPorColaborador = cache(
-  async (): Promise<Map<string, DependenteDoCopiloto[]>> => {
+/** Todos, em ordem de titular e de nome. */
+export const dependentesDoCopiloto = cache(
+  async (): Promise<DependenteDoCopiloto[]> => {
     const { data, error } = await (await createClient())
       .schema("rh")
       .from("dependentes")
       .select(
-        "colaborador_id, nome, nascimento, parentesco, tem_plano, tem_odonto",
+        "colaborador_id, nome, nascimento, parentesco, tem_plano, tem_odonto, colaborador:colaboradores(nome, tipo_contrato)",
       )
       .order("nome");
     if (error) throw new Error(`Falha ao ler o banco: ${error.message}`);
-    const mapa = new Map<string, DependenteDoCopiloto[]>();
-    for (const { colaborador_id, ...d } of data ?? [])
-      mapa.set(colaborador_id, [...(mapa.get(colaborador_id) ?? []), d]);
-    return mapa;
+    return (data ?? [])
+      .map(({ colaborador, ...d }) => ({
+        ...d,
+        titular: colaborador?.nome ?? "—",
+        tipo_contrato: colaborador?.tipo_contrato ?? null,
+      }))
+      .sort(
+        (a, b) =>
+          a.titular.localeCompare(b.titular) || a.nome.localeCompare(b.nome),
+      );
   },
 );

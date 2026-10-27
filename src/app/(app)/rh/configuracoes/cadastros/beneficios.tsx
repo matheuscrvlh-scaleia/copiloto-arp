@@ -448,12 +448,6 @@ function CartaoBeneficio({
                           mes={mesAtual}
                         />
                       </p>
-                      <DependentesDoPlano
-                        beneficio={b}
-                        colaboradorId={v.colaborador_id}
-                        faixas={faixas}
-                        mes={mesAtual}
-                      />
                     </div>
                     {!porMes && (
                       <FormAcao
@@ -536,6 +530,14 @@ function CartaoBeneficio({
             </p>
           )}
         </div>
+
+        <DependentesDoPlano
+          beneficio={b}
+          vinculos={vinculos}
+          contratos={contratos}
+          faixas={faixas}
+          mes={mesAtual}
+        />
 
         {porMes && (
           <ValoresDoMes
