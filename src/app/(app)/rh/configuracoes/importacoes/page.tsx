@@ -38,6 +38,7 @@ import { folhasImportadas, rubricasNaoClassificadas } from "@/server/rh/dados";
 import { salarioFicticioAtivo } from "@/server/rh/folha";
 import { ImportarFolha } from "./importar-folha";
 import { ImportarPlano } from "./importar-plano";
+import { MenuFolha } from "./menu-folha";
 
 export const metadata: Metadata = { title: "Importações do RH" };
 
@@ -263,40 +264,27 @@ async function Folha() {
                   f.importadaEm ? formatarDataHora(f.importadaEm) : "—",
                 numero: true,
               },
-              // Os valores de cada pessoa exigem a permissão individual.
-              ...(individual
-                ? [
-                    {
-                      titulo: "",
-                      valor: (f: (typeof folhas)[number]) => (
-                        <Link
-                          href={`${CONFIGURACOES_RH.importacoes}/folha/${f.id}`}
-                          className="font-medium whitespace-nowrap underline underline-offset-4"
-                        >
-                          {f.status === "fechada"
-                            ? "Ver folha"
-                            : "Ver e editar"}
-                        </Link>
-                      ),
-                      numero: true,
-                    },
-                  ]
-                : []),
               {
                 titulo: "",
-                valor: (f) =>
-                  f.status === "fechada" ? null : (
-                    <FormAcao
-                      acao={excluirFolha}
-                      rotulo="Excluir"
-                      rotuloEnviando="Excluindo…"
-                      variante="perigo"
-                      confirmar={`Excluir a folha de ${formatarMes(f.competencia)}? Saem as pessoas, as rubricas e o custo de pessoal do mês.`}
-                      className="flex justify-end"
-                    >
-                      <input type="hidden" name="folha_id" value={f.id} />
-                    </FormAcao>
-                  ),
+                valor: (f) => (
+                  <MenuFolha
+                    folhaId={f.id}
+                    // Os valores de cada pessoa exigem a permissão individual.
+                    ver={
+                      individual
+                        ? {
+                            href: `${CONFIGURACOES_RH.importacoes}/folha/${f.id}`,
+                            rotulo:
+                              f.status === "fechada"
+                                ? "Ver folha"
+                                : "Ver e editar",
+                          }
+                        : undefined
+                    }
+                    excluir={f.status === "fechada" ? undefined : excluirFolha}
+                    confirmar={`Excluir a folha de ${formatarMes(f.competencia)}? Saem as pessoas, as rubricas e o custo de pessoal do mês.`}
+                  />
+                ),
                 numero: true,
               },
             ]}

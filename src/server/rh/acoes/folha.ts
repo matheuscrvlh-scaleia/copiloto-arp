@@ -16,7 +16,7 @@ import { podeAgora } from "@/server/auth";
 import { recalcularCusto, tentarRecalcular } from "@/server/rh/custo";
 
 // Correção de uma pessoa na folha já importada. A regra (folha fechada,
-// salário do protótipo, rubrica cadastrada) fica no banco. O recálculo do
+// rubrica cadastrada) fica no banco. O recálculo do
 // mês usa a service role: a permissão é conferida com podeAgora.
 
 const SEM_PERMISSAO: EstadoAcao = {

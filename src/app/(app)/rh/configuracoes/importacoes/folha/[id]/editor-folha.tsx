@@ -14,8 +14,6 @@ const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 const colunas =
   "grid grid-cols-[minmax(0,1fr)_8rem_6rem_8rem] items-center gap-2";
 const NOVAS_LINHAS = ["nova-1", "nova-2"];
-/** No protótipo, o salário fica em R$ 2.000,00 (o banco também recusa). */
-const GRUPOS_DO_SALARIO = new Set(["salario", "pro_labore"]);
 
 const opcoesDe = (r: Record<string, string>): Opcao[] =>
   Object.entries(r).map(([valor, rotulo]) => ({ valor, rotulo }));
@@ -33,7 +31,6 @@ interface Opcoes {
 export function EditorDaFolha({
   folhaId,
   editavel,
-  ficticia,
   pessoas,
   departamentos,
   cargos,
@@ -41,7 +38,6 @@ export function EditorDaFolha({
 }: {
   folhaId: string;
   editavel: boolean;
-  ficticia: boolean;
   pessoas: PessoaParaEditar[];
   departamentos: { id: string; nome: string }[];
   cargos: { id: string; nome: string }[];
@@ -88,7 +84,6 @@ export function EditorDaFolha({
           }
           folhaId={folhaId}
           editavel={editavel}
-          ficticia={ficticia}
           opcoes={opcoes}
         />
       ))}
@@ -105,7 +100,6 @@ function Pessoa({
   departamento: string | undefined;
   folhaId: string;
   editavel: boolean;
-  ficticia: boolean;
   opcoes: Opcoes;
 }) {
   const [aberta, setAberta] = useState(false);
@@ -139,13 +133,11 @@ function FormPessoa({
   pessoa: p,
   folhaId,
   editavel,
-  ficticia,
   opcoes,
 }: {
   pessoa: PessoaParaEditar;
   folhaId: string;
   editavel: boolean;
-  ficticia: boolean;
   opcoes: Opcoes;
 }) {
   const so = !editavel;
@@ -203,10 +195,7 @@ function FormPessoa({
             name="salario"
             inputMode="decimal"
             defaultValue={valorBr(p.salario)}
-            // readOnly (e não disabled): o valor vai no envio e o banco confere.
-            readOnly={ficticia}
             disabled={so}
-            title={ficticia ? "Protótipo: salário fixo em R$ 2.000,00" : ""}
             className={classeCampo}
           />
         </label>
@@ -219,47 +208,41 @@ function FormPessoa({
           <span>Referência</span>
           <span>Valor (R$)</span>
         </div>
-        {p.rubricas.map((r, i) => {
-          const travada = ficticia && GRUPOS_DO_SALARIO.has(r.grupo);
-          return (
-            // Mesma rubrica pode vir duas vezes na pessoa (ex.: dois períodos).
-            <div key={`${r.codigo}-${i}`} className={colunas}>
-              <input type="hidden" name="codigo" value={r.codigo} />
-              <span className="truncate text-sm" title={r.descricao}>
-                <span className="tabular-nums font-medium">{r.codigo}</span> ·{" "}
-                {r.descricao}
-              </span>
-              <Selecao
-                name="natureza"
-                rotulo={`Natureza da rubrica ${r.codigo}`}
-                valorInicial={r.natureza}
-                opcoes={opcoesDe(NATUREZAS)}
-                desabilitada={so || travada}
-              />
-              <input
-                name="referencia"
-                inputMode="decimal"
-                aria-label={`Referência da rubrica ${r.codigo}`}
-                defaultValue={
-                  r.referencia === null ? "" : formatarNumero(r.referencia, 2)
-                }
-                readOnly={travada}
-                disabled={so}
-                className={classeCampo}
-              />
-              <input
-                name="valor"
-                inputMode="decimal"
-                aria-label={`Valor da rubrica ${r.codigo}`}
-                defaultValue={valorBr(r.valor)}
-                readOnly={travada}
-                disabled={so}
-                title={travada ? "Protótipo: salário fixo em R$ 2.000,00" : ""}
-                className={classeCampo}
-              />
-            </div>
-          );
-        })}
+        {p.rubricas.map((r, i) => (
+          // Mesma rubrica pode vir duas vezes na pessoa (ex.: dois períodos).
+          <div key={`${r.codigo}-${i}`} className={colunas}>
+            <input type="hidden" name="codigo" value={r.codigo} />
+            <span className="truncate text-sm" title={r.descricao}>
+              <span className="tabular-nums font-medium">{r.codigo}</span> ·{" "}
+              {r.descricao}
+            </span>
+            <Selecao
+              name="natureza"
+              rotulo={`Natureza da rubrica ${r.codigo}`}
+              valorInicial={r.natureza}
+              opcoes={opcoesDe(NATUREZAS)}
+              desabilitada={so}
+            />
+            <input
+              name="referencia"
+              inputMode="decimal"
+              aria-label={`Referência da rubrica ${r.codigo}`}
+              defaultValue={
+                r.referencia === null ? "" : formatarNumero(r.referencia, 2)
+              }
+              disabled={so}
+              className={classeCampo}
+            />
+            <input
+              name="valor"
+              inputMode="decimal"
+              aria-label={`Valor da rubrica ${r.codigo}`}
+              defaultValue={valorBr(r.valor)}
+              disabled={so}
+              className={classeCampo}
+            />
+          </div>
+        ))}
         {editavel &&
           NOVAS_LINHAS.map((chave) => (
             <div key={chave} className={colunas}>
@@ -295,9 +278,6 @@ function FormPessoa({
         <p className="text-xs text-neutral-500">
           Para tirar uma rubrica, apague o valor; as linhas em branco no fim
           servem para incluir. O líquido é refeito pelas rubricas.
-          {ficticia
-            ? " Protótipo: o salário e as rubricas de salário ficam em R$ 2.000,00."
-            : ""}
         </p>
       )}
     </>

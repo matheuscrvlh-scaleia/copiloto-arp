@@ -1125,7 +1125,6 @@ describe("folha editada na tela (rh.salvar_pessoa_folha)", () => {
     });
   const salvar = (folha: string, salario: number, rubricas: string) =>
     `select rh.salvar_pessoa_folha('${folha}', '${COLAB}', '${pessoa(salario)}', '${rubricas}')`;
-  const SALARIO_2000 = `{"codigo":8781,"natureza":"provento","referencia":null,"valor":2000}`;
 
   beforeAll(async () => {
     await db.exec(`
@@ -1195,31 +1194,27 @@ describe("folha editada na tela (rh.salvar_pessoa_folha)", () => {
     expect(aud[0]?.depois).not.toContain("3100");
   });
 
-  it("no protótipo o salário não muda; o resto muda", () =>
-    como(U.gestora, async () => {
-      expect(await erro(salvar(F_FICTICIA, 5000, `[${SALARIO_2000}]`))).toMatch(
-        /protótipo/,
-      );
+  it("folha do protótipo também tem o salário editável", async () => {
+    await como(U.gestora, async () => {
       expect(
         await erro(
           salvar(
             F_FICTICIA,
-            2000,
-            `[{"codigo":8781,"natureza":"provento","referencia":null,"valor":5000}]`,
-          ),
-        ),
-      ).toMatch(/protótipo/);
-      expect(await erro(salvar(F_FICTICIA, 2000, "[]"))).toMatch(/protótipo/);
-      expect(
-        await erro(
-          salvar(
-            F_FICTICIA,
-            2000,
-            `[${SALARIO_2000}, {"codigo":307,"natureza":"desconto","referencia":null,"valor":80}]`,
+            5000,
+            `[{"codigo":8781,"natureza":"provento","referencia":30,"valor":5000}]`,
           ),
         ),
       ).toBeNull();
-    }));
+    });
+    const { rows } = await db.query<{ salario: string; valor: string }>(
+      `select fc.salario, fr.valor from rh.folha_colaboradores fc
+         join rh.folha_rubricas fr using (folha_id, colaborador_id)
+       where fc.folha_id = '${F_FICTICIA}'`,
+    );
+    expect(rows.map((r) => [Number(r.salario), Number(r.valor)])).toEqual([
+      [5000, 5000],
+    ]);
+  });
 
   it("folha fechada não é editada", async () => {
     await db.exec(
