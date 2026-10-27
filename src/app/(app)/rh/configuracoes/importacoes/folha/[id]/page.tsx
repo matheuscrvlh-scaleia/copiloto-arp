@@ -66,8 +66,8 @@ async function Folha({
       )}
       {f.ficticia && (
         <p className="mb-4 text-xs text-neutral-500">
-          Modo protótipo: o salário veio em R$ 2.000,00. Corrija o de cada
-          pessoa abrindo o nome, ou importe a folha de novo com o salário real.
+          Folha importada no protótipo, com o salário trocado por R$ 2.000,00.
+          Importe o PDF de novo (substituindo) para trazer os valores reais.
         </p>
       )}
       <EditorDaFolha

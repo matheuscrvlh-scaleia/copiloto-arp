@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { copilotoRh as criarClienteCopiloto } from "../integracoes";
 import { recalcularEmAberto, tentarRecalcular } from "../rh/custo";
-import { salarioFicticioAtivo } from "../rh/folha";
 import { lerTudo } from "../supabase-paginas";
 import { planejarCopiloto } from "./copiloto-rh-regras";
 import { emLotes, executar, guardarBrutos } from "./execucao";
@@ -41,7 +40,6 @@ export async function sincronizarCopiloto() {
       copiloto,
       existentes,
       randomUUID,
-      salarioFicticioAtivo(),
     );
     for (const lote of emLotes(linhas, 500)) {
       const { error } = await rh

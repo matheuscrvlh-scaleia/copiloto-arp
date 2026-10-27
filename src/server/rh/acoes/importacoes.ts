@@ -22,7 +22,6 @@ import {
   lerPdfDaFolha,
   montarPrevia,
   type Previa,
-  salarioFicticioAtivo,
   sha256,
   TAMANHO_MAXIMO,
 } from "@/server/rh/folha";
@@ -97,11 +96,9 @@ export async function lerFolha(
     return { erro: "Não foi possível guardar o arquivo. Tente de novo." };
   }
 
-  const ficticia = salarioFicticioAtivo();
   const previa = montarPrevia(extrato, ctx, {
     importacaoId: id,
     arquivo: nome,
-    ficticia,
   });
   const registro = await supabase
     .schema("core")
@@ -179,13 +176,12 @@ export async function confirmarFolha(
   const extrato = await lerPdfDaFolha(
     new Uint8Array(await arquivo.data.arrayBuffer()),
   );
-  const ctx = await contextoDoBanco(extrato);
 
   const { data: resultado, error: falha } = await supabase
     .schema("rh")
     .rpc("importar_folha", {
       p_importacao_id: dados.data.importacao_id,
-      p_folha: folhaParaGravar(extrato, ctx.grupos, salarioFicticioAtivo()),
+      p_folha: folhaParaGravar(extrato),
       p_departamentos: departamentos,
       p_substituir: dados.data.substituir,
     });

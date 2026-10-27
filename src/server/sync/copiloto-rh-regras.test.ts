@@ -114,7 +114,7 @@ describe("regras do copiloto rh", () => {
     ]);
   });
 
-  it("salário só do PJ; no protótipo, R$ 2.000,00; sem Salário, avisa", () => {
+  it("salário só do PJ, com o valor do Copiloto; sem Salário, avisa", () => {
     const pessoas = [
       copiloto({ id: "c1", code: "1", compensation: { base_salary: 3000 } }),
       copiloto({
@@ -130,13 +130,10 @@ describe("regras do copiloto rh", () => {
       existente({ id: "b", matricula: 2 }),
       existente({ id: "c", matricula: 3 }),
     ];
-    const real = planejarCopiloto(pessoas, existentes, novoId, false);
-    expect(real.valoresPj).toEqual([{ colaborador_id: "b", valor: 7000 }]);
-    expect(real.avisos).toEqual([
+    const r = planejarCopiloto(pessoas, existentes, novoId);
+    expect(r.valoresPj).toEqual([{ colaborador_id: "b", valor: 7000 }]);
+    expect(r.avisos).toEqual([
       "matrícula 3: PJ sem Salário no Copiloto (custo como valor não informado)",
-    ]);
-    expect(planejarCopiloto(pessoas, existentes, novoId).valoresPj).toEqual([
-      { colaborador_id: "b", valor: 2000 },
     ]);
   });
 

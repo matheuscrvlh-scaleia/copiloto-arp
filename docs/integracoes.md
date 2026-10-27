@@ -391,11 +391,10 @@ Tela **RH › Configurações › Importações**: enviar o PDF → conferir a p
   pessoas e os três totais batem. **FGTS**: o resumo separa mês, aprendiz e
   rescisão de um jeito que não fecha com a soma das pessoas; a regra fica
   "a confirmar com a contabilidade".
-- **Protótipo** (`FOLHA_SALARIO_FICTICIO`, ligado por padrão): todo salário
-  vira R$ 2.000,00 e o que deriva dele é reescalado na mesma proporção;
-  só descontos fixos de benefício (plano, odonto, alimentação) ficam reais.
-  O resumo da empresa (totais reais) não é gravado e a prévia não mostra
-  valores.
+- **Valores reais**: a folha é gravada como vem no extrato. As folhas
+  importadas até 27/10/2026 no antigo modo protótipo (salário trocado por
+  R$ 2.000,00) têm `ficticia = true`; reimportar o PDF as substitui pelas
+  reais.
 - **Gravação**: `rh.importar_folha` numa transação só. Liga cada linha
   pela matrícula a quem está no Copiloto RH; quem não tem par fica fora da
   folha gravada (a prévia lista e a confirmação conta). Cria

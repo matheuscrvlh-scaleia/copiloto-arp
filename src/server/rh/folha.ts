@@ -6,7 +6,6 @@ import {
   type ItemTexto,
   lerExtrato,
 } from "@/lib/rh/folha/extrato";
-import { aplicarSalarioFicticio } from "@/lib/rh/folha/ficticio";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { lerTudo } from "../supabase-paginas";
@@ -14,14 +13,6 @@ import { cargosDoRh, departamentosDoRh, rubricasDoRh } from "./configuracao";
 
 export const BUCKET = "importacoes";
 export const TAMANHO_MAXIMO = 10 * 1024 * 1024;
-
-/**
- * Protótipo: salário real nunca é gravado nem exibido (especificação do RH).
- * Só desliga com FOLHA_SALARIO_FICTICIO=false, quando a ARP liberar.
- */
-export function salarioFicticioAtivo(): boolean {
-  return process.env.FOLHA_SALARIO_FICTICIO?.trim().toLowerCase() !== "false";
-}
 
 export function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -82,18 +73,10 @@ export async function contextoDoBanco(extrato: ExtratoMensal) {
   };
 }
 
-/** Folha pronta para gravar: no protótipo, já com o salário fictício. */
-export function folhaParaGravar(
-  extrato: ExtratoMensal,
-  grupos: Map<number, string>,
-  ficticia: boolean,
-): Json {
-  const f = ficticia
-    ? aplicarSalarioFicticio(extrato, (c) => grupos.get(c))
-    : extrato;
+/** Folha pronta para gravar, com os valores do extrato. */
+export function folhaParaGravar(f: ExtratoMensal): Json {
   return {
     competencia: f.competencia,
-    ficticia,
     resumo_empresa: f.resumo,
     colaboradores: f.colaboradores.map((c) => ({
       matricula: c.matricula,
@@ -121,7 +104,6 @@ export interface Previa {
   arquivo: string;
   competencia: string;
   empresa: string | null;
-  ficticia: boolean;
   pessoas: number;
   porTipo: Record<string, number>;
   porSituacao: Record<string, number>;
@@ -146,16 +128,9 @@ const contar = <T>(itens: T[], chave: (i: T) => string) =>
 export function montarPrevia(
   extrato: ExtratoMensal,
   ctx: Awaited<ReturnType<typeof contextoDoBanco>>,
-  dados: { importacaoId: string; arquivo: string; ficticia: boolean },
+  dados: { importacaoId: string; arquivo: string },
 ): Previa {
   const conferencia = conferir(extrato);
-  // No protótipo, nenhum valor em reais sai do servidor: só se bate ou não.
-  if (dados.ficticia) {
-    for (const i of conferencia.itens) {
-      i.importado = null;
-      i.resumo = null;
-    }
-  }
   const codigosComDepartamento = new Set(
     ctx.departamentos
       .map((d) => d.codigo_folha)
@@ -181,7 +156,6 @@ export function montarPrevia(
     arquivo: dados.arquivo,
     competencia: extrato.competencia,
     empresa: extrato.empresa,
-    ficticia: dados.ficticia,
     pessoas: extrato.colaboradores.length,
     porTipo: contar(extrato.colaboradores, (c) => c.tipo_contrato),
     porSituacao: contar(extrato.colaboradores, (c) => c.situacao),

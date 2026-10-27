@@ -129,14 +129,6 @@ function Rodada({
         </p>
       </div>
 
-      {p.ficticia && (
-        <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Protótipo: o salário de cada pessoa será gravado como R$ 2.000,00, e
-          tudo o que deriva dele (rubricas, bases e FGTS) na mesma proporção.
-          Nenhum valor real é gravado nem exibido.
-        </p>
-      )}
-
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold">Conferência</h3>
         <ul className="flex flex-col gap-2 text-sm">

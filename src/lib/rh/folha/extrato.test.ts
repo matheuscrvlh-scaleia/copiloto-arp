@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { coerente, conferir } from "./conferencia";
 import { ErroExtrato, type ItemTexto, lerExtrato, numeroBr } from "./extrato";
-import { aplicarSalarioFicticio, SALARIO_FICTICIO } from "./ficticio";
 
 // Folha sintética com as mesmas posições do Extrato Mensal real (07/2026).
 // Pessoas e valores inventados.
@@ -352,37 +351,5 @@ describe("conferir", () => {
     const ana = e.colaboradores[0];
     if (!ana) throw new Error();
     expect(coerente({ ...ana, liquido: 1 })).toBe(false);
-  });
-});
-
-describe("aplicarSalarioFicticio", () => {
-  const e = lerExtrato(paginas);
-  const grupos: Record<number, string> = {
-    307: "beneficio_desconto",
-    334: "beneficio_desconto",
-    8781: "salario",
-  };
-  const f = aplicarSalarioFicticio(e, (codigo) => grupos[codigo]);
-  const ana = f.colaboradores[0];
-
-  it("troca o salário e reescala o que deriva dele", () => {
-    expect(f.colaboradores.map((c) => c.salario)).toEqual([2000, 2000, 2000]);
-    // fator 2000/3000
-    expect(ana?.rubricas.find((r) => r.codigo === 8781)?.valor).toBe(2000);
-    expect(ana?.rubricas.find((r) => r.codigo === 998)?.valor).toBe(180);
-    expect(ana?.base_inss).toBe(2066.67);
-  });
-
-  it("mantém real só o desconto fixo de benefício (não o percentual)", () => {
-    expect(ana?.rubricas.find((r) => r.codigo === 307)?.valor).toBe(157.64);
-    expect(ana?.rubricas.find((r) => r.codigo === 334)?.valor).toBe(20);
-  });
-
-  it("a folha fictícia continua fechando e não guarda o resumo real", () => {
-    expect(f.colaboradores.every(coerente)).toBe(true);
-    expect(f.resumo).toEqual({});
-    expect(f.liquido_geral).toBeNull();
-    expect(JSON.stringify(f)).not.toContain("3000");
-    expect(SALARIO_FICTICIO).toBe(2000);
   });
 });

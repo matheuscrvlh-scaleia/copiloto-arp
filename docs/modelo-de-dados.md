@@ -107,14 +107,14 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 
 | Tabela | Para quê |
 |---|---|
-| `folhas` | Uma por competência: importação, resumo da empresa (para conferir), status `importada → conferida → fechada`, `ficticia` (protótipo com R$ 2.000,00) |
+| `folhas` | Uma por competência: importação, resumo da empresa (para conferir), status `importada → conferida → fechada`, `ficticia` (importada no antigo modo protótipo, com R$ 2.000,00: reimportar para ter o real) |
 | `folha_colaboradores` 🔒 | Situação, tipo de contrato, departamento (original do arquivo e corrigido), cargo, horas/mês, salário, bases, FGTS, líquido |
 | `folha_rubricas` 🔒 | Cada rubrica de cada colaborador: provento, desconto ou informativa |
 | `ponto_mensal` | Totais do Secullum `/Calcular`: previstas, normais, faltas, atrasos, faltas em dias, abonos (separados até a Aline dizer o que é cada um), banco de horas |
 | `ponto_diario` | Cada dia do mesmo `/Calcular` (sem chamada a mais): batidas na posição da coluna Entrada/Saída (null onde faltou), justificativa no lugar delas (FOLGA, FERIADO, ATESTAD…), horas do dia e saldo corrente do banco. Alimenta o perfil em RH › Funcionários |
 | `afastamentos` | Do Secullum |
 | `custos_colaborador` 🔒 | Resultado do cálculo: remuneração, encargos, provisões, multa, benefícios, rescisão, reembolsos, custo total (check: fecha com as parcelas), custo/hora, salário/hora, memória de cálculo. Só o servidor grava |
-| `valores_pj` 🔒 | Valor mensal do contrato do PJ: o Salário no Copiloto RH, gravado pela sincronização (só dos PJ; no protótipo, R$ 2.000,00). Sem linha: valor não informado (o PJ aparece, mas fica fora do custo médio) |
+| `valores_pj` 🔒 | Valor mensal do contrato do PJ: o Salário no Copiloto RH, gravado pela sincronização (só dos PJ). Sem linha: valor não informado (o PJ aparece, mas fica fora do custo médio) |
 | `notas_pj` 🔒 | Sem uso desde 26/10/2026: o custo do PJ é o `valores_pj` |
 | `dados_financeiros_mensais` | Faturamento bruto, custo total, custos sem pessoal, lucro e endomarketing do mês. Manual até a integração com o ENET |
 | `orcamento_endomarketing` | Orçamento anual aprovado |

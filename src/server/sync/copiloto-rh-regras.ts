@@ -1,5 +1,4 @@
 import type { Colaborador } from "@/connectors/copiloto-rh/schemas";
-import { SALARIO_FICTICIO } from "@/lib/rh/folha/ficticio";
 import type { Database } from "@/lib/supabase/database.types";
 
 type TipoContrato = Database["rh"]["Enums"]["tipo_contrato"];
@@ -65,13 +64,12 @@ export function matriculaDoCopiloto(
  * (só o Copiloto cria pessoas: o ponto e a folha apenas se ligam a elas).
  * Departamento e cargo seguem do ponto e da folha. Avisos só com a
  * matrícula, sem nome nem data. Do salário, só o dos PJ (é o custo deles; o
- * dos outros vem da folha); no protótipo, gravado como R$ 2.000,00.
+ * dos outros vem da folha).
  */
 export function planejarCopiloto(
   copiloto: Colaborador[],
   existentes: Existente[],
   novoId: () => string,
-  salarioFicticio = true,
 ): {
   linhas: LinhaCopiloto[];
   valoresPj: ValorPj[];
@@ -153,11 +151,7 @@ export function planejarCopiloto(
         avisos.push(
           `${rotulo}: PJ sem Salário no Copiloto (custo como valor não informado)`,
         );
-      else
-        valoresPj.push({
-          colaborador_id: id,
-          valor: salarioFicticio ? SALARIO_FICTICIO : salario,
-        });
+      else valoresPj.push({ colaborador_id: id, valor: salario });
     }
 
     linhas.push({

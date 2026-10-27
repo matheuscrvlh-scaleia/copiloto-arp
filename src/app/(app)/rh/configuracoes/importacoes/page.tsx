@@ -35,7 +35,6 @@ import {
   tabelasDoPlano,
 } from "@/server/rh/beneficios";
 import { folhasImportadas, rubricasNaoClassificadas } from "@/server/rh/dados";
-import { salarioFicticioAtivo } from "@/server/rh/folha";
 import { ImportarFolha } from "./importar-folha";
 import { ImportarPlano } from "./importar-plano";
 import { MenuFolha } from "./menu-folha";
@@ -255,7 +254,8 @@ async function Folha() {
               },
               {
                 titulo: "Salário",
-                valor: (f) => (f.ficticia ? "Fictício (protótipo)" : "Real"),
+                // Fictícia: importada no protótipo (R$ 2.000,00); reimportar.
+                valor: (f) => (f.ficticia ? "Fictício: reimportar" : "Real"),
               },
               { titulo: "Arquivo", valor: (f) => f.arquivo ?? "—" },
               {
@@ -331,9 +331,6 @@ async function Folha() {
       )}
 
       <Nota>
-        {salarioFicticioAtivo()
-          ? "Modo protótipo ligado: todo salário é gravado como R$ 2.000,00. "
-          : ""}
         O arquivo original fica guardado num repositório privado, com acesso só
         para quem importa a folha. CPF não é gravado. Por enquanto, a importação
         aceita o extrato em PDF; o formato Excel entra quando houver um arquivo
