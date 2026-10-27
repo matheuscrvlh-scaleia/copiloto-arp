@@ -542,6 +542,7 @@ function CartaoBeneficio({
         {porMes && (
           <ValoresDoMes
             beneficioId={b.id}
+            beneficioNome={b.nome}
             pessoas={pessoas}
             lancados={lancados.map((l) => ({
               colaborador_id: l.colaborador_id,

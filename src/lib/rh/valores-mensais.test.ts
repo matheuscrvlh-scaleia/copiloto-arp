@@ -5,6 +5,7 @@ import {
   casarPorNome,
   chaveDoNome,
   lerValoresDaPlanilha,
+  linhasDoModelo,
 } from "./valores-mensais";
 
 // Nomes e CPFs inventados.
@@ -94,5 +95,32 @@ describe("planilha de valores do mês", () => {
     expect(r.naoEncontrados).toEqual(["Fora da Lista"]);
     expect(r.avisos).toHaveLength(2);
     expect(chaveDoNome(" José  da Silva ")).toBe("jose da silva");
+  });
+});
+
+describe("planilha modelo", () => {
+  it("cabeçalho que a importação reconhece, CPF em branco", () => {
+    const linhas = linhasDoModelo([
+      { nome: "Ana Exemplo", valor: 350 },
+      { nome: "Bruno Exemplo", valor: null },
+    ]);
+    expect(linhas).toEqual([
+      ["CPF", "Nome", "Valor (R$)"],
+      [null, "Ana Exemplo", 350],
+      [null, "Bruno Exemplo", null],
+    ]);
+  });
+
+  it("volta pela importação: quem tem valor entra, quem ficou vazio é ignorado", () => {
+    const lido = lerValoresDaPlanilha(
+      linhasDoModelo([
+        { nome: "Ana Exemplo", valor: 350 },
+        { nome: "Bruno Exemplo", valor: null },
+      ]),
+    );
+    expect(lido.linhas).toEqual([
+      { linha: 2, nome: "Ana Exemplo", valor: 350 },
+    ]);
+    expect(lido.avisos).toEqual([]);
   });
 });

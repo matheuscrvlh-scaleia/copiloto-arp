@@ -5,9 +5,62 @@ import { classeCampo } from "@/components/estilos";
 import { type Acao, EnvioDaAcao, FormAcao } from "@/components/form-acao";
 import { fimDoMes, formatarMes, formatarNumero } from "@/lib/formato";
 import { type ValorLancado, valorLancadoNoMes } from "@/lib/rh/custo";
+import { chaveDoNome, linhasDoModelo } from "@/lib/rh/valores-mensais";
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 const valorBr = (v: number) => formatarNumero(v, 2);
+
+/** "Vale Refeição" → "vale-refeicao", para o nome do arquivo. */
+const paraArquivo = (t: string) =>
+  chaveDoNome(t)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+type ModuloExcel = typeof import("exceljs");
+
+/**
+ * Modelo .xlsx gerado no navegador (o gerador só carrega no clique), com o
+ * cabeçalho que a importação procura.
+ */
+async function baixarModelo(
+  pessoas: { nome: string; valor: number | null }[],
+  nomeArquivo: string,
+) {
+  // O pacote é CommonJS: no Node vem em `default`, no navegador direto.
+  const m = (await import("exceljs")) as ModuloExcel & {
+    default?: ModuloExcel;
+  };
+  const ExcelJS = m.default ?? m;
+  const livro = new ExcelJS.Workbook();
+  livro.creator = "ARP Centralizador";
+  const aba = livro.addWorksheet("Valores");
+  aba.addRows(linhasDoModelo(pessoas));
+  aba.getRow(1).font = { bold: true };
+  aba.views = [{ state: "frozen", ySplit: 1 }];
+  aba.getColumn(1).numFmt = "@"; // CPF como texto: não perde o zero à esquerda
+  aba.getColumn(1).width = 18;
+  aba.getColumn(2).width = Math.min(
+    Math.max(12, ...pessoas.map((p) => p.nome.length + 2)),
+    60,
+  );
+  aba.getColumn(3).numFmt = "#,##0.00";
+  aba.getColumn(3).width = 14;
+
+  const bytes = await livro.xlsx.writeBuffer();
+  const url = URL.createObjectURL(
+    new Blob([bytes], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nomeArquivo;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  // Dá tempo ao navegador de começar o download antes de soltar o arquivo.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
 
 export interface PessoaDoBeneficio {
   colaborador_id: string;
@@ -23,6 +76,7 @@ export interface PessoaDoBeneficio {
  */
 export function ValoresDoMes({
   beneficioId,
+  beneficioNome,
   pessoas,
   lancados,
   mesInicial,
@@ -30,6 +84,8 @@ export function ValoresDoMes({
   importar,
 }: {
   beneficioId: string;
+  /** Vai no nome do arquivo modelo. */
+  beneficioNome: string;
   pessoas: PessoaDoBeneficio[];
   /** Lançamentos deste benefício, de todas as competências. */
   lancados: (ValorLancado & { colaborador_id: string })[];
@@ -75,6 +131,8 @@ export function ValoresDoMes({
   const [base, setBase] = useState(assinatura);
   const [valores, setValores] = useState(gravado);
   const [copiado, setCopiado] = useState(false);
+  const [gerando, setGerando] = useState(false);
+  const [erroModelo, setErroModelo] = useState<string | null>(null);
   if (base !== assinatura) {
     setBase(assinatura);
     setValores(gravado);
@@ -98,6 +156,21 @@ export function ValoresDoMes({
       return novo;
     });
     setCopiado(true);
+  }
+
+  async function modelo() {
+    setGerando(true);
+    setErroModelo(null);
+    try {
+      await baixarModelo(
+        doMes.map((p) => ({ nome: p.nome, valor: noMes(p.colaborador_id) })),
+        `${paraArquivo(beneficioNome) || "beneficio"}-valores-${mes}.xlsx`,
+      );
+    } catch {
+      setErroModelo("Não deu para gerar o modelo. Tente de novo.");
+    } finally {
+      setGerando(false);
+    }
   }
 
   return (
@@ -125,6 +198,19 @@ export function ValoresDoMes({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={modelo}
+          disabled={gerando || doMes.length === 0}
+          title={
+            doMes.length === 0
+              ? `Ninguém recebe este benefício em ${formatarMes(competencia)}`
+              : undefined
+          }
+          className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {gerando ? "Gerando…" : "Baixar planilha modelo"}
+        </button>
         <FormAcao
           acao={importar}
           rotulo="Importar planilha"
@@ -158,10 +244,12 @@ export function ValoresDoMes({
         </button>
       </div>
       <p className="text-xs text-neutral-500">
-        Planilha .xlsx com as colunas CPF, nome e valor. O CPF não é gravado:
-        cada linha vale pela pessoa de mesmo nome entre quem recebe o benefício
-        no mês.
+        Baixe o modelo com quem recebe em {formatarMes(competencia)}, preencha a
+        coluna Valor e importe. Valor em branco não é lançado. O CPF é opcional
+        e não é gravado: cada linha vale pela pessoa de mesmo nome entre quem
+        recebe o benefício no mês.
       </p>
+      {erroModelo && <p className="text-xs text-red-700">{erroModelo}</p>}
 
       {doMes.length === 0 ? (
         <p className="text-sm text-neutral-500">

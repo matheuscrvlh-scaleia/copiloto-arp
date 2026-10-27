@@ -25,6 +25,22 @@ export function chaveDoNome(nome: string): string {
 const texto = (c: Celula) =>
   c === null || c === undefined ? "" : String(c).trim();
 
+/** Cabeçalho do modelo para baixar, como a importação procura. */
+export const CABECALHO_DO_MODELO = ["CPF", "Nome", "Valor (R$)"] as const;
+
+/**
+ * Planilha modelo: quem recebe no mês, com o valor já lançado (ou vazio). O
+ * CPF vai em branco: o banco não tem, e a importação não usa.
+ */
+export function linhasDoModelo(
+  pessoas: { nome: string; valor: number | null }[],
+): Celula[][] {
+  return [
+    [...CABECALHO_DO_MODELO],
+    ...pessoas.map((p) => [null, p.nome, p.valor]),
+  ];
+}
+
 /** Cabeçalho nas primeiras linhas: a coluna "nome" e a "valor" (CPF opcional). */
 export function lerValoresDaPlanilha(linhas: Celula[][]): {
   linhas: LinhaDeValor[];
@@ -50,7 +66,9 @@ export function lerValoresDaPlanilha(linhas: Celula[][]): {
     const l = linhas[i] ?? [];
     const nome = texto(l[colNome] ?? null);
     const bruto = l[colValor] ?? null;
-    if (!nome && texto(bruto) === "") continue;
+    // Valor em branco não é lançado (o modelo traz todo mundo; quem ficou
+    // vazio não muda).
+    if (texto(bruto) === "") continue;
     const valor = numeroDaCelula(bruto);
     if (!nome) avisos.push(`Linha ${i + 1}: sem nome; ficou de fora.`);
     else if (valor === null || valor < 0)
