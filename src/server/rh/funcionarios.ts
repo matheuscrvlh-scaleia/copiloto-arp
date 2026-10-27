@@ -355,9 +355,11 @@ export interface BeneficioDoFuncionario {
   manual: boolean;
 }
 
+/** Vem do Copiloto RH (aba Dependentes do perfil). */
 export interface Dependente {
   nome: string;
   nascimento: string | null;
+  parentesco: string | null;
   tem_plano: boolean;
   tem_odonto: boolean;
 }
@@ -379,7 +381,7 @@ export const beneficiosDe = cache(
         .order("desde", { ascending: false }),
       (await rh())
         .from("dependentes")
-        .select("nome, nascimento, tem_plano, tem_odonto")
+        .select("nome, nascimento, parentesco, tem_plano, tem_odonto")
         .eq("colaborador_id", id)
         .order("nome"),
     ]);

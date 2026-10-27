@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { copilotoRh as criarClienteCopiloto } from "../integracoes";
 import { recalcularEmAberto, tentarRecalcular } from "../rh/custo";
 import { lerTudo } from "../supabase-paginas";
-import { planejarCopiloto } from "./copiloto-rh-regras";
+import { planejarCopiloto, planejarDependentes } from "./copiloto-rh-regras";
 import { emLotes, executar, guardarBrutos } from "./execucao";
 
 const SISTEMA = "copiloto_rh";
@@ -14,12 +14,15 @@ export interface ResultadoCopiloto {
   novos: number;
   ativos: number;
   desligados: number;
+  /** Null: a leitura dos dependentes falhou (o motivo vai nos avisos). */
+  dependentes: number | null;
   avisos: string[];
 }
 
 /**
  * Traz do Copiloto RH todos os colaboradores (todas as situações) e grava o
- * que é dele em rh.colaboradores (regras em copiloto-rh-regras.ts).
+ * que é dele em rh.colaboradores (regras em copiloto-rh-regras.ts). Depois,
+ * os dependentes: a lista inteira, tirando quem sumiu de lá.
  */
 export async function sincronizarCopiloto() {
   const admin = createAdminClient();
@@ -86,11 +89,28 @@ export async function sincronizarCopiloto() {
       })),
     );
 
+    // Falha nos dependentes não derruba as pessoas nem apaga o que já veio.
+    let dependentes: number | null = null;
+    try {
+      dependentes = await gravarDependentes(
+        admin,
+        api,
+        linhas,
+        avisos,
+        (itens) => guardarBrutos(admin, SISTEMA, "dependentes", runId, itens),
+      );
+    } catch (erro) {
+      avisos.push(
+        `Dependentes não sincronizados: ${erro instanceof Error ? erro.message : String(erro)}`,
+      );
+    }
+
     const resultado: ResultadoCopiloto = {
       colaboradores: copiloto.length,
       novos,
       ativos: copiloto.filter((c) => c.status === "active").length,
       desligados: copiloto.filter((c) => c.status === "terminated").length,
+      dependentes,
       avisos,
     };
     // Contrato e valor do PJ mudam o custo das folhas em aberto.
@@ -101,4 +121,41 @@ export async function sincronizarCopiloto() {
       cursor: { executado_em: new Date().toISOString(), ...resultado },
     };
   });
+}
+
+async function gravarDependentes(
+  admin: ReturnType<typeof createAdminClient>,
+  api: Awaited<ReturnType<typeof criarClienteCopiloto>>,
+  colaboradores: Parameters<typeof planejarDependentes>[1],
+  avisos: string[],
+  guardar: (itens: { chave: string; payload: unknown }[]) => Promise<void>,
+): Promise<number> {
+  const rh = admin.schema("rh");
+  const copiloto = await api.dependentes();
+  const plano = planejarDependentes(copiloto, colaboradores);
+  avisos.push(...plano.avisos);
+  for (const lote of emLotes(plano.linhas, 500)) {
+    const { error } = await rh
+      .from("dependentes")
+      .upsert(lote, { onConflict: "copiloto_id" });
+    if (error) throw error;
+  }
+
+  const atuais = await lerTudo(() =>
+    rh.from("dependentes").select("copiloto_id").order("copiloto_id"),
+  );
+  const manter = new Set(plano.linhas.map((l) => l.copiloto_id));
+  const sairam = atuais
+    .map((d) => d.copiloto_id)
+    .filter((id) => !manter.has(id));
+  for (const lote of emLotes(sairam, 200)) {
+    const { error } = await rh
+      .from("dependentes")
+      .delete()
+      .in("copiloto_id", lote);
+    if (error) throw error;
+  }
+
+  await guardar(copiloto.map((d) => ({ chave: d.id, payload: d })));
+  return plano.linhas.length;
 }

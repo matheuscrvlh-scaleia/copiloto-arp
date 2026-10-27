@@ -36,6 +36,7 @@ const DEP = "10000000-0000-0000-0000-000000000001";
 const CARGO = "20000000-0000-0000-0000-000000000001";
 const COLAB = "30000000-0000-0000-0000-000000000001";
 const COPILOTO = "60000000-0000-0000-0000-000000000001";
+const DEPENDENTE = "60000000-0000-0000-0000-000000000002";
 const FOLHA = "40000000-0000-0000-0000-000000000001";
 
 const PARAMETROS = `insert into rh.parametros_empresa
@@ -270,6 +271,35 @@ describe("regras", () => {
         `insert into rh.colaboradores (nome, copiloto_id) values ('Outra', '${COPILOTO}')`,
       ),
     ).toMatch(/unique/);
+  });
+
+  it("dependente vem do Copiloto RH: só a sincronização grava, a tela só lê", async () => {
+    expect(
+      await erro(
+        `insert into rh.dependentes (colaborador_id, nome) values ('${COLAB}', 'Sem Copiloto')`,
+      ),
+    ).toMatch(/copiloto_id/);
+    await db.exec(`insert into rh.dependentes (copiloto_id, colaborador_id, nome, nascimento, parentesco, tem_plano)
+      values ('${DEPENDENTE}', '${COLAB}', 'Dependente Teste', '2018-04-02', 'Filho(a)', true)`);
+    await como(U.gestora, async () => {
+      expect(await linhas("select 1 from rh.dependentes")).toBe(1);
+      expect(
+        await erro(
+          `update rh.dependentes set tem_plano = false where copiloto_id = '${DEPENDENTE}'`,
+        ),
+      ).toMatch(/permission denied/);
+      expect(
+        await erro(
+          `insert into rh.dependentes (copiloto_id, colaborador_id, nome) values (gen_random_uuid(), '${COLAB}', 'Outro')`,
+        ),
+      ).toMatch(/permission denied/);
+    });
+    await como(U.analista, async () => {
+      expect(await linhas("select 1 from rh.dependentes")).toBe(0);
+    });
+    await db.exec(
+      `delete from rh.dependentes where copiloto_id = '${DEPENDENTE}'`,
+    );
   });
 
   it("competência só aceita o dia 1", async () => {

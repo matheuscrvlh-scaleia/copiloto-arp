@@ -268,7 +268,7 @@ rescisória sem dividir por 12).
   Endereço da API. Sem cadastro na tela, vale `COPILOTO_RH_BASE_URL`,
   `COPILOTO_RH_USUARIO` e `COPILOTO_RH_SENHA`.
 - **Escopos que a credencial precisa ter:** `organization:read`,
-  `employees:read`, `employees:personal:read` (nascimento) e `reports:read`
+  `employees:read`, `employees:personal:read` (nascimento e dependentes) e `reports:read`
   (turnover). **Não marcar**
   `employees:compensation:read` (salário: vem da folha), `jobs:read` nem
   `applications:read`. O teste de conexão lê `GET /v1/me` e diz quais
@@ -282,6 +282,7 @@ rescisória sem dividir por 12).
   | `departments` | id, nome, unidade, gestores |
   | `positions` | id, título, cargo base (`parent_position_id`) |
   | `employees` | id, matrícula (`code`), nome, situação, `employment_type`, `contract_type`, admissão, desligamento, `termination_reason`, `termination_decision`, departamento, cargo; com o escopo pessoal, nascimento |
+  | `dependents` | A aba Dependentes do perfil: id, colaborador (`employee_id`), nome, nascimento, parentesco (`dependent_type`: `filho`, `conjuge`, `pai_mae`, `outro` + `dependent_type_other`), `is_health_plan_dependent` e `is_ir_dependent`. Escopo `employees:personal:read`. Criada no Copiloto em 27/10/2026 para o plano de saúde da ARP (repo `copiloto-rh`, `supabase/functions/public-api`) |
   | `turnover` | O relatório de turnover do Copiloto para `from`/`to` (até 36 meses) e, se pedido, `department_id`: taxas (Geral, Voluntário, Involuntário e, com o Acordo à parte, por Acordo), contagens (desligamentos por tipo, admissões, headcount no início e no fim), série mês a mês e turnover por departamento. Escopo `reports:read` |
 
   Do bloco `personal` o conector guarda só o nascimento; CPF, RG, contatos e
@@ -344,6 +345,19 @@ rescisória sem dividir por 12).
     migration `20261022170000_rh_so_copiloto.sql`.
   - O custo continua pelo tipo de contrato da folha do mês
     (`folha_colaboradores`): os encargos são os do vínculo na folha.
+  - **Dependentes** (desde 27/10/2026): depois das pessoas, traz a lista
+    inteira de `dependents` (sem `updated_since`, porque dependente apagado
+    no Copiloto só some da lista) e grava em `rh.dependentes` pelo
+    `copiloto_id`, tirando quem sumiu. "Dependente de Plano de Saúde" vira
+    `tem_plano`; o parentesco fica com o rótulo da tela do Copiloto. CPF e
+    a marca de IR ficam de fora. Se a leitura falhar (rota ainda não
+    publicada, escopo), vira aviso: as pessoas sincronizam e os dependentes
+    já gravados ficam como estão.
+  - No plano, o valor de cada dependente é a mensalidade da faixa pela
+    idade dele na tabela vigente; quanto a empresa paga é a regra do
+    benefício ("Empresa paga do dependente"). Na ARP o funcionário paga
+    100% (regra "Empresa não paga"), então o dependente não soma no custo
+    e o desconto dele na folha (rubrica de dependente, ex. 490) é repasse.
   - Avisos só com a matrícula (ou o começo do id), sem nome nem data. Ficam
     em `sync_runs.cursor_depois.avisos` e aparecem em Administração ›
     Integrações › Últimas sincronizações. O payload validado vai para

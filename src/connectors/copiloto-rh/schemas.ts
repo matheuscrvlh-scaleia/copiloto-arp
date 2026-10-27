@@ -88,6 +88,25 @@ export const colaboradorSchema = z.object({
 
 export type Colaborador = z.infer<typeof colaboradorSchema>;
 
+/**
+ * GET /v1/dependents (escopo employees:personal:read), a aba Dependentes do
+ * perfil. Só o que o plano de saúde precisa: CPF e a marca de IR ficam de
+ * fora de propósito.
+ */
+export const dependenteSchema = z.object({
+  id: z.string(),
+  employee_id: z.string(),
+  full_name: z.string(),
+  birth_date: z.string().nullish(),
+  /** filho, conjuge, pai_mae ou outro (descrição em dependent_type_other). */
+  dependent_type: z.string().nullish(),
+  dependent_type_other: z.string().nullish(),
+  is_health_plan_dependent: z.boolean(),
+  updated_at: z.string(),
+});
+
+export type Dependente = z.infer<typeof dependenteSchema>;
+
 // GET /v1/turnover (escopo reports:read), lido em 21/10/2026: os números da
 // tela Relatórios › Turnover, pelo mesmo código. A taxa por Acordo só vem
 // quando o Acordo é contado à parte (agreement_counts_as = "separate").

@@ -4,7 +4,9 @@ import {
   type Colaborador,
   cargoSchema,
   colaboradorSchema,
+  type Dependente,
   departamentoSchema,
+  dependenteSchema,
   type Me,
   meSchema,
   paginaSchema,
@@ -139,6 +141,13 @@ export function createCopilotoRhClient(config: CopilotoRhConfig) {
 
     colaboradores: (f: FiltroColaboradores = {}): Promise<Colaborador[]> =>
       todas("employees", colaboradorSchema, filtro(f)),
+
+    /**
+     * Todos os dependentes. Sem updated_since de propósito: dependente
+     * apagado no Copiloto só some da lista, e a sincronização tira quem sumiu.
+     */
+    dependentes: (): Promise<Dependente[]> =>
+      todas("dependents", dependenteSchema),
 
     /**
      * Turnover do período como a tela Relatórios › Turnover do Copiloto:

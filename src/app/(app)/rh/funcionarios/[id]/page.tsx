@@ -956,7 +956,8 @@ function Beneficios({
       {beneficios.length === 0 && dependentes.length === 0 ? (
         <p className="text-sm text-neutral-500">
           Nenhum benefício ou dependente cadastrado para esta pessoa. O vínculo
-          é feito em RH › Configurações › Cadastros.
+          é feito em RH › Configurações › Cadastros; os dependentes vêm do
+          Copiloto RH.
         </p>
       ) : (
         <ul className="flex flex-col gap-3 text-sm">
@@ -989,7 +990,7 @@ function Beneficios({
               <span>
                 {d.nome}{" "}
                 <span className="text-xs text-neutral-500">
-                  (dependente
+                  ({d.parentesco ?? "dependente"}
                   {d.nascimento ? `, ${idadeEm(d.nascimento, hoje)} anos` : ""})
                 </span>
               </span>

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { Colaborador } from "@/connectors/copiloto-rh/schemas";
+import type { Colaborador, Dependente } from "@/connectors/copiloto-rh/schemas";
 import {
   type Existente,
   matriculaDoCopiloto,
+  parentescoDoCopiloto,
   planejarCopiloto,
+  planejarDependentes,
   tipoContratoDoCopiloto,
 } from "./copiloto-rh-regras";
 
@@ -183,5 +185,73 @@ describe("regras do copiloto rh", () => {
       "matrícula 7: desligamento antes da admissão no Copiloto; desligamento ignorado",
     ]);
     expect(r.avisos.join()).not.toMatch(/Pessoa|2025|2024/);
+  });
+});
+
+describe("dependentes do copiloto rh", () => {
+  const dependente = (
+    d: Partial<Dependente> & { id: string; employee_id: string },
+  ): Dependente => ({
+    full_name: " Dependente Exemplo ",
+    birth_date: "2018-04-02",
+    dependent_type: "filho",
+    dependent_type_other: null,
+    is_health_plan_dependent: true,
+    updated_at: "2026-10-20T00:00:00Z",
+    ...d,
+  });
+  const colaboradores = [{ id: "c1", copiloto_id: "k1", matricula: 126 }];
+
+  it("parentesco com os rótulos do Copiloto; Outro usa a descrição", () => {
+    expect(parentescoDoCopiloto("filho", null)).toBe("Filho(a)");
+    expect(parentescoDoCopiloto("conjuge", null)).toBe(
+      "Cônjuge / Companheiro(a)",
+    );
+    expect(parentescoDoCopiloto("outro", " Enteado ")).toBe("Enteado");
+    expect(parentescoDoCopiloto("outro", "")).toBe("Outro");
+    expect(parentescoDoCopiloto(null, null)).toBeNull();
+  });
+
+  it("liga ao titular pelo id do Copiloto e marca quem está no plano", () => {
+    const { linhas, avisos } = planejarDependentes(
+      [
+        dependente({ id: "d1", employee_id: "k1" }),
+        dependente({
+          id: "d2",
+          employee_id: "k1",
+          dependent_type: "conjuge",
+          is_health_plan_dependent: false,
+        }),
+      ],
+      colaboradores,
+    );
+    expect(linhas).toEqual([
+      {
+        copiloto_id: "d1",
+        colaborador_id: "c1",
+        nome: "Dependente Exemplo",
+        nascimento: "2018-04-02",
+        parentesco: "Filho(a)",
+        tem_plano: true,
+      },
+      expect.objectContaining({ copiloto_id: "d2", tem_plano: false }),
+    ]);
+    expect(avisos).toEqual([]);
+  });
+
+  it("sem titular fica de fora; no plano sem nascimento avisa sem o nome", () => {
+    const { linhas, avisos } = planejarDependentes(
+      [
+        dependente({ id: "d1", employee_id: "k1", birth_date: null }),
+        dependente({ id: "d2", employee_id: "fora" }),
+      ],
+      colaboradores,
+    );
+    expect(linhas.map((l) => l.copiloto_id)).toEqual(["d1"]);
+    expect(avisos).toEqual([
+      "matrícula 126: dependente no plano sem data de nascimento no Copiloto (sem faixa)",
+      "1 dependente(s) de pessoas que não vieram do Copiloto ficaram de fora",
+    ]);
+    expect(avisos.join(" ")).not.toContain("Exemplo");
   });
 });

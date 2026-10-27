@@ -38,6 +38,7 @@ import {
   vinculosPorContrato,
 } from "@/server/rh/beneficios";
 import { folhasDoCusto } from "@/server/rh/dados";
+import { DependentesDoPlano } from "./dependentes-do-plano";
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 const valorBr = (v: number | null) => (v === null ? "" : formatarNumero(v, 2));
@@ -366,6 +367,12 @@ function CartaoBeneficio({
                           mes={mesAtual}
                         />
                       </p>
+                      <DependentesDoPlano
+                        beneficio={b}
+                        colaboradorId={v.colaborador_id}
+                        faixas={faixas}
+                        mes={mesAtual}
+                      />
                     </div>
                     <FormAcao
                       acao={salvarValorManual}

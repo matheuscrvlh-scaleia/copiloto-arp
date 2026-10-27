@@ -1,4 +1,4 @@
-import type { Colaborador } from "@/connectors/copiloto-rh/schemas";
+import type { Colaborador, Dependente } from "@/connectors/copiloto-rh/schemas";
 import type { Database } from "@/lib/supabase/database.types";
 
 type TipoContrato = Database["rh"]["Enums"]["tipo_contrato"];
@@ -174,4 +174,74 @@ export function planejarCopiloto(
       `${novos} colaborador(es) do Copiloto criado(s) no Centralizador (sem par pela matrícula)`,
     );
   return { linhas, valoresPj, novos, avisos };
+}
+
+/** Linha gravada em rh.dependentes (tem_odonto não vem do Copiloto). */
+export interface LinhaDependente {
+  copiloto_id: string;
+  colaborador_id: string;
+  nome: string;
+  nascimento: string | null;
+  parentesco: string | null;
+  tem_plano: boolean;
+}
+
+// Rótulos da aba Dependentes do Copiloto; "outro" usa a descrição de lá.
+const PARENTESCOS: Record<string, string> = {
+  filho: "Filho(a)",
+  conjuge: "Cônjuge / Companheiro(a)",
+  pai_mae: "Pai / Mãe",
+};
+
+export function parentescoDoCopiloto(
+  tipo: string | null | undefined,
+  outro: string | null | undefined,
+): string | null {
+  const t = (tipo ?? "").trim().toLowerCase();
+  if (!t) return null;
+  if (t === "outro") return outro?.trim() || "Outro";
+  return PARENTESCOS[t] ?? t;
+}
+
+/**
+ * Dependentes do Copiloto ligados a quem já está no Centralizador (pelo id do
+ * Copiloto). "Dependente de Plano de Saúde" vira tem_plano. Avisos só com a
+ * matrícula do titular, sem o nome do dependente.
+ */
+export function planejarDependentes(
+  dependentes: Dependente[],
+  colaboradores: Pick<LinhaCopiloto, "id" | "copiloto_id" | "matricula">[],
+): { linhas: LinhaDependente[]; avisos: string[] } {
+  const porCopiloto = new Map(colaboradores.map((c) => [c.copiloto_id, c]));
+  const linhas: LinhaDependente[] = [];
+  const avisos: string[] = [];
+  let semTitular = 0;
+  for (const d of dependentes) {
+    const titular = porCopiloto.get(d.employee_id);
+    if (!titular) {
+      semTitular++;
+      continue;
+    }
+    const nascimento = d.birth_date ?? null;
+    if (d.is_health_plan_dependent && !nascimento)
+      avisos.push(
+        `${titular.matricula !== null ? `matrícula ${titular.matricula}` : `id ${d.employee_id.slice(0, 8)}`}: dependente no plano sem data de nascimento no Copiloto (sem faixa)`,
+      );
+    linhas.push({
+      copiloto_id: d.id,
+      colaborador_id: titular.id,
+      nome: d.full_name.trim(),
+      nascimento,
+      parentesco: parentescoDoCopiloto(
+        d.dependent_type,
+        d.dependent_type_other,
+      ),
+      tem_plano: d.is_health_plan_dependent,
+    });
+  }
+  if (semTitular > 0)
+    avisos.push(
+      `${semTitular} dependente(s) de pessoas que não vieram do Copiloto ficaram de fora`,
+    );
+  return { linhas, avisos };
 }

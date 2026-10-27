@@ -80,7 +80,7 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 | `cargos` | Nome, código da folha, CBO |
 | `motivos_desligamento` | Vêm do Secullum (descrição do motivo no perfil do funcionário). `tipo_turnover` não é mais usado: o turnover e o tipo de cada saída vêm do Copiloto RH |
 | `colaboradores` | Identidade estável: matrícula, nome, nascimento, admissão, desligamento e motivo, tipo de contrato, departamento e cargo atuais. Para quem tem `copiloto_id`, nome, nascimento, contrato, admissão, desligamento, `situacao_copiloto`, `motivo_desligamento_copiloto` e `decisao_desligamento_copiloto` vêm do Copiloto RH; o resto vem do ponto e da folha. `copiloto_id` é obrigatório: só o Copiloto cria pessoas; o ponto e a folha só se ligam a elas. `fora_do_ponto` (marcado na ficha, `rh.parametros`, com auditoria): a sincronização não calcula o ponto e as telas não contam o que já veio |
-| `dependentes` | Nome, nascimento, se tem plano e odonto |
+| `dependentes` | Do Copiloto RH (`copiloto_id` obrigatório, sincronização): nome, nascimento, parentesco e se está no plano (`tem_plano` = "Dependente de Plano de Saúde"). `tem_odonto` não existe no Copiloto. A tela só lê |
 
 ### Parâmetros (vigência + auditoria)
 
@@ -172,7 +172,8 @@ ela antes do primeiro fechamento.
 | Tabelas | Leitura | Escrita pela tela |
 |---|---|---|
 | Cadastros, parâmetros, rubricas, benefícios, plano, folhas, afastamentos, dados financeiros | qualquer `rh.*` | `rh.parametros` / `rh.beneficios` / `rh.folha` |
-| `dependentes`, `colaborador_beneficios` | `rh.beneficios` | `rh.beneficios` |
+| `colaborador_beneficios` | `rh.beneficios` | `rh.beneficios` |
+| `dependentes` | `rh.beneficios` | — (sincronização do Copiloto RH) |
 | `ponto_mensal` | `rh.jornada`, `rh.painel` ou `rh.funcionarios` | — (sincronização) |
 | `ponto_diario` | `rh.jornada` ou `rh.funcionarios` | — (sincronização) |
 | `folha_colaboradores`, `folha_rubricas` | `rh.custo_pessoal.individual` | `rh.folha` (importação) |

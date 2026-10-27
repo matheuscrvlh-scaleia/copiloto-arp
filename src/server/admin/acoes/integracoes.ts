@@ -199,7 +199,7 @@ async function sincronizarCopilotoAgora(): Promise<EstadoAcao> {
     refresh();
     const avisos = r.avisos.length ? ` · ${r.avisos.length} avisos` : "";
     return {
-      ok: `${r.colaboradores} colaboradores do Copiloto (${r.ativos} ativos, ${r.desligados} desligados)${r.novos ? ` · ${r.novos} novos` : ""}${avisos}.`,
+      ok: `${r.colaboradores} colaboradores do Copiloto (${r.ativos} ativos, ${r.desligados} desligados)${r.novos ? ` · ${r.novos} novos` : ""}${r.dependentes !== null ? ` · ${r.dependentes} dependentes` : ""}${avisos}.`,
     };
   } catch (erro) {
     return { erro: erro instanceof Error ? erro.message : "Falhou." };

@@ -160,6 +160,54 @@ describe("copiloto rh", () => {
     expect(JSON.stringify(lista)).not.toContain("000.000.000-00");
   });
 
+  it("dependentes: lista inteira, sem CPF nem a marca de IR", async () => {
+    const chamadas: Chamada[] = [];
+    const client = createCopilotoRhClient({
+      ...config,
+      fetch: api(
+        {
+          "/public-api/v1/auth/token": token,
+          "/public-api/v1/dependents": () =>
+            json({
+              data: [
+                {
+                  id: "d1",
+                  employee_id: COLABORADOR.id,
+                  full_name: "Filho Exemplo",
+                  birth_date: "2018-04-02",
+                  cpf: "111.111.111-11",
+                  dependent_type: "filho",
+                  dependent_type_other: null,
+                  is_ir_dependent: true,
+                  is_health_plan_dependent: true,
+                  created_at: "2026-10-20T13:45:00.000Z",
+                  updated_at: "2026-10-20T13:45:00.000Z",
+                },
+              ],
+              pagination: { page: 1, per_page: 100, total: 1, has_more: false },
+            }),
+        },
+        chamadas,
+      ),
+    });
+    const lista = await client.dependentes();
+    expect(lista).toEqual([
+      {
+        id: "d1",
+        employee_id: COLABORADOR.id,
+        full_name: "Filho Exemplo",
+        birth_date: "2018-04-02",
+        dependent_type: "filho",
+        dependent_type_other: null,
+        is_health_plan_dependent: true,
+        updated_at: "2026-10-20T13:45:00.000Z",
+      },
+    ]);
+    expect(
+      new URL(chamadas[1]?.url ?? "").searchParams.has("updated_since"),
+    ).toBe(false);
+  });
+
   it("token expirado antes da hora: renova uma vez", async () => {
     let tokens = 0;
     let chamadasMe = 0;

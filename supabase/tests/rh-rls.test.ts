@@ -1,8 +1,10 @@
 // RLS do schema rh e do bucket importacoes reescrito para desempenho
 // (20261026170000_rh_desempenho_rls): mesma visibilidade e mesma gravação de
 // antes. Dois bancos com os mesmos dados: "antes" com as migrations até a
-// anterior a esta, "depois" com todas. Cada perfil lê, altera, apaga e inclui
-// em cada tabela nos dois, e o resultado tem que ser o mesmo.
+// anterior a esta, "depois" até esta (as seguintes podem mudar o alcance de
+// propósito, como os dependentes que passaram a vir só do Copiloto RH). Cada
+// perfil lê, altera, apaga e inclui em cada tabela nos dois, e o resultado
+// tem que ser o mesmo.
 //
 // As regras do rh não dependem da linha (só da permissão), então a contagem
 // de linhas de cada tabela com dados já diz quais linhas a pessoa alcança; no
@@ -20,6 +22,8 @@ import {
 
 const MIGRATIONS = join(import.meta.dirname, "..", "migrations");
 const ESTA = "20261026170000";
+/** Primeiro instante depois desta: "depois" para aqui. */
+const DEPOIS_DESTA = "20261026170001";
 
 const SUPABASE_MINIMO = `
   create role anon nologin;
@@ -447,7 +451,7 @@ async function alcance(db: PGlite, u: NomePerfil) {
 }
 
 beforeAll(async () => {
-  [antes, depois] = await Promise.all([subir(ESTA), subir()]);
+  [antes, depois] = await Promise.all([subir(ESTA), subir(DEPOIS_DESTA)]);
 }, 120_000);
 
 describe("rh: o mesmo alcance de antes", { timeout: 120_000 }, () => {

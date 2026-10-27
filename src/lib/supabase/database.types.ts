@@ -3732,30 +3732,36 @@ export type Database = {
         Row: {
           atualizado_em: string
           colaborador_id: string
+          copiloto_id: string
           criado_em: string
           id: string
           nascimento: string | null
           nome: string
+          parentesco: string | null
           tem_odonto: boolean
           tem_plano: boolean
         }
         Insert: {
           atualizado_em?: string
           colaborador_id: string
+          copiloto_id: string
           criado_em?: string
           id?: string
           nascimento?: string | null
           nome: string
+          parentesco?: string | null
           tem_odonto?: boolean
           tem_plano?: boolean
         }
         Update: {
           atualizado_em?: string
           colaborador_id?: string
+          copiloto_id?: string
           criado_em?: string
           id?: string
           nascimento?: string | null
           nome?: string
+          parentesco?: string | null
           tem_odonto?: boolean
           tem_plano?: boolean
         }
