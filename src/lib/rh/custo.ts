@@ -1,3 +1,4 @@
+import { formatarMes } from "@/lib/formato";
 import { ativosEm } from "./calculos";
 import { GRUPOS_RUBRICA, type GrupoRubrica } from "./rubricas";
 
@@ -545,6 +546,47 @@ export function valorPelaFaixa(
   return faixa
     ? { valor: faixa.mensalidade, idade, faixa }
     : { valor: null, idade, pendencia: "idade fora das faixas da tabela" };
+}
+
+export interface ValorLancado {
+  /** aaaa-mm-01 */
+  competencia: string;
+  valor: number;
+}
+
+export interface ValorDoMes {
+  valor: number | null;
+  /** Competência de onde o valor veio (a do mês ou a última antes dele). */
+  de?: string;
+  /** Mês sem lançamento: o valor é o último lançado antes dele. */
+  aviso?: string;
+  pendencia?: string;
+}
+
+/**
+ * Benefício com valor por mês: o lançado na competência; sem lançamento,
+ * repete o último lançado antes dela. Lançamentos posteriores não contam.
+ */
+export function valorLancadoNoMes(
+  lancamentos: ValorLancado[],
+  competencia: string,
+): ValorDoMes {
+  const ultimo = vigenteEm(
+    lancamentos.map((l) => ({ ...l, vigente_desde: l.competencia })),
+    competencia,
+  );
+  if (!ultimo)
+    return {
+      valor: null,
+      pendencia: `sem valor lançado até ${formatarMes(competencia)}`,
+    };
+  if (ultimo.competencia === competencia)
+    return { valor: ultimo.valor, de: competencia };
+  return {
+    valor: ultimo.valor,
+    de: ultimo.competencia,
+    aviso: `Valor de ${formatarMes(ultimo.competencia)} repetido – sem lançamento em ${formatarMes(competencia)}`,
+  };
 }
 
 // ---------------------------------------------------------------------------

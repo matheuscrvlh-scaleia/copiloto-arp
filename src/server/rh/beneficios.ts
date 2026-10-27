@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { type AbaDaPlanilha, lerTabelaDoPlano } from "@/lib/rh/plano";
+import { lerValoresDaPlanilha } from "@/lib/rh/valores-mensais";
 import { createClient } from "@/lib/supabase/server";
 import { lerTudo } from "../supabase-paginas";
 import { beneficiosDoRh, tabelasDosPlanos } from "./configuracao";
@@ -38,6 +39,8 @@ export interface Beneficio {
   nome: string;
   tipo: TipoBeneficio;
   valor_padrao: number | null;
+  /** Valor de cada pessoa lançado por competência (beneficio_valores_mensais). */
+  valor_por_mes: boolean;
   rubricas_desconto: number[];
   rubricas_desconto_dependente: number[];
   dependente_regra: keyof typeof REGRAS_DEPENDENTE;
@@ -114,13 +117,34 @@ export const vinculosPorContrato = cache(
   },
 );
 
+export interface ValorMensal {
+  beneficio_id: string;
+  colaborador_id: string;
+  /** aaaa-mm-01 */
+  competencia: string;
+  valor: number;
+}
+
+/** Valores lançados mês a mês dos benefícios que variam por mês. */
+export const valoresMensais = cache(async (): Promise<ValorMensal[]> => {
+  const db = await rh();
+  // Uma linha por pessoa, benefício e mês: cresce todo mês.
+  const data = await lerTudo(() =>
+    db
+      .from("beneficio_valores_mensais")
+      .select("beneficio_id, colaborador_id, competencia, valor")
+      .order("id"),
+  );
+  return data.map((v) => ({ ...v, valor: Number(v.valor) }));
+});
+
 /** Quem pode receber benefício: cadastro ainda sem desligamento. */
 export const colaboradoresAtivos = cache(async () => {
   const db = await rh();
   return lerTudo(() =>
     db
       .from("colaboradores")
-      .select("id, nome, matricula, tipo_contrato")
+      .select("id, nome, matricula, tipo_contrato, admissao")
       .is("desligamento", null)
       .order("nome")
       .order("id"),
@@ -161,6 +185,14 @@ export async function lerPlanilhaDoPlano(bytes: Uint8Array) {
   const { default: readXlsxFile } = await import("read-excel-file/node");
   const abas = await readXlsxFile(Buffer.from(bytes));
   return lerTabelaDoPlano(abas as AbaDaPlanilha[]);
+}
+
+/** Valores do mês de um benefício: a primeira aba da planilha (.xlsx). */
+export async function lerPlanilhaDeValores(bytes: Uint8Array) {
+  // Só quem importa a planilha carrega o leitor de Excel.
+  const { default: readXlsxFile } = await import("read-excel-file/node");
+  const abas = (await readXlsxFile(Buffer.from(bytes))) as AbaDaPlanilha[];
+  return lerValoresDaPlanilha(abas[0]?.data ?? []);
 }
 
 /** .xlsx é um zip: começa com "PK\x03\x04". */

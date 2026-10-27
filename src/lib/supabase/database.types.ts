@@ -3369,6 +3369,51 @@ export type Database = {
           },
         ]
       }
+      beneficio_valores_mensais: {
+        Row: {
+          atualizado_em: string
+          beneficio_id: string
+          colaborador_id: string
+          competencia: string
+          criado_em: string
+          id: string
+          valor: number
+        }
+        Insert: {
+          atualizado_em?: string
+          beneficio_id: string
+          colaborador_id: string
+          competencia: string
+          criado_em?: string
+          id?: string
+          valor: number
+        }
+        Update: {
+          atualizado_em?: string
+          beneficio_id?: string
+          colaborador_id?: string
+          competencia?: string
+          criado_em?: string
+          id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beneficio_valores_mensais_beneficio_id_fkey"
+            columns: ["beneficio_id"]
+            isOneToOne: false
+            referencedRelation: "beneficios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beneficio_valores_mensais_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       beneficios: {
         Row: {
           ativo: boolean
@@ -3382,6 +3427,7 @@ export type Database = {
           rubricas_desconto_dependente: number[]
           tipo: Database["rh"]["Enums"]["tipo_beneficio"]
           valor_padrao: number | null
+          valor_por_mes: boolean
         }
         Insert: {
           ativo?: boolean
@@ -3395,6 +3441,7 @@ export type Database = {
           rubricas_desconto_dependente?: number[]
           tipo: Database["rh"]["Enums"]["tipo_beneficio"]
           valor_padrao?: number | null
+          valor_por_mes?: boolean
         }
         Update: {
           ativo?: boolean
@@ -3408,6 +3455,7 @@ export type Database = {
           rubricas_desconto_dependente?: number[]
           tipo?: Database["rh"]["Enums"]["tipo_beneficio"]
           valor_padrao?: number | null
+          valor_por_mes?: boolean
         }
         Relationships: []
       }

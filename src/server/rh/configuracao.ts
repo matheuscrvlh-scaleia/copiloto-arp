@@ -228,6 +228,7 @@ export interface BeneficioDoRh {
   nome: string;
   tipo: Rh["Enums"]["tipo_beneficio"];
   valor_padrao: number | null;
+  valor_por_mes: boolean;
   rubricas_desconto: number[];
   rubricas_desconto_dependente: number[];
   dependente_regra: Rh["Enums"]["regra_dependente"];
@@ -248,7 +249,7 @@ async function beneficiosEmCache(): Promise<BeneficioDoRh[]> {
   const { data, error } = await rhAdmin()
     .from("beneficios")
     .select(
-      "id, nome, tipo, valor_padrao, rubricas_desconto, rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo",
+      "id, nome, tipo, valor_padrao, valor_por_mes, rubricas_desconto, rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo",
     )
     .order("ativo", { ascending: false })
     .order("nome");

@@ -8,6 +8,7 @@ import {
   jornadaDe,
   type PessoaDoMes,
   type RubricaDaFolha,
+  valorLancadoNoMes,
   valorPelaFaixa,
   vigenteEm,
 } from "@/lib/rh/custo";
@@ -54,6 +55,7 @@ async function carregar(admin: AdminClient, competencia: string) {
     tabelas,
     dependentes,
     valoresPj,
+    lancados,
   ] = await Promise.all([
     folhaDoMes,
     lerTudo(() => rh.from("rubricas").select("codigo, grupo").order("codigo")),
@@ -112,7 +114,7 @@ async function carregar(admin: AdminClient, competencia: string) {
         .from("colaborador_beneficios")
         .select(
           `colaborador_id, valor_manual,
-           beneficio:beneficios(id, nome, tipo, valor_padrao, rubricas_desconto,
+           beneficio:beneficios(id, nome, tipo, valor_padrao, valor_por_mes, rubricas_desconto,
              rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo),
            colaborador:colaboradores(nascimento)`,
         )
@@ -124,7 +126,7 @@ async function carregar(admin: AdminClient, competencia: string) {
       .from("beneficio_contratos")
       .select(
         `tipo_contrato,
-         beneficio:beneficios(id, nome, tipo, valor_padrao, rubricas_desconto,
+         beneficio:beneficios(id, nome, tipo, valor_padrao, valor_por_mes, rubricas_desconto,
            rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo)`,
       )
       .lte("desde", fim)
@@ -147,6 +149,15 @@ async function carregar(admin: AdminClient, competencia: string) {
         .select("colaborador_id, valor")
         .order("colaborador_id"),
     ),
+    // Benefícios com valor por mês: tudo até a competência, para repetir o
+    // último lançado quando o mês não tem.
+    lerTudo(() =>
+      rh
+        .from("beneficio_valores_mensais")
+        .select("beneficio_id, colaborador_id, competencia, valor")
+        .lte("competencia", competencia)
+        .order("id"),
+    ),
   ]);
   for (const r of [encargos, empresa, porContrato, tabelas]) falhar(r.error);
 
@@ -167,6 +178,7 @@ async function carregar(admin: AdminClient, competencia: string) {
     valoresPj: new Map(
       valoresPj.map((v) => [v.colaborador_id, Number(v.valor)]),
     ),
+    lancados,
   };
 }
 
@@ -212,8 +224,9 @@ async function sociosDoCusto(admin: AdminClient): Promise<Set<string>> {
 type Dados = Awaited<ReturnType<typeof carregar>>;
 
 /**
- * Benefícios de cada pessoa com o valor cheio resolvido (manual, padrão ou
- * faixa): os vinculados a ela e os do tipo de contrato dela (o dela vence).
+ * Benefícios de cada pessoa com o valor cheio resolvido (lançado no mês, se
+ * o benefício varia por mês; senão manual, padrão ou faixa): os vinculados a
+ * ela e os do tipo de contrato dela (o dela vence).
  */
 function beneficiosPorPessoa(
   d: Dados,
@@ -224,6 +237,10 @@ function beneficiosPorPessoa(
   // cada vínculo (a ordem dentro de cada grupo é a da consulta).
   const tabelasDe = Map.groupBy(d.tabelas, (t) => t.beneficio_id);
   const dependentesDe = Map.groupBy(d.dependentes, (x) => x.colaborador_id);
+  const lancadosDe = Map.groupBy(
+    d.lancados.map((l) => ({ ...l, valor: Number(l.valor) })),
+    (l) => `${l.beneficio_id}:${l.colaborador_id}`,
+  );
   const faixasPorBeneficio = new Map<string, FaixaEtaria[] | null>();
   const faixasDe = (beneficioId: string): FaixaEtaria[] | null => {
     if (faixasPorBeneficio.has(beneficioId))
@@ -277,12 +294,18 @@ function beneficiosPorPessoa(
     };
     const faixas =
       b.tipo === "plano_saude" || b.tipo === "odonto" ? faixasDe(b.id) : null;
-    const titular =
-      v.valor_manual !== null
+    const titular = b.valor_por_mes
+      ? valorLancadoNoMes(
+          lancadosDe.get(`${b.id}:${v.colaborador_id}`) ?? [],
+          competencia,
+        )
+      : v.valor_manual !== null
         ? { valor: Number(v.valor_manual) }
         : b.valor_padrao !== null
           ? { valor: Number(b.valor_padrao) }
           : porFaixa(faixas, v.colaborador?.nascimento ?? null);
+    if ("aviso" in titular && titular.aviso)
+      item.pendencias.push(`${b.nome}: ${titular.aviso}.`);
 
     // Dependentes: só plano e odonto; a empresa paga o que a regra mandar.
     let dependentes = 0;
@@ -478,15 +501,20 @@ export async function recalcularCusto(
 /**
  * Recalcula todas as competências em aberto (folha não fechada). Usado
  * quando muda algo que vale para todos os meses: rubrica, encargo, RAT/FAP.
+ * Com `desde`, só as competências a partir dela (o que mudou não alcança os
+ * meses anteriores).
  */
-export async function recalcularEmAberto(): Promise<ResultadoCusto[]> {
+export async function recalcularEmAberto(
+  desde?: string,
+): Promise<ResultadoCusto[]> {
   const admin = createAdminClient();
-  const { data, error } = await admin
+  let consulta = admin
     .schema("rh")
     .from("folhas")
     .select("competencia")
-    .neq("status", "fechada")
-    .order("competencia");
+    .neq("status", "fechada");
+  if (desde) consulta = consulta.gte("competencia", desde);
+  const { data, error } = await consulta.order("competencia");
   falhar(error);
   // Cada competência é independente (lê e grava só o próprio mês): todas ao
   // mesmo tempo, na ordem dos meses no resultado.

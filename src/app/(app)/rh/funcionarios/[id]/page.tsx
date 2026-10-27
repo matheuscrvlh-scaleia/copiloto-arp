@@ -976,10 +976,16 @@ function Beneficios({
                 </span>
               </span>
               <span className="text-right tabular-nums">
-                {b.valor === null ? "pela faixa" : formatarMoeda(b.valor)}
-                {b.manual && (
+                {b.valor !== null
+                  ? formatarMoeda(b.valor)
+                  : b.porMes
+                    ? "sem valor lançado"
+                    : "pela faixa"}
+                {(b.manual || b.porMes) && (
                   <span className="block text-xs text-neutral-500">
-                    valor da pessoa
+                    {b.porMes
+                      ? "varia por mês (último lançado)"
+                      : "valor da pessoa"}
                   </span>
                 )}
               </span>

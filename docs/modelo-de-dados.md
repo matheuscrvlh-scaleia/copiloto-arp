@@ -98,6 +98,7 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 |---|---|
 | `beneficios` | VR, VT, plano, odonto, seguro, massagem…: valor, rubricas de desconto (titular e dependente), quanto a empresa paga do dependente |
 | `colaborador_beneficios` | Vínculo com período; `valor_manual` não é sobrescrito quando a faixa muda |
+| `beneficio_valores_mensais` | Benefício com `valor_por_mes` marcado: valor de cada pessoa por competência (um por mês). Mês sem lançamento repete o último anterior, com aviso no custo |
 | `beneficio_contratos` | Benefício para todo um tipo de contrato (ex.: seguro de todos os estagiários), com período; vale para quem entrar depois. O vínculo da pessoa vence o do contrato. Um em aberto por benefício e contrato |
 | `plano_tabelas` | Uma por reajuste, por benefício (plano ou odonto), ligada à importação da planilha |
 | `plano_faixas_etarias` | Idade mínima/máxima e mensalidade |
@@ -172,7 +173,7 @@ ela antes do primeiro fechamento.
 | Tabelas | Leitura | Escrita pela tela |
 |---|---|---|
 | Cadastros, parâmetros, rubricas, benefícios, plano, folhas, afastamentos, dados financeiros | qualquer `rh.*` | `rh.parametros` / `rh.beneficios` / `rh.folha` |
-| `colaborador_beneficios` | `rh.beneficios` | `rh.beneficios` |
+| `colaborador_beneficios`, `beneficio_valores_mensais` | `rh.beneficios` | `rh.beneficios` |
 | `dependentes` | `rh.beneficios` | — (sincronização do Copiloto RH) |
 | `ponto_mensal` | `rh.jornada`, `rh.painel` ou `rh.funcionarios` | — (sincronização) |
 | `ponto_diario` | `rh.jornada` ou `rh.funcionarios` | — (sincronização) |

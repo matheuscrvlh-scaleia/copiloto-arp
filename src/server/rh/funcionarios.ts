@@ -353,6 +353,8 @@ export interface BeneficioDoFuncionario {
   valor: number | null;
   /** O valor foi digitado para a pessoa (não muda com a faixa). */
   manual: boolean;
+  /** Valor varia por mês: `valor` é o último lançado. */
+  porMes: boolean;
 }
 
 /** Vem do Copiloto RH (aba Dependentes do perfil). */
@@ -371,14 +373,20 @@ export const beneficiosDe = cache(
     beneficios: BeneficioDoFuncionario[];
     dependentes: Dependente[];
   }> => {
-    const [beneficios, dependentes] = await Promise.all([
+    const [beneficios, lancados, dependentes] = await Promise.all([
       (await rh())
         .from("colaborador_beneficios")
         .select(
-          "desde, ate, valor_manual, beneficio:beneficios(nome, tipo, valor_padrao)",
+          "desde, ate, valor_manual, beneficio:beneficios(id, nome, tipo, valor_padrao, valor_por_mes)",
         )
         .eq("colaborador_id", id)
         .order("desde", { ascending: false }),
+      // Do mais recente ao mais antigo: o primeiro de cada benefício é o último.
+      (await rh())
+        .from("beneficio_valores_mensais")
+        .select("beneficio_id, valor")
+        .eq("colaborador_id", id)
+        .order("competencia", { ascending: false }),
       (await rh())
         .from("dependentes")
         .select("nome, nascimento, parentesco, tem_plano, tem_odonto")
@@ -386,16 +394,28 @@ export const beneficiosDe = cache(
         .order("nome"),
     ]);
     falhar(beneficios.error);
+    falhar(lancados.error);
     falhar(dependentes.error);
+    const ultimoLancado = (beneficioId: string | undefined) =>
+      num(
+        lancados.data?.find((l) => l.beneficio_id === beneficioId)?.valor ??
+          null,
+      );
     return {
-      beneficios: (beneficios.data ?? []).map((b) => ({
-        nome: b.beneficio?.nome ?? "—",
-        tipo: b.beneficio?.tipo ?? "outro",
-        desde: b.desde,
-        ate: b.ate,
-        valor: num(b.valor_manual) ?? num(b.beneficio?.valor_padrao ?? null),
-        manual: b.valor_manual !== null,
-      })),
+      beneficios: (beneficios.data ?? []).map((b) => {
+        const porMes = b.beneficio?.valor_por_mes ?? false;
+        return {
+          nome: b.beneficio?.nome ?? "—",
+          tipo: b.beneficio?.tipo ?? "outro",
+          desde: b.desde,
+          ate: b.ate,
+          valor: porMes
+            ? ultimoLancado(b.beneficio?.id)
+            : (num(b.valor_manual) ?? num(b.beneficio?.valor_padrao ?? null)),
+          manual: !porMes && b.valor_manual !== null,
+          porMes,
+        };
+      }),
       dependentes: dependentes.data ?? [],
     };
   },

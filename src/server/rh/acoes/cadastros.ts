@@ -3,14 +3,23 @@
 import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
-import { formatarMes, lerValorBr } from "@/lib/formato";
+import {
+  fimDoMes,
+  formatarMes,
+  formatarNumero,
+  lerValorBr,
+} from "@/lib/formato";
+import { ErroPlanilha } from "@/lib/rh/plano";
 import { GRUPOS_CLASSIFICAVEIS, GRUPOS_RUBRICA } from "@/lib/rh/rubricas";
+import { casarPorNome } from "@/lib/rh/valores-mensais";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { erroDoBanco, primeiroErro } from "@/server/acoes";
 import { pode, podeAgora, usuarioAtual } from "@/server/auth";
 import { TAG } from "@/server/cache";
+import { ehXlsx, lerPlanilhaDeValores } from "@/server/rh/beneficios";
 import { recalcularEmAberto, tentarRecalcular } from "@/server/rh/custo";
+import { TAMANHO_MAXIMO } from "@/server/rh/folha";
 import { lerTudo } from "@/server/supabase-paginas";
 
 // Cadastros manuais do RH. Toda gravação passa pelo RLS e cai em
@@ -130,6 +139,7 @@ const beneficio = z
       "outro",
     ]),
     valor_padrao: reais,
+    valor_por_mes: z.preprocess((v) => v === "on", z.boolean()),
     rubricas_desconto: rubricas,
     rubricas_desconto_dependente: rubricas,
     dependente_regra: z.enum(["nao_paga", "percentual", "valor_fixo"]),
@@ -151,10 +161,12 @@ const beneficio = z
   .refine(
     (b) =>
       b.valor_padrao !== null ||
+      b.valor_por_mes ||
       b.tipo === "plano_saude" ||
       b.tipo === "odonto",
     {
-      message: "informe o valor (só plano e odonto saem da tabela de faixas)",
+      message:
+        "informe o valor ou marque “Valor varia por mês” (só plano e odonto saem da tabela de faixas)",
       path: ["valor_padrao"],
     },
   );
@@ -184,6 +196,8 @@ export async function salvarBeneficio(
   const { id, ...dados } = b.data;
   const registro = {
     ...dados,
+    // Valor por mês: o valor sai dos lançamentos, não de um padrão.
+    valor_padrao: dados.valor_por_mes ? null : dados.valor_padrao,
     dependente_valor:
       dados.dependente_regra === "nao_paga" ? null : dados.dependente_valor,
   };
@@ -391,6 +405,228 @@ export async function vincularPelaFolha(
   if (error) return erroDoBanco(error);
   return salvoERecalculado(
     `${novos.length} ${novos.length > 1 ? "pessoas vinculadas" : "pessoa vinculada"} pela folha de ${formatarMes(folha.competencia)}.`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Valores do mês dos benefícios que variam por mês
+// (rh.beneficio_valores_mensais). Cada competência é um lançamento à parte:
+// gravar um mês não mexe nos anteriores, e só o custo daquele mês em diante
+// é recalculado. Valor de cada pessoa: lido com a sessão, sem cache.
+// ---------------------------------------------------------------------------
+
+const valoresDoMes = z.object({
+  beneficio_id: z.uuid(),
+  // <input type="month">: "2026-07"
+  competencia: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "informe o mês"),
+});
+
+/**
+ * Benefício que varia por mês e quem o recebe na competência: os vinculados
+ * à pessoa e quem tem um tipo de contrato vinculado (como o custo calcula).
+ * Null se o benefício não varia por mês.
+ */
+async function quemRecebeNoMes(beneficioId: string, competencia: string) {
+  const rh = (await createClient()).schema("rh");
+  const fim = fimDoMes(competencia);
+  const noMes = `ate.is.null,ate.gte.${competencia}`;
+  const [beneficio, pessoais, contratos] = await Promise.all([
+    rh
+      .from("beneficios")
+      .select("nome, valor_por_mes")
+      .eq("id", beneficioId)
+      .maybeSingle(),
+    lerTudo(() =>
+      rh
+        .from("colaborador_beneficios")
+        .select("colaborador_id, colaborador:colaboradores(nome)")
+        .eq("beneficio_id", beneficioId)
+        .lte("desde", fim)
+        .or(noMes)
+        .order("id"),
+    ),
+    rh
+      .from("beneficio_contratos")
+      .select("tipo_contrato")
+      .eq("beneficio_id", beneficioId)
+      .lte("desde", fim)
+      .or(noMes),
+  ]);
+  if (beneficio.error || contratos.error)
+    throw new Error("Falha ao ler o benefício");
+  if (!beneficio.data?.valor_por_mes) return null;
+  const tipos = [
+    ...new Set((contratos.data ?? []).map((c) => c.tipo_contrato)),
+  ];
+  const doContrato = tipos.length
+    ? (
+        await lerTudo(() =>
+          rh
+            .from("colaboradores")
+            .select("id, nome, admissao, desligamento")
+            .in("tipo_contrato", tipos)
+            .order("id"),
+        )
+      ).filter(
+        (c) =>
+          (!c.admissao || c.admissao <= fim) &&
+          (!c.desligamento || c.desligamento >= competencia),
+      )
+    : [];
+  const pessoas = new Map<string, string>();
+  for (const c of doContrato) pessoas.set(c.id, c.nome);
+  for (const v of pessoais)
+    pessoas.set(v.colaborador_id, v.colaborador?.nome ?? "");
+  return {
+    nome: beneficio.data.nome,
+    pessoas: [...pessoas].map(([colaborador_id, nome]) => ({
+      colaborador_id,
+      nome,
+    })),
+  };
+}
+
+async function gravadoERecalculado(
+  ok: string,
+  competencia: string,
+): Promise<EstadoAcao> {
+  const calculado = await tentarRecalcular(() =>
+    recalcularEmAberto(competencia),
+  );
+  refresh();
+  return { ok: calculado ? `${ok} Custo recalculado.` : ok };
+}
+
+const SEM_LEITURA: EstadoAcao = {
+  erro: "Não consegui ler quem recebe o benefício. Tente de novo.",
+};
+
+/** Grava os valores digitados do mês; campo vazio apaga o lançamento. */
+export async function salvarValoresDoMes(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await podeAgora("rh.beneficios"))) return SEM_PERMISSAO_BENEFICIO;
+  const d = valoresDoMes.safeParse(Object.fromEntries(form));
+  if (!d.success) return primeiroErro(d.error, { competencia: "Mês" });
+  const competencia = `${d.data.competencia}-01`;
+  const recebem = await quemRecebeNoMes(d.data.beneficio_id, competencia).catch(
+    () => undefined,
+  );
+  if (recebem === undefined) return SEM_LEITURA;
+  if (!recebem) return { erro: "Este benefício não varia por mês." };
+  const nomes = new Map(recebem.pessoas.map((p) => [p.colaborador_id, p.nome]));
+
+  const ids = form.getAll("colaborador_id").map(String);
+  const textos = form.getAll("valor").map(String);
+  const gravar: { colaborador_id: string; valor: number }[] = [];
+  const apagar: string[] = [];
+  for (const [i, id] of ids.entries()) {
+    if (!nomes.has(id)) continue;
+    const valor = lerValorBr(textos[i] ?? "");
+    if (valor === null) apagar.push(id);
+    else if (Number.isNaN(valor) || valor < 0)
+      return { erro: `Valor inválido para ${nomes.get(id)}.` };
+    else gravar.push({ colaborador_id: id, valor });
+  }
+
+  const rh = (await createClient()).schema("rh");
+  if (gravar.length) {
+    const { error } = await rh.from("beneficio_valores_mensais").upsert(
+      gravar.map((g) => ({
+        ...g,
+        beneficio_id: d.data.beneficio_id,
+        competencia,
+      })),
+      { onConflict: "beneficio_id,colaborador_id,competencia" },
+    );
+    if (error) return erroDoBanco(error);
+  }
+  if (apagar.length) {
+    const { error } = await rh
+      .from("beneficio_valores_mensais")
+      .delete()
+      .eq("beneficio_id", d.data.beneficio_id)
+      .eq("competencia", competencia)
+      .in("colaborador_id", apagar);
+    if (error) return erroDoBanco(error);
+  }
+  return gravadoERecalculado(
+    `Valores de ${formatarMes(competencia)} salvos (${gravar.length} ${gravar.length === 1 ? "pessoa" : "pessoas"}).`,
+    competencia,
+  );
+}
+
+/**
+ * Planilha com CPF, nome e valor → valores do mês. O CPF não é gravado nem
+ * usado (o banco não tem CPF): cada linha vale pela pessoa de mesmo nome
+ * entre quem recebe o benefício no mês. O arquivo não é guardado.
+ */
+export async function importarValoresDoMes(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await podeAgora("rh.beneficios"))) return SEM_PERMISSAO_BENEFICIO;
+  const d = valoresDoMes.safeParse(Object.fromEntries(form));
+  if (!d.success) return primeiroErro(d.error, { competencia: "Mês" });
+  const competencia = `${d.data.competencia}-01`;
+
+  const arquivo = form.get("arquivo");
+  if (!(arquivo instanceof File) || arquivo.size === 0)
+    return { erro: "Escolha a planilha (.xlsx) com CPF, nome e valor." };
+  if (arquivo.size > TAMANHO_MAXIMO)
+    return { erro: "O arquivo passa de 10 MB." };
+  const bytes = new Uint8Array(await arquivo.arrayBuffer());
+  if (!ehXlsx(bytes))
+    return { erro: "O arquivo não é uma planilha .xlsx do Excel." };
+
+  let planilha: Awaited<ReturnType<typeof lerPlanilhaDeValores>>;
+  try {
+    planilha = await lerPlanilhaDeValores(bytes);
+  } catch (e) {
+    if (e instanceof ErroPlanilha) return { erro: e.message };
+    console.error("leitura dos valores do mês", e);
+    return { erro: "Não consegui ler a planilha. Confira o arquivo." };
+  }
+
+  const recebem = await quemRecebeNoMes(d.data.beneficio_id, competencia).catch(
+    () => undefined,
+  );
+  if (recebem === undefined) return SEM_LEITURA;
+  if (!recebem) return { erro: "Este benefício não varia por mês." };
+  const casados = casarPorNome(planilha.linhas, recebem.pessoas);
+  if (casados.valores.size === 0)
+    return {
+      erro: `Nenhum nome da planilha é de quem recebe ${recebem.nome} em ${formatarMes(competencia)}.`,
+    };
+
+  const { error } = await (await createClient())
+    .schema("rh")
+    .from("beneficio_valores_mensais")
+    .upsert(
+      [...casados.valores].map(([colaborador_id, valor]) => ({
+        beneficio_id: d.data.beneficio_id,
+        colaborador_id,
+        competencia,
+        valor,
+      })),
+      { onConflict: "beneficio_id,colaborador_id,competencia" },
+    );
+  if (error) return erroDoBanco(error);
+
+  const total = [...casados.valores.values()].reduce((s, v) => s + v, 0);
+  return gravadoERecalculado(
+    [
+      `${casados.valores.size} ${casados.valores.size === 1 ? "valor importado" : "valores importados"} em ${formatarMes(competencia)} (total R$ ${formatarNumero(total, 2)}).`,
+      casados.naoEncontrados.length
+        ? `Fora de quem recebe o benefício no mês: ${casados.naoEncontrados.join(", ")}.`
+        : "",
+      ...planilha.avisos,
+      ...casados.avisos,
+    ]
+      .filter(Boolean)
+      .join(" "),
+    competencia,
   );
 }
 

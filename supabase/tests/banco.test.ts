@@ -1722,3 +1722,63 @@ describe("contratos, sócios e PJ (20261026)", () => {
     ).toBeNull();
   });
 });
+
+describe("benefício com valor por mês (rh.beneficio_valores_mensais)", () => {
+  const VR = "51000000-0000-0000-0000-000000000001";
+  const lancar = (competencia: string, valor: number) =>
+    `insert into rh.beneficio_valores_mensais (beneficio_id, colaborador_id, competencia, valor)
+     values ('${VR}', '${COLAB}', '${competencia}', ${valor})`;
+
+  beforeAll(async () => {
+    await db.exec(
+      `insert into rh.beneficios (id, nome, tipo, valor_por_mes) values ('${VR}', 'VR', 'alimentacao', true)`,
+    );
+  });
+
+  it("benefício novo não varia por mês até ser marcado", async () => {
+    const { rows } = await db.query<{ valor_por_mes: boolean }>(
+      `select valor_por_mes from rh.beneficios where id <> '${VR}'`,
+    );
+    expect(rows.every((r) => !r.valor_por_mes)).toBe(true);
+  });
+
+  it("só rh.beneficios lança e vê; o lançamento vai para a auditoria", async () => {
+    await como(U.gestora, async () => {
+      expect(await erro(lancar("2026-03-01", 350))).toBeNull();
+      expect(await erro(lancar("2026-04-01", 380))).toBeNull();
+    });
+    for (const u of [U.analista, U.outro])
+      await como(u, async () => {
+        expect(await linhas("select * from rh.beneficio_valores_mensais")).toBe(
+          0,
+        );
+        expect(await erro(lancar("2026-05-01", 1))).toMatch(/row-level/);
+      });
+    expect(
+      await linhas(
+        "select 1 from core.auditoria where tabela = 'rh.beneficio_valores_mensais'",
+      ),
+    ).toBe(2);
+  });
+
+  it("um valor por pessoa e mês; alterar um mês não mexe nos outros", async () => {
+    expect(await erro(lancar("2026-03-01", 999))).toMatch(/unique|duplicate/);
+    await db.exec(
+      `update rh.beneficio_valores_mensais set valor = 400
+       where beneficio_id = '${VR}' and competencia = '2026-04-01'`,
+    );
+    const { rows } = await db.query<{ competencia: string; valor: string }>(
+      `select competencia::text, valor from rh.beneficio_valores_mensais
+       where beneficio_id = '${VR}' order by competencia`,
+    );
+    expect(rows.map((r) => [r.competencia, Number(r.valor)])).toEqual([
+      ["2026-03-01", 350],
+      ["2026-04-01", 400],
+    ]);
+  });
+
+  it("competência só no dia 1 e valor não negativo", async () => {
+    expect(await erro(lancar("2026-06-15", 10))).toMatch(/check|competencia/);
+    expect(await erro(lancar("2026-07-01", -1))).toMatch(/check/);
+  });
+});

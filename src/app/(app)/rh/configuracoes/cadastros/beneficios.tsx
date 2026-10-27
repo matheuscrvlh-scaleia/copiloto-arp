@@ -12,13 +12,20 @@ import {
   formatarMoeda,
   formatarNumero,
 } from "@/lib/formato";
-import { valorPelaFaixa, vigenteEm } from "@/lib/rh/custo";
+import {
+  type ValorLancado,
+  valorLancadoNoMes,
+  valorPelaFaixa,
+  vigenteEm,
+} from "@/lib/rh/custo";
 import { faixaTexto } from "@/lib/rh/plano";
 import { ROTULO_CONTRATO } from "@/lib/rh/rubricas";
 import {
+  importarValoresDoMes,
   removerVinculo,
   removerVinculoContrato,
   salvarBeneficio,
+  salvarValoresDoMes,
   salvarValorManual,
   vincularBeneficio,
   vincularContrato,
@@ -32,13 +39,16 @@ import {
   type TabelaCadastrada,
   TIPOS_BENEFICIO,
   tabelasDoPlano,
+  type ValorMensal,
   type Vinculo,
   type VinculoContrato,
+  valoresMensais,
   vinculosDeBeneficio,
   vinculosPorContrato,
 } from "@/server/rh/beneficios";
 import { folhasDoCusto } from "@/server/rh/dados";
 import { DependentesDoPlano } from "./dependentes-do-plano";
+import { type PessoaDoBeneficio, ValoresDoMes } from "./valores-do-mes";
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 const valorBr = (v: number | null) => (v === null ? "" : formatarNumero(v, 2));
@@ -55,15 +65,23 @@ const todosOs = (tipo: string) =>
 
 /** Cadastro de benefícios e de quem recebe cada um (rh.beneficios). */
 export async function Beneficios() {
-  const [beneficios, vinculos, contratos, colaboradores, tabelas, folhas] =
-    await Promise.all([
-      beneficiosCadastrados(),
-      vinculosDeBeneficio(),
-      vinculosPorContrato(),
-      colaboradoresAtivos(),
-      tabelasDoPlano(),
-      folhasDoCusto(),
-    ]);
+  const [
+    beneficios,
+    vinculos,
+    contratos,
+    colaboradores,
+    tabelas,
+    folhas,
+    lancados,
+  ] = await Promise.all([
+    beneficiosCadastrados(),
+    vinculosDeBeneficio(),
+    vinculosPorContrato(),
+    colaboradoresAtivos(),
+    tabelasDoPlano(),
+    folhasDoCusto(),
+    valoresMensais(),
+  ]);
   const pessoasDoContrato = new Map<string, number>();
   for (const c of colaboradores)
     if (c.tipo_contrato)
@@ -116,6 +134,8 @@ export async function Beneficios() {
             contratos={contratos.filter((c) => c.beneficio_id === b.id)}
             pessoasDoContrato={pessoasDoContrato}
             tabelas={tabelas.filter((t) => t.beneficio_id === b.id)}
+            lancados={lancados.filter((l) => l.beneficio_id === b.id)}
+            colaboradores={colaboradores}
             mesAtual={mesAtual}
             opcoesColaborador={opcoesColaborador}
             desdeSugerido={desdeSugerido}
@@ -136,20 +156,36 @@ export async function Beneficios() {
 }
 
 /**
- * Valor do mês como o custo calcula: manual > padrão > faixa pela idade. Com
- * valor manual, mostra também o que sairia sem ele, para conferir.
+ * Valor do mês como o custo calcula: lançado no mês (benefício que varia por
+ * mês) ou manual > padrão > faixa pela idade. Com valor manual, mostra também
+ * o que sairia sem ele, para conferir.
  */
 function ValorDoMes({
   beneficio: b,
   vinculo: v,
   faixas,
+  lancados,
   mes,
 }: {
   beneficio: Beneficio;
   vinculo: Vinculo;
   faixas: TabelaCadastrada["faixas"] | null;
+  lancados: ValorLancado[];
   mes: string;
 }) {
+  if (b.valor_por_mes) {
+    const r = valorLancadoNoMes(lancados, mes);
+    if (r.valor === null)
+      return <span className="text-amber-700">{r.pendencia}</span>;
+    return (
+      <>
+        <span className="tabular-nums text-neutral-900">
+          {formatarMoeda(r.valor)}
+        </span>
+        {r.aviso && <span className="text-amber-700"> · {r.aviso}</span>}
+      </>
+    );
+  }
   let automatico: React.ReactNode;
   if (b.valor_padrao !== null) {
     automatico = `padrão ${formatarMoeda(b.valor_padrao)}`;
@@ -188,6 +224,8 @@ function CartaoBeneficio({
   contratos,
   pessoasDoContrato,
   tabelas,
+  lancados,
+  colaboradores,
   mesAtual,
   opcoesColaborador,
   desdeSugerido,
@@ -198,6 +236,14 @@ function CartaoBeneficio({
   /** Pessoas no cadastro (sem desligamento) por tipo de contrato. */
   pessoasDoContrato: Map<string, number>;
   tabelas: TabelaCadastrada[];
+  lancados: ValorMensal[];
+  /** Cadastro sem desligamento: quem recebe pelo tipo de contrato. */
+  colaboradores: {
+    id: string;
+    nome: string;
+    tipo_contrato: string | null;
+    admissao: string | null;
+  }[];
   /** Competência do valor mostrado em cada pessoa (aaaa-mm-01). */
   mesAtual: string;
   opcoesColaborador: { valor: string; rotulo: string; descricao: string }[];
@@ -205,7 +251,30 @@ function CartaoBeneficio({
 }) {
   const ativos = vinculos.filter((v) => v.ate === null);
   const contratosAtivos = contratos.filter((c) => c.ate === null);
-  const pelaFaixa = b.valor_padrao === null;
+  const porMes = b.valor_por_mes;
+  const pelaFaixa = !porMes && b.valor_padrao === null;
+  // Quem recebe, para os valores do mês: pelo contrato e pela pessoa (o
+  // vínculo da pessoa vem por último e vence, como no custo).
+  const pessoas: PessoaDoBeneficio[] = porMes
+    ? [
+        ...contratos.flatMap((c) =>
+          colaboradores
+            .filter((p) => p.tipo_contrato === c.tipo_contrato)
+            .map((p) => ({
+              colaborador_id: p.id,
+              nome: p.nome,
+              desde: p.admissao && p.admissao > c.desde ? p.admissao : c.desde,
+              ate: c.ate,
+            })),
+        ),
+        ...vinculos.map((v) => ({
+          colaborador_id: v.colaborador_id,
+          nome: v.nome,
+          desde: v.desde,
+          ate: v.ate,
+        })),
+      ]
+    : [];
   const temTabela = tabelas.length > 0;
   const faixas = vigenteEm(tabelas, mesAtual)?.faixas ?? null;
   return (
@@ -220,11 +289,13 @@ function CartaoBeneficio({
           {TIPOS_BENEFICIO[b.tipo]}
         </span>
         <span className="text-xs text-neutral-500">
-          {pelaFaixa
-            ? temTabela
-              ? "valor pela faixa etária"
-              : "valor pela faixa: falta enviar a tabela"
-            : `${formatarMoeda(b.valor_padrao)}/mês`}
+          {porMes
+            ? "valor varia por mês"
+            : pelaFaixa
+              ? temTabela
+                ? "valor pela faixa etária"
+                : "valor pela faixa: falta enviar a tabela"
+              : `${formatarMoeda(b.valor_padrao)}/mês`}
         </span>
         <span className="ml-auto text-xs text-neutral-500">
           {[
@@ -343,11 +414,18 @@ function CartaoBeneficio({
             <>
               <p className="text-xs text-neutral-500">
                 Valor de {formatarMes(mesAtual)}
-                {pelaFaixa
-                  ? ", pela idade de cada pessoa na tabela vigente"
-                  : ""}
-                . O valor manual vale no lugar dele; apague e salve para voltar
-                {pelaFaixa ? " à faixa" : " ao padrão"}.
+                {porMes ? (
+                  ", lançado em Valores do mês."
+                ) : (
+                  <>
+                    {pelaFaixa
+                      ? ", pela idade de cada pessoa na tabela vigente"
+                      : ""}
+                    . O valor manual vale no lugar dele; apague e salve para
+                    voltar
+                    {pelaFaixa ? " à faixa" : " ao padrão"}.
+                  </>
+                )}
               </p>
               <ul className="flex flex-col divide-y divide-neutral-900/[0.06] text-sm">
                 {vinculos.map((v) => (
@@ -364,6 +442,9 @@ function CartaoBeneficio({
                           beneficio={b}
                           vinculo={v}
                           faixas={faixas}
+                          lancados={lancados.filter(
+                            (l) => l.colaborador_id === v.colaborador_id,
+                          )}
                           mes={mesAtual}
                         />
                       </p>
@@ -374,22 +455,24 @@ function CartaoBeneficio({
                         mes={mesAtual}
                       />
                     </div>
-                    <FormAcao
-                      acao={salvarValorManual}
-                      rotulo="Salvar"
-                      variante="secundario"
-                      className="flex items-center gap-2"
-                    >
-                      <input type="hidden" name="id" value={v.id} />
-                      <input
-                        name="valor_manual"
-                        inputMode="decimal"
-                        aria-label={`Valor manual de ${v.nome} (R$)`}
-                        defaultValue={valorBr(v.valor_manual)}
-                        placeholder={pelaFaixa ? "pela faixa" : "padrão"}
-                        className={`${classeCampo} w-32`}
-                      />
-                    </FormAcao>
+                    {!porMes && (
+                      <FormAcao
+                        acao={salvarValorManual}
+                        rotulo="Salvar"
+                        variante="secundario"
+                        className="flex items-center gap-2"
+                      >
+                        <input type="hidden" name="id" value={v.id} />
+                        <input
+                          name="valor_manual"
+                          inputMode="decimal"
+                          aria-label={`Valor manual de ${v.nome} (R$)`}
+                          defaultValue={valorBr(v.valor_manual)}
+                          placeholder={pelaFaixa ? "pela faixa" : "padrão"}
+                          className={`${classeCampo} w-32`}
+                        />
+                      </FormAcao>
+                    )}
                     <FormAcao
                       acao={removerVinculo}
                       rotulo="Remover"
@@ -410,7 +493,7 @@ function CartaoBeneficio({
             acao={vincularBeneficio}
             rotulo="Vincular"
             rotuloEnviando="Vinculando…"
-            className="grid items-end gap-3 rounded-2xl bg-neutral-900/[0.03] p-3 sm:grid-cols-[1fr_10rem_10rem_auto]"
+            className={`grid items-end gap-3 rounded-2xl bg-neutral-900/[0.03] p-3 ${porMes ? "sm:grid-cols-[1fr_10rem_auto]" : "sm:grid-cols-[1fr_10rem_10rem_auto]"}`}
           >
             <input type="hidden" name="beneficio_id" value={b.id} />
             <label className={rotulo}>
@@ -433,15 +516,17 @@ function CartaoBeneficio({
                 className={classeCampo}
               />
             </label>
-            <label className={rotulo}>
-              Valor manual (R$)
-              <input
-                name="valor_manual"
-                inputMode="decimal"
-                placeholder={pelaFaixa ? "pela faixa" : "padrão"}
-                className={classeCampo}
-              />
-            </label>
+            {!porMes && (
+              <label className={rotulo}>
+                Valor manual (R$)
+                <input
+                  name="valor_manual"
+                  inputMode="decimal"
+                  placeholder={pelaFaixa ? "pela faixa" : "padrão"}
+                  className={classeCampo}
+                />
+              </label>
+            )}
           </FormAcao>
           {desdeSugerido && (
             <p className="text-xs text-neutral-500">
@@ -451,6 +536,21 @@ function CartaoBeneficio({
             </p>
           )}
         </div>
+
+        {porMes && (
+          <ValoresDoMes
+            beneficioId={b.id}
+            pessoas={pessoas}
+            lancados={lancados.map((l) => ({
+              colaborador_id: l.colaborador_id,
+              competencia: l.competencia,
+              valor: l.valor,
+            }))}
+            mesInicial={mesAtual.slice(0, 7)}
+            salvar={salvarValoresDoMes}
+            importar={importarValoresDoMes}
+          />
+        )}
       </div>
     </details>
   );
@@ -498,15 +598,26 @@ function FormBeneficio({ beneficio: b }: { beneficio?: Beneficio }) {
             className={classeCampo}
           />
         </label>
-        <label className="flex items-center gap-2 self-end pb-2 text-sm">
-          <input
-            type="checkbox"
-            name="ativo"
-            defaultChecked={b?.ativo ?? true}
-            className="size-4 accent-neutral-900"
-          />
-          Ativo
-        </label>
+        <div className="flex flex-col justify-end gap-1 pb-2 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="valor_por_mes"
+              defaultChecked={b?.valor_por_mes ?? false}
+              className="size-4 accent-neutral-900"
+            />
+            Valor varia por mês
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="ativo"
+              defaultChecked={b?.ativo ?? true}
+              className="size-4 accent-neutral-900"
+            />
+            Ativo
+          </label>
+        </div>
         <label className={rotulo}>
           Rubricas do titular (desconto)
           <input
