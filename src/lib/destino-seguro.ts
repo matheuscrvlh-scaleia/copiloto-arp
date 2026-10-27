@@ -1,12 +1,6 @@
-/**
- * Só aceita caminho interno ("/rh"), nunca outro site ("//x.com"); senão,
- * `padrao`. Recusa espaço, controle e barra invertida em qualquer ponto: o
- * navegador apaga tab e quebra de linha da URL, e "/\t/x.com" vira "//x.com".
- */
+/** Só aceita caminho interno ("/rh"), nunca outro site ("//x.com"); senão, `padrao`. */
 export function destinoSeguro(next: unknown, padrao = "/"): string {
-  return typeof next === "string" &&
-    /^\/(?![/\\])[^\s\p{Cc}\\]*$/u.test(next) &&
-    next !== "/"
+  return typeof next === "string" && /^\/(?![/\\])/.test(next) && next !== "/"
     ? next
     : padrao;
 }

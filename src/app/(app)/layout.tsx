@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Marca } from "@/components/marca";
 import { BarraSuperior } from "@/components/shell/barra-superior";
-import { FimPorInatividade } from "@/components/shell/fim-por-inatividade";
 import { GavetaDoMenu } from "@/components/shell/gaveta-do-menu";
 import { MenuDoUsuario } from "@/components/shell/menu-do-usuario";
 import { NavSkeleton } from "@/components/shell/nav-list";
@@ -16,7 +15,6 @@ import { INICIO } from "@/config/navigation";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh p-3 md:p-5">
-      <FimPorInatividade />
       {/* Brilhos coloridos atrás do vidro (globals.css). */}
       <div aria-hidden className="aurora">
         <i />
