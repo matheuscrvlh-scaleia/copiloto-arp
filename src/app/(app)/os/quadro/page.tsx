@@ -9,9 +9,9 @@ import {
   campoTipo,
 } from "@/components/os/filtros/opcoes";
 import { Atualizado, PainelDaBusca } from "@/components/os/lista/topo";
+import { CabecalhoOperacoes } from "@/components/os/operacoes";
 import { Quadro } from "@/components/os/quadro/quadro";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
-import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { type Busca, descreverFiltros } from "@/lib/os/lista";
 import {
@@ -31,10 +31,7 @@ export default function Page({
 }) {
   return (
     <>
-      <PageHeader
-        title="Quadro"
-        description="Os chamados em colunas por status. Arraste o cartão para andar com ele; clique no título para ver o detalhe ao lado."
-      />
+      <CabecalhoOperacoes descricao="Os chamados em colunas por status. Arraste o cartão para andar com ele; clique no título para ver o detalhe ao lado." />
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="os.acessar">
           <QuadroDaTela busca={searchParams} />

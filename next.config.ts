@@ -32,9 +32,14 @@ const nextConfig: NextConfig = {
     // Envio do Extrato Mensal (PDF) pela Server Action da folha.
     serverActions: { bodySizeLimit: "10mb" },
   },
-  // Telas que viraram abas de RH › Configurações (links e favoritos antigos).
+  // Telas que viraram abas ou filtros (links e favoritos antigos).
   redirects() {
     return [
+      {
+        source: "/os/abertos-por-mim",
+        destination: "/os?aberto_por=eu",
+        permanent: false,
+      },
       {
         source: "/rh/folha",
         destination: "/rh/configuracoes/importacoes",

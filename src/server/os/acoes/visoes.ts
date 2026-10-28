@@ -245,7 +245,7 @@ export async function moverChamado(entrada: {
 // Exportação das listas paginadas: o resultado filtrado inteiro, no clique
 // ---------------------------------------------------------------------------
 
-const telaLista = z.enum(["caixa", "setor", "abertos"]);
+const telaLista = z.enum(["caixa", "setor"]);
 /** Parâmetros da URL da tela (filtros, cartão, busca, ordem). */
 const parametrosDaUrl = z
   .record(z.string().max(40), z.string().max(400))
@@ -262,7 +262,7 @@ async function podeExportar(): Promise<boolean> {
 }
 
 /**
- * Minha caixa, Meu setor e Abertos por mim: lê com os mesmos filtros da
+ * Minha caixa (ou os abertos por mim) e Meu setor: lê com os mesmos filtros da
  * tela (a URL, ou os lembrados), em lotes de 1000. Lança se não puder: o
  * botão mostra o erro.
  */

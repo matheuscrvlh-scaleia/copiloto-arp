@@ -52,6 +52,7 @@ export function Selecao({
   variante = "campo",
   busca,
   icone,
+  multipla = false,
   className = "",
 }: {
   opcoes: Opcao[];
@@ -73,10 +74,18 @@ export function Selecao({
   busca?: boolean;
   /** Ícone à esquerda do texto (ex.: calendário no filtro de mês). */
   icone?: React.ReactNode;
+  /**
+   * Várias escolhas: o valor junta as marcadas com vírgula e a opção de
+   * valor "" é "todas". A lista fica aberta enquanto a pessoa marca; a
+   * escolha vale ao fechar.
+   */
+  multipla?: boolean;
   className?: string;
 }) {
   const [interno, setInterno] = useState(valorInicial);
-  const atual = valor ?? interno;
+  const valorFora = valor ?? interno;
+  const [rascunho, setRascunho] = useState<string | null>(null);
+  const atual = rascunho ?? valorFora;
   const [aberta, setAberta] = useState(false);
   const [ativo, setAtivo] = useState(0);
   const [termo, setTermo] = useState("");
@@ -95,22 +104,57 @@ export function Selecao({
   const idLista = `${idBase}-lista`;
   const comBusca = busca ?? opcoes.length > 8;
 
-  const escolhida = opcoes.find((o) => o.valor === atual);
+  const marcadas = multipla ? atual.split(",").filter(Boolean) : [];
+  const marcada = (o: Opcao) =>
+    multipla
+      ? o.valor
+        ? marcadas.includes(o.valor)
+        : !marcadas.length
+      : o.valor === atual;
+  const primeira = opcoes.find((o) => o.valor === (marcadas[0] ?? atual));
+  const escolhida =
+    primeira && marcadas.length > 1
+      ? { rotulo: `${primeira.rotulo} +${marcadas.length - 1}` }
+      : primeira;
   const t = sem(termo.trim());
   const visiveis = t
     ? opcoes.filter((o) => sem(`${o.rotulo} ${o.descricao ?? ""}`).includes(t))
     : opcoes;
 
-  const escolher = useCallback(
-    (o: Opcao) => {
-      if (o.desabilitada) return;
-      if (valor === undefined) setInterno(o.valor);
-      aoMudar?.(o.valor);
-      setAberta(false);
-      botao.current?.focus();
+  const mudar = useCallback(
+    (v: string) => {
+      if (valor === undefined) setInterno(v);
+      aoMudar?.(v);
     },
     [aoMudar, valor],
   );
+
+  const escolher = useCallback(
+    (o: Opcao) => {
+      if (o.desabilitada) return;
+      if (multipla && o.valor) {
+        // Marca ou desmarca; todas marcadas é o mesmo que "todas".
+        const novas = marcadas.includes(o.valor)
+          ? marcadas.filter((v) => v !== o.valor)
+          : [...marcadas, o.valor];
+        const todas = opcoes.every((x) => !x.valor || novas.includes(x.valor));
+        setRascunho(todas ? "" : novas.join(","));
+        return;
+      }
+      if (multipla) setRascunho(o.valor);
+      else mudar(o.valor);
+      setAberta(false);
+      botao.current?.focus();
+    },
+    [multipla, marcadas, opcoes, mudar],
+  );
+
+  // Várias escolhas: vale o rascunho quando a lista fecha.
+  useEffect(() => {
+    if (aberta || rascunho === null) return;
+    if (rascunho !== valorFora) mudar(rascunho);
+    setRascunho(null);
+  }, [aberta, rascunho, valorFora, mudar]);
 
   // Posição da lista: embaixo do botão, ou em cima se não couber.
   const posicionar = useCallback(() => {
@@ -228,14 +272,11 @@ export function Selecao({
     if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
       e.preventDefault();
       abrir();
-    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+    } else if (!multipla && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       // Fechada, digitar escolhe direto (como no <select> nativo).
       const i = pularPara(e.key);
       const o = i === null ? undefined : visiveis[i];
-      if (o) {
-        if (valor === undefined) setInterno(o.valor);
-        aoMudar?.(o.valor);
-      }
+      if (o) mudar(o.valor);
     }
   }
 
@@ -295,6 +336,7 @@ export function Selecao({
             ref={lista}
             id={idLista}
             role="listbox"
+            aria-multiselectable={multipla || undefined}
             tabIndex={-1}
             aria-labelledby={idBotao}
             aria-activedescendant={
@@ -332,7 +374,7 @@ export function Selecao({
                 <p className="px-3 py-2 text-neutral-500">Nada encontrado.</p>
               )}
               {visiveis.map((o, k) => {
-                const marcada = o.valor === atual;
+                const sim = marcada(o);
                 return (
                   <button
                     key={o.valor}
@@ -340,7 +382,7 @@ export function Selecao({
                     type="button"
                     role="option"
                     tabIndex={-1}
-                    aria-selected={marcada}
+                    aria-selected={sim}
                     aria-disabled={o.desabilitada}
                     onMouseEnter={() => setAtivo(k)}
                     onClick={() => escolher(o)}
@@ -348,7 +390,7 @@ export function Selecao({
                   >
                     <span className="min-w-0 flex-1">
                       <span
-                        className={`block truncate ${marcada ? "font-semibold" : ""}`}
+                        className={`block truncate ${sim ? "font-semibold" : ""}`}
                       >
                         {o.rotulo}
                       </span>
@@ -359,7 +401,7 @@ export function Selecao({
                       )}
                     </span>
                     <span
-                      className={`grid size-5 shrink-0 place-items-center rounded-full transition ${marcada ? "bg-marca text-[#fff]" : "opacity-0"}`}
+                      className={`grid size-5 shrink-0 place-items-center rounded-full transition ${sim ? "bg-marca text-[#fff]" : multipla ? "border border-neutral-300" : "opacity-0"}`}
                       aria-hidden
                     >
                       <Check className="size-3" />

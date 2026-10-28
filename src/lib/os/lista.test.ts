@@ -308,8 +308,35 @@ describe("filtros", () => {
         setor: "não é id",
         status: "fechado",
         etiqueta: ["telhado", "outra"],
+        aberto_por: "ana",
+        agrupar: "status",
       }),
-    ).toEqual({ tipo: "os", etiqueta: "telhado" });
+    ).toEqual({ tipo: "os", status: "fechado", etiqueta: "telhado" });
+  });
+
+  it("Abertos por mim é filtro da caixa e do setor", () => {
+    expect(lerFiltros("caixa", { aberto_por: "eu" })).toEqual({
+      aberto_por: "eu",
+    });
+    expect(lerFiltros("setor", { aberto_por: "eu" })).toEqual({
+      aberto_por: "eu",
+    });
+    expect(descreverFiltros("caixa", { tipo: "os" })).toBe(
+      "Tipo: Ordem de Serviço",
+    );
+    expect(descreverFiltros("caixa", { aberto_por: "eu" })).toBe(
+      "Abertos por mim · Status: Em aberto",
+    );
+  });
+
+  it("o Geral lê um ou mais setores; um id ruim descarta o filtro", () => {
+    const a = "11111111-1111-4111-8111-111111111111";
+    const b = "22222222-2222-4222-8222-222222222222";
+    expect(lerFiltros("setor", { setores: `${a},${b}` })).toEqual({
+      setores: `${a},${b}`,
+    });
+    expect(lerFiltros("setor", { setores: `${a},x` })).toEqual({});
+    expect(lerFiltros("setor", { setor: a })).toEqual({});
   });
 
   it("sabe quando a URL traz filtro da tela", () => {
@@ -335,7 +362,7 @@ describe("filtros", () => {
       descreverFiltros(
         "setor",
         { prioridade: "alta", de: "2026-10-01", ate: "2026-10-31" },
-        { setor: "Operações" },
+        { setores: ["Operações"] },
       ),
     ).toBe(
       "Setor: Operações · Status: Em aberto · Prioridade: Alta · Aberto de 01/10/2026 até 31/10/2026",

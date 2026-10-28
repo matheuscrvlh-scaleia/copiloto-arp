@@ -5,7 +5,6 @@ export const ROTAS_OS = {
   caixa: "/os",
   novo: "/os/novo",
   meuSetor: "/os/meu-setor",
-  abertosPorMim: "/os/abertos-por-mim",
   quadro: "/os/quadro",
   calendario: "/os/calendario",
   ordens: "/os/ordens",

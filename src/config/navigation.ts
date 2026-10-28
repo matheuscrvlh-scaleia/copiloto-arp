@@ -181,7 +181,7 @@ export const navigation: NavSection[] = [
   },
   {
     titulo: "Tickets",
-    // Painéis no topo; depois o dia a dia (Operações, quadro e calendário),
+    // Painéis no topo; depois o dia a dia (Operações e calendário),
     // ordens, ativos, vistorias e portal e, por último, a configuração.
     itens: [
       {
@@ -191,16 +191,10 @@ export const navigation: NavSection[] = [
         permissao: ["os.painel_setor", "os.painel_geral"],
       },
       {
-        // Abas: Minha caixa, Meu setor (com permissão) e Abertos por mim.
+        // Abas: Minha caixa, Geral (com permissão) e Quadro.
         href: "/os",
         label: "Operações",
         icone: "caixa",
-        permissao: "os.acessar",
-      },
-      {
-        href: "/os/quadro",
-        label: "Quadro",
-        icone: "quadro_kanban",
         permissao: "os.acessar",
       },
       {

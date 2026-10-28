@@ -37,7 +37,7 @@ export const PERMISSOES = {
 
   "os.acessar":
     "Abrir chamados e ver Minha caixa, Abertos por mim, Quadro e Calendário do que é seu",
-  "os.meu_setor": "Ver a tela Meu setor e todos os chamados do seu setor",
+  "os.meu_setor": "Ver a tela Geral e todos os chamados dos seus setores",
   "os.todos_setores": "Ver os chamados de todos os setores",
   "os.gerenciar_setor":
     "Trocar responsável, prazo e prioridade e cancelar chamados do setor",

@@ -3225,6 +3225,7 @@ export type Database = {
       }
       carga_do_setor: {
         Args: {
+          p_aberto_por?: string
           p_agora: string
           p_categoria?: string
           p_criado_ate?: string

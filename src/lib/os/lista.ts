@@ -555,6 +555,10 @@ const data = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const CAMPOS = {
   tipo: z.enum(chaves(TIPOS)),
   setor: z.guid(),
+  /** Geral: um ou mais setores, separados por vírgula (sem: todos). */
+  setores: z
+    .string()
+    .refine((s) => s.split(",").every((id) => z.guid().safeParse(id).success)),
   categoria: z.guid(),
   responsavel: z.guid(),
   prioridade: z.enum(chaves(PRIORIDADES)),
@@ -567,6 +571,8 @@ const CAMPOS = {
   recorte: z.enum(chaves(RECORTES)),
   visao: z.enum(chaves(VISOES_CALENDARIO)),
   fechados: z.literal("1"),
+  /** Só os que eu abri (na Minha caixa, troca a lista por eles). */
+  aberto_por: z.literal("eu"),
 };
 
 export type CampoFiltro = keyof typeof CAMPOS;
@@ -575,9 +581,17 @@ export type Filtros = {
 };
 
 export const TELAS = {
-  caixa: ["tipo", "setor", "categoria", "prioridade", "etiqueta"],
-  setor: [
+  caixa: [
+    "aberto_por",
+    "tipo",
     "setor",
+    "categoria",
+    "status",
+    "prioridade",
+    "etiqueta",
+  ],
+  setor: [
+    "setores",
     "responsavel",
     "categoria",
     "status",
@@ -586,8 +600,8 @@ export const TELAS = {
     "ate",
     "etiqueta",
     "agrupar",
+    "aberto_por",
   ],
-  abertos: ["tipo", "setor", "status", "prioridade", "etiqueta"],
   quadro: ["recorte", "setor", "tipo", "categoria", "prioridade", "fechados"],
   calendario: ["recorte", "setor", "tipo", "visao"],
 } as const satisfies Record<string, readonly CampoFiltro[]>;
@@ -597,7 +611,6 @@ export type Tela = keyof typeof TELAS;
 export const PREFERENCIA_FILTROS: Record<Tela, string> = {
   caixa: "os.caixa.filtros",
   setor: "os.meu_setor.filtros",
-  abertos: "os.abertos_por_mim.filtros",
   quadro: "os.quadro.filtros",
   calendario: "os.calendario.filtros",
 };
@@ -650,6 +663,7 @@ export function paraParametros(f: Filtros): URLSearchParams {
 
 export interface NomesDosFiltros {
   setor?: string | null;
+  setores?: string[] | null;
   categoria?: string | null;
   responsavel?: string | null;
 }
@@ -674,6 +688,12 @@ export function descreverFiltros(
       case "setor":
         if (nomes.setor) partes.push(`Setor: ${nomes.setor}`);
         break;
+      case "setores":
+        if (nomes.setores?.length)
+          partes.push(
+            `${nomes.setores.length > 1 ? "Setores" : "Setor"}: ${nomes.setores.join(", ")}`,
+          );
+        break;
       case "categoria":
         if (nomes.categoria) partes.push(`Categoria: ${nomes.categoria}`);
         break;
@@ -685,6 +705,8 @@ export function descreverFiltros(
           partes.push(`Prioridade: ${PRIORIDADES[f.prioridade]}`);
         break;
       case "status":
+        // A Minha caixa só tem status na lista dos abertos por mim.
+        if (tela === "caixa" && !f.aberto_por) break;
         partes.push(
           `Status: ${!f.status ? "Em aberto" : f.status === "todos" ? "Todos" : STATUS[f.status]}`,
         );
@@ -703,6 +725,9 @@ export function descreverFiltros(
         break;
       case "fechados":
         if (v) partes.push("Com os fechados recentes");
+        break;
+      case "aberto_por":
+        if (v) partes.push("Abertos por mim");
         break;
       default:
         break;

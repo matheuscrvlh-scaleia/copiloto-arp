@@ -138,7 +138,7 @@ export function linhaDe(c: ChamadoDoPainel, ctx: Ctx): LinhaChamado {
 }
 
 /**
- * "Abrir na lista": a tela Meu setor com o setor e os filtros do painel
+ * "Abrir na lista": a tela Geral com o setor e os filtros do painel
  * (só no painel de um setor; o detalhe exato fica no modal).
  */
 export function linkDaLista(
@@ -146,7 +146,7 @@ export function linkDaLista(
   extra: Record<string, string> = {},
 ): { href: string; rotulo: string } | undefined {
   if (!ctx.f.setor) return undefined;
-  const p = new URLSearchParams({ setor: ctx.f.setor.id });
+  const p = new URLSearchParams({ setores: ctx.f.setor.id });
   if (ctx.f.categoria) p.set("categoria", ctx.f.categoria.id);
   if (ctx.f.pessoa) p.set("responsavel", ctx.f.pessoa);
   for (const [k, v] of Object.entries(extra)) p.set(k, v);

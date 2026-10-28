@@ -37,12 +37,13 @@ import { PainelFiltros } from "./painel-filtros";
 // aparecem como chips removíveis embaixo. Cada escolha vai para a URL (o
 // link leva os filtros junto) e fica lembrada para a próxima visita
 // (core.preferencias). "Limpar" volta ao padrão e esquece os lembrados; as
-// escolhas de visão (setor do Meu setor, recorte, agrupamento) ficam. No
+// escolhas de visão (recorte, agrupamento) ficam. No
 // celular a linha mostra só os 2 primeiros; o resto vai para o painel.
 
 export const ICONES = {
   tipo: Layers,
   setor: Building2,
+  setores: Building2,
   categoria: FolderTree,
   responsavel: User,
   prioridade: Flag,
@@ -61,6 +62,8 @@ export interface CampoBarra {
   opcoes: Opcao[];
   /** Classe de largura (ex.: "w-44"). */
   largura?: string;
+  /** Várias escolhas, separadas por vírgula na URL. */
+  multipla?: boolean;
 }
 
 export type Valores = Partial<Record<CampoFiltro, string>>;
@@ -241,6 +244,7 @@ export function BarraFiltros({
               className={`${c.largura ?? "w-44"} max-w-full shrink-0 max-md:w-auto max-md:min-w-0 max-md:flex-1 max-md:basis-32 ${i >= NO_CELULAR ? "hidden md:block" : ""}`}
               valor={valores[c.chave] ?? ""}
               aoMudar={(v) => trocar({ [c.chave]: v })}
+              multipla={c.multipla}
               opcoes={
                 c.todos !== undefined
                   ? [{ valor: "", rotulo: c.todos }, ...c.opcoes]

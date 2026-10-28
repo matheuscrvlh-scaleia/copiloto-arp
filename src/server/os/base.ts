@@ -343,10 +343,14 @@ export interface FiltroChamados {
   /** Minha caixa: responsável sou eu, ou destino meu/do meu setor. */
   recorte?: "minha_caixa" | "meu_setor" | "abertos_por_mim" | "todos";
   setor?: string | null;
+  /** Geral: os setores escolhidos (um ou mais). */
+  setores?: string[] | null;
   tipos?: Enum<"tipo_chamado">[];
   status?: Enum<"status_chamado">[];
   categoria?: string | null;
   responsavel?: string | null;
+  /** Só os abertos por esta pessoa (filtro "Abertos por mim"). */
+  abertoPor?: string | null;
   prioridade?: Enum<"prioridade"> | null;
   etiqueta?: string | null;
   /** Criados a partir de / até (aaaa-mm-dd, inclusive). */
@@ -419,23 +423,38 @@ export interface ContagemDaCarga {
 }
 
 /**
- * Carga por pessoa do Meu setor, agregada no banco (os.carga_do_setor, com
+ * Carga por pessoa do Geral, agregada no banco (os.carga_do_setor, com
  * o RLS de quem pede): chamados em aberto e atrasados (prazo antes de
- * `agora`) de cada responsável do setor `f.setor`, com os filtros da barra.
- * A busca e o cartão da lista não entram, como antes.
+ * `agora`) de cada responsável dos setores escolhidos, com os filtros da
+ * barra. A busca e o cartão da lista não entram, como antes. Quem soma é
+ * quem chama (a mesma pessoa pode vir de mais de um setor).
  */
 export async function cargaPorResponsavel(
   f: FiltroChamados,
   agora: Date,
 ): Promise<ContagemDaCarga[]> {
-  if (!f.setor) return [];
+  const setores = f.setores?.length ? f.setores : f.setor ? [f.setor] : [];
+  // atalho: uma chamada por setor (são poucos); se crescer, a função do
+  // banco passa a receber a lista.
+  const porSetor = await Promise.all(
+    setores.map((s) => cargaDeUmSetor(s, f, agora)),
+  );
+  return porSetor.flat();
+}
+
+async function cargaDeUmSetor(
+  setor: string,
+  f: FiltroChamados,
+  agora: Date,
+): Promise<ContagemDaCarga[]> {
   const { data, error } = await (await os()).rpc("carga_do_setor", {
-    p_setor: f.setor,
+    p_setor: setor,
     p_agora: agora.toISOString(),
     p_status: f.status?.length ? f.status : undefined,
     p_tipos: f.tipos?.length ? f.tipos : undefined,
     p_categoria: f.categoria ?? undefined,
     p_responsavel: f.responsavel ?? undefined,
+    p_aberto_por: f.abertoPor ?? undefined,
     p_prioridade: f.prioridade ?? undefined,
     p_etiqueta: f.etiqueta ?? undefined,
     p_criado_desde: f.de ? criadoDesde(f.de) : undefined,
@@ -461,10 +480,12 @@ function filtrar(
   let q = consulta;
   q = f.lixeira ? q.not("lixeira_em", "is", null) : q.is("lixeira_em", null);
   if (f.setor) q = q.eq("setor_id", f.setor);
+  if (f.setores?.length) q = q.in("setor_id", f.setores);
   if (f.tipos?.length) q = q.in("tipo", f.tipos);
   if (status?.length) q = q.in("status", status);
   if (f.categoria) q = q.eq("categoria_id", f.categoria);
   if (f.responsavel) q = q.eq("responsavel_id", f.responsavel);
+  if (f.abertoPor) q = q.eq("aberto_por", f.abertoPor);
   if (f.prioridade) q = q.eq("prioridade", f.prioridade);
   if (f.etiqueta) q = q.contains("etiquetas", [f.etiqueta]);
   if (f.de) q = q.gte("criado_em", criadoDesde(f.de));
@@ -491,7 +512,7 @@ function filtrar(
       q = q.eq("aberto_por", eu);
       break;
     case "meu_setor":
-      if (!f.setor)
+      if (!f.setor && !f.setores?.length)
         q = ctx.setores.length
           ? q.in("setor_id", ctx.setores)
           : q.eq("setor_id", "00000000-0000-0000-0000-000000000000");

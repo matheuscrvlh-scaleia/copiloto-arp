@@ -5,7 +5,7 @@ import { ROTAS_OS } from "@/lib/os/rotas";
 import { contexto } from "@/server/os/base";
 
 // Operações: o dia a dia do módulo numa tela só, com as abas Minha caixa,
-// Meu setor e Abertos por mim (os endereços de cada uma não mudaram).
+// Geral e Quadro. "Abertos por mim" é filtro das listas.
 
 export function CabecalhoOperacoes({ descricao }: { descricao: string }) {
   return (
@@ -27,9 +27,9 @@ async function AbasDeOperacoes() {
   const abas = [
     { href: ROTAS_OS.caixa, rotulo: "Minha caixa" },
     ...(ctx.pode("os.meu_setor")
-      ? [{ href: ROTAS_OS.meuSetor, rotulo: "Meu setor" }]
+      ? [{ href: ROTAS_OS.meuSetor, rotulo: "Geral" }]
       : []),
-    { href: ROTAS_OS.abertosPorMim, rotulo: "Abertos por mim" },
+    { href: ROTAS_OS.quadro, rotulo: "Quadro" },
   ];
   return <Abas abas={abas} rotulo="Seções de Operações" />;
 }

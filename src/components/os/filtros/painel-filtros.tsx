@@ -202,6 +202,7 @@ function Campo({
         rotulo={campo.rotulo}
         valor={valores[campo.chave] ?? ""}
         aoMudar={(v) => trocar({ [campo.chave]: v })}
+        multipla={campo.multipla}
         opcoes={
           campo.todos !== undefined
             ? [{ valor: "", rotulo: campo.todos }, ...campo.opcoes]

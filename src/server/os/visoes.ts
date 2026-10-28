@@ -268,43 +268,64 @@ export interface EstadoDaLista {
   ordem: Ordem | null;
   modo: ModoGrupo;
   pagina: number;
-  /** Meu setor: setores que a pessoa pode escolher (vazio: nenhum). */
+  /** Geral: setores que a pessoa pode escolher (vazio: nenhum). */
   disponiveis: Setor[];
+  /** Geral: os setores em vigor (sem escolha: todos os disponíveis). */
+  setores: string[];
 }
 
-/** Tudo o que a lista lê da URL (ou dos filtros lembrados). */
+/**
+ * Tudo o que a lista lê da URL (ou dos filtros lembrados). "Abertos por mim"
+ * é filtro: na Minha caixa troca a lista (cartões, colunas e o andamento dos
+ * avisos de "abertos"); no Meu setor só restringe.
+ */
 export async function estadoDaLista(
-  tela: TelaLista,
+  tela: "caixa" | "setor",
   busca: Busca,
 ): Promise<EstadoDaLista> {
   const [a, lidos] = await Promise.all([apoio(), filtrosDaTela(tela, busca)]);
   let filtros = lidos.filtros;
+  const porMim = filtros.aberto_por === "eu";
+  const lista: TelaLista = tela === "caixa" && porMim ? "abertos" : tela;
+  // O status só aparece na barra dos abertos por mim.
+  if (lista === "caixa") filtros = { ...filtros, status: undefined };
   let disponiveis: Setor[] = [];
+  let setores: string[] = [];
   if (tela === "setor") {
-    // Setor escolhido (lembrado); sem escolha válida, o primeiro dos meus.
+    // Setores escolhidos (lembrados) que a pessoa ainda pode ver; sem
+    // escolha válida, ou com todos marcados, valem todos os disponíveis.
     disponiveis = setoresDisponiveis(a);
-    const setor =
-      disponiveis.find((s) => s.id === filtros.setor)?.id ??
-      disponiveis.find((s) => a.ctx.setores.includes(s.id))?.id ??
-      disponiveis[0]?.id;
-    filtros = { ...filtros, setor };
+    const pedidos = new Set(filtros.setores?.split(","));
+    const escolhidos = disponiveis
+      .filter((s) => pedidos.has(s.id))
+      .map((s) => s.id);
+    const todos =
+      !escolhidos.length || escolhidos.length === disponiveis.length;
+    setores = todos ? disponiveis.map((s) => s.id) : escolhidos;
+    filtros = {
+      ...filtros,
+      setores: todos ? undefined : escolhidos.join(","),
+    };
   }
   const ordem = lerOrdem(busca.ordem);
   return {
-    tela,
+    tela: lista,
     a,
     filtros,
     lembrados: lidos.lembrados,
     consulta: {
-      ...paraConsulta(filtros, RECORTE_DA_TELA[tela]),
-      comConfirmacao: tela === "caixa",
+      ...paraConsulta(filtros, RECORTE_DA_TELA[lista]),
+      setores: setores.length ? setores : null,
+      abertoPor: porMim ? a.ctx.usuario.id : null,
+      comConfirmacao: lista === "caixa",
     },
-    cartao: lerCartao(tela, busca.cartao),
+    cartao: lerCartao(lista, busca.cartao),
     q: lerBusca(busca.q),
     ordem,
-    modo: modoDaLista(tela, filtros.agrupar, ordem),
+    modo: modoDaLista(lista, filtros.agrupar, ordem),
     pagina: paginaDaUrl(umTexto(busca.pagina)),
     disponiveis,
+    setores,
   };
 }
 
@@ -371,8 +392,8 @@ export async function contarCartoes(
 }
 
 /**
- * Carga por pessoa do Meu setor: abertos e atrasados de cada pessoa do
- * setor e da fila, com os filtros da barra, contados no banco (uma linha
+ * Carga por pessoa do Geral: abertos e atrasados de cada pessoa dos
+ * setores e da fila, com os filtros da barra, contados no banco (uma linha
  * por responsável); os atrasados são os abertos com prazo antes de agora,
  * como o cartão. Filtrando por um responsável, os outros ficam com zero
  * (como a lista).
@@ -658,6 +679,9 @@ export async function andamentoDosAvisos(
 export function nomesDosFiltros(f: Filtros, a: Apoio) {
   return {
     setor: f.setor ? (a.setorPorId.get(f.setor)?.nome ?? null) : null,
+    setores: f.setores
+      ?.split(",")
+      .flatMap((id) => a.setorPorId.get(id)?.nome ?? []),
     categoria: f.categoria
       ? (a.categoriaPorId.get(f.categoria)?.nome ?? null)
       : null,
