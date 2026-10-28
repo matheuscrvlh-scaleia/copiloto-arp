@@ -86,7 +86,7 @@ const COLUNAS_CHAMADO =
 
 /** O link, a OS e a empresa (do link ou da OS) numa consulta só. */
 const COLUNAS_ACESSO =
-  `${COLUNAS_LINK}, empresa:empresas(nome, telefone), chamado:chamados!inner(${COLUNAS_CHAMADO}, empresa:empresas(nome, telefone))` as const;
+  `${COLUNAS_LINK}, empresa:empresas(nome, telefone, ativo), chamado:chamados!inner(${COLUNAS_CHAMADO}, empresa:empresas(nome, telefone, ativo))` as const;
 
 type Link = Pick<
   Tabela<"terceirizado_links">,
@@ -157,6 +157,8 @@ export async function acessoPeloToken(token: string): Promise<Acesso | null> {
   if (!linkAtivo(link, chamado)) return null;
   // A empresa do link vale; sem ela, a da OS (como antes, pelo id).
   const empresa = link.empresa_id ? doLink : chamado.empresa_id ? daOS : null;
+  // Empresa desativada não segue mexendo nas OS que já tinha.
+  if (empresa && !empresa.ativo) return null;
   return {
     link,
     chamado,

@@ -45,8 +45,11 @@ export function NovoNaPagina({
       dados={dados}
       inicial={inicial}
       aoCriar={(r) => {
-        if (r.aviso) setCriado(r);
-        else router.push(rotaChamado(r.id));
+        // Sai do formulário já: a navegação leva segundos e, com ele cheio
+        // e o botão ativo, um segundo clique abria outro chamado igual (o
+        // Voltar do navegador também o trazia preenchido).
+        setCriado(r);
+        if (!r.aviso) router.push(rotaChamado(r.id));
       }}
     />
   );

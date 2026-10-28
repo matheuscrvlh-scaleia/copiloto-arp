@@ -298,6 +298,14 @@ export async function criarChamado(
     if (!data || !data.ativo) return { erro: "Categoria indisponível." };
     if (data.setor_id !== n.setorId)
       return { erro: "A categoria não é deste setor." };
+    if (data.pai_id) {
+      const { data: pai } = await db
+        .from("categorias")
+        .select("ativo")
+        .eq("id", data.pai_id)
+        .maybeSingle();
+      if (!pai?.ativo) return { erro: "Categoria indisponível." };
+    }
     categoria = data;
   }
   if (n.convertidoDeId) {
@@ -331,6 +339,9 @@ export async function criarChamado(
   // Id gerado aqui: na conversão a OS fica no nome de quem pediu a
   // original, e quem converte pode não conseguir lê-la de volta (RLS).
   const novoId = randomUUID();
+  // Pedido do portal convertido: a OS segue sendo o pedido da loja (o
+  // lojista acompanha por ela, com o mesmo contato).
+  const doPortal = original?.origem === "portal";
   const { error } = await db.from("chamados").insert({
     id: novoId,
     tipo: n.tipo,
@@ -339,14 +350,16 @@ export async function criarChamado(
     setor_id: n.setorId,
     categoria_id: n.categoriaId,
     prioridade: n.prioridade ?? categoria?.prioridade_padrao ?? "media",
-    origem: "sistema",
+    origem: doPortal ? "portal" : "sistema",
+    solicitante_nome: doPortal ? original.solicitante_nome : null,
+    solicitante_telefone: doPortal ? original.solicitante_telefone : null,
     pessoal: n.pessoal,
     precisa_confirmacao: precisaConfirmacao,
     // Converter em OS: o solicitante continua sendo quem pediu a original.
     aberto_por: original ? (original.aberto_por ?? eu) : eu,
     responsavel_id: responsavel,
     prazo: prazo?.toISOString() ?? null,
-    loja_id: n.lojaId,
+    loja_id: doPortal ? original.loja_id : n.lojaId,
     ativo_id: n.ativoId,
     vistoria_id: n.vistoriaId,
     ambiente_id: n.ambienteId,
@@ -814,11 +827,23 @@ async function avisarAcao(acao: AcaoChamado, ch: Chamado, eu: string) {
  * Em andamento já está certo. Exportada para o bloco da OS.
  */
 export async function assumirOuIniciar(chamadoId: string): Promise<Resultado> {
-  const [ctx, ch] = await Promise.all([contexto(), lerChamado(chamadoId)]);
+  const [ctx, ch, destinos] = await Promise.all([
+    contexto(),
+    lerChamado(chamadoId),
+    contarDestinos(chamadoId),
+  ]);
   if (!ch) return NAO_ENCONTRADO;
   if (ch.status === "em_andamento") return {};
   if (!["aberto", "aguardando"].includes(ch.status))
     return { erro: "O chamado já foi concluído ou cancelado." };
+  // As mesmas regras dos botões do detalhe (o quadro e o cronômetro chegam
+  // aqui sem passar por eles).
+  const permitidas = acoesDisponiveis(
+    { ...ch, multiplos: destinos > 1 },
+    papelNoChamado(ch, ctx),
+  );
+  if (!permitidas.some((a) => ["assumir", "iniciar", "retomar"].includes(a)))
+    return { erro: "Esta ação não está disponível para você agora." };
   const patch: Patch = {
     status: "em_andamento",
     aguardando_tipo: null,

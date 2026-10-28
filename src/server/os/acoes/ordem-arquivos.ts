@@ -8,6 +8,7 @@ import {
   erroDoArquivo,
   LIMITE_ARQUIVOS,
 } from "@/lib/os/ordem";
+import { inicioDoArquivo, tipoPeloConteudo } from "@/lib/os/tipo-arquivo";
 import { erroDoBanco } from "@/server/acoes";
 import {
   caminhoDoArquivo,
@@ -50,9 +51,13 @@ export async function enviarArquivos(
   if (envioGrandeDemais(arquivos.map((a) => a.size)))
     return { erro: "Os arquivos passam de 4 MB juntos. Envie em partes." };
   const documento = categoria === "orcamento" || categoria === "laudo";
-  for (const a of arquivos) {
+  // O tipo vem do conteúdo, não do que o navegador declara.
+  const tipos = await Promise.all(
+    arquivos.map(async (a) => tipoPeloConteudo(await inicioDoArquivo(a)) ?? ""),
+  );
+  for (const [i, a] of arquivos.entries()) {
     const erro = erroDoArquivo(
-      { nome: a.name, tipo: a.type, tamanho: a.size },
+      { nome: a.name, tipo: tipos[i] ?? "", tamanho: a.size },
       documento,
     );
     if (erro) return { erro };
@@ -62,7 +67,8 @@ export async function enviarArquivos(
   const { ctx } = alvo;
 
   const db = await os();
-  for (const a of arquivos) {
+  for (const [i, a] of arquivos.entries()) {
+    const mime = tipos[i] ?? "";
     const path = caminhoDoArquivo("chamados", chamado_id, a.name);
     const { data: linha, error } = await db
       .from("anexos")
@@ -71,7 +77,7 @@ export async function enviarArquivos(
         categoria,
         nome: a.name.slice(0, 200),
         path,
-        mime: a.type,
+        mime,
         tamanho: a.size,
         enviado_por: ctx.usuario.id,
       })
@@ -79,7 +85,7 @@ export async function enviarArquivos(
       .single();
     if (error) return erroDoBanco(error);
     try {
-      await enviarArquivo(path, await a.arrayBuffer(), a.type);
+      await enviarArquivo(path, await a.arrayBuffer(), mime);
     } catch (erro) {
       console.error("enviar arquivo da OS", erro);
       await db.from("anexos").delete().eq("id", linha.id);

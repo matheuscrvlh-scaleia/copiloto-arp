@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, use, useActionState } from "react";
+import {
+  createContext,
+  type RefObject,
+  use,
+  useActionState,
+  useEffect,
+  useRef,
+  useTransition,
+} from "react";
 import {
   ModalConfirmacao,
   useConfirmacao,
@@ -36,6 +44,32 @@ interface Envio {
 const ContextoEnvio = createContext<Envio | null>(null);
 
 /**
+ * Envio pelo onSubmit em vez de `<form action>`: com action, o React limpa
+ * os campos mesmo quando a ação volta com erro, e a pessoa perde o que
+ * digitou. Aqui só limpa no sucesso (o mesmo que o action fazia nesse caso).
+ */
+export function useEnvioSemLimpar(
+  executar: (form: FormData) => void,
+  estado: EstadoAcao,
+  form: RefObject<HTMLFormElement | null>,
+) {
+  const [, iniciar] = useTransition();
+  const anterior = useRef(estado);
+  useEffect(() => {
+    if (estado === anterior.current) return;
+    anterior.current = estado;
+    if (!estado.erro) form.current?.reset();
+  }, [estado, form]);
+  return (e: React.FormEvent<HTMLFormElement>) => {
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    const submitter = (e.nativeEvent as SubmitEvent).submitter;
+    const dados = new FormData(e.currentTarget, submitter);
+    iniciar(() => executar(dados));
+  };
+}
+
+/**
  * Formulário de uma Server Action, com estado de envio. O retorno ("Salvo.",
  * erros) vira notificação no canto da tela; com `confirmar`, o erro aparece
  * no modal de confirmação.
@@ -64,13 +98,16 @@ export function FormAcao({
   const [estado, executar, enviando] = useActionState(acao, {});
   const confirmacao = useConfirmacao({ confirmar, estado });
   useNotificarEstado(estado, { erro: !confirmar });
+  const enviar = useEnvioSemLimpar(executar, estado, confirmacao.form);
   return (
     <ContextoEnvio value={{ enviando, rotulo, rotuloEnviando, variante }}>
       <form
         ref={confirmacao.form}
-        action={executar}
         className={className}
-        onSubmit={confirmacao.onSubmit}
+        onSubmit={(e) => {
+          confirmacao.onSubmit(e);
+          enviar(e);
+        }}
       >
         {children}
         {botaoNoFim && <EnvioDaAcao />}

@@ -9,6 +9,7 @@ import {
   erroDoArquivo,
   LIMITE_ARQUIVOS,
 } from "@/lib/os/ordem";
+import { inicioDoArquivo, tipoPeloConteudo } from "@/lib/os/tipo-arquivo";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   caminhoDoArquivo,
@@ -260,19 +261,24 @@ export async function enviarArquivosDoTerceirizado(
     return { erro: "Os arquivos passam de 4 MB juntos. Envie em partes." };
   const documento =
     categoria.data === "orcamento" || categoria.data === "laudo";
-  for (const f of arquivos) {
+  // O tipo vem do conteúdo, não do que o navegador declara.
+  const tipos = await Promise.all(
+    arquivos.map(async (f) => tipoPeloConteudo(await inicioDoArquivo(f)) ?? ""),
+  );
+  for (const [i, f] of arquivos.entries()) {
     const erro = erroDoArquivo(
-      { nome: f.name, tipo: f.type, tamanho: f.size },
+      { nome: f.name, tipo: tipos[i] ?? "", tamanho: f.size },
       documento,
     );
     if (erro) return { erro };
   }
 
   const db = osAdmin();
-  for (const f of arquivos) {
+  for (const [i, f] of arquivos.entries()) {
+    const mime = tipos[i] ?? "";
     const path = caminhoDoArquivo("chamados", a.chamado.id, f.name);
     try {
-      await enviarArquivo(path, await f.arrayBuffer(), f.type);
+      await enviarArquivo(path, await f.arrayBuffer(), mime);
     } catch (erro) {
       console.error("arquivo do terceirizado", erro);
       return { erro: `Não foi possível enviar ${f.name}. Tente de novo.` };
@@ -282,7 +288,7 @@ export async function enviarArquivosDoTerceirizado(
       categoria: categoria.data,
       nome: f.name.slice(0, 200),
       path,
-      mime: f.type,
+      mime,
       tamanho: f.size,
       enviado_por_nome: a.autor,
     });

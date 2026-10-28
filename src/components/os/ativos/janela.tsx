@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
-import type { Acao } from "@/components/form-acao";
+import { type Acao, useEnvioSemLimpar } from "@/components/form-acao";
 
 // Botão que abre um formulário numa janela (plano preventivo, baixa,
 // anexo, categoria). Fecha sozinha quando a ação dá certo e deixa o "ok"
@@ -45,6 +45,8 @@ export function Janela({
   children: React.ReactNode;
 }) {
   const [estado, executar, enviando] = useActionState(acao, {});
+  const form = useRef<HTMLFormElement>(null);
+  const aoEnviar = useEnvioSemLimpar(executar, estado, form);
   const [aberto, setAberto] = useState(false);
   const dialogo = useRef<HTMLDialogElement>(null);
   const idTitulo = useId();
@@ -101,7 +103,8 @@ export function Janela({
         className="modal-detalhe m-auto max-h-[min(90dvh,52rem)] w-[min(36rem,calc(100vw-1.5rem))] overflow-hidden rounded-[2rem] border-0 bg-transparent p-0 text-neutral-900 backdrop:bg-black/45 backdrop:backdrop-blur-md"
       >
         <form
-          action={executar}
+          ref={form}
+          onSubmit={aoEnviar}
           className="painel-modal flex max-h-[min(90dvh,52rem)] flex-col rounded-[2rem]"
         >
           <header className="relative shrink-0 px-6 pt-6 pb-3 pr-16">

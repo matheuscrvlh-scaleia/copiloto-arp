@@ -11,6 +11,11 @@ import {
 import { calcularPrazo } from "@/lib/os/prazo";
 import { rotaChamado } from "@/lib/os/rotas";
 import { paraBrasilia } from "@/lib/os/tempo";
+import {
+  conteudoBateComExtensao,
+  inicioDoArquivo,
+  tipoPeloConteudo,
+} from "@/lib/os/tipo-arquivo";
 import type { Json } from "@/lib/supabase/database.types";
 import { ocupacao, regrasDe, reservar } from "./agenda";
 import {
@@ -64,7 +69,9 @@ const doLojista = (s: Solicitante) => ({
   telefone: s.telefone,
 });
 
-function conferirArquivos(arquivos: ArquivoDoLojista[]): string | null {
+async function conferirArquivos(
+  arquivos: ArquivoDoLojista[],
+): Promise<string | null> {
   if (arquivos.length > LIMITES_PORTAL.arquivosPorEnvio)
     return `Envie no máximo ${LIMITES_PORTAL.arquivosPorEnvio} arquivos por vez.`;
   const total = arquivos.reduce((s, a) => s + a.arquivo.size, 0);
@@ -73,6 +80,9 @@ function conferirArquivos(arquivos: ArquivoDoLojista[]): string | null {
   for (const { arquivo } of arquivos) {
     const erro = erroDoArquivo(arquivo.name, arquivo.size);
     if (erro) return erro;
+    // A extensão só vale se o conteúdo for mesmo daquele tipo.
+    if (!conteudoBateComExtensao(arquivo.name, await inicioDoArquivo(arquivo)))
+      return `"${arquivo.name}": o conteúdo não é do tipo da extensão.`;
   }
   return null;
 }
@@ -86,7 +96,10 @@ async function guardarArquivos(
 ): Promise<number> {
   let falhas = 0;
   for (const { arquivo } of arquivos) {
-    const mime = arquivo.type || "application/octet-stream";
+    // O tipo gravado vem do conteúdo (já conferido), não do navegador.
+    const mime =
+      tipoPeloConteudo(await inicioDoArquivo(arquivo)) ??
+      "application/octet-stream";
     const path = caminhoDoArquivo("chamados", chamadoId, arquivo.name);
     try {
       await enviarArquivo(path, await arquivo.arrayBuffer(), mime);
@@ -167,7 +180,7 @@ export async function criarPedido(
   );
   if (!categoria) return falha("Este tipo de pedido não está mais disponível.");
 
-  const erroArquivo = conferirArquivos(n.arquivos);
+  const erroArquivo = await conferirArquivos(n.arquivos);
   if (erroArquivo) return falha(erroArquivo);
   const campos = validarCampos(
     categoria.campos,
@@ -323,7 +336,7 @@ export async function responderPedido(
     return falha(
       "Muitas mensagens em pouco tempo. Tente de novo daqui a pouco.",
     );
-  const erroArquivo = conferirArquivos(r.arquivos);
+  const erroArquivo = await conferirArquivos(r.arquivos);
   if (erroArquivo) return falha(erroArquivo);
   if (!r.texto.trim() && !r.arquivos.length)
     return falha("Escreva uma mensagem ou anexe um arquivo.");

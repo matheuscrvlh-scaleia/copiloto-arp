@@ -84,6 +84,24 @@ export function Gestao({
           rotulo="Salvar"
         >
           <input type="hidden" name="id" value={id} />
+          {/* Como estava ao abrir: o servidor só grava o que a pessoa mexeu
+              (outra aba pode ter mudado o resto nesse meio-tempo). */}
+          <input
+            type="hidden"
+            name="antes_responsavel"
+            value={atual.responsavelId ?? ""}
+          />
+          <input
+            type="hidden"
+            name="antes_prioridade"
+            value={atual.prioridade}
+          />
+          <input type="hidden" name="antes_setor" value={atual.setorId} />
+          <input
+            type="hidden"
+            name="antes_categoria"
+            value={atual.categoriaId ?? ""}
+          />
           {pode.responsavel && (
             <label
               htmlFor={`${campo}-resp`}

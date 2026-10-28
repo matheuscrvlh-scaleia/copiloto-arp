@@ -291,6 +291,8 @@ export async function pedidosDaLoja(lojaId: string): Promise<Pedido[]> {
     .eq("loja_id", lojaId)
     .eq("origem", "portal")
     .is("lixeira_em", null)
+    // Convertido em OS: a loja acompanha pela OS (que também é do portal).
+    .is("convertido_em_id", null)
     .order("criado_em", { ascending: false })
     .limit(200);
   if (error) throw new Error(`Pedidos: ${error.message}`);
@@ -376,7 +378,7 @@ export async function pedidoDaLoja(
   const db = osAdmin();
   // Tudo de uma vez: a conversa, os arquivos e os horários só saem daqui se
   // o pedido for desta loja (conferido logo abaixo, antes de usar).
-  const [pedido, eventos, anexos, agendamentos] = await Promise.all([
+  const [pedido, conversao, eventos, anexos, agendamentos] = await Promise.all([
     db
       .from("chamados")
       .select(COLUNAS_PEDIDO)
@@ -384,6 +386,12 @@ export async function pedidoDaLoja(
       .eq("loja_id", lojaId)
       .eq("origem", "portal")
       .is("lixeira_em", null)
+      .maybeSingle(),
+    db
+      .from("chamados")
+      .select("convertido_em_id")
+      .eq("id", id)
+      .eq("loja_id", lojaId)
       .maybeSingle(),
     db
       .from("eventos")
@@ -409,6 +417,9 @@ export async function pedidoDaLoja(
   if (pedido.error) throw new Error(`Pedido: ${pedido.error.message}`);
   const data = pedido.data;
   if (!data) return null;
+  // Convertido em OS: o link antigo do pedido abre a OS (também da loja).
+  const virouOs = conversao.data?.convertido_em_id;
+  if (virouOs && virouOs !== id) return pedidoDaLoja(lojaId, virouOs);
   for (const r of [eventos, anexos, agendamentos])
     if (r.error) throw new Error(`Pedido: ${r.error.message}`);
 
@@ -484,6 +495,8 @@ export async function enviosNaUltimaHora(
       .select("id", { count: "exact", head: true })
       .eq("loja_id", lojaId)
       .eq("origem", "portal")
+      // A OS convertida pela equipe não é pedido novo da loja.
+      .is("convertido_de_id", null)
       .gte("criado_em", desde),
     db
       .from("eventos")

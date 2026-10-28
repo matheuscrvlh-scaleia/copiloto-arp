@@ -871,12 +871,14 @@ export async function BlocoAtivos() {
           </div>
           <ul className="flex flex-col gap-2">
             {categoriasAtivo.map((c) => (
-              <li key={c.id}>
+              // Remover fica fora do form de salvar: form dentro de form não
+              // existe no HTML (quebrava a hidratação e o envio).
+              <li key={c.id} className="flex items-end gap-2">
                 <FormAcao
                   acao={salvarAtivoCategoria}
                   rotulo="Salvar"
                   variante="secundario"
-                  className="grid grid-cols-[minmax(0,1fr)_7rem] items-end gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto_auto]"
+                  className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_7rem] items-end gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto]"
                 >
                   <input type="hidden" name="id" value={c.id} />
                   <label className={rotulo}>
@@ -915,15 +917,15 @@ export async function BlocoAtivos() {
                       </span>
                     </span>
                   </label>
-                  <AcaoRapida
-                    acao={removerAtivoCategoria}
-                    campos={{ id: c.id }}
-                    rotulo={`Remover ${c.nome}`}
-                    icone={<Trash2 className="size-4" aria-hidden />}
-                    confirmar={`Remover a categoria ${c.nome}? Os ativos dela ficam sem categoria (e sem a vida útil padrão).`}
-                    perigo
-                  />
                 </FormAcao>
+                <AcaoRapida
+                  acao={removerAtivoCategoria}
+                  campos={{ id: c.id }}
+                  rotulo={`Remover ${c.nome}`}
+                  icone={<Trash2 className="size-4" aria-hidden />}
+                  confirmar={`Remover a categoria ${c.nome}? Os ativos dela ficam sem categoria (e sem a vida útil padrão).`}
+                  perigo
+                />
               </li>
             ))}
           </ul>

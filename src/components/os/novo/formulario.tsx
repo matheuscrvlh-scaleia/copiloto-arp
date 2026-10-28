@@ -417,6 +417,7 @@ function Detalhes({
 
   function aoEnviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (enviando || estado.id) return;
     const todos = [...arquivos, ...Object.values(arquivosCampo).flat()];
     if (tamanhoTotal(todos) > LIMITE_ENVIO) {
       setErroLocal(
@@ -790,7 +791,11 @@ function Detalhes({
             {erroLocal ?? estado.erro}
           </p>
         )}
-        <button type="submit" disabled={enviando} className={BOTAO_PRIMARIO}>
+        <button
+          type="submit"
+          disabled={enviando || Boolean(estado.id)}
+          className={BOTAO_PRIMARIO}
+        >
           <Send className="size-4" aria-hidden />
           {enviando
             ? "Enviando…"

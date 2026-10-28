@@ -3,7 +3,11 @@
 import { X } from "lucide-react";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Acao, EstadoAcao } from "@/components/form-acao";
+import {
+  type Acao,
+  type EstadoAcao,
+  useEnvioSemLimpar,
+} from "@/components/form-acao";
 
 // Janela (modal) das ações do chamado, no mesmo visual dos modais do
 // sistema (painel-modal, fundo escuro com desfoque), no <body>: Esc fecha,
@@ -201,6 +205,8 @@ export function FormNaJanela({
   children: React.ReactNode;
 }) {
   const [estado, executar, enviando] = useActionState(acao, {});
+  const form = useRef<HTMLFormElement>(null);
+  const enviar = useEnvioSemLimpar(executar, estado, form);
   const anterior = useRef<EstadoAcao>(estado);
   useEffect(() => {
     if (estado === anterior.current) return;
@@ -209,7 +215,7 @@ export function FormNaJanela({
   }, [estado, aoConcluir]);
 
   return (
-    <form action={executar} className="flex flex-col gap-4">
+    <form ref={form} onSubmit={enviar} className="flex flex-col gap-4">
       {children}
       {bloqueio && (
         <p

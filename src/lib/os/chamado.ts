@@ -1,4 +1,4 @@
-import { formatarData, formatarNumero } from "@/lib/formato";
+import { formatarData, formatarNumero, lerValorBr } from "@/lib/formato";
 import {
   type CampoExtra,
   STATUS_ABERTOS,
@@ -77,8 +77,10 @@ export function validarCampos(
     }
     switch (c.tipo) {
       case "numero": {
-        const n = Number(bruto.replace(/\./g, "").replace(",", "."));
-        if (!Number.isFinite(n))
+        // "1.5" e "1,5" são 1,5; ponto só é milhar em "1.234" (o teclado
+        // decimal do celular digita ponto).
+        const n = lerValorBr(bruto);
+        if (n === null || !Number.isFinite(n))
           return { valores, erro: `${c.rotulo}: número inválido.` };
         valores[c.chave] = n;
         break;

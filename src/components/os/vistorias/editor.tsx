@@ -181,24 +181,37 @@ export function EditorVistoria({
       }
     }
     iniciar(async () => {
-      const r = await salvarVistoria({
-        id,
-        rascunho,
-        ...campos,
-        hora: campos.hora || null,
-        itens_anteriores: campos.itens_anteriores || null,
-        consideracoes: campos.consideracoes || null,
-        ambientes: ambientes.map((a) => ({
-          id: a.id,
-          titulo: a.titulo,
-          resposta: a.resposta,
-          descricao: a.descricao || null,
-          problema: a.problema,
-        })),
-      });
+      const r = await gravar(rascunho);
       setEstado(r);
       if (r.ok) setSujo(false);
     });
+  }
+
+  function gravar(rascunho: boolean) {
+    return salvarVistoria({
+      id,
+      rascunho,
+      ...campos,
+      hora: campos.hora || null,
+      itens_anteriores: campos.itens_anteriores || null,
+      consideracoes: campos.consideracoes || null,
+      ambientes: ambientes.map((a) => ({
+        id: a.id,
+        titulo: a.titulo,
+        resposta: a.resposta,
+        descricao: a.descricao || null,
+        problema: a.problema,
+      })),
+    });
+  }
+
+  /** "Gerar OS" sai da tela: o que não foi salvo vai antes, como rascunho. */
+  async function salvarAntesDeSair() {
+    if (!sujo) return true;
+    const r = await gravar(true);
+    setEstado(r);
+    if (r.ok) setSujo(false);
+    return Boolean(r.ok);
   }
 
   const vistoriadores = pessoas.some((p) => p.id === campos.vistoriador_id)
@@ -423,6 +436,7 @@ export function EditorVistoria({
             ambientes={ambientes}
             aoMudar={setAmbientes}
             chamados={chamados}
+            antesDeSair={salvarAntesDeSair}
           />
         </Secao>
 

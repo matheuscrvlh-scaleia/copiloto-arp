@@ -627,6 +627,23 @@ describe("quem pode mudar o quê (os.validar_chamado)", () => {
     expect(await campo(id, "responsavel_id")).toBe(U.tecnico);
   });
 
+  it("encerrado não muda responsável, prazo, prioridade nem setor", async () => {
+    const id = await chamado("Q encerrado", {
+      responsavel_id: U.tecnico,
+      prazo: PRAZO,
+    });
+    await mudar(id, "status = 'fechado'");
+    await como(U.gestor, async () => {
+      for (const s of [
+        "prioridade = 'urgente'",
+        "responsavel_id = null",
+        "prazo = prazo + interval '1 day'",
+      ])
+        expect(await mudar(id, s)).toMatch(/chamado encerrado não muda/);
+    });
+    expect(await campo(id, "responsavel_id")).toBe(U.tecnico);
+  });
+
   it("só quem pediu (ou gerencia) confirma ou reabre um Concluído", async () => {
     const confirmar = await chamado("Q confirmar", {
       responsavel_id: U.tecnico,

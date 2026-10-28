@@ -32,8 +32,16 @@ export const dadosDoFormulario = cache(
     ]);
     const ativos = todosSetores.filter((s) => s.ativo);
     const idsAtivos = new Set(ativos.map((s) => s.id));
+    // Subcategoria some junto com a categoria de cima desativada.
+    const porId = new Map(todas.map((c) => [c.id, c]));
+    const disponivel = (c: (typeof todas)[number] | undefined): boolean =>
+      Boolean(
+        c?.ativo &&
+          idsAtivos.has(c.setor_id) &&
+          (!c.pai_id || disponivel(porId.get(c.pai_id))),
+      );
     const cats: CategoriaDoFormulario[] = todas
-      .filter((c) => c.ativo && idsAtivos.has(c.setor_id))
+      .filter((c) => disponivel(c))
       .map((c) => ({
         id: c.id,
         setorId: c.setor_id,

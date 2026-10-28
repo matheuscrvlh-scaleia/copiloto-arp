@@ -51,6 +51,7 @@ export function Ambientes({
   ambientes,
   aoMudar,
   chamados,
+  antesDeSair,
 }: {
   vistoriaId: string;
   /** Vistoria de saída: mostra o que foi visto na entrada. */
@@ -60,6 +61,8 @@ export function Ambientes({
   ambientes: AmbienteEditado[];
   aoMudar: (lista: AmbienteEditado[]) => void;
   chamados: ChamadoDaVistoria[];
+  /** Grava o resto da vistoria antes de ir para o novo chamado. */
+  antesDeSair?: () => Promise<boolean>;
 }) {
   const router = useRouter();
   const [indice, setIndice] = useState(0);
@@ -74,13 +77,13 @@ export function Ambientes({
   lista.current = ambientes;
   const sujos = useRef(new Set<string>());
   const espera = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emCurso = useRef<Promise<boolean>>(Promise.resolve(true));
 
   const posicao = Math.max(0, Math.min(indice, ambientes.length - 1));
   const atual = ambientes[posicao];
 
   /** Grava os ambientes mexidos (o atual e os que ficaram para trás). */
-  const salvarSujos = useCallback(async () => {
-    if (espera.current) clearTimeout(espera.current);
+  const gravarSujos = useCallback(async () => {
     const ids = [...sujos.current];
     if (!ids.length) return true;
     setSalvamento("salvando");
@@ -108,6 +111,17 @@ export function Ambientes({
     return ok;
   }, [vistoriaId]);
 
+  // Um salvamento depois do outro: quem espera (o "Gerar OS") espera também
+  // o que já estava gravando, e não só a fila vazia.
+  const salvarSujos = useCallback(() => {
+    if (espera.current) clearTimeout(espera.current);
+    const proximo = emCurso.current
+      .catch(() => false)
+      .then(() => gravarSujos());
+    emCurso.current = proximo;
+    return proximo;
+  }, [gravarSujos]);
+
   // Ao sair da tela, o que estiver pendente ainda é enviado.
   useEffect(
     () => () => {
@@ -133,7 +147,9 @@ export function Ambientes({
   }
 
   async function gerarOS(a: AmbienteEditado) {
-    await salvarSujos();
+    // Sem gravar tudo, o novo chamado sairia sem a descrição do ambiente.
+    if (!(await salvarSujos())) return;
+    if (antesDeSair && !(await antesDeSair())) return;
     router.push(`${ROTA_NOVO_CHAMADO}?vistoria=${vistoriaId}&ambiente=${a.id}`);
   }
 

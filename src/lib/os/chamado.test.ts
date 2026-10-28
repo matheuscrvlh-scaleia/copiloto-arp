@@ -64,6 +64,15 @@ describe("campos extras", () => {
     );
   });
 
+  it("número com ponto decimal não vira milhar", () => {
+    const qtd = (v: string) =>
+      validarCampos(campos, { local: "A", qtd: v }, { foto: 1 });
+    expect(qtd("1.5").valores.qtd).toBe(1.5);
+    expect(qtd("1,5").valores.qtd).toBe(1.5);
+    expect(qtd("1.500").valores.qtd).toBe(1500);
+    expect(qtd("1e3").erro).toBe("Quantidade: número inválido.");
+  });
+
   it("converte número, data, lista e sim/não", () => {
     const r = validarCampos(
       campos,

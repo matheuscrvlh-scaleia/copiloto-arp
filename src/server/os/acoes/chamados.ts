@@ -21,7 +21,12 @@ import type { AcaoChamado } from "@/lib/os/ciclo";
 import { formatarNumeroChamado } from "@/lib/os/numeros";
 import type { Recorrencia } from "@/lib/os/recorrencia";
 import { rotaChamado } from "@/lib/os/rotas";
-import { MOTIVOS_AGUARDANDO, PRIORIDADES } from "@/lib/os/rotulos";
+import {
+  MOTIVOS_AGUARDANDO,
+  PRIORIDADES,
+  STATUS,
+  STATUS_ABERTOS,
+} from "@/lib/os/rotulos";
 import { deBrasilia, somarDias } from "@/lib/os/tempo";
 import type { Json } from "@/lib/supabase/database.types";
 import { erroDoBanco, primeiroErro, valores } from "@/server/acoes";
@@ -310,6 +315,11 @@ const alteracao = z.object({
   prioridade: z.enum(["baixa", "media", "alta", "urgente"]).optional(),
   setor_id: z.uuid().optional(),
   categoria_id: opcional.optional(),
+  // Como a janela viu ao abrir: o que voltar igual a isso não foi mexido.
+  antes_responsavel: z.string().optional(),
+  antes_prioridade: z.string().optional(),
+  antes_setor: z.string().optional(),
+  antes_categoria: z.string().optional(),
 });
 
 export async function alterarChamado(
@@ -318,12 +328,31 @@ export async function alterarChamado(
 ): Promise<EstadoAcao> {
   const d = alteracao.safeParse(Object.fromEntries(form));
   if (!d.success) return primeiroErro(d.error);
+  const a = d.data;
+  if (
+    a.antes_responsavel !== undefined &&
+    a.responsavel === a.antes_responsavel
+  )
+    a.responsavel = undefined;
+  if (a.antes_prioridade !== undefined && a.prioridade === a.antes_prioridade)
+    a.prioridade = undefined;
+  if (
+    a.antes_setor !== undefined &&
+    a.setor_id === a.antes_setor &&
+    (a.categoria_id ?? "") === (a.antes_categoria ?? "")
+  )
+    a.setor_id = undefined;
   const [ctx, ch, mapa] = await Promise.all([
     contexto(),
     lerChamado(d.data.id),
     nomes(),
   ]);
   if (!ch) return { erro: "Chamado não encontrado." };
+  // A janela pode ter sido aberta antes de o chamado encerrar.
+  if (!STATUS_ABERTOS.includes(ch.status))
+    return {
+      erro: `Este chamado está ${STATUS[ch.status].toLowerCase()}: reabra para alterar.`,
+    };
   const gestor = gerencia(ctx, ch.setor_id);
   const pediu = ch.aberto_por === ctx.usuario.id;
   const nome = (u: string | null) =>
