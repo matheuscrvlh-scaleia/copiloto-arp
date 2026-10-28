@@ -41,6 +41,11 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
       {
+        source: "/os/configuracoes/modelos",
+        destination: "/os/modelos",
+        permanent: false,
+      },
+      {
         source: "/rh/folha",
         destination: "/rh/configuracoes/importacoes",
         permanent: false,

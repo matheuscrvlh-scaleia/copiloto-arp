@@ -22,12 +22,6 @@ const ABAS: (Aba & { permissoes: Permissao[] })[] = [
     permissoes: ["os.catalogo"],
   },
   {
-    href: CONFIGURACOES_OS.modelos,
-    rotulo: "Modelos e lembretes",
-    descricao: "Modelos de entrada e saída de cliente e lembretes",
-    permissoes: ["os.modelos"],
-  },
-  {
     href: CONFIGURACOES_OS.terceirizados,
     rotulo: "Terceirizados e contatos",
     descricao: "Empresas, profissionais e contatos do WhatsApp",

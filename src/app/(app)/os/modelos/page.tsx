@@ -20,6 +20,7 @@ import {
   type ModeloEditavel,
 } from "@/components/os/automacao/editor-modelo";
 import { RodarRotinas } from "@/components/os/automacao/rodar-rotinas";
+import { CabecalhoOperacoes } from "@/components/os/operacoes";
 import { SeloSetor, SeloStatusChamado } from "@/components/os/selos";
 import { Protegido } from "@/components/protegido";
 import { Selecao } from "@/components/selecao";
@@ -66,17 +67,20 @@ export const metadata: Metadata = { title: "Modelos e lembretes" };
 // "Rodar rotinas agora" e o disparo à mão podem passar do tempo padrão.
 export const maxDuration = 300;
 
-// Modelos de entrada e saída de cliente e lembretes recorrentes (spec 4.12):
-// editar os modelos, disparar à mão, acompanhar quem falta em cada contrato,
-// parar uma série e rodar as rotinas sem esperar o cron.
+// Modelos de entrada e saída de cliente e lembretes recorrentes (spec 4.12),
+// numa aba de Operações: editar os modelos, disparar à mão, acompanhar quem
+// falta em cada contrato, parar uma série e rodar as rotinas sem esperar o cron.
 
 export default function Page() {
   return (
-    <Suspense fallback={<Esqueleto />}>
-      <Protegido permissao="os.modelos">
-        <Tela />
-      </Protegido>
-    </Suspense>
+    <>
+      <CabecalhoOperacoes descricao="Modelos de entrada e saída de cliente, disparos por contrato e lembretes recorrentes." />
+      <Suspense fallback={<Esqueleto />}>
+        <Protegido permissao="os.modelos">
+          <Tela />
+        </Protegido>
+      </Suspense>
+    </>
   );
 }
 
