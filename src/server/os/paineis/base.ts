@@ -448,6 +448,7 @@ function blocoTempoPorCategoria(
     titulo: "Tempo médio de resolução por categoria (MTTR)",
     descricao: `Fechados em ${f.rotulo}, da abertura à conclusão, sem o tempo em Aguardando`,
     largura: 7,
+    rolagem: true,
     partes: [
       {
         tipo: "tabela",
@@ -489,6 +490,7 @@ function blocoPrimeiraResposta(ctx: Ctx): Bloco {
     titulo: "Primeira resposta (SLA)",
     descricao: `Abertos em ${f.rotulo}: tempo até alguém assumir, dentro das horas de resposta da categoria`,
     largura: 5,
+    rolagem: true,
     partes: [
       {
         tipo: "numeros",

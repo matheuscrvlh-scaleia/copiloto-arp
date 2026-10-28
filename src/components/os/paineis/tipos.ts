@@ -143,6 +143,8 @@ export interface Bloco {
   descricao?: string;
   /** Colunas da grade de 12 no computador. */
   largura?: 4 | 5 | 6 | 7 | 8 | 12;
+  /** No computador o cartão fica com 600px de altura e o conteúdo rola. */
+  rolagem?: boolean;
   tom?: Tom;
   partes: Conteudo[];
   /** Aviso embaixo (ex.: período sem a medida no sistema anterior). */

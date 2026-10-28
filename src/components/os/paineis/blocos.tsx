@@ -44,10 +44,14 @@ export function BlocoDoPainel({
       titulo={bloco.titulo}
       descricao={bloco.descricao}
       tom={bloco.tom}
-      className={`flex min-w-0 flex-col ${LARGURA[bloco.largura ?? 12]}`}
+      className={`flex min-w-0 flex-col ${LARGURA[bloco.largura ?? 12]} ${bloco.rolagem ? "xl:h-[600px]" : ""}`}
       classeCorpo="flex flex-col"
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-5">
+      <div
+        // O -mx-2/px-2 devolve o espaço que a tabela tira com -mx-2, senão a
+        // rolagem vertical corta a borda e cria rolagem lateral.
+        className={`flex min-h-0 flex-1 flex-col gap-5 ${bloco.rolagem ? "xl:-mx-2 xl:overflow-y-auto xl:px-2" : ""}`}
+      >
         {bloco.partes.map((p, k) =>
           k === elastica ? (
             <div
