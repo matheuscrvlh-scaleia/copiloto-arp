@@ -85,6 +85,27 @@ export async function salvarEmpresa(
   return { ok: id ? "Empresa salva." : "Empresa cadastrada." };
 }
 
+/**
+ * Terceirizado criado no "Novo chamado" por quem usa o módulo: só a empresa,
+ * ativa. Editar, desativar e os profissionais seguem com os.terceirizados (o
+ * RLS só deixa inserir).
+ */
+export async function criarTerceirizadoRapido(
+  dados: Partial<Record<keyof typeof ROTULOS, string>>,
+): Promise<EstadoAcao> {
+  const acesso = await exigir("os.acessar");
+  if (acesso.erro) return acesso.erro;
+  const d = empresa
+    .omit({ id: true, ativo: true })
+    .safeParse({ ...dados, prazo_retorno_dias: "" });
+  if (!d.success) return primeiroErro(d.error, ROTULOS);
+  const { error } = await (await os())
+    .from("empresas")
+    .insert({ ...d.data, cnpj: d.data.cnpj ?? null });
+  if (error) return erroDoBanco(error);
+  return { ok: `${d.data.nome} cadastrado como terceirizado.` };
+}
+
 const profissional = z.object({
   id: uuidOpcional,
   empresa_id: z.uuid(),

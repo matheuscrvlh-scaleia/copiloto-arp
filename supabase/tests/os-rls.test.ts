@@ -664,6 +664,68 @@ describe("edição (casos da regra)", () => {
   });
 });
 
+describe("categoria pelo Novo chamado", () => {
+  const tenta = (u: Pessoa, extra = "") =>
+    desfazendo(() =>
+      como(U[u], async () => {
+        try {
+          await db.exec("savepoint tenta");
+          await db.query(
+            `insert into os.categorias (setor_id, nome${extra ? ", no_portal" : ""})
+             values ('${SETOR.S}', 'Nova'${extra ? ", true" : ""})`,
+          );
+          return "criou";
+        } catch (e) {
+          await db.exec("rollback to savepoint tenta");
+          return String(e);
+        }
+      }),
+    );
+  const muda = (u: Pessoa, sql: string) =>
+    desfazendo(() =>
+      como(U[u], async () => (await db.query(sql)).affectedRows),
+    );
+
+  it("quem acessa o módulo cria a simples; sem o módulo, não", async () => {
+    expect(await tenta("abriu")).toBe("criou");
+    expect(await tenta("semModulo")).toMatch(/row-level security/);
+    expect(await tenta("abriu", "portal")).toMatch(/row-level security/);
+  });
+
+  it("sem os.catalogo não edita nem exclui", async () => {
+    expect(
+      await muda("abriu", "update os.categorias set nome = nome || '!'"),
+    ).toBe(0);
+    expect(await muda("abriu", "delete from os.categorias")).toBe(0);
+  });
+
+  it("terceirizado: quem acessa cria a empresa; não edita nem exclui", async () => {
+    const empresa = (u: Pessoa, sql: string) =>
+      desfazendo(() =>
+        como(U[u], async () => {
+          try {
+            await db.exec("savepoint tenta");
+            return (await db.query(sql)).affectedRows;
+          } catch (e) {
+            await db.exec("rollback to savepoint tenta");
+            return String(e);
+          }
+        }),
+      );
+    const nova = "insert into os.empresas (nome) values ('Nova')";
+    expect(await empresa("abriu", nova)).toBe(1);
+    expect(await empresa("semModulo", nova)).toMatch(/row-level security/);
+    expect(
+      await empresa(
+        "abriu",
+        "insert into os.empresas (nome, ativo) values ('X', false)",
+      ),
+    ).toMatch(/row-level security/);
+    expect(await empresa("abriu", "update os.empresas set nome = 'y'")).toBe(0);
+    expect(await empresa("abriu", "delete from os.empresas")).toBe(0);
+  });
+});
+
 describe("plano: regra calculada uma vez por consulta", () => {
   const plano = async (u: Pessoa, sql: string) =>
     como(U[u], async () =>

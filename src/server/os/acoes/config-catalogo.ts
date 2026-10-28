@@ -4,6 +4,7 @@ import { refresh, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import type { CategoriaDoFormulario } from "@/components/os/novo/tipos";
 import { CONFIGURACOES_OS } from "@/config/navigation";
 import {
   nomeDaCopia,
@@ -151,6 +152,67 @@ export async function salvarCategoria(
   if (error) return erroDoBanco(error);
   updateTag(TAG.os.categorias);
   redirect(`${CONFIGURACOES_OS.catalogo}?setor=${linha.setor_id}&criada=1`);
+}
+
+const rapida = z.object({
+  nome: texto(80, "informe o nome"),
+  setorId: z.uuid("escolha o setor"),
+  icone: z.string().regex(/^[a-z0-9-]{1,40}$/, "escolha um ícone"),
+  tipo: z.enum(chaves(TIPOS), "escolha o tipo"),
+});
+
+/**
+ * Categoria criada no "Novo chamado" por quem usa o módulo: só nome, setor,
+ * ícone e tipo. Editar e excluir seguem com os.catalogo (o RLS só deixa
+ * inserir a simples).
+ */
+export async function criarCategoriaRapida(
+  dados: z.input<typeof rapida>,
+): Promise<{ erro: string } | { categoria: CategoriaDoFormulario }> {
+  const acesso = await exigir("os.acessar");
+  if (acesso.erro) return { erro: acesso.erro.erro ?? "" };
+  const d = rapida.safeParse(dados);
+  if (!d.success)
+    return {
+      erro:
+        primeiroErro(d.error, { nome: "Nome", setorId: "Setor", tipo: "Tipo" })
+          .erro ?? "",
+    };
+  const { nome, setorId, icone, tipo } = d.data;
+  const { data, error } = await (await os())
+    .from("categorias")
+    .insert({
+      nome,
+      setor_id: setorId,
+      icone,
+      tipo_padrao: tipo,
+      precisa_confirmacao: tipo !== "aviso",
+      ordem: await proximaOrdem(setorId, null),
+    })
+    .select("id, prioridade_padrao")
+    .single();
+  if (error) return { erro: erroDoBanco(error).erro ?? "" };
+  updateTag(TAG.os.categorias);
+  return {
+    categoria: {
+      id: data.id,
+      setorId,
+      paiId: null,
+      nome,
+      icone,
+      cor: null,
+      tipo,
+      prioridade: data.prioridade_padrao,
+      responsavelId: null,
+      prazo: null,
+      precisaConfirmacao: tipo !== "aviso",
+      vincularAtivo: false,
+      vincularLoja: false,
+      agendaId: null,
+      campos: [],
+      itensChecklist: 0,
+    },
+  };
 }
 
 async function proximaOrdem(setorId: string, paiId: string | null) {

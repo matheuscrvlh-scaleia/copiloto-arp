@@ -41,6 +41,8 @@ import {
   opcoesDeVinculo,
 } from "@/server/os/acoes/chamados";
 import { Horario } from "./horario";
+import { NovaCategoria } from "./nova-categoria";
+import { NovoTerceirizado } from "./novo-terceirizado";
 import { PILULA_OPCAO, Repetir } from "./repetir";
 import type {
   CategoriaDoFormulario,
@@ -63,7 +65,7 @@ interface Escolha {
 }
 
 export function FormularioChamado({
-  dados,
+  dados: recebidos,
   inicial,
   naJanela = false,
   aoCriar,
@@ -74,6 +76,11 @@ export function FormularioChamado({
   naJanela?: boolean;
   aoCriar: (r: { id: string; numero: number; aviso?: string }) => void;
 }) {
+  // A criada no botão flutuante entra já (o cache só volta na próxima visita).
+  const [criadas, setCriadas] = useState<CategoriaDoFormulario[]>([]);
+  const dados = criadas.length
+    ? { ...recebidos, categorias: [...recebidos.categorias, ...criadas] }
+    : recebidos;
   const [escolha, setEscolha] = useState<Escolha | null>(() =>
     inicial?.setorId
       ? {
@@ -96,6 +103,10 @@ export function FormularioChamado({
         contexto={inicial?.contexto ?? []}
         comPessoal={!inicial?.convertidoDeId && !inicial?.vistoriaId}
         aoEscolher={setEscolha}
+        aoCriarCategoria={(c) => {
+          setCriadas((l) => [...l, c]);
+          setEscolha({ setorId: c.setorId, categoriaId: c.id, pessoal: false });
+        }}
       />
     );
     return naJanela ? (
@@ -176,6 +187,7 @@ function EscolherCategoria({
   contexto,
   comPessoal,
   aoEscolher,
+  aoCriarCategoria,
 }: {
   dados: DadosDoFormulario;
   dica?: string;
@@ -183,6 +195,7 @@ function EscolherCategoria({
   /** Atalho da tarefa pessoal (não cabe ao converter em OS). */
   comPessoal: boolean;
   aoEscolher: (e: Escolha) => void;
+  aoCriarCategoria: (c: CategoriaDoFormulario) => void;
 }) {
   const [busca, setBusca] = useState("");
   const termo = sem(busca.trim());
@@ -275,7 +288,8 @@ function EscolherCategoria({
           </div>
         ) : (
           <p className="rounded-2xl bg-neutral-900/[0.03] px-4 py-6 text-center text-sm text-neutral-500">
-            Nenhuma categoria com esse nome. Escolha “Outro assunto” no setor.
+            Nenhuma categoria com esse nome. Escolha “Outro assunto” no setor ou
+            crie uma no botão abaixo.
           </p>
         )
       ) : (
@@ -331,6 +345,15 @@ function EscolherCategoria({
           );
         })
       )}
+
+      <div className="pointer-events-none sticky bottom-1 -mt-2 flex flex-wrap justify-end gap-2">
+        <NovaCategoria
+          dados={dados}
+          nomeInicial={busca.trim()}
+          aoCriar={aoCriarCategoria}
+        />
+        <NovoTerceirizado />
+      </div>
     </div>
   );
 }
