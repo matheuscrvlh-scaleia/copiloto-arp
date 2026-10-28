@@ -3,6 +3,7 @@
 import { ArrowUpRight, CircleCheck, Plus, TriangleAlert } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CartaoCarregando } from "@/components/carregando";
@@ -12,7 +13,7 @@ import {
   Janela,
 } from "@/components/os/chamado/janela";
 import { formatarNumeroChamado } from "@/lib/os/numeros";
-import { rotaChamado } from "@/lib/os/rotas";
+import { ROTAS_OS, rotaChamado } from "@/lib/os/rotas";
 import type { DadosDoFormulario } from "./tipos";
 
 // O formulário (com o catálogo de ícones e a citação com @) só vem quando
@@ -32,7 +33,8 @@ const FormularioChamado = dynamic(
 // Botão "+ Novo" flutuante de todas as telas do módulo. Fica no canto
 // inferior direito; se a página tiver avisos (que usam o mesmo canto), sobe
 // para cima deles. No celular some ao rolar para baixo (não cobre o fim da
-// lista) e volta ao rolar para cima.
+// lista) e volta ao rolar para cima. Na vistoria (nova e edição) não
+// aparece: cobriria a barra de salvar.
 
 interface Criado {
   id: string;
@@ -95,6 +97,11 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
   const [montado, setMontado] = useState(false);
   const desvio = useDesvioDosAvisos();
   const visivel = useVisivelAoRolar();
+  const caminho = usePathname();
+  // /os/vistorias/nova e /os/vistorias/<id>.
+  const naVistoria =
+    caminho.startsWith(`${ROTAS_OS.vistorias}/`) &&
+    !caminho.slice(ROTAS_OS.vistorias.length + 1).includes("/");
   useEffect(() => setMontado(true), []);
 
   function fechar() {
@@ -125,7 +132,7 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
 
   return (
     <>
-      {montado && createPortal(botao, document.body)}
+      {montado && !naVistoria && createPortal(botao, document.body)}
       <Janela
         aberta={aberta}
         aoFechar={fechar}

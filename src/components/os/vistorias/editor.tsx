@@ -1,12 +1,14 @@
 "use client";
 
 import { Eraser, Loader } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Secao } from "@/components/admin/ui";
 import { classeCampo } from "@/components/estilos";
 import { type EstadoAcao, FormAcao } from "@/components/form-acao";
 import { ModalConfirmacao } from "@/components/modal-confirmacao";
 import { Selecao } from "@/components/selecao";
+import { ROTAS_OS } from "@/lib/os/rotas";
 import {
   STATUS_VISTORIA,
   type StatusVistoria,
@@ -81,6 +83,7 @@ export function EditorVistoria({
   const [salvando, iniciar] = useTransition();
   const [pergunta, setPergunta] = useState<Pergunta | null>(null);
   const tipoAnterior = useRef(inicial.tipo);
+  const router = useRouter();
 
   // Sair com alterações não salvas pede confirmação do navegador.
   useEffect(() => {
@@ -184,6 +187,8 @@ export function EditorVistoria({
       const r = await gravar(rascunho);
       setEstado(r);
       if (r.ok) setSujo(false);
+      // Vistoria salva (não rascunho) fecha a tela e volta para a lista.
+      if (r.ok && !rascunho) router.push(ROTAS_OS.vistorias);
     });
   }
 
