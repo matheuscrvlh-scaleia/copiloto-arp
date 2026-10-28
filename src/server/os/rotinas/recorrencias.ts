@@ -19,7 +19,7 @@ import { criarChamadoSistema } from "../criar";
 // rodar duas vezes não cria nada a mais. Parar a série = tirar o Repetir.
 
 const COLUNAS =
-  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, prioridade, responsavel_id, aberto_por, pessoal, precisa_confirmacao, loja_id, ativo_id, checklist, etiquetas, campos, recorrencia, serie_id, serie_data, prazo, criado_em, exemplo, destinatarios(setor_id, usuario_id, titulo, responsavel_id, ordem)" as const;
+  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, prioridade, responsavel_id, aberto_por, pessoal, precisa_confirmacao, destinos_em_ordem, loja_id, ativo_id, checklist, etiquetas, campos, recorrencia, serie_id, serie_data, prazo, criado_em, exemplo, destinatarios(setor_id, usuario_id, titulo, responsavel_id, ordem)" as const;
 
 export async function rotinaRecorrencias(agora: Date): Promise<number> {
   const { p, cal } = await configDoSistema();
@@ -172,17 +172,23 @@ async function marcarPrimeira(id: string, data: string): Promise<void> {
 
 /**
  * A criação pelo sistema tira a confirmação da categoria; a ocorrência
- * repete o que a anterior tinha (tarefa pessoal, sem confirmação).
+ * repete o que a anterior tinha (tarefa pessoal, sem confirmação, destinos
+ * em ordem).
  */
 async function manterTipoDeTarefa(
   id: string,
-  ultima: { pessoal: boolean; precisa_confirmacao: boolean },
+  ultima: {
+    pessoal: boolean;
+    precisa_confirmacao: boolean;
+    destinos_em_ordem: boolean;
+  },
 ): Promise<void> {
   const { error } = await osAdmin()
     .from("chamados")
     .update({
       pessoal: ultima.pessoal,
       precisa_confirmacao: ultima.precisa_confirmacao,
+      destinos_em_ordem: ultima.destinos_em_ordem,
     })
     .eq("id", id);
   if (error) console.error("ocorrência da série", id, error);

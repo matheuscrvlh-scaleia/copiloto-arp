@@ -29,6 +29,8 @@ export interface LinhaDestino {
   concluidoEm: string | null;
   concluidoPor: string | null;
   meu: boolean;
+  /** Em ordem: o anterior que ainda não concluiu (null: é a vez). */
+  espera: string | null;
 }
 
 const SITUACAO: Record<
@@ -62,11 +64,14 @@ const BOTAO =
 
 export function Destinos({
   linhas,
+  emOrdem = false,
   andamento,
   nomes,
   encerrado,
 }: {
   linhas: LinhaDestino[];
+  /** Um depois do outro: cada um espera o anterior concluir. */
+  emOrdem?: boolean;
   andamento: { texto: string; concluidos: number; total: number };
   nomes: Record<string, string>;
   /** Fechado ou cancelado: só leitura. */
@@ -121,7 +126,7 @@ export function Destinos({
         )}
       </div>
       <ul className="flex flex-col gap-2">
-        {linhas.map((l) => {
+        {linhas.map((l, i) => {
           const s = SITUACAO[l.status];
           return (
             <li
@@ -129,8 +134,10 @@ export function Destinos({
               className="flex flex-col gap-3 rounded-2xl border border-neutral-900/[0.06] bg-white/60 p-3 sm:flex-row sm:items-center"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-neutral-900/[0.05] text-neutral-600">
-                  {l.pessoa ? (
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-neutral-900/[0.05] text-sm font-semibold text-neutral-600">
+                  {emOrdem ? (
+                    i + 1
+                  ) : l.pessoa ? (
                     <UserRound className="size-4" aria-hidden />
                   ) : (
                     <Building2 className="size-4" aria-hidden />
@@ -149,9 +156,11 @@ export function Destinos({
                   <span className="block text-xs text-neutral-500">
                     {l.concluidoEm
                       ? `Concluído ${l.concluidoPor ? `por ${nomes[l.concluidoPor] ?? "alguém"} ` : ""}em ${formatarDataHora(l.concluidoEm)}`
-                      : l.lidoEm
-                        ? `Leu em ${formatarDataHora(l.lidoEm)}`
-                        : "Ainda não leu"}
+                      : l.espera
+                        ? `Espera ${l.espera} concluir`
+                        : l.lidoEm
+                          ? `Leu em ${formatarDataHora(l.lidoEm)}`
+                          : "Ainda não leu"}
                     {l.prazo && !l.concluidoEm
                       ? ` · prazo ${formatarDataHora(l.prazo)}`
                       : ""}
@@ -171,8 +180,10 @@ export function Destinos({
                       l.status === "aberto" &&
                       botao(l, "ler", "Li", Eye)}
                     {l.status === "aberto" &&
+                      !l.espera &&
                       botao(l, "iniciar", "Começar", CirclePlay)}
                     {l.status !== "concluido" &&
+                      !l.espera &&
                       botao(
                         l,
                         "concluir",

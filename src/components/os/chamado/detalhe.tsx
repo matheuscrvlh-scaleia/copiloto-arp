@@ -289,7 +289,11 @@ export async function DetalheChamado({
       )}
       {d.andamento && (
         <section className={CARTAO}>
-          <h3 className={TITULO_SECAO}>Andamento de cada destino</h3>
+          <h3 className={TITULO_SECAO}>
+            {ch.destinos_em_ordem
+              ? "Aprovação em ordem"
+              : "Andamento de cada destino"}
+          </h3>
           <Destinos
             linhas={d.destinos.map((x) => ({
               id: x.id,
@@ -302,7 +306,9 @@ export async function DetalheChamado({
               concluidoEm: x.concluido_em,
               concluidoPor: x.concluido_por,
               meu: x.meu,
+              espera: x.espera,
             }))}
+            emOrdem={ch.destinos_em_ordem}
             andamento={d.andamento}
             nomes={soOs(
               d.nomes,

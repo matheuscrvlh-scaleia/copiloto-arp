@@ -355,6 +355,9 @@ export async function criarChamado(
     solicitante_telefone: doPortal ? original.solicitante_telefone : null,
     pessoal: n.pessoal,
     precisa_confirmacao: precisaConfirmacao,
+    // Fora o Aviso, os destinos extras andam um depois do outro.
+    destinos_em_ordem:
+      n.tipo !== "aviso" && n.setoresExtras.length + n.pessoasExtras.length > 0,
     // Converter em OS: o solicitante continua sendo quem pediu a original.
     aberto_por: original ? (original.aberto_por ?? eu) : eu,
     responsavel_id: responsavel,
@@ -422,7 +425,13 @@ export async function criarChamado(
   const citados = n.descricao ? extrairMencoes(n.descricao, gente) : [];
   await avisarNovo(
     { id: ch.id, numero: ch.numero, titulo: n.titulo, setorId: n.setorId },
-    { responsavel, destinos: destinos.lista, citados, autor: eu },
+    {
+      responsavel,
+      // Em ordem, os outros destinos são avisados quando chega a vez deles.
+      destinos: n.tipo === "aviso" ? destinos.lista : [],
+      citados,
+      autor: eu,
+    },
   );
 
   return {
@@ -761,12 +770,15 @@ export async function executarAcao(
   const r = await aplicar(ch, patch);
   if (r.erro) return r;
 
-  // Reabrir um chamado de vários destinos: todos voltam a andar.
+  // Reabrir um chamado de vários destinos: todos voltam a andar (em ordem,
+  // só o último).
   if (acao === "reabrir" && multiplos) {
-    await (await os())
+    let q = (await os())
       .from("destinatarios")
       .update({ status: "em_andamento" })
       .eq("chamado_id", ch.id);
+    if (ch.destinos_em_ordem) q = q.eq("ordem", destinos - 1);
+    await q;
   }
   await registrar(ch.id, {
     tipo: "status",

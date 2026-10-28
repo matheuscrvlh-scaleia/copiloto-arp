@@ -770,6 +770,38 @@ describe("vários destinatários (os.sincronizar_destinos)", () => {
       ),
     ).toBe("aberto");
   });
+
+  it("em ordem: cada destino só anda depois que o anterior concluir", async () => {
+    const id = await chamado("D em ordem", {
+      setor_id: SETOR.comercial,
+      destinos_em_ordem: true,
+    });
+    const ordem: Setor[] = ["comercial", "operacoes", "marketing"];
+    for (const [i, s] of ordem.entries())
+      await inserir("os.destinatarios", {
+        chamado_id: id,
+        setor_id: SETOR[s],
+        ordem: i,
+      });
+
+    expect(await erro(destino(id, "operacoes", "em_andamento"))).toMatch(
+      /espera a anterior/,
+    );
+    expect(await erro(destino(id, "marketing", "concluido"))).toMatch(
+      /espera a anterior/,
+    );
+    // Confirmar a leitura não depende da vez.
+    expect(
+      await erro(
+        `update os.destinatarios set lido_em = now() where chamado_id = '${id}' and setor_id = '${SETOR.marketing}'`,
+      ),
+    ).toBeNull();
+
+    await db.query(destino(id, "comercial", "concluido"));
+    expect(await erro(destino(id, "operacoes", "concluido"))).toBeNull();
+    expect(await erro(destino(id, "marketing", "concluido"))).toBeNull();
+    expect(await campo(id, "status")).toBe("concluido");
+  });
 });
 
 describe("dinheiro só com os.custos", () => {

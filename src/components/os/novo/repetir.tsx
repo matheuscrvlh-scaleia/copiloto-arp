@@ -25,12 +25,41 @@ const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 export const PILULA_OPCAO =
   "inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400 aria-pressed:border-neutral-900 aria-pressed:bg-neutral-900 aria-pressed:text-white";
 
+/** Hoje já marcado: "toda semana" cai no dia da semana, "todo mês" no dia. */
+function regraInicial(
+  frequencia: Frequencia,
+  fim?: string | null,
+): Recorrencia {
+  const hoje = new Date();
+  return {
+    frequencia,
+    fim,
+    intervalo:
+      frequencia === "cada_n_dias"
+        ? 15
+        : frequencia === "cada_n_meses"
+          ? 3
+          : undefined,
+    dias_semana: frequencia === "semanal" ? [hoje.getDay()] : undefined,
+    dia_mes:
+      frequencia === "mensal" || frequencia === "cada_n_meses"
+        ? hoje.getDate()
+        : undefined,
+  };
+}
+
+const SUBTITULO = "text-xs font-medium text-neutral-600";
+
 export function Repetir() {
   const [ligado, setLigado] = useState(false);
-  const [regra, setRegra] = useState<Recorrencia>({ frequencia: "semanal" });
+  const [regra, setRegra] = useState<Recorrencia>(() =>
+    regraInicial("semanal"),
+  );
   const id = useId();
   const comIntervalo =
     regra.frequencia === "cada_n_dias" || regra.frequencia === "cada_n_meses";
+  const porMes =
+    regra.frequencia === "mensal" || regra.frequencia === "cada_n_meses";
   const mudar = (r: Partial<Recorrencia>) => setRegra((x) => ({ ...x, ...r }));
 
   return (
@@ -52,24 +81,14 @@ export function Repetir() {
             name="recorrencia"
             value={JSON.stringify(regra)}
           />
-          <div className="flex flex-wrap gap-1.5">
+          <span className={SUBTITULO}>Repete</span>
+          <div className="-mt-1.5 flex flex-wrap gap-1.5">
             {FREQUENCIAS.map((f) => (
               <button
                 key={f.valor}
                 type="button"
                 aria-pressed={regra.frequencia === f.valor}
-                onClick={() =>
-                  setRegra({
-                    frequencia: f.valor,
-                    fim: regra.fim,
-                    intervalo:
-                      f.valor === "cada_n_dias"
-                        ? 15
-                        : f.valor === "cada_n_meses"
-                          ? 3
-                          : undefined,
-                  })
-                }
+                onClick={() => setRegra(regraInicial(f.valor, regra.fim))}
                 className={PILULA_OPCAO}
               >
                 {f.rotulo}
@@ -93,11 +112,14 @@ export function Repetir() {
             </label>
           )}
           {regra.frequencia === "semanal" && (
+            <span className={SUBTITULO}>Em quais dias da semana</span>
+          )}
+          {regra.frequencia === "semanal" && (
             // biome-ignore lint/a11y/useSemanticElements: grupo de botões alternáveis
             <div
               role="group"
               aria-label="Dias da semana"
-              className="flex flex-wrap gap-1.5"
+              className="-mt-1.5 flex flex-wrap gap-1.5"
             >
               {DIAS.map((d, i) => {
                 const marcado = regra.dias_semana?.includes(i) ?? false;
@@ -121,9 +143,9 @@ export function Repetir() {
               })}
             </div>
           )}
-          {regra.frequencia === "mensal" && (
+          {porMes && (
             <label className="flex items-center gap-2 text-sm">
-              No dia
+              Todo dia
               <input
                 type="number"
                 min={1}

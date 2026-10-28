@@ -47,6 +47,8 @@ export interface DestinoDetalhe extends Tabela<"destinatarios"> {
   nome: string;
   /** A pessoa pode mexer nesta linha (é dela, do setor dela ou gerencia). */
   meu: boolean;
+  /** Destinos em ordem: o anterior que ainda não concluiu (null: é a vez). */
+  espera: string | null;
 }
 
 export interface AnexoDetalhe extends Tabela<"anexos"> {
@@ -198,17 +200,25 @@ export const carregarDetalhe = cache(
     const ehGestor = gerencia(ctx, ch.setor_id);
 
     const linhas = destinos.data ?? [];
-    const lista: DestinoDetalhe[] = linhas.map((d) => ({
-      ...d,
-      nome: d.usuario_id
+    const nomeDe = (d: (typeof linhas)[number]) =>
+      d.usuario_id
         ? (mapaNomes.get(d.usuario_id) ?? "Pessoa")
-        : (setorDe(d.setor_id)?.nome ?? "Setor"),
-      meu:
-        ehGestor ||
-        d.usuario_id === eu ||
-        d.responsavel_id === eu ||
-        (!!d.setor_id && ctx.setores.includes(d.setor_id)),
-    }));
+        : (setorDe(d.setor_id)?.nome ?? "Setor");
+    const lista: DestinoDetalhe[] = linhas.map((d) => {
+      const antes = ch.destinos_em_ordem
+        ? linhas.find((x) => x.ordem < d.ordem && x.status !== "concluido")
+        : undefined;
+      return {
+        ...d,
+        nome: nomeDe(d),
+        meu:
+          ehGestor ||
+          d.usuario_id === eu ||
+          d.responsavel_id === eu ||
+          (!!d.setor_id && ctx.setores.includes(d.setor_id)),
+        espera: antes && d.status === "aberto" ? nomeDe(antes) : null,
+      };
+    });
     const multiplos = lista.length > 1;
     const acoes = acoesDisponiveis({ ...ch, multiplos }, papel);
     const arquivos = anexos.data ?? [];

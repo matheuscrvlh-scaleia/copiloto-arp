@@ -4,15 +4,16 @@ import {
   ArrowLeft,
   CircleUserRound,
   Flag,
+  Plus,
   Search,
   Send,
   Sparkles,
+  X,
 } from "lucide-react";
 import {
   useActionState,
   useEffect,
   useId,
-  useMemo,
   useRef,
   useState,
   useTransition,
@@ -426,7 +427,9 @@ function Detalhes({
   const [arquivosCampo, setArquivosCampo] = useState<Record<string, File[]>>(
     {},
   );
-  const [pessoasExtras, setPessoasExtras] = useState<string[]>([]);
+  // Em ordem; "" é um select ainda vazio.
+  const [setoresExtras, setSetoresExtras] = useState<string[]>([""]);
+  const [pessoasExtras, setPessoasExtras] = useState<string[]>([""]);
   const [vinculos, setVinculos] = useState<OpcoesDeVinculo | null>(null);
   const [, carregar] = useTransition();
   const [erroLocal, setErroLocal] = useState<string | null>(null);
@@ -808,12 +811,40 @@ function Detalhes({
               />
             </Propriedade>
             {!pessoal && tipo !== "aviso" && (
-              <SetoresExtras dados={dados} setorPrincipal={escolha.setorId} />
+              <ListaEmOrdem
+                titulo="Também para os setores, em ordem"
+                dica={`Começa em ${setor?.nome ?? "este setor"}; cada um só anda depois que o anterior concluir a sua parte.`}
+                nome="setores_extras"
+                inicio={2}
+                adicionar="Adicionar setor"
+                placeholder="Escolher setor…"
+                opcoes={dados.setores
+                  .filter((s) => s.id !== escolha.setorId)
+                  .map((s) => ({ valor: s.id, rotulo: s.nome }))}
+                valores={setoresExtras}
+                aoMudar={setSetoresExtras}
+              />
             )}
             {!pessoal && (
-              <PessoasExtras
-                dados={dados}
-                escolhidas={pessoasExtras}
+              <ListaEmOrdem
+                titulo={
+                  tipo === "aviso"
+                    ? "Também para as pessoas"
+                    : "Depois, para as pessoas, em ordem"
+                }
+                nome="pessoas_extras"
+                inicio={
+                  tipo === "aviso"
+                    ? undefined
+                    : 2 + setoresExtras.filter(Boolean).length
+                }
+                adicionar="Adicionar pessoa"
+                placeholder="Escolher pessoa…"
+                opcoes={dados.pessoas.map((p) => ({
+                  valor: p.id,
+                  rotulo: p.nome,
+                }))}
+                valores={pessoasExtras}
                 aoMudar={setPessoasExtras}
               />
             )}
@@ -945,55 +976,97 @@ function SetoresExtras({
   );
 }
 
-function PessoasExtras({
-  dados,
-  escolhidas,
+/**
+ * Destinos extras em ordem: um select por vez e "Adicionar" para o próximo.
+ * Grava os escolhidos, na ordem, em campos ocultos `nome`.
+ */
+function ListaEmOrdem({
+  titulo,
+  dica,
+  nome,
+  inicio,
+  adicionar,
+  placeholder,
+  opcoes,
+  valores,
   aoMudar,
 }: {
-  dados: DadosDoFormulario;
-  escolhidas: string[];
-  aoMudar: (ids: string[]) => void;
+  titulo: string;
+  dica?: string;
+  nome: string;
+  /** Número do primeiro da lista; sem ele, a lista não é numerada. */
+  inicio?: number;
+  adicionar: string;
+  placeholder: string;
+  opcoes: Opcao[];
+  valores: string[];
+  aoMudar: (valores: string[]) => void;
 }) {
   const id = useId();
-  const nome = useMemo(
-    () => new Map(dados.pessoas.map((p) => [p.id, p.nome])),
-    [dados.pessoas],
-  );
+  if (!opcoes.length) return null;
+  const trocar = (i: number, v: string) =>
+    aoMudar(valores.map((x, j) => (j === i ? v : x)));
+  const escolhidos = valores.filter(Boolean);
+  const podeAdicionar =
+    valores.at(-1) !== "" && escolhidos.length < opcoes.length;
   return (
-    <div className={rotulo}>
-      <label htmlFor={`${id}-pessoa`}>Também para as pessoas</label>
-      {escolhidas.map((p) => (
-        <input key={p} type="hidden" name="pessoas_extras" value={p} />
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-1 text-xs font-medium text-neutral-600">
+        {titulo}
+      </legend>
+      {dica && <p className="-mt-1 text-xs text-neutral-500">{dica}</p>}
+      {escolhidos.map((v) => (
+        <input key={v} type="hidden" name={nome} value={v} />
       ))}
-      <Selecao
-        id={`${id}-pessoa`}
-        valor=""
-        placeholder="Adicionar pessoa…"
-        aoMudar={(v) =>
-          v && !escolhidas.includes(v) && aoMudar([...escolhidas, v])
-        }
-        opcoes={dados.pessoas
-          .filter((p) => !escolhidas.includes(p.id))
-          .map((p) => ({ valor: p.id, rotulo: p.nome }))}
-      />
-      {escolhidas.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5">
-          {escolhidas.map((p) => (
-            <li key={p}>
+      <ol className="flex flex-col gap-2">
+        {valores.map((v, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: a posição é a ordem
+          <li key={i} className="flex items-center gap-2">
+            {inicio !== undefined && (
+              <span
+                aria-hidden
+                className="grid size-7 shrink-0 place-items-center rounded-full bg-neutral-900/[0.06] text-xs font-semibold text-neutral-600"
+              >
+                {inicio + i}
+              </span>
+            )}
+            <Selecao
+              id={`${id}-${i}`}
+              rotulo={`${titulo}: ${i + 1}º`}
+              valor={v}
+              placeholder={placeholder}
+              aoMudar={(x) => trocar(i, x)}
+              opcoes={opcoes.filter(
+                (o) => o.valor === v || !valores.includes(o.valor),
+              )}
+              className="min-w-0 flex-1"
+            />
+            {(v || valores.length > 1) && (
               <button
                 type="button"
-                onClick={() => aoMudar(escolhidas.filter((x) => x !== p))}
-                aria-label={`Tirar ${nome.get(p)}`}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-neutral-900/[0.06] px-3 text-sm font-normal text-neutral-800 transition hover:bg-neutral-900/[0.1]"
+                onClick={() => {
+                  const resto = valores.filter((_, j) => j !== i);
+                  aoMudar(resto.length ? resto : [""]);
+                }}
+                aria-label={`Tirar o ${i + 1}º`}
+                className="grid size-9 shrink-0 place-items-center rounded-full text-neutral-500 transition hover:bg-neutral-900/[0.06] hover:text-neutral-800"
               >
-                <CircleUserRound className="size-4" aria-hidden />
-                {nome.get(p)} ×
+                <X className="size-4" aria-hidden />
               </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+            )}
+          </li>
+        ))}
+      </ol>
+      <button
+        type="button"
+        disabled={!podeAdicionar}
+        onClick={() => aoMudar([...valores, ""])}
+        className="inline-flex min-h-9 items-center gap-1.5 self-start rounded-full border border-dashed border-neutral-300 px-3 text-sm text-neutral-700 transition hover:border-neutral-500 disabled:opacity-50"
+      >
+        <Plus className="size-4" aria-hidden />
+        {adicionar}
+      </button>
+    </fieldset>
   );
 }
 

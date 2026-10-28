@@ -1394,6 +1394,7 @@ export type Database = {
           convertido_em_id: string | null
           criado_em: string
           descricao: string | null
+          destinos_em_ordem: boolean
           empresa_id: string | null
           etiquetas: string[]
           execucao: Database["os"]["Enums"]["execucao"] | null
@@ -1470,6 +1471,7 @@ export type Database = {
           convertido_em_id?: string | null
           criado_em?: string
           descricao?: string | null
+          destinos_em_ordem?: boolean
           empresa_id?: string | null
           etiquetas?: string[]
           execucao?: Database["os"]["Enums"]["execucao"] | null
@@ -1546,6 +1548,7 @@ export type Database = {
           convertido_em_id?: string | null
           criado_em?: string
           descricao?: string | null
+          destinos_em_ordem?: boolean
           empresa_id?: string | null
           etiquetas?: string[]
           execucao?: Database["os"]["Enums"]["execucao"] | null

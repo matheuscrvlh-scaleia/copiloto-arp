@@ -691,6 +691,22 @@ export async function andarDestino(
   if (!meu) return { erro: "Esta parte não é sua." };
   if (["fechado", "cancelado"].includes(ch.status))
     return { erro: "O chamado já foi encerrado." };
+  // Em ordem: só anda depois que os anteriores concluírem (o banco confere).
+  const todos = ch.destinos_em_ordem
+    ? ((
+        await db
+          .from("destinatarios")
+          .select("ordem, status, setor_id, usuario_id")
+          .eq("chamado_id", ch.id)
+          .order("ordem")
+      ).data ?? [])
+    : [];
+  if (
+    d.data.acao !== "ler" &&
+    linha.status === "aberto" &&
+    todos.some((x) => x.ordem < linha.ordem && x.status !== "concluido")
+  )
+    return { erro: "Esta parte espera a anterior concluir." };
 
   const agora = new Date().toISOString();
   const patch =
@@ -718,6 +734,30 @@ export async function andarDestino(
     texto: `${quem} ${TEXTO_DESTINO[d.data.acao]}.`,
     dados: { destino: linha.id, acao: d.data.acao },
   });
+
+  // Em ordem: avisa o próximo que chegou a vez dele.
+  const proximo = todos.find(
+    (x) => x.ordem > linha.ordem && x.status !== "concluido",
+  );
+  if (d.data.acao === "concluir" && proximo)
+    after(async () => {
+      const quem = proximo.usuario_id
+        ? [proximo.usuario_id]
+        : proximo.setor_id
+          ? await membrosDoSetor(proximo.setor_id)
+          : [];
+      await notificar(
+        quem,
+        {
+          tipo: "novo",
+          titulo: `${formatarNumeroChamado(ch.numero)} ${ch.titulo}`,
+          texto: "Chegou a sua vez neste chamado.",
+          href: rotaChamado(ch.id),
+          chamadoId: ch.id,
+        },
+        eu,
+      );
+    });
 
   // Concluiu o último: o banco concluiu o chamado; avisa quem pediu (depois
   // da resposta).
