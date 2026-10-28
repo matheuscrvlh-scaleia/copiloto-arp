@@ -782,7 +782,9 @@ function Detalhes({
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-[1] flex flex-col gap-2 rounded-2xl bg-neutral-50/95 p-2 shadow-[0_-12px_24px_-20px_rgb(0_0_0/0.4)] backdrop-blur sm:flex-row sm:items-center sm:justify-end">
+      {/* Na Janela, rodapé colado na borda: as margens negativas anulam o
+          respiro do corpo dela (px-5 pb-5 / sm:px-7 sm:pb-7). */}
+      <div className="sticky bottom-0 z-[1] flex flex-col gap-2 rounded-2xl bg-neutral-50/95 p-2 shadow-[0_-12px_24px_-20px_rgb(0_0_0/0.4)] backdrop-blur sm:flex-row sm:items-center sm:justify-end in-[.painel-modal]:-bottom-5 in-[.painel-modal]:-mx-5 in-[.painel-modal]:-mb-5 in-[.painel-modal]:rounded-none in-[.painel-modal]:border-t in-[.painel-modal]:border-neutral-200 in-[.painel-modal]:px-5 in-[.painel-modal]:pt-3 in-[.painel-modal]:pb-5 in-[.painel-modal]:shadow-none sm:in-[.painel-modal]:-bottom-7 sm:in-[.painel-modal]:-mx-7 sm:in-[.painel-modal]:-mb-7 sm:in-[.painel-modal]:px-7 sm:in-[.painel-modal]:pt-4 sm:in-[.painel-modal]:pb-6">
         {(erroLocal || estado.erro) && (
           <p role="alert" className="px-2 text-sm text-red-700 sm:mr-auto">
             {erroLocal ?? estado.erro}
