@@ -544,6 +544,8 @@ export const VISOES_CALENDARIO = {
   mes: "Mês",
   semana: "Semana",
   dia: "Dia",
+  /** De / até escolhidos (filtros "de" e "ate"). */
+  periodo: "Período",
 } as const;
 export type VisaoCalendario = keyof typeof VISOES_CALENDARIO;
 
@@ -603,7 +605,7 @@ export const TELAS = {
     "aberto_por",
   ],
   quadro: ["recorte", "setor", "tipo", "categoria", "prioridade", "fechados"],
-  calendario: ["recorte", "setor", "tipo", "visao"],
+  calendario: ["recorte", "setor", "tipo", "visao", "de", "ate"],
   /** A Minha caixa só dos avisos (que não aparecem nas outras abas). */
   avisos: [
     "aberto_por",

@@ -23,6 +23,7 @@ import {
   DIAS_SEMANA,
   finalizado,
   gradeDoMes,
+  gradeDoPeriodo,
   type ItemCalendario,
   intervaloDaVisao,
   itensPorDia,
@@ -37,7 +38,7 @@ import { STATUS } from "@/lib/os/rotulos";
 import { somarDias } from "@/lib/os/tempo";
 import { mudarPrazo } from "@/server/os/acoes/visoes";
 
-// Calendário do módulo: mês, semana e dia, com cores por tipo de item e a
+// Calendário do módulo: mês, semana, dia e período, com cores por tipo de item e a
 // legenda (que também liga e desliga cada tipo). Arrastar um prazo para
 // outro dia muda a data mantendo a hora; o banco decide quem pode e o
 // motivo da recusa aparece no rodapé. No celular, a lista dos dias. O
@@ -205,7 +206,20 @@ function Conteudo({
         </div>
 
         <div className="hidden md:block">
-          {visao === "mes" && <Mes data={data} {...grade} />}
+          {visao === "mes" && (
+            <Mes
+              semanas={gradeDoMes(data)}
+              fora={(d) => d.slice(0, 7) !== data.slice(0, 7)}
+              {...grade}
+            />
+          )}
+          {visao === "periodo" && (
+            <Mes
+              semanas={gradeDoPeriodo(de, ate)}
+              fora={(d) => d < de || d > ate}
+              {...grade}
+            />
+          )}
           {visao === "semana" && <Semana de={de} {...grade} />}
           {visao === "dia" && <ListaDeDias dias={[data]} {...grade} sempre />}
         </div>
@@ -214,7 +228,7 @@ function Conteudo({
             dias={dias(de, ate).filter(
               (d) => visao !== "mes" || d.slice(0, 7) === data.slice(0, 7),
             )}
-            sempre={visao !== "mes"}
+            sempre={visao === "semana" || visao === "dia"}
             {...lista}
           />
         </div>
@@ -301,9 +315,12 @@ function Legenda({
   );
 }
 
-function Mes({ data, ...p }: PropsGrade & { data: string }) {
-  const semanas = gradeDoMes(data);
-  const mes = data.slice(0, 7);
+/** Grade de semanas: o mês, ou o período escolhido. */
+function Mes({
+  semanas,
+  fora,
+  ...p
+}: PropsGrade & { semanas: string[][]; fora: (d: string) => boolean }) {
   return (
     <div className="vidro overflow-hidden rounded-[1.75rem]">
       <div
@@ -322,7 +339,7 @@ function Mes({ data, ...p }: PropsGrade & { data: string }) {
           className="grid grid-cols-7 border-b border-neutral-900/[0.06] last:border-0"
         >
           {s.map((d) => (
-            <Dia key={d} dia={d} foraDoMes={d.slice(0, 7) !== mes} {...p} />
+            <Dia key={d} dia={d} foraDoMes={fora(d)} {...p} />
           ))}
         </div>
       ))}

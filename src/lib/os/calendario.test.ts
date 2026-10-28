@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   datasDoPlano,
+  diasEntre,
   gradeDoMes,
+  gradeDoPeriodo,
   type ItemCalendario,
   inicioDaSemana,
   intervaloDaVisao,
   itensPorDia,
+  MAX_DIAS_PERIODO,
   navegar,
+  periodoEscolhido,
   prazoNoDia,
   rotuloDoDia,
+  tituloDoIntervalo,
   tituloDoPeriodo,
 } from "./calendario";
 
@@ -17,6 +22,24 @@ describe("calendário", () => {
     expect(inicioDaSemana("2026-10-23")).toBe("2026-10-19");
     expect(inicioDaSemana("2026-10-25")).toBe("2026-10-19");
     expect(inicioDaSemana("2026-10-19")).toBe("2026-10-19");
+  });
+
+  it("período personalizado: padrão, invertido e cortado no máximo", () => {
+    expect(periodoEscolhido(undefined, undefined, "2026-10-28")).toEqual({
+      de: "2026-10-28",
+      ate: "2026-11-03",
+    });
+    expect(periodoEscolhido("2026-11-10", "2026-11-01", "x")).toEqual({
+      de: "2026-11-01",
+      ate: "2026-11-10",
+    });
+    const longo = periodoEscolhido("2026-01-01", "2026-12-31", "x");
+    expect(diasEntre(longo.de, longo.ate)).toBe(MAX_DIAS_PERIODO);
+    const grade = gradeDoPeriodo("2026-10-28", "2026-11-03");
+    expect(grade.map((s) => s[0])).toEqual(["2026-10-26", "2026-11-02"]);
+    expect(tituloDoIntervalo("2026-10-28", "2026-11-03")).toBe(
+      "28 de outubro a 3 de novembro de 2026",
+    );
   });
 
   it("a grade do mês cobre semanas inteiras", () => {

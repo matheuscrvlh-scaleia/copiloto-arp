@@ -53,20 +53,54 @@ export function inicioDaSemana(data: string): string {
   return somarDias(data, -((diaDaSemana(data) + 6) % 7));
 }
 
-/** Semanas (segunda a domingo) que cobrem o mês da data. */
-export function gradeDoMes(data: string): string[][] {
-  const [a, m] = data.split("-").map(Number) as [number, number];
-  const primeiro = `${data.slice(0, 7)}-01`;
-  const ultimo = `${data.slice(0, 7)}-${String(ultimoDiaDoMes(a, m)).padStart(2, "0")}`;
+/** Semanas (segunda a domingo) que cobrem de `de` a `ate`. */
+export function gradeDoPeriodo(de: string, ate: string): string[][] {
   const semanas: string[][] = [];
-  for (let d = inicioDaSemana(primeiro); d <= ultimo; d = somarDias(d, 7))
+  for (let d = inicioDaSemana(de); d <= ate; d = somarDias(d, 7))
     semanas.push(Array.from({ length: 7 }, (_, i) => somarDias(d, i)));
   return semanas;
 }
 
+/** Semanas (segunda a domingo) que cobrem o mês da data. */
+export function gradeDoMes(data: string): string[][] {
+  const [a, m] = data.split("-").map(Number) as [number, number];
+  return gradeDoPeriodo(
+    `${data.slice(0, 7)}-01`,
+    `${data.slice(0, 7)}-${String(ultimoDiaDoMes(a, m)).padStart(2, "0")}`,
+  );
+}
+
+/** Dias de `de` a `ate`, inclusive. */
+export function diasEntre(de: string, ate: string): number {
+  return Math.round((Date.parse(ate) - Date.parse(de)) / 86_400_000) + 1;
+}
+
+/** Maior período personalizado: mais que isso pesa a tela e a consulta. */
+export const MAX_DIAS_PERIODO = 93;
+
+/**
+ * Período personalizado: sem início, a data da tela; sem fim, uma semana;
+ * invertido, troca; longo demais, corta no máximo.
+ */
+export function periodoEscolhido(
+  de: string | undefined,
+  ate: string | undefined,
+  data: string,
+): { de: string; ate: string } {
+  let a = de ?? data;
+  let b = ate ?? somarDias(a, 6);
+  if (b < a) [a, b] = [b, a];
+  if (diasEntre(a, b) > MAX_DIAS_PERIODO)
+    b = somarDias(a, MAX_DIAS_PERIODO - 1);
+  return { de: a, ate: b };
+}
+
+/** Mês, semana ou dia: o período sai da data da tela. */
+export type VisaoFixa = Exclude<VisaoCalendario, "periodo">;
+
 /** Primeiro e último dia (inclusive) que a visão mostra. */
 export function intervaloDaVisao(
-  visao: VisaoCalendario,
+  visao: VisaoFixa,
   data: string,
 ): { de: string; ate: string } {
   if (visao === "dia") return { de: data, ate: data };
@@ -82,11 +116,7 @@ export function intervaloDaVisao(
 }
 
 /** Anterior / próximo: um mês (dia 1), uma semana ou um dia. */
-export function navegar(
-  visao: VisaoCalendario,
-  data: string,
-  passo: -1 | 1,
-): string {
+export function navegar(visao: VisaoFixa, data: string, passo: -1 | 1): string {
   if (visao === "dia") return somarDias(data, passo);
   if (visao === "semana") return somarDias(data, 7 * passo);
   const [a, m] = data.split("-").map(Number) as [number, number];
@@ -123,12 +153,17 @@ const partes = (d: string) =>
   d.split("-").map(Number) as [number, number, number];
 
 /** "outubro de 2026", "19 a 25 de outubro", "sexta, 23 de outubro de 2026". */
-export function tituloDoPeriodo(visao: VisaoCalendario, data: string): string {
+export function tituloDoPeriodo(visao: VisaoFixa, data: string): string {
   const [a, m, d] = partes(data);
   if (visao === "mes") return `${MESES[m - 1]} de ${a}`;
   if (visao === "dia")
     return `${DIAS_LONGOS[diaDaSemana(data)]}, ${d} de ${MESES[m - 1]} de ${a}`;
   const { de, ate } = intervaloDaVisao("semana", data);
+  return tituloDoIntervalo(de, ate);
+}
+
+/** "19 a 25 de outubro de 2026", "28 de outubro a 3 de novembro de 2026". */
+export function tituloDoIntervalo(de: string, ate: string): string {
   const [a1, m1, d1] = partes(de);
   const [a2, m2, d2] = partes(ate);
   if (m1 === m2) return `${d1} a ${d2} de ${MESES[m2 - 1]} de ${a2}`;

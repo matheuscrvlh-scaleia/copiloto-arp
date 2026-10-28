@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { Calendario } from "@/components/os/calendario/calendario";
+import { CamposDoPeriodo } from "@/components/os/calendario/campos-do-periodo";
 import { BarraFiltros } from "@/components/os/filtros/barra-filtros";
 import {
   campoRecorte,
@@ -16,8 +17,10 @@ import { SeuDia } from "@/components/os/seu-dia/seu-dia";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
+  diasEntre,
   intervaloDaVisao,
   navegar,
+  periodoEscolhido,
   tituloDoPeriodo,
 } from "@/lib/os/calendario";
 import { type Busca, descreverFiltros, type Recorte } from "@/lib/os/lista";
@@ -87,7 +90,10 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
   const data =
     typeof dataBruta === "string" && DATA.test(dataBruta) ? dataBruta : hoje;
   const visao = filtros.visao ?? "mes";
-  const { de, ate } = intervaloDaVisao(visao, data);
+  const { de, ate } =
+    visao === "periodo"
+      ? periodoEscolhido(filtros.de, filtros.ate, data)
+      : intervaloDaVisao(visao, data);
 
   const permitidos: Recorte[] = [
     "minha_caixa",
@@ -140,6 +146,22 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
     p.set("data", d);
     return `/os/calendario?${p.toString()}`;
   };
+  // No período, as setas andam o tamanho dele e "Hoje" começa nele.
+  const tamanho = diasEntre(de, ate);
+  const hrefPeriodo = (inicio: string) => {
+    const p = new URLSearchParams(href(inicio).split("?")[1]);
+    p.set("de", inicio);
+    p.set("ate", somarDias(inicio, tamanho - 1));
+    return `/os/calendario?${p.toString()}`;
+  };
+  const anterior =
+    visao === "periodo"
+      ? hrefPeriodo(somarDias(de, -tamanho))
+      : href(navegar(visao, data, -1));
+  const proximo =
+    visao === "periodo"
+      ? hrefPeriodo(somarDias(de, tamanho))
+      : href(navegar(visao, data, 1));
   const setores =
     recorte === "todos"
       ? a.setores.filter((s) => s.ativo)
@@ -152,7 +174,7 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
         tela="calendario"
         valores={valores}
         lembrados={lembrados}
-        fixos={["recorte", "visao"]}
+        fixos={["recorte", "visao", "de", "ate"]}
         campos={[
           campoVisao,
           campoRecorte(permitidos),
@@ -163,7 +185,7 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
       <nav aria-label="Período" className="flex flex-wrap items-center gap-2">
         <div className="vidro inline-flex items-center gap-0.5 rounded-full p-1">
           <Link
-            href={href(navegar(visao, data, -1))}
+            href={anterior}
             scroll={false}
             aria-label="Período anterior"
             className="grid size-9 place-items-center rounded-full text-neutral-700 transition hover:bg-white/80 dark:hover:bg-white/10"
@@ -171,14 +193,14 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
             <ChevronLeft className="size-4" aria-hidden />
           </Link>
           <Link
-            href={href(hoje)}
+            href={visao === "periodo" ? hrefPeriodo(hoje) : href(hoje)}
             scroll={false}
             className="rounded-full px-4 py-2 text-sm font-medium text-neutral-800 transition hover:bg-white/80 dark:hover:bg-white/10"
           >
             Hoje
           </Link>
           <Link
-            href={href(navegar(visao, data, 1))}
+            href={proximo}
             scroll={false}
             aria-label="Próximo período"
             className="grid size-9 place-items-center rounded-full text-neutral-700 transition hover:bg-white/80 dark:hover:bg-white/10"
@@ -186,9 +208,13 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
             <ChevronRight className="size-4" aria-hidden />
           </Link>
         </div>
-        <h2 className="text-xl font-semibold tracking-tight first-letter:uppercase">
-          {tituloDoPeriodo(visao, data)}
-        </h2>
+        {visao === "periodo" ? (
+          <CamposDoPeriodo de={de} ate={ate} valores={valores} />
+        ) : (
+          <h2 className="text-xl font-semibold tracking-tight first-letter:uppercase">
+            {tituloDoPeriodo(visao, data)}
+          </h2>
+        )}
       </nav>
       <Calendario
         itens={itens}
@@ -197,11 +223,16 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
         hoje={hoje}
         de={de}
         ate={ate}
-        filtros={descreverFiltros("calendario", valores, {
-          setor: valores.setor
-            ? (a.setorPorId.get(valores.setor)?.nome ?? null)
-            : null,
-        })}
+        // O período já vai no rodapé da exportação ("dd/mm a dd/mm").
+        filtros={descreverFiltros(
+          "calendario",
+          { ...valores, de: undefined, ate: undefined },
+          {
+            setor: valores.setor
+              ? (a.setorPorId.get(valores.setor)?.nome ?? null)
+              : null,
+          },
+        )}
         podeExportar={a.ctx.pode("os.exportar")}
       />
     </div>
