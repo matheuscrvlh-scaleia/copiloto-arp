@@ -1,7 +1,6 @@
 import {
   ArrowDown,
   ArrowUp,
-  CircleCheck,
   Copy,
   Pencil,
   Plus,
@@ -15,6 +14,7 @@ import { Suspense } from "react";
 import { AcaoRapida } from "@/components/admin/acao-rapida";
 import { Situacao } from "@/components/admin/ui";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
+import { NotificarAoAbrir } from "@/components/notificacoes";
 import { IconeCatalogo, SeloIcone } from "@/components/os/configuracoes/icones";
 import { IconeTipo } from "@/components/os/selos";
 import { Cartao } from "@/components/page-header";
@@ -118,10 +118,7 @@ async function Catalogo({ busca }: { busca: Promise<Busca> }) {
   return (
     <div className="flex flex-col gap-5">
       {b.criada === "1" && (
-        <output className="flex items-center gap-2 rounded-3xl bg-green-50 px-4 py-3 text-sm text-green-800">
-          <CircleCheck className="size-4 shrink-0" aria-hidden />
-          Categoria criada.
-        </output>
+        <NotificarAoAbrir texto="Categoria criada." parametro="criada" />
       )}
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

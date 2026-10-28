@@ -2,6 +2,7 @@
 
 import { CircleCheck, CircleX, Play } from "lucide-react";
 import { useActionState } from "react";
+import { useNotificarEstado } from "@/components/notificacoes";
 import { formatarDataHora } from "@/lib/formato";
 
 // "Rodar rotinas agora": o que o cron faz de hora em hora, com o resultado
@@ -28,6 +29,7 @@ export function RodarRotinas({
   acao: (anterior: EstadoNaTela, form: FormData) => Promise<EstadoNaTela>;
 }) {
   const [estado, rodar, rodando] = useActionState(acao, {});
+  useNotificarEstado(estado);
   return (
     <form action={rodar} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -42,11 +44,6 @@ export function RodarRotinas({
         {estado.em && !rodando && (
           <span className="text-xs text-neutral-500">
             Rodou em {formatarDataHora(estado.em)}
-          </span>
-        )}
-        {estado.erro && (
-          <span role="alert" className="text-xs text-red-700">
-            {estado.erro}
           </span>
         )}
       </div>

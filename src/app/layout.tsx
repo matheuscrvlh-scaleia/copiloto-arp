@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { Notificacoes } from "@/components/notificacoes";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="fundo-app min-h-dvh font-sans text-neutral-900 antialiased">
         {children}
+        <Notificacoes />
       </body>
     </html>
   );

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { Secao } from "@/components/dashboard/tabela";
+import { NotificarAoAbrir } from "@/components/notificacoes";
 import { Protegido } from "@/components/protegido";
 import { CONFIGURACOES_RH, rotaDoBeneficio } from "@/config/navigation";
 import { formatarData, formatarMes, formatarMoeda } from "@/lib/formato";
@@ -142,6 +143,12 @@ async function Detalhe({
 
   return (
     <div className="flex flex-col gap-5">
+      {busca.criado === "1" && (
+        <NotificarAoAbrir
+          texto="Benefício cadastrado. Agora diga quem recebe."
+          parametro="criado"
+        />
+      )}
       <header className="vidro flex flex-col gap-5 rounded-[1.75rem] p-5 md:p-6">
         <div>
           <p className="text-[11px] font-semibold tracking-[0.2em] text-marca-escuro uppercase">

@@ -9,6 +9,7 @@ import {
   ModalConfirmacao,
   useConfirmacao,
 } from "@/components/modal-confirmacao";
+import { useNotificarEstado } from "@/components/notificacoes";
 
 const ITEM =
   "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium transition";
@@ -38,6 +39,8 @@ export function MenuFolha({
     {},
   );
   const confirmacao = useConfirmacao({ confirmar, estado });
+  // O erro fica no modal de confirmação; o sucesso, no canto da tela.
+  useNotificarEstado(estado, { erro: false });
   const aberto = posicao !== null;
 
   useEffect(() => {

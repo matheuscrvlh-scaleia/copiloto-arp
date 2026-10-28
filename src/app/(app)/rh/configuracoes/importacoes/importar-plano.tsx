@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import type { EstadoAcao } from "@/components/form-acao";
+import { useNotificarEstado } from "@/components/notificacoes";
 import { Selecao } from "@/components/selecao";
 import { formatarMes, formatarMoeda, formatarNumero } from "@/lib/formato";
 import { faixaTexto } from "@/lib/rh/plano";
@@ -67,18 +68,12 @@ function Rodada({
   const [gravacao, gravar, gravando] = useActionState(confirmar, {});
   const p = leitura.previa;
 
-  if (gravacao.ok) {
-    return (
-      <div className="flex flex-col items-start gap-4">
-        <output className="rounded-2xl bg-green-50 px-4 py-3 text-sm text-green-800">
-          {gravacao.ok}
-        </output>
-        <button type="button" onClick={reiniciar} className={botao}>
-          Enviar outra tabela
-        </button>
-      </div>
-    );
-  }
+  // Gravou: avisa no canto e volta ao formulário para o próximo arquivo.
+  useNotificarEstado(leitura, { ok: false });
+  useNotificarEstado(gravacao);
+  useEffect(() => {
+    if (gravacao.ok) reiniciar();
+  }, [gravacao, reiniciar]);
 
   if (!p) {
     return (
@@ -129,11 +124,6 @@ function Rodada({
           <button type="submit" disabled={lendo} className={botao}>
             {lendo ? "Lendo a planilha…" : "Ler planilha"}
           </button>
-          {leitura.erro && (
-            <span role="alert" className="text-sm text-red-700">
-              {leitura.erro}
-            </span>
-          )}
         </div>
         <p className="text-xs text-neutral-500">
           Abas esperadas: “Faixas etárias” (idade inicial, idade final,
@@ -240,11 +230,6 @@ function Rodada({
         >
           Cancelar
         </button>
-        {gravacao.erro && (
-          <span role="alert" className="text-sm text-red-700">
-            {gravacao.erro}
-          </span>
-        )}
       </div>
     </form>
   );

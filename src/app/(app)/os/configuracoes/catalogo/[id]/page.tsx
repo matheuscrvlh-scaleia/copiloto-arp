@@ -1,7 +1,7 @@
-import { CircleCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { NotificarAoAbrir } from "@/components/notificacoes";
 import { Protegido } from "@/components/protegido";
 import { categorias } from "@/server/os/base";
 import { EdicaoDeCategoria, EsqueletoCategoria } from "../editar";
@@ -34,10 +34,10 @@ async function Edicao({
   return (
     <div className="flex flex-col gap-4">
       {b.copia === "1" && (
-        <output className="flex items-center gap-2 rounded-3xl bg-green-50 px-4 py-3 text-sm text-green-800">
-          <CircleCheck className="size-4 shrink-0" aria-hidden />
-          Cópia criada. Ajuste o nome e o que mudar e salve.
-        </output>
+        <NotificarAoAbrir
+          texto="Cópia criada. Ajuste o nome e o que mudar e salve."
+          parametro="copia"
+        />
       )}
       <EdicaoDeCategoria categoria={categoria} />
     </div>

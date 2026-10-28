@@ -5,6 +5,7 @@ import {
   ModalConfirmacao,
   useConfirmacao,
 } from "@/components/modal-confirmacao";
+import { useNotificarEstado } from "@/components/notificacoes";
 
 export interface EstadoAcao {
   ok?: string;
@@ -26,7 +27,6 @@ const BOTAO = {
 } as const;
 
 interface Envio {
-  estado: EstadoAcao;
   enviando: boolean;
   rotulo: string;
   rotuloEnviando: string;
@@ -35,7 +35,11 @@ interface Envio {
 
 const ContextoEnvio = createContext<Envio | null>(null);
 
-/** Formulário de uma Server Action, com estado de envio e mensagem de retorno. */
+/**
+ * Formulário de uma Server Action, com estado de envio. O retorno ("Salvo.",
+ * erros) vira notificação no canto da tela; com `confirmar`, o erro aparece
+ * no modal de confirmação.
+ */
 export function FormAcao({
   acao,
   children,
@@ -59,10 +63,9 @@ export function FormAcao({
 }) {
   const [estado, executar, enviando] = useActionState(acao, {});
   const confirmacao = useConfirmacao({ confirmar, estado });
+  useNotificarEstado(estado, { erro: !confirmar });
   return (
-    <ContextoEnvio
-      value={{ estado, enviando, rotulo, rotuloEnviando, variante }}
-    >
+    <ContextoEnvio value={{ enviando, rotulo, rotuloEnviando, variante }}>
       <form
         ref={confirmacao.form}
         action={executar}
@@ -83,11 +86,11 @@ export function FormAcao({
   );
 }
 
-/** Botão de enviar e a mensagem de retorno do FormAcao em volta. */
+/** Botão de enviar do FormAcao em volta. */
 export function EnvioDaAcao({ className = "" }: { className?: string }) {
   const envio = use(ContextoEnvio);
   if (!envio) throw new Error("EnvioDaAcao fora de um FormAcao");
-  const { estado, enviando, rotulo, rotuloEnviando, variante } = envio;
+  const { enviando, rotulo, rotuloEnviando, variante } = envio;
   return (
     <div className={`flex flex-wrap items-center gap-3 ${className}`}>
       <button
@@ -97,14 +100,6 @@ export function EnvioDaAcao({ className = "" }: { className?: string }) {
       >
         {enviando ? rotuloEnviando : rotulo}
       </button>
-      {estado.erro && (
-        <span role="alert" className="text-xs text-red-700">
-          {estado.erro}
-        </span>
-      )}
-      {estado.ok && !enviando && (
-        <output className="text-xs text-green-700">{estado.ok}</output>
-      )}
     </div>
   );
 }

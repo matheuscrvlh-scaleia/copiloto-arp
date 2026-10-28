@@ -218,7 +218,7 @@ export async function salvarBeneficio(
     .single();
   if (error) return erroDoBanco(error);
   updateTag(TAG.rh.beneficios);
-  redirect(rotaDoBeneficio(data.id));
+  redirect(`${rotaDoBeneficio(data.id)}?criado=1`);
 }
 
 const vinculo = z.object({

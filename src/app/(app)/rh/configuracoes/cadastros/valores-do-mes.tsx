@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import { type Acao, EnvioDaAcao, FormAcao } from "@/components/form-acao";
+import { notificar } from "@/components/notificacoes";
 import {
   fimDoMes,
   formatarMes,
@@ -144,14 +145,11 @@ export function ValoresDoMes({
   const assinatura = `${competencia}|${JSON.stringify(gravado)}`;
   const [base, setBase] = useState(assinatura);
   const [valores, setValores] = useState(gravado);
-  const [copiado, setCopiado] = useState(false);
   const [gerando, setGerando] = useState(false);
-  const [erroModelo, setErroModelo] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
   if (base !== assinatura) {
     setBase(assinatura);
     setValores(gravado);
-    setCopiado(false);
   }
 
   const comAnterior = doMes.filter(
@@ -179,19 +177,21 @@ export function ValoresDoMes({
       }
       return novo;
     });
-    setCopiado(true);
+    notificar(
+      "info",
+      `Valores copiados do último mês lançado para ${formatarMes(competencia)}. Confira e salve.`,
+    );
   }
 
   async function modelo() {
     setGerando(true);
-    setErroModelo(null);
     try {
       await baixarModelo(
         doMes.map((p) => ({ nome: p.nome, valor: noMes(p.colaborador_id) })),
         `${paraArquivo(beneficioNome) || "beneficio"}-valores-${mes}.xlsx`,
       );
     } catch {
-      setErroModelo("Não deu para gerar o modelo. Tente de novo.");
+      notificar("erro", "Não deu para gerar o modelo. Tente de novo.");
     } finally {
       setGerando(false);
     }
@@ -271,7 +271,6 @@ export function ValoresDoMes({
           a coluna Valor e importe. Valor em branco não é lançado. O CPF é
           opcional e não é gravado: cada linha vale pela pessoa de mesmo nome.
         </p>
-        {erroModelo && <p className="text-xs text-red-700">{erroModelo}</p>}
       </div>
 
       {doMes.length === 0 ? (
@@ -360,13 +359,7 @@ export function ValoresDoMes({
                   <span className="text-amber-700"> · não salvo</span>
                 )}
               </p>
-              {copiado ? (
-                <p className="text-sky-800">
-                  Valores copiados do último mês lançado. Confira e salve.
-                </p>
-              ) : (
-                <p>Campo vazio apaga o lançamento do mês.</p>
-              )}
+              <p>Campo vazio apaga o lançamento do mês.</p>
             </div>
             <EnvioDaAcao />
           </div>

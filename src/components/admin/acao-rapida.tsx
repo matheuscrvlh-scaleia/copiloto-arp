@@ -6,6 +6,7 @@ import {
   ModalConfirmacao,
   useConfirmacao,
 } from "@/components/modal-confirmacao";
+import { useNotificarEstado } from "@/components/notificacoes";
 
 const ESTILO = {
   icone: {
@@ -24,8 +25,8 @@ const ESTILO = {
 
 /**
  * Um botão que dispara uma Server Action (inativar, excluir...), com
- * confirmação opcional. O erro aparece no modal de confirmação; o sucesso
- * aparece na própria tela, que a ação atualiza.
+ * confirmação opcional. O erro aparece no modal de confirmação; o sucesso,
+ * numa notificação no canto (a tela também se atualiza).
  */
 export function AcaoRapida({
   acao,
@@ -47,6 +48,7 @@ export function AcaoRapida({
 }) {
   const [estado, executar, enviando] = useActionState(acao, {});
   const confirmacao = useConfirmacao({ confirmar, estado, erroNoModal: true });
+  useNotificarEstado(estado, { erro: false });
   return (
     <form
       ref={confirmacao.form}

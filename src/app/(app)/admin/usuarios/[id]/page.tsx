@@ -1,4 +1,4 @@
-import { CircleCheck, Power, Trash2 } from "lucide-react";
+import { Power, Trash2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +9,7 @@ import { EscolhaDeCargo } from "@/components/admin/permissoes";
 import { Avatar, Secao, Situacao } from "@/components/admin/ui";
 import { classeCampo } from "@/components/estilos";
 import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
+import { NotificarAoAbrir } from "@/components/notificacoes";
 import { Carregando } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarData, formatarDataHora } from "@/lib/formato";
@@ -111,11 +112,10 @@ async function Edicao({
       </header>
 
       {busca.criado === "1" && (
-        <output className="flex items-center gap-2 rounded-3xl bg-green-50 px-4 py-3 text-sm text-green-800">
-          <CircleCheck className="size-4 shrink-0" aria-hidden />
-          Usuário criado. Passe o e-mail e a senha provisória; no primeiro
-          acesso a pessoa define a própria senha.
-        </output>
+        <NotificarAoAbrir
+          texto="Usuário criado. Passe o e-mail e a senha provisória; no primeiro acesso a pessoa define a própria senha."
+          parametro="criado"
+        />
       )}
 
       {!u.ativo && (
