@@ -266,7 +266,6 @@ function blocoBacklog(
   const { listas } = ctx;
   const dias = colunaDeDias("Dias em aberto", back.idades);
   const importados = abertos.filter((c) => c.origem === "importacao").length;
-  const mais = back.maisAntigo;
   return {
     id: "backlog",
     titulo: "Backlog",
@@ -289,27 +288,6 @@ function blocoBacklog(
             },
           ),
         })),
-      },
-      {
-        tipo: "numeros",
-        numeros: [
-          {
-            rotulo: "Idade somada",
-            valor: `${formatarNumero(back.totalDias, 1)} d`,
-            detalhe: plural(abertos.length, "chamado", "chamados"),
-            origem: listas.lista("Backlog", abertos, { extra: dias }),
-          },
-          {
-            rotulo: "Mais antigo",
-            valor: mais
-              ? `${formatarNumero(back.idades.get(mais.id) ?? 0, 1)} d`
-              : "—",
-            detalhe: mais ? `#${mais.numero} · ${mais.titulo}` : undefined,
-            origem: mais
-              ? listas.lista("Mais antigo em aberto", [mais], { extra: dias })
-              : undefined,
-          },
-        ],
       },
     ],
     nota: importados

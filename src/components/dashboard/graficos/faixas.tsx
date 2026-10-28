@@ -16,8 +16,9 @@ import {
 // Faixas: distribuição de um total em poucas faixas.
 
 /**
- * Colunas largas que ocupam a altura do cartão, uma por faixa (ex.: tempo de
- * casa), com a quantidade e a parte do total escritas em cima de cada uma.
+ * Colunas largas, uma por faixa (ex.: tempo de casa), com a quantidade e a
+ * parte do total escritas em cima de cada uma. Sem trilho de fundo: ele parecia
+ * uma segunda coluna, todas da mesma altura.
  */
 export function Faixas({
   itens,
@@ -53,7 +54,7 @@ export function Faixas({
           return (
             <div
               key={i.chave}
-              className={`relative flex-1 rounded-2xl bg-neutral-900/[0.06] transition-opacity duration-200 ${det.tem(i.chave) ? "cursor-pointer" : ""}`}
+              className={`relative flex-1 rounded-2xl transition duration-200 ${aceso ? "bg-neutral-900/[0.05]" : ""} ${det.tem(i.chave) ? "cursor-pointer" : ""}`}
               style={{ opacity: apagado ? 0.45 : 1 }}
               onPointerEnter={() => setAtivo(k)}
               onPointerUp={() => det.abrir(i.chave)}
