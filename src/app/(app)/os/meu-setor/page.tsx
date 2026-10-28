@@ -17,8 +17,9 @@ import {
   PainelDaBusca,
 } from "@/components/os/lista/topo";
 import { VisaoLista } from "@/components/os/lista/visao-lista";
+import { CabecalhoOperacoes } from "@/components/os/operacoes";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
-import { Cartao, PageHeader } from "@/components/page-header";
+import { Cartao } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
   type Busca,
@@ -56,10 +57,7 @@ export default function Page({
 }) {
   return (
     <>
-      <PageHeader
-        title="Meu setor"
-        description="Tudo o que é do setor, para distribuir e cobrar: a fila sem responsável, os atrasados e a carga de cada pessoa. Atribua, mude prazo e prioridade direto na lista."
-      />
+      <CabecalhoOperacoes descricao="Tudo o que é do setor, para distribuir e cobrar: a fila sem responsável, os atrasados e a carga de cada pessoa. Atribua, mude prazo e prioridade direto na lista." />
       <Suspense fallback={<EsqueletoVisao />}>
         <Protegido permissao="os.meu_setor">
           <Setor busca={searchParams} />

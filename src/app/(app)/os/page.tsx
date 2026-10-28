@@ -12,8 +12,8 @@ import {
   PainelDaBusca,
 } from "@/components/os/lista/topo";
 import { VisaoLista } from "@/components/os/lista/visao-lista";
+import { CabecalhoOperacoes } from "@/components/os/operacoes";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
-import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
   type Busca,
@@ -47,10 +47,7 @@ export default function Page({
 }) {
   return (
     <>
-      <PageHeader
-        title="Minha caixa"
-        description="O que está com você para fazer: os seus chamados, os destinos seus e do seu setor e a fila do setor, pelo prazo. Em cima, o que espera a sua confirmação."
-      />
+      <CabecalhoOperacoes descricao="O que está com você para fazer: os seus chamados, os destinos seus e do seu setor e a fila do setor, pelo prazo. Em cima, o que espera a sua confirmação." />
       <Suspense fallback={<EsqueletoVisao />}>
         <Protegido permissao="os.acessar">
           <Caixa busca={searchParams} />

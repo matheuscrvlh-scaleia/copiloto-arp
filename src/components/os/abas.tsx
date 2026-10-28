@@ -3,22 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Abas de Portal e agenda: a ativa fica escura, as outras em vidro.
+// Abas de uma tela de Tickets (Operações, Portal e agenda): a ativa fica
+// escura, as outras em vidro.
 
-export interface AbaDoPortal {
+export interface Aba {
   href: string;
   rotulo: string;
 }
 
-export function AbasDoPortal({ abas }: { abas: AbaDoPortal[] }) {
+export function Abas({ abas, rotulo }: { abas: Aba[]; rotulo: string }) {
   const atual = usePathname();
-  // A aba mais específica que casa com o endereço (as outras começam com /os/portal).
+  // A aba mais específica que casa com o endereço (as outras são prefixo dela).
   const ativa = [...abas]
     .sort((a, b) => b.href.length - a.href.length)
     .find((a) => atual === a.href || atual.startsWith(`${a.href}/`))?.href;
   return (
     <nav
-      aria-label="Seções de Portal e agenda"
+      aria-label={rotulo}
       className="vidro flex w-full gap-1 overflow-x-auto rounded-full p-1 sm:w-fit"
     >
       {abas.map((a) => (

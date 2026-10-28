@@ -13,8 +13,8 @@ import {
   PainelDaBusca,
 } from "@/components/os/lista/topo";
 import { VisaoLista } from "@/components/os/lista/visao-lista";
+import { CabecalhoOperacoes } from "@/components/os/operacoes";
 import { SeuDia } from "@/components/os/seu-dia/seu-dia";
-import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
   type Busca,
@@ -48,10 +48,7 @@ export default function Page({
 }) {
   return (
     <>
-      <PageHeader
-        title="Abertos por mim"
-        description="O que você pediu a outros setores e pessoas: em que pé está, o que atrasou e o que espera a sua confirmação. Avisos para vários setores mostram quem ainda falta."
-      />
+      <CabecalhoOperacoes descricao="O que você pediu a outros setores e pessoas: em que pé está, o que atrasou e o que espera a sua confirmação. Avisos para vários setores mostram quem ainda falta." />
       <Suspense fallback={<EsqueletoVisao />}>
         <Protegido permissao="os.acessar">
           <Abertos busca={searchParams} />

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { AbasDoPortal } from "@/components/os/portal/abas";
+import { Abas as AbasDaTela } from "@/components/os/abas";
 import { PageHeader } from "@/components/page-header";
 import { contexto } from "@/server/os/base";
 
@@ -39,5 +39,5 @@ async function Abas() {
       : []),
   ];
   if (abas.length < 2) return null;
-  return <AbasDoPortal abas={abas} />;
+  return <AbasDaTela abas={abas} rotulo="Seções de Portal e agenda" />;
 }
