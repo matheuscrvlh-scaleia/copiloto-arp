@@ -3,6 +3,7 @@ import { cache } from "react";
 import { formatarDataHora } from "@/lib/formato";
 import {
   datasDoPlano,
+  finalizado,
   type ItemCalendario,
   rotuloPeriodo,
 } from "@/lib/os/calendario";
@@ -740,7 +741,7 @@ export function itensDePrazo(
         href: null,
         status: l.status,
         prazo: l.prazo,
-        arrastavel: l.podePrazo,
+        arrastavel: l.podePrazo && !finalizado(l.status),
       } satisfies ItemCalendario,
     ];
   });

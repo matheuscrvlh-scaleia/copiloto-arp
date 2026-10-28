@@ -22,6 +22,11 @@ export const TIPOS_ITEM = {
 } as const;
 export type TipoItem = keyof typeof TIPOS_ITEM;
 
+/** Chamado concluído ou fechado: fica no dia, verde, e não arrasta mais. */
+export const COR_FINALIZADO = "#16a34a";
+export const finalizado = (status: StatusChamado | null) =>
+  status === "concluido" || status === "fechado";
+
 export interface ItemCalendario {
   /** Único na tela (tipo + id). */
   chave: string;

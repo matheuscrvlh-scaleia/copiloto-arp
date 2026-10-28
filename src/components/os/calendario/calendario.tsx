@@ -5,7 +5,7 @@ import type {
   DragOverEvent,
   DragStartEvent,
 } from "@dnd-kit/core";
-import { GripVertical } from "lucide-react";
+import { Check, GripVertical } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -19,7 +19,9 @@ import {
 import { BotaoExportar } from "@/components/os/exportar";
 import { ProvedorAvisos, useAvisar } from "@/components/os/lista/avisos";
 import {
+  COR_FINALIZADO,
   DIAS_SEMANA,
+  finalizado,
   gradeDoMes,
   type ItemCalendario,
   intervaloDaVisao,
@@ -522,14 +524,24 @@ function Chip({
   const isDragging = arrastandoId === id;
   const arrasta = item.arrastavel && !flutuando;
   const attributes = useAtributos(isDragging);
-  const cor = TIPOS_ITEM[item.tipo].cor;
+  const feito = finalizado(item.status);
+  const cor = feito ? COR_FINALIZADO : TIPOS_ITEM[item.tipo].cor;
   const conteudo = (
     <>
-      <span
-        aria-hidden
-        className="mt-1 size-2 shrink-0 rounded-full"
-        style={{ backgroundColor: cor }}
-      />
+      {feito ? (
+        <Check
+          aria-hidden
+          className="mt-0.5 size-3 shrink-0"
+          style={{ color: cor }}
+          strokeWidth={3}
+        />
+      ) : (
+        <span
+          aria-hidden
+          className="mt-1 size-2 shrink-0 rounded-full"
+          style={{ backgroundColor: cor }}
+        />
+      )}
       <span className="min-w-0 flex-1">
         <span className={`block ${compacto ? "truncate" : "break-words"}`}>
           {item.quando && (
@@ -544,7 +556,10 @@ function Chip({
             {item.detalhe}
           </span>
         )}
-        <span className="sr-only">({TIPOS_ITEM[item.tipo].rotulo})</span>
+        <span className="sr-only">
+          ({TIPOS_ITEM[item.tipo].rotulo}
+          {feito ? ", finalizado" : ""})
+        </span>
       </span>
     </>
   );
@@ -552,7 +567,7 @@ function Chip({
   return (
     <div
       ref={arrasta ? ponte.arrastavel(id) : undefined}
-      className={`flex items-start gap-1 rounded-lg border-l-[3px] bg-white/70 px-1.5 py-1 transition ${largo ? "p-2" : ""} ${isDragging ? "opacity-30" : ""} ${flutuando ? "w-56 shadow-[0_20px_40px_-16px_rgb(0_0_0/0.5)]" : "hover:bg-white"}`}
+      className={`flex items-start gap-1 rounded-lg border-l-[3px] px-1.5 py-1 transition ${feito ? "bg-green-50 hover:bg-green-100/80" : "bg-white/70 hover:bg-white"} ${largo ? "p-2" : ""} ${isDragging ? "opacity-30" : ""} ${flutuando ? "w-56 shadow-[0_20px_40px_-16px_rgb(0_0_0/0.5)]" : ""}`}
       style={{ borderLeftColor: cor }}
     >
       {href && !flutuando ? (
