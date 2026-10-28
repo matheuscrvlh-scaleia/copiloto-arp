@@ -5,7 +5,7 @@ import { ROTAS_OS } from "@/lib/os/rotas";
 import { contexto } from "@/server/os/base";
 
 // Operações: o dia a dia do módulo numa tela só, com as abas Minha caixa,
-// Geral, Quadro, Avisos e Modelos e lembretes. "Abertos por mim" é filtro
+// Geral, Quadro, Avisos e Disparos e lembretes. "Abertos por mim" é filtro
 // das listas; os avisos só aparecem na aba deles.
 
 export function CabecalhoOperacoes({ descricao }: { descricao: string }) {
@@ -33,7 +33,7 @@ async function AbasDeOperacoes() {
     { href: ROTAS_OS.quadro, rotulo: "Quadro" },
     { href: ROTAS_OS.avisos, rotulo: "Avisos" },
     ...(ctx.pode("os.modelos")
-      ? [{ href: ROTAS_OS.modelos, rotulo: "Modelos e lembretes" }]
+      ? [{ href: ROTAS_OS.disparos, rotulo: "Disparos e lembretes" }]
       : []),
   ];
   return <Abas abas={abas} rotulo="Seções de Operações" />;

@@ -69,6 +69,7 @@ export const rotaDoBeneficio = (id: string, aba?: string) =>
 export const CONFIGURACOES_OS = {
   catalogo: "/os/configuracoes/catalogo",
   setores: "/os/configuracoes/setores",
+  modelos: "/os/configuracoes/modelos",
   terceirizados: "/os/configuracoes/terceirizados",
   parametros: "/os/configuracoes/parametros",
   importacao: "/os/configuracoes/importacao",
@@ -190,7 +191,7 @@ export const navigation: NavSection[] = [
         permissao: ["os.painel_setor", "os.painel_geral"],
       },
       {
-        // Abas: Minha caixa, Geral, Quadro, Avisos e Modelos e lembretes (as
+        // Abas: Minha caixa, Geral, Quadro, Avisos e Disparos e lembretes (as
         // com permissão própria só aparecem para quem a tem).
         href: "/os",
         label: "Operações",
@@ -233,6 +234,7 @@ export const navigation: NavSection[] = [
         icone: "configuracoes",
         permissao: [
           "os.catalogo",
+          "os.modelos",
           "os.terceirizados",
           "os.parametros",
           "os.importacao",

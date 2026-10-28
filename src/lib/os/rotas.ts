@@ -7,7 +7,7 @@ export const ROTAS_OS = {
   meuSetor: "/os/meu-setor",
   quadro: "/os/quadro",
   avisos: "/os/avisos",
-  modelos: "/os/modelos",
+  disparos: "/os/disparos",
   calendario: "/os/calendario",
   ordens: "/os/ordens",
   ativos: "/os/ativos",
