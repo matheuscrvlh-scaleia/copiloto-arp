@@ -77,20 +77,25 @@ async function Abertos({ busca }: { busca: Promise<Busca> }) {
   return (
     <div className="flex flex-col gap-5">
       <Atualizado hora={horaDaVisita(a)} />
-      <BarraFiltros
-        tela="abertos"
-        valores={filtros}
-        lembrados={e.lembrados}
-        busca={{ placeholder: "Buscar por número, título ou descrição…" }}
-        campos={[
-          { ...campoTipo, largura: "w-44" },
-          { ...campoSetor(a.setores.filter((s) => s.ativo)), largura: "w-48" },
-          { ...campoStatus, largura: "w-40" },
-        ]}
-        extras={[campoPrioridade]}
-        etiqueta
-      />
       <VisaoLista
+        barra={
+          <BarraFiltros
+            tela="abertos"
+            valores={filtros}
+            lembrados={e.lembrados}
+            busca={{ placeholder: "Buscar por número, título ou descrição…" }}
+            campos={[
+              { ...campoTipo, largura: "w-44" },
+              {
+                ...campoSetor(a.setores.filter((s) => s.ativo)),
+                largura: "w-48",
+              },
+              { ...campoStatus, largura: "w-40" },
+            ]}
+            extras={[campoPrioridade]}
+            etiqueta
+          />
+        }
         linhas={pagina.linhas}
         total={pagina.total}
         pagina={pagina.pagina}

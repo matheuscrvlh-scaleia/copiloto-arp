@@ -96,6 +96,8 @@ export function VisaoLista(props: {
   vazio: string;
   /** Junto do título da lista (ex.: o "Agrupar por" do Meu setor). */
   acoesDoTitulo?: React.ReactNode;
+  /** Entre os cartões e a lista (a barra de filtros). */
+  barra?: React.ReactNode;
 }) {
   return (
     <ProvedorAvisos>
@@ -121,6 +123,7 @@ function Conteudo({
   exportar,
   vazio,
   acoesDoTitulo,
+  barra,
 }: Parameters<typeof VisaoLista>[0]) {
   const router = useRouter();
   const params = useSearchParams();
@@ -218,6 +221,7 @@ function Conteudo({
           aoEscolher={escolherCartao}
         />
       )}
+      {barra}
 
       <section
         aria-label="Chamados"

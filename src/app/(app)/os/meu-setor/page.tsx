@@ -105,45 +105,49 @@ async function Setor({ busca }: { busca: Promise<Busca> }) {
   return (
     <div className="flex flex-col gap-5">
       <Atualizado hora={horaDaVisita(a)} />
-      <BarraFiltros
-        tela="setor"
-        valores={filtros}
-        lembrados={e.lembrados}
-        fixos={["setor", "agrupar"]}
-        busca={{ placeholder: "Buscar por número, título ou descrição…" }}
-        campos={[
-          ...(disponiveis.length > 1
-            ? [{ ...campoSetor(disponiveis, undefined), largura: "w-48" }]
-            : []),
-          { ...campoStatus, largura: "w-40" },
-          {
-            chave: "responsavel",
-            rotulo: "Responsável",
-            todos: "Todos do setor",
-            opcoes: membros.map((p) => ({ valor: p.id, rotulo: p.nome })),
-            largura: "w-48",
-          },
-        ]}
-        extras={[
-          {
-            chave: "categoria",
-            rotulo: "Categoria",
-            todos: "Todas as categorias",
-            opcoes: opcoesDeCategoria(a, [setorId]),
-          },
-          campoPrioridade,
-        ]}
-        etiqueta
-        periodo
-      />
-      <CargaPorPessoa
-        carga={carga}
-        hrefPessoa={Object.fromEntries(
-          membros.map((p) => [p.id, href({ responsavel: p.id })]),
-        )}
-        hrefFila={href({ responsavel: undefined }, "sem_responsavel")}
-      />
       <VisaoLista
+        barra={
+          <>
+            <BarraFiltros
+              tela="setor"
+              valores={filtros}
+              lembrados={e.lembrados}
+              fixos={["setor", "agrupar"]}
+              busca={{ placeholder: "Buscar por número, título ou descrição…" }}
+              campos={[
+                ...(disponiveis.length > 1
+                  ? [{ ...campoSetor(disponiveis, undefined), largura: "w-48" }]
+                  : []),
+                { ...campoStatus, largura: "w-40" },
+                {
+                  chave: "responsavel",
+                  rotulo: "Responsável",
+                  todos: "Todos do setor",
+                  opcoes: membros.map((p) => ({ valor: p.id, rotulo: p.nome })),
+                  largura: "w-48",
+                },
+              ]}
+              extras={[
+                {
+                  chave: "categoria",
+                  rotulo: "Categoria",
+                  todos: "Todas as categorias",
+                  opcoes: opcoesDeCategoria(a, [setorId]),
+                },
+                campoPrioridade,
+              ]}
+              etiqueta
+              periodo
+            />
+            <CargaPorPessoa
+              carga={carga}
+              hrefPessoa={Object.fromEntries(
+                membros.map((p) => [p.id, href({ responsavel: p.id })]),
+              )}
+              hrefFila={href({ responsavel: undefined }, "sem_responsavel")}
+            />
+          </>
+        }
         linhas={pagina.linhas}
         total={pagina.total}
         pagina={pagina.pagina}

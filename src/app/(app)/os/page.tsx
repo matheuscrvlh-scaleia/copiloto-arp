@@ -77,30 +77,32 @@ async function Caixa({ busca }: { busca: Promise<Busca> }) {
   return (
     <div className="flex flex-col gap-5">
       <Atualizado hora={horaDaVisita(a)} />
-      <BarraFiltros
-        tela="caixa"
-        valores={filtros}
-        lembrados={e.lembrados}
-        busca={{ placeholder: "Buscar por número, título ou descrição…" }}
-        campos={[
-          { ...campoTipo, largura: "w-44" },
-          { ...campoSetor(setores), largura: "w-48" },
-        ]}
-        extras={[
-          {
-            chave: "categoria",
-            rotulo: "Categoria",
-            todos: "Todas as categorias",
-            opcoes: opcoesDeCategoria(
-              a,
-              filtros.setor ? [filtros.setor] : null,
-            ),
-          },
-          campoPrioridade,
-        ]}
-        etiqueta
-      />
       <VisaoLista
+        barra={
+          <BarraFiltros
+            tela="caixa"
+            valores={filtros}
+            lembrados={e.lembrados}
+            busca={{ placeholder: "Buscar por número, título ou descrição…" }}
+            campos={[
+              { ...campoTipo, largura: "w-44" },
+              { ...campoSetor(setores), largura: "w-48" },
+            ]}
+            extras={[
+              {
+                chave: "categoria",
+                rotulo: "Categoria",
+                todos: "Todas as categorias",
+                opcoes: opcoesDeCategoria(
+                  a,
+                  filtros.setor ? [filtros.setor] : null,
+                ),
+              },
+              campoPrioridade,
+            ]}
+            etiqueta
+          />
+        }
         linhas={pagina.linhas}
         total={pagina.total}
         pagina={pagina.pagina}
