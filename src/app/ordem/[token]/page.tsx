@@ -7,15 +7,18 @@ import {
   Mail,
   MapPin,
   MessageCircle,
+  PenLine,
   Phone,
 } from "lucide-react";
 import Image from "next/image";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
-import { formatarNumero } from "@/lib/formato";
+import { Assinatura } from "@/components/os/ordem/assinatura";
+import { formatarMoeda, formatarNumero } from "@/lib/formato";
 import { dataHoraBr } from "@/lib/os/relatorios";
 import { limparTelefone, linkWhatsApp } from "@/lib/os/whatsapp";
+import { assinarPeloLink } from "@/server/os/acoes/ordem-link";
 import {
   type PaginaTerceirizado,
   paginaDoTerceirizado,
@@ -24,8 +27,9 @@ import { Andamento, EnviarArquivos, type Etapa, Relatorio } from "./acoes";
 
 // OS para o terceirizado, sem login: ele vê a OS dele (número, local,
 // descrição, fotos, visita e o contato da ARP — nunca custos internos nem
-// outras OS), aceita ou recusa, marca chegada e término e manda fotos, a
-// solução e o valor. O token é conferido no servidor a cada acesso.
+// outras OS), aceita ou recusa, marca chegada e término, manda fotos, a
+// solução e o valor e, no fim, confere tudo e assina. Depois a ARP valida
+// e assina. O token é conferido no servidor a cada acesso.
 
 export default function Page({
   params,
@@ -100,11 +104,15 @@ async function Conteudo({ params }: { params: Promise<{ token: string }> }) {
 
       <Passos p={p} />
 
-      {etapa !== "terminado" && etapa !== "recusado" && (
-        <section className="vidro rounded-[1.75rem] p-5">
-          <Andamento token={p.token} etapa={etapa} />
-        </section>
-      )}
+      {(etapa === "terminado" || etapa === "assinado") && <Conferir p={p} />}
+
+      {etapa !== "terminado" &&
+        etapa !== "assinado" &&
+        etapa !== "recusado" && (
+          <section className="vidro rounded-[1.75rem] p-5">
+            <Andamento token={p.token} etapa={etapa} />
+          </section>
+        )}
       {etapa === "recusado" && (
         <p className="rounded-[1.75rem] bg-red-50 p-5 text-sm text-red-700">
           Você recusou esta OS
@@ -142,7 +150,7 @@ async function Conteudo({ params }: { params: Promise<{ token: string }> }) {
         )}
       </section>
 
-      {etapa !== "aceitar" && etapa !== "recusado" && (
+      {etapa !== "aceitar" && etapa !== "recusado" && etapa !== "assinado" && (
         <section className="vidro flex flex-col gap-5 rounded-[1.75rem] p-5">
           <div>
             <h2 className="text-sm font-semibold">Fotos, solução e valor</h2>
@@ -199,6 +207,7 @@ async function Conteudo({ params }: { params: Promise<{ token: string }> }) {
 function etapaDe(p: PaginaTerceirizado): Etapa {
   const e = p.estado;
   if (e.recusado_em) return "recusado";
+  if (e.assinado_em) return "assinado";
   if (e.terminado_em) return "terminado";
   if (e.chegada_em) return "terminar";
   if (e.aceito_em) return "chegar";
@@ -246,16 +255,74 @@ function Info({
   );
 }
 
-/** Aceite → Chegada → Término, com o horário de cada um. */
+/**
+ * Depois de "Terminei": o resumo do que vai na OS e a assinatura dele.
+ * Assinada, a OS segue para a ARP validar e assinar por último.
+ */
+function Conferir({ p }: { p: PaginaTerceirizado }) {
+  const e = p.estado;
+  const itens: [string, string][] = [
+    ["Serviço", `O.S. ${p.numero} · ${p.tipoServico}`],
+    ["Local", p.local],
+    ["Chegada", e.chegada_em ? dataHoraBr(e.chegada_em).slice(0, 16) : "—"],
+    ["Término", e.terminado_em ? dataHoraBr(e.terminado_em).slice(0, 16) : "—"],
+    ["O que foi feito", p.solucaoDaOS?.trim() || "—"],
+    [
+      "Valor informado",
+      e.valor_informado === null ? "—" : formatarMoeda(e.valor_informado),
+    ],
+    ["Nº do orçamento ou nota", e.orcamento_numero ?? "—"],
+    ["Arquivos enviados", String(p.enviados.length)],
+  ];
+  return (
+    <section className="vidro flex flex-col gap-4 rounded-[1.75rem] p-5">
+      <div>
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <PenLine className="size-4" aria-hidden />
+          {e.assinado_em ? "OS conferida e assinada" : "Confira e assine a OS"}
+        </h2>
+        <p className="mt-1 text-xs text-neutral-500">
+          {e.assinado_em
+            ? "A ARP vai validar e assinar por último."
+            : "Confira se está tudo certo. Se faltar algo, corrija logo abaixo antes de assinar."}
+        </p>
+      </div>
+      <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+        {itens.map(([rotulo, valor]) => (
+          <div key={rotulo}>
+            <dt className="text-xs text-neutral-500">{rotulo}</dt>
+            <dd className="whitespace-pre-wrap">{valor}</dd>
+          </div>
+        ))}
+      </dl>
+      <Assinatura
+        acao={assinarPeloLink}
+        campos={{ token: p.token }}
+        podeEditar={!e.assinado_em}
+        documento
+        rotuloSalvar="Assinar a OS"
+        atual={
+          e.assinado_em
+            ? { url: null, nome: e.assinatura_nome, em: e.assinado_em }
+            : null
+        }
+        nomeSugerido={p.profissionais[0] ?? ""}
+      />
+    </section>
+  );
+}
+
+/** Aceite → Chegada → Término → Assinatura, com o horário de cada um. */
 function Passos({ p }: { p: PaginaTerceirizado }) {
   const e = p.estado;
   const passos: [string, string | null][] = [
     ["Aceite", e.aceito_em],
     ["Chegada", e.chegada_em],
     ["Término", e.terminado_em],
+    ["Assinatura", e.assinado_em],
   ];
   return (
-    <ol className="grid grid-cols-3 gap-2">
+    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {passos.map(([nome, quando]) => (
         <li
           key={nome}

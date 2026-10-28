@@ -8,11 +8,12 @@ import {
   StandardFonts,
 } from "pdf-lib";
 import { baixarArquivo } from "../base";
+import { LOGO_PNG_BASE64 } from "./logo";
 
 // Papel timbrado da ARP (seção 4.16 A): fundo de página inteira em todas as
 // páginas de todo PDF do módulo (OS, laudo, relatórios). Se a imagem
 // oficial (1654 × 2339, A4) foi enviada em Parâmetros, ela vira o fundo;
-// sem ela, desenhamos uma versão vetorial fiel (logo, trevo verde claro e
+// sem ela, desenhamos uma versão fiel (a logo oficial, trevo verde claro e
 // rodapé "Arp. Onde tudo acontece").
 //
 // Medidas em milímetros, como na especificação; o pdf-lib usa pontos com a
@@ -63,15 +64,18 @@ export interface Papel {
   fontes: Fontes;
   /** Imagem oficial, se foi enviada. */
   fundo: PDFImage | null;
+  /** Logo da ARP (desenhada quando não há a imagem oficial). */
+  logo: PDFImage;
 }
 
 /** Fontes (Helvetica, como o sistema atual) e o fundo, uma vez por PDF. */
 export async function prepararPapel(doc: PDFDocument): Promise<Papel> {
-  const [normal, negrito, italico, negritoItalico] = await Promise.all([
+  const [normal, negrito, italico, negritoItalico, logo] = await Promise.all([
     doc.embedFont(StandardFonts.Helvetica),
     doc.embedFont(StandardFonts.HelveticaBold),
     doc.embedFont(StandardFonts.HelveticaOblique),
     doc.embedFont(StandardFonts.HelveticaBoldOblique),
+    doc.embedPng(LOGO_PNG_BASE64),
   ]);
   let fundo: PDFImage | null = null;
   for (const caminho of CAMINHOS_PAPEL_TIMBRADO) {
@@ -86,7 +90,12 @@ export async function prepararPapel(doc: PDFDocument): Promise<Papel> {
       console.error("papel timbrado inválido", caminho, erro);
     }
   }
-  return { doc, fontes: { normal, negrito, italico, negritoItalico }, fundo };
+  return {
+    doc,
+    fontes: { normal, negrito, italico, negritoItalico },
+    fundo,
+    logo,
+  };
 }
 
 /** Página A4 retrato já com o papel timbrado no fundo. */
@@ -100,7 +109,7 @@ export function novaPagina(papel: Papel): PDFPage {
       height: A4.altura,
     });
   } else {
-    desenharTimbrado(pagina, papel.fontes);
+    desenharTimbrado(pagina, papel);
   }
   return pagina;
 }
@@ -145,8 +154,8 @@ function folha(
   });
 }
 
-/** Versão vetorial do papel timbrado (quando a imagem oficial não foi enviada). */
-function desenharTimbrado(pagina: PDFPage, f: Fontes) {
+/** Papel timbrado desenhado (quando a imagem oficial não foi enviada). */
+function desenharTimbrado(pagina: PDFPage, { fontes: f, logo }: Papel) {
   // Trevo verde claro, saindo pela borda direita.
   folha(
     pagina,
@@ -169,28 +178,15 @@ function desenharTimbrado(pagina: PDFPage, f: Fontes) {
     { se: 0, sd: 0, id: 0, ie: 34 },
   );
 
-  // Logo: ARP com o trevo pequeno, acima da área do conteúdo (38 mm).
-  pagina.drawText("ARP", {
+  // Logo oficial (ARP com o trevo verde), acima do conteúdo (38 mm).
+  const largura = 32 * MM;
+  const altura = (largura * logo.height) / logo.width;
+  pagina.drawImage(logo, {
     x: x(27.5),
-    y: y(27),
-    size: 30,
-    font: f.negrito,
-    color: rgb(0.13, 0.12, 0.12),
+    y: y(14) - altura,
+    width: largura,
+    height: altura,
   });
-  const trevo = [
-    { cx: 53.6, cy: 25.7, r: 1.3 },
-    { cx: 56.2, cy: 25.7, r: 1.3 },
-    { cx: 53.6, cy: 28.3, r: 1.3 },
-    { cx: 56.6, cy: 28.7, r: 1.8 },
-  ];
-  for (const t of trevo) {
-    pagina.drawCircle({
-      x: x(t.cx),
-      y: y(t.cy),
-      size: t.r * MM,
-      color: rgb(0.13, 0.12, 0.12),
-    });
-  }
 
   // Rodapé.
   pagina.drawLine({

@@ -160,6 +160,10 @@ export interface SituacaoParaConcluir {
   valorTerceirizado: number | null;
   teto: number | null;
   orcamentoAprovado: boolean;
+  /** Assinatura do terceirizado pelo link (assinaturaDoLink). */
+  assinaturaTerceirizado: boolean | null;
+  /** A ARP já validou e assinou a OS. */
+  assinadaPelaArp: boolean;
 }
 
 /**
@@ -174,6 +178,14 @@ export function motivoParaNaoConcluir(s: SituacaoParaConcluir): string | null {
     return "Informe a solução para fechamento antes de concluir a OS terceirizada.";
   if (precisaAprovacao(s.valorTerceirizado, s.teto) && !s.orcamentoAprovado)
     return "O orçamento do terceirizado passou do teto e precisa ser aprovado por quem gerencia o setor.";
+  if (s.execucao === "terceirizada" && s.assinaturaTerceirizado === false)
+    return "O terceirizado ainda não conferiu e assinou a OS pelo link.";
+  if (
+    s.execucao === "terceirizada" &&
+    s.assinaturaTerceirizado &&
+    !s.assinadaPelaArp
+  )
+    return "Confira a OS com a assinatura do terceirizado e assine como ARP antes de concluir.";
   return null;
 }
 
@@ -239,11 +251,13 @@ export interface LinkTerceirizado {
   chegada_em: string | null;
   terminado_em: string | null;
   cancelado_em: string | null;
+  assinado_em: string | null;
 }
 
 export type EtapaTerceirizado =
   | "cancelado"
   | "recusado"
+  | "assinado"
   | "terminado"
   | "no_local"
   | "aceito"
@@ -253,7 +267,8 @@ export const ETAPAS_TERCEIRIZADO: Record<EtapaTerceirizado, string> = {
   enviado: "Link enviado, aguardando o aceite",
   aceito: "Aceito, aguardando a visita",
   no_local: "No local",
-  terminado: "Serviço terminado",
+  terminado: "Serviço terminado, aguardando a assinatura dele",
+  assinado: "Conferido e assinado pelo terceirizado",
   recusado: "Recusado",
   cancelado: "Link cancelado",
 };
@@ -262,6 +277,7 @@ export const ETAPAS_TERCEIRIZADO: Record<EtapaTerceirizado, string> = {
 export function etapaDoTerceirizado(l: LinkTerceirizado): EtapaTerceirizado {
   if (l.cancelado_em) return "cancelado";
   if (l.recusado_em) return "recusado";
+  if (l.assinado_em) return "assinado";
   if (l.terminado_em) return "terminado";
   if (l.chegada_em) return "no_local";
   if (l.aceito_em) return "aceito";
@@ -274,6 +290,21 @@ export function linkAtivo(
   ch: { status: StatusChamado; lixeira_em: string | null },
 ): boolean {
   return !l.cancelado_em && !ch.lixeira_em && !osEncerrada(ch.status);
+}
+
+/**
+ * A assinatura do terceirizado pelo link: null quando não há o que esperar
+ * (sem link, link cancelado ou recusado); false enquanto ele não assina.
+ * A ARP só assina e conclui depois dele.
+ */
+export function assinaturaDoLink(
+  links: Pick<
+    LinkTerceirizado,
+    "cancelado_em" | "recusado_em" | "assinado_em"
+  >[],
+): boolean | null {
+  const l = links.find((x) => !x.cancelado_em && !x.recusado_em);
+  return l ? l.assinado_em !== null : null;
 }
 
 /**

@@ -1,11 +1,13 @@
 import {
   AlertTriangle,
   ArrowUpRight,
+  Banknote,
   Building2,
   ClipboardCheck,
   Coins,
   HardHat,
   Package,
+  Plus,
   Timer,
 } from "lucide-react";
 import Link from "next/link";
@@ -19,14 +21,23 @@ import {
   minutoHomem,
   minutosDaSessao,
 } from "@/lib/os/calculos";
-import { etapaDoTerceirizado, linkAtivo } from "@/lib/os/ordem";
+import {
+  assinaturaDoLink,
+  etapaDoTerceirizado,
+  linkAtivo,
+} from "@/lib/os/ordem";
 import { dataHoraBr } from "@/lib/os/relatorios";
-import { rotaChamado, rotaTerceirizado } from "@/lib/os/rotas";
+import {
+  rotaChamado,
+  rotaTerceirizado,
+  rotaTicketFinanceiro,
+} from "@/lib/os/rotas";
 import { EXECUCOES, PERIODOS, STATUS } from "@/lib/os/rotulos";
 import { deBrasilia, hojeEmBrasilia } from "@/lib/os/tempo";
 import { linkWhatsApp, preencher } from "@/lib/os/whatsapp";
 import type { Json } from "@/lib/supabase/database.types";
 import { salvarResultado } from "@/server/os/acoes/ordem";
+import { assinarOS } from "@/server/os/acoes/ordem-arquivos";
 import { urlDoSistema } from "@/server/os/base";
 import { type DadosOS, dadosDaOS, modeloMensagem } from "@/server/os/ordem";
 import { Assinatura } from "./assinatura";
@@ -234,31 +245,13 @@ export async function BlocoOS({
                   arquivos={arquivosDa(d, ["depois"])}
                 />
               </div>
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-medium text-neutral-600">
-                  Assinatura do responsável
-                </p>
-                <Assinatura
-                  chamadoId={d.chamado.id}
-                  podeEditar={d.podeEditar}
-                  atual={
-                    d.chamado.assinado_em
-                      ? {
-                          url: d.assinaturaUrl,
-                          nome: d.chamado.assinatura_nome,
-                          em: d.chamado.assinado_em,
-                        }
-                      : null
-                  }
-                  nomeSugerido={
-                    (d.chamado.responsavel_id &&
-                      d.cad.pessoas.get(d.chamado.responsavel_id)) ||
-                    ""
-                  }
-                />
-              </div>
+              <Assinaturas d={d} />
             </div>
           </Parte>
+
+          {["concluido", "fechado"].includes(d.chamado.status) && (
+            <TicketFinanceiro d={d} />
+          )}
 
           <Parte
             titulo={d.comCustos ? "Custos e rateio" : "Rateio"}
@@ -294,6 +287,121 @@ export async function BlocoOS({
           </Parte>
         </>
       )}
+    </section>
+  );
+}
+
+/**
+ * Terceirizada com link: primeiro o terceirizado confere e assina pelo
+ * link; depois a ARP valida e assina. Interna: só o responsável.
+ */
+function Assinaturas({ d }: { d: DadosOS }) {
+  const ch = d.chamado;
+  const link = ch.execucao === "terceirizada" ? (d.links[0] ?? null) : null;
+  const doLink = assinaturaDoLink(d.links);
+  const arp = (
+    <Assinatura
+      acao={assinarOS}
+      campos={{ chamado_id: ch.id }}
+      podeEditar={d.podeEditar}
+      bloqueio={
+        link && doLink === false
+          ? "A ARP assina depois que o terceirizado conferir e assinar pelo link."
+          : null
+      }
+      rotuloSalvar={link ? "Validar e assinar" : "Salvar assinatura"}
+      atual={
+        ch.assinado_em
+          ? {
+              url: d.assinaturaUrl,
+              nome: ch.assinatura_nome,
+              em: ch.assinado_em,
+            }
+          : null
+      }
+      nomeSugerido={
+        (ch.responsavel_id && d.cad.pessoas.get(ch.responsavel_id)) || ""
+      }
+    />
+  );
+  if (!link)
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-neutral-600">
+          Assinatura do responsável
+        </p>
+        {arp}
+      </div>
+    );
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-neutral-600">
+          1. Terceirizado (pelo link)
+        </p>
+        {link.assinado_em ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-center rounded-2xl border border-neutral-200 bg-[#fff] p-3">
+              {d.assinaturaTerceirizadoUrl ? (
+                // biome-ignore lint/performance/noImgElement: endereço assinado e temporário do bucket
+                <img
+                  src={d.assinaturaTerceirizadoUrl}
+                  alt={`Assinatura de ${link.assinatura_nome ?? "terceirizado"}`}
+                  className="h-24 w-auto"
+                />
+              ) : (
+                <span className="text-sm text-neutral-500">
+                  Assinatura salva
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-neutral-500">
+              {link.assinatura_nome}
+              {link.assinatura_documento && ` · ${link.assinatura_documento}`}
+              {` · ${dataHoraBr(link.assinado_em)}`}
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-neutral-500">
+            {link.recusado_em || link.cancelado_em
+              ? "Sem assinatura (link recusado ou cancelado)."
+              : "Aguardando: depois de Terminei, ele confere a OS e assina pelo link."}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-neutral-600">
+          2. Validação da ARP
+        </p>
+        {arp}
+      </div>
+    </div>
+  );
+}
+
+/** Com a OS concluída: abre o ticket do Financeiro já preenchido. */
+function TicketFinanceiro({ d }: { d: DadosOS }) {
+  return (
+    <section
+      className={`${quadro} flex flex-wrap items-center justify-between gap-3`}
+    >
+      <div>
+        <h3 className={`${titulo} flex items-center gap-2`}>
+          <Banknote className="size-4" aria-hidden />
+          Financeiro
+        </h3>
+        <p className="mt-1 text-sm text-neutral-600">
+          OS finalizada: abra o ticket para o Financeiro com o valor, a empresa
+          e o vínculo com esta OS.
+        </p>
+      </div>
+      <Link
+        href={rotaTicketFinanceiro(d.chamado.id)}
+        className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-neutral-800"
+      >
+        <Plus className="size-4" aria-hidden />
+        Criar ticket para o Financeiro
+      </Link>
     </section>
   );
 }

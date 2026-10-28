@@ -2404,6 +2404,7 @@ export type Database = {
           portal_boas_vindas: string
           preventiva_antecedencia_dias: number
           recorrencia_antecedencia_dias: number
+          setor_financeiro_id: string | null
           sinal_corretivas_avaliar: number
           sinal_corretivas_trocar: number
           sinal_idade_avaliar_pct: number
@@ -2434,6 +2435,7 @@ export type Database = {
           portal_boas_vindas?: string
           preventiva_antecedencia_dias?: number
           recorrencia_antecedencia_dias?: number
+          setor_financeiro_id?: string | null
           sinal_corretivas_avaliar?: number
           sinal_corretivas_trocar?: number
           sinal_idade_avaliar_pct?: number
@@ -2464,6 +2466,7 @@ export type Database = {
           portal_boas_vindas?: string
           preventiva_antecedencia_dias?: number
           recorrencia_antecedencia_dias?: number
+          setor_financeiro_id?: string | null
           sinal_corretivas_avaliar?: number
           sinal_corretivas_trocar?: number
           sinal_idade_avaliar_pct?: number
@@ -2961,6 +2964,10 @@ export type Database = {
       terceirizado_links: {
         Row: {
           aceito_em: string | null
+          assinado_em: string | null
+          assinatura_documento: string | null
+          assinatura_nome: string | null
+          assinatura_path: string | null
           cancelado_em: string | null
           chamado_id: string
           chegada_em: string | null
@@ -2982,6 +2989,10 @@ export type Database = {
         }
         Insert: {
           aceito_em?: string | null
+          assinado_em?: string | null
+          assinatura_documento?: string | null
+          assinatura_nome?: string | null
+          assinatura_path?: string | null
           cancelado_em?: string | null
           chamado_id: string
           chegada_em?: string | null
@@ -3003,6 +3014,10 @@ export type Database = {
         }
         Update: {
           aceito_em?: string | null
+          assinado_em?: string | null
+          assinatura_documento?: string | null
+          assinatura_nome?: string | null
+          assinatura_path?: string | null
           cancelado_em?: string | null
           chamado_id?: string
           chegada_em?: string | null

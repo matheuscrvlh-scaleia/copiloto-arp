@@ -31,6 +31,9 @@ const LINK_INATIVO: EstadoAcao = {
   erro: "Este link não está mais ativo. Fale com a ARP.",
 };
 const FALHOU: EstadoAcao = { erro: "Não foi possível salvar. Tente de novo." };
+const JA_ASSINOU: EstadoAcao = {
+  erro: "Você já conferiu e assinou a OS. Para mudar algo, fale com a ARP.",
+};
 
 const token = z.string().regex(/^[A-Za-z0-9_-]{32,64}$/);
 
@@ -192,6 +195,7 @@ export async function salvarRelatorio(
   const a = await conferir(form);
   if (!a) return LINK_INATIVO;
   if (a.link.recusado_em) return { erro: "Você recusou esta OS." };
+  if (a.link.assinado_em) return JA_ASSINOU;
   const d = relatorio.safeParse({
     solucao: form.get("solucao") ?? "",
     valor: form.get("valor") ?? "",
@@ -249,6 +253,7 @@ export async function enviarArquivosDoTerceirizado(
   const a = await conferir(form);
   if (!a) return LINK_INATIVO;
   if (a.link.recusado_em) return { erro: "Você recusou esta OS." };
+  if (a.link.assinado_em) return JA_ASSINOU;
   const categoria = z.enum(CATEGORIAS).safeParse(form.get("categoria"));
   if (!categoria.success) return { erro: "Envio inválido." };
   const arquivos = form
@@ -311,4 +316,75 @@ export async function enviarArquivosDoTerceirizado(
   return {
     ok: arquivos.length === 1 ? "Arquivo enviado." : "Arquivos enviados.",
   };
+}
+
+const assinatura = z.object({
+  nome: z.string().trim().min(2, "Informe o nome de quem assina.").max(120),
+  documento: z.string().trim().max(30),
+});
+
+/**
+ * Depois de "Terminei", ele confere a OS (o que fez, valor, fotos) e
+ * assina na tela. Daí em diante a ARP valida e assina por último.
+ */
+export async function assinarPeloLink(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const a = await conferir(form);
+  if (!a) return LINK_INATIVO;
+  if (a.link.recusado_em) return { erro: "Você recusou esta OS." };
+  if (a.link.assinado_em) return { ok: "OS já assinada." };
+  if (!a.link.terminado_em)
+    return { erro: "Toque em Terminei antes de assinar." };
+  if (!a.link.solucao?.trim() && !a.chamado.solucao?.trim())
+    return { erro: "Conte o que foi feito (solução) antes de assinar." };
+  const d = assinatura.safeParse({
+    nome: form.get("nome") ?? "",
+    documento: form.get("documento") ?? "",
+  });
+  if (!d.success)
+    return { erro: d.error.issues[0]?.message ?? "Confira os campos." };
+  const png = form.get("assinatura");
+  if (!(png instanceof File) || png.size === 0 || png.type !== "image/png")
+    return { erro: "Assine no quadro antes de enviar." };
+  if (png.size > 1024 * 1024) return { erro: "Assinatura grande demais." };
+
+  const path = caminhoDoArquivo(
+    "assinaturas",
+    a.chamado.id,
+    "terceirizado.png",
+  );
+  try {
+    await enviarArquivo(path, await png.arrayBuffer(), "image/png");
+  } catch (erro) {
+    console.error("assinatura do terceirizado", erro);
+    return { erro: "Não foi possível guardar a assinatura. Tente de novo." };
+  }
+  // Só grava se ninguém assinou no meio do caminho (dois toques).
+  const { data, error } = await osAdmin()
+    .from("terceirizado_links")
+    .update({
+      assinatura_nome: d.data.nome,
+      assinatura_documento: d.data.documento || null,
+      assinatura_path: path,
+      assinado_em: new Date().toISOString(),
+    })
+    .eq("id", a.link.id)
+    .is("cancelado_em", null)
+    .is("assinado_em", null)
+    .select("id");
+  if (error || !data?.length) {
+    if (error) console.error("assinatura do terceirizado", a.link.id, error);
+    await removerArquivos([path]);
+    return error ? FALHOU : { ok: "OS já assinada." };
+  }
+  await avisarDoTerceirizado(
+    a,
+    `Conferiu e assinou a OS (${d.data.nome}).`,
+    { acao: "assinou" },
+    "O terceirizado conferiu e assinou a OS. Valide e assine como ARP para concluir.",
+  );
+  refresh();
+  return { ok: "OS assinada. A ARP vai validar e concluir. Obrigado!" };
 }

@@ -193,12 +193,21 @@ interface Extras {
   >;
   fotos: Map<string, { nome: string; path: string; mime: string | null }[]>;
   ativos: Map<string, string>;
+  /** Assinatura do terceirizado pelo link, por OS. */
+  terceirizados: Map<string, Assinante>;
+}
+
+interface Assinante {
+  nome: string | null;
+  documento?: string | null;
+  path: string | null;
+  em: string | null;
 }
 
 async function extras(ids: string[], comFotos: boolean): Promise<Extras> {
   const db = await os();
   // Num lote de 200 OS, materiais e fotos passam das 1000 linhas por pedido.
-  const [materiais, anexos, ativos] = await Promise.all([
+  const [materiais, anexos, ativos, links] = await Promise.all([
     todasAsLinhas((de, ate) =>
       db
         .from("materiais")
@@ -223,6 +232,14 @@ async function extras(ids: string[], comFotos: boolean): Promise<Extras> {
         )
       : Promise.resolve([]),
     db.rpc("ativos_para_vincular"),
+    db
+      .from("terceirizado_links")
+      .select(
+        "chamado_id, assinatura_nome, assinatura_documento, assinatura_path, assinado_em",
+      )
+      .in("chamado_id", ids)
+      .is("cancelado_em", null)
+      .not("assinado_em", "is", null),
   ]);
   const agrupar = <T extends { chamado_id: string | null }, R>(
     lista: T[] | null,
@@ -249,6 +266,17 @@ async function extras(ids: string[], comFotos: boolean): Promise<Extras> {
     ),
     ativos: new Map(
       (ativos.data ?? []).map((a) => [a.id, `${a.codigo} · ${a.nome}`]),
+    ),
+    terceirizados: new Map(
+      (links.data ?? []).map((l) => [
+        l.chamado_id,
+        {
+          nome: l.assinatura_nome,
+          documento: l.assinatura_documento,
+          path: l.assinatura_path,
+          em: l.assinado_em,
+        },
+      ]),
     ),
   };
 }
@@ -371,7 +399,7 @@ async function desenharOS(
   if (materiais.length) materiaisDa(f, materiais, op.comCustos);
   if (op.comCustos && o.tipo === "os") custosDa(f, o);
   if (op.fotos) await fotosDa(f, ex.fotos.get(o.id) ?? []);
-  await assinaturas(f, o);
+  await assinaturas(f, o, ex.terceirizados.get(o.id) ?? null);
 }
 
 function camposDa(
@@ -625,8 +653,16 @@ async function fotosDa(
  */
 const FIM_ASSINATURAS = LIMITE;
 
-/** Duas linhas no pé: responsável (com a assinatura da tela) e solicitante. */
-async function assinaturas(f: Folha, o: LinhaOS) {
+/**
+ * Duas linhas no pé. Terceirizada: o terceirizado (assinou pelo link) e a
+ * ARP (validou e assinou por último). Interna: o responsável (assinatura
+ * da tela) e o solicitante.
+ */
+async function assinaturas(
+  f: Folha,
+  o: LinhaOS,
+  terceirizado: Assinante | null,
+) {
   const altura = 25;
   if (f.y + altura > FIM_ASSINATURAS) f.nova();
   // No pé da folha, se houver espaço; senão logo abaixo do conteúdo.
@@ -637,34 +673,48 @@ async function assinaturas(f: Folha, o: LinhaOS) {
     MARGENS.lateral + 2,
     MARGENS.lateral + LARGURA - largura - 2,
   ];
-  const assinatura = o.assinatura_path
-    ? await imagem(f.papel, o.assinatura_path, "image/png")
-    : null;
-  if (assinatura) {
+  const arp: Assinante = {
+    nome: o.assinatura_nome,
+    path: o.assinatura_path,
+    em: o.assinado_em,
+  };
+  const terceirizada = o.tipo === "os" && o.execucao === "terceirizada";
+  const linhas: [string, Assinante | null][] = terceirizada
+    ? [
+        ["Prestador de serviço", terceirizado],
+        ["Validação da ARP", arp],
+      ]
+    : [
+        ["Responsável pela execução", arp],
+        ["Solicitante / Cliente", null],
+      ];
+  const imagens = await Promise.all(
+    linhas.map(([, a]) =>
+      a?.path ? imagem(f.papel, a.path, "image/png") : null,
+    ),
+  );
+  imagens.forEach((assinatura, i) => {
+    if (!assinatura) return;
     const escala = Math.min(
       (largura * MM) / assinatura.width,
       (14 * MM) / assinatura.height,
     );
     f.pagina.drawImage(assinatura, {
       x:
-        x(posicoes[0] as number) +
+        x(posicoes[i] as number) +
         (largura * MM - assinatura.width * escala) / 2,
       y: y(linhaY) + 0.5 * MM,
       width: assinatura.width * escala,
       height: assinatura.height * escala,
     });
-  }
-  const rotulos = [
-    [
-      "Responsável pela execução",
-      o.assinatura_nome
-        ? `${o.assinatura_nome}${o.assinado_em ? ` · ${dataHoraBr(o.assinado_em)}` : ""}`
-        : null,
-    ],
-    ["Solicitante / Cliente", null],
-  ] as const;
+  });
   const { normal, negrito } = f.papel.fontes;
-  rotulos.forEach(([rotulo, nome], i) => {
+  linhas.forEach(([rotulo, a], i) => {
+    const nome = a?.nome
+      ? [a.nome, a.documento, a.em && dataHoraBr(a.em)]
+          .filter(Boolean)
+          .join(" · ")
+      : null;
     const esquerda = posicoes[i] as number;
     f.pagina.drawLine({
       start: { x: x(esquerda), y: y(linhaY) },

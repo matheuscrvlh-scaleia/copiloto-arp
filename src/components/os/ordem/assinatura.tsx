@@ -10,35 +10,46 @@ import {
 } from "react";
 import { classeCampo } from "@/components/estilos";
 import { formatarDataHora } from "@/lib/formato";
-import { assinarOS } from "@/server/os/acoes/ordem-arquivos";
 import { botao, rotulo } from "./estilos";
 import type { EstadoOS } from "./tipos";
 
-// Assinatura do responsável na tela (dedo no celular, mouse no computador).
-// Vira um PNG transparente que sai sobre a linha "Responsável pela
-// execução" no PDF da OS.
+// Assinatura na tela (dedo no celular, mouse no computador): a da ARP no
+// detalhe da OS e a do terceirizado pelo link. Vira um PNG transparente
+// que sai sobre a linha de assinatura no PDF da OS. `acao` recebe o PNG
+// em "assinatura", o nome, o documento (se pedido) e os `campos`.
 
 const ALTURA = 160;
 
 export function Assinatura({
-  chamadoId,
+  acao,
+  campos,
   podeEditar,
   atual,
   nomeSugerido,
+  documento = false,
+  bloqueio = null,
+  rotuloSalvar = "Salvar assinatura",
 }: {
-  chamadoId: string;
+  acao: (estado: EstadoOS, form: FormData) => Promise<EstadoOS>;
+  campos: Record<string, string>;
   podeEditar: boolean;
   atual: { url: string | null; nome: string | null; em: string | null } | null;
   nomeSugerido: string;
+  /** Pede também o CPF ou CNPJ de quem assina. */
+  documento?: boolean;
+  /** Por que ainda não dá para assinar (mostrado no lugar do quadro). */
+  bloqueio?: string | null;
+  rotuloSalvar?: string;
 }) {
   const [estado, assinar, salvando] = useActionState<EstadoOS, FormData>(
-    assinarOS,
+    acao,
     {},
   );
   const [preparando, iniciar] = useTransition();
   const [assinando, setAssinando] = useState(!atual);
   const [vazio, setVazio] = useState(true);
   const [nome, setNome] = useState(atual?.nome ?? nomeSugerido);
+  const [doc, setDoc] = useState("");
   const canvas = useRef<HTMLCanvasElement>(null);
   const desenhando = useRef(false);
 
@@ -104,8 +115,9 @@ export function Assinatura({
       );
       if (!blob) return;
       const form = new FormData();
-      form.set("chamado_id", chamadoId);
+      for (const [k, v] of Object.entries(campos)) form.set(k, v);
       form.set("nome", nome);
+      if (documento) form.set("documento", doc);
       form.set(
         "assinatura",
         new File([blob], "assinatura.png", { type: "image/png" }),
@@ -152,6 +164,7 @@ export function Assinatura({
 
   if (!podeEditar)
     return <p className="text-sm text-neutral-500">Sem assinatura.</p>;
+  if (bloqueio) return <p className="text-sm text-neutral-500">{bloqueio}</p>;
 
   return (
     <div className="flex flex-col gap-3">
@@ -164,6 +177,18 @@ export function Assinatura({
           className={classeCampo}
         />
       </label>
+      {documento && (
+        <label className={rotulo}>
+          CPF ou CNPJ (opcional)
+          <input
+            value={doc}
+            onChange={(e) => setDoc(e.target.value)}
+            inputMode="numeric"
+            maxLength={30}
+            className={classeCampo}
+          />
+        </label>
+      )}
       <div className="relative">
         <canvas
           ref={canvas}
@@ -196,7 +221,7 @@ export function Assinatura({
           disabled={vazio || salvando || preparando || nome.trim().length < 2}
           className={botao.primario}
         >
-          {salvando || preparando ? "Salvando…" : "Salvar assinatura"}
+          {salvando || preparando ? "Salvando…" : rotuloSalvar}
         </button>
         <button type="button" onClick={limpar} className={botao.secundario}>
           <Eraser className="size-4" aria-hidden />

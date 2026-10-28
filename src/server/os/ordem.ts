@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { formatarMoeda } from "@/lib/formato";
 import {
   calcularOS,
   type ResultadoOS,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/os/calculos";
 import { statusAoConcluir } from "@/lib/os/ciclo";
 import {
+  assinaturaDoLink,
   motivoParaNaoConcluir,
   osEncerrada,
   paraSessao,
@@ -147,6 +149,8 @@ export interface DadosOS {
   links: LinkDaOS[];
   arquivos: Arquivo[];
   assinaturaUrl: string | null;
+  /** Assinatura do terceirizado no link mais recente (se ele assinou). */
+  assinaturaTerceirizadoUrl: string | null;
   parametros: Parametros;
   contatos: Pick<Tabela<"contatos">, "id" | "nome" | "telefone" | "empresa">[];
   local: string;
@@ -310,6 +314,8 @@ async function lerDadosDaOS(chamadoId: string): Promise<DadosOS | null> {
 
   const caminhos = (anexos.data ?? []).map((a) => a.path);
   if (chamado.assinatura_path) caminhos.push(chamado.assinatura_path);
+  const assinaturaTerceirizado = links.data?.[0]?.assinatura_path ?? null;
+  if (assinaturaTerceirizado) caminhos.push(assinaturaTerceirizado);
   const urls = await urlsAssinadas(caminhos);
   const gerencia = gerenciaSetor(ctx, chamado.setor_id);
   const orcamento = ehOS
@@ -352,6 +358,9 @@ async function lerDadosDaOS(chamadoId: string): Promise<DadosOS | null> {
     })),
     assinaturaUrl: chamado.assinatura_path
       ? (urls.get(chamado.assinatura_path) ?? null)
+      : null,
+    assinaturaTerceirizadoUrl: assinaturaTerceirizado
+      ? (urls.get(assinaturaTerceirizado) ?? null)
       : null,
     parametros: p,
     contatos: contatos.data ?? [],
@@ -498,10 +507,10 @@ export async function podeConcluirOS(
   chamadoId: string,
 ): Promise<string | null> {
   const db = osAdmin();
-  const [ch, abertas, custos, p] = await Promise.all([
+  const [ch, abertas, custos, p, links] = await Promise.all([
     db
       .from("chamados")
-      .select("tipo, execucao, solucao")
+      .select("tipo, execucao, solucao, assinado_em")
       .eq("id", chamadoId)
       .maybeSingle(),
     db
@@ -516,6 +525,10 @@ export async function podeConcluirOS(
       .maybeSingle(),
     // O teto vem do cache (quem conclui usa o módulo).
     parametros(),
+    db
+      .from("terceirizado_links")
+      .select("cancelado_em, recusado_em, assinado_em")
+      .eq("chamado_id", chamadoId),
   ]);
   if (!ch.data) return "Chamado não encontrado.";
   return motivoParaNaoConcluir({
@@ -526,6 +539,8 @@ export async function podeConcluirOS(
     valorTerceirizado: custos.data?.valor_terceirizado ?? null,
     teto: p.teto_terceirizado,
     orcamentoAprovado: !!custos.data?.orcamento_aprovado_em,
+    assinaturaTerceirizado: assinaturaDoLink(links.data ?? []),
+    assinadaPelaArp: ch.data.assinado_em !== null,
   });
 }
 
@@ -643,4 +658,58 @@ export async function chamadoParaEditar(
       erro: "A OS já foi fechada ou cancelada. Só quem gerencia o setor corrige.",
     };
   return { ctx, ch, gerencia };
+}
+
+// ---------------------------------------------------------------------------
+// Ticket do Financeiro
+// ---------------------------------------------------------------------------
+
+export interface TicketFinanceiro {
+  setorId: string | null;
+  titulo: string;
+  descricao: string;
+  lojaId: string | null;
+  osId: string;
+  rotuloOS: string;
+}
+
+/**
+ * O ticket do Financeiro de uma OS concluída, para abrir já preenchido
+ * (setor dos Parâmetros, valor só para quem vê custos). null: a pessoa não
+ * vê a OS ou ela ainda não foi concluída.
+ */
+export async function ticketDoFinanceiro(
+  osId: string,
+): Promise<TicketFinanceiro | null> {
+  const d = await dadosDaOS(osId);
+  if (!d?.ehOS || !["concluido", "fechado"].includes(d.chamado.status))
+    return null;
+  const ch = d.chamado;
+  const empresa = ch.empresa_id ? d.cad.empresas.get(ch.empresa_id) : null;
+  const link = d.links.find((l) => !l.cancelado_em && !l.recusado_em);
+  const orcamento = d.custos?.orcamento_numero ?? link?.orcamento_numero;
+  const concluida = ch.concluido_em ?? ch.fechado_em;
+  const linhas = [
+    `Pagamento da O.S. nº ${ch.numero} (${tipoDeServico(d.categoria?.nome)})${concluida ? `, concluída em ${dataBr(concluida)}` : ""}.`,
+    empresa && `Empresa: ${empresa.nome}`,
+    `Local: ${d.local}`,
+    d.comCustos && `Valor da O.S.: ${formatarMoeda(d.resultado.total)}`,
+    orcamento && `Orçamento/nota: ${orcamento}`,
+    ch.solucao?.trim() && `Serviço: ${ch.solucao.trim()}`,
+    link?.assinado_em &&
+      `Assinada pelo terceirizado (${link.assinatura_nome}) e validada pela ARP${ch.assinatura_nome ? ` (${ch.assinatura_nome})` : ""}.`,
+    `OS: ${urlDoSistema(rotaChamado(ch.id))}`,
+  ];
+  return {
+    setorId: d.parametros.setor_financeiro_id,
+    titulo:
+      `Pagamento da O.S. nº ${ch.numero} · ${empresa?.nome ?? d.local}`.slice(
+        0,
+        200,
+      ),
+    descricao: linhas.filter(Boolean).join("\n"),
+    lojaId: ch.loja_id,
+    osId: ch.id,
+    rotuloOS: `#${ch.numero} ${ch.titulo}`,
+  };
 }

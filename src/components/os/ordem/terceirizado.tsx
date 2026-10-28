@@ -56,7 +56,8 @@ const COR_ETAPA: Record<EtapaTerceirizado, string> = {
   enviado: "bg-neutral-900/[0.06] text-neutral-700",
   aceito: "bg-violet-400/20 text-violet-700",
   no_local: "bg-amber-50 text-amber-900",
-  terminado: "bg-green-50 text-green-700",
+  terminado: "bg-amber-50 text-amber-900",
+  assinado: "bg-green-50 text-green-700",
   recusado: "bg-red-50 text-red-700",
   cancelado: "bg-neutral-900/[0.04] text-neutral-500",
 };

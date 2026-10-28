@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import type { EstadoOS } from "@/components/os/ordem/tipos";
 import {
+  assinaturaDoLink,
   envioGrandeDemais,
   erroDoArquivo,
   LIMITE_ARQUIVOS,
@@ -14,6 +15,7 @@ import {
   caminhoDoArquivo,
   enviarArquivo,
   os,
+  osAdmin,
   registrar,
   removerArquivos,
 } from "@/server/os/base";
@@ -155,6 +157,19 @@ export async function assinarOS(
   const alvo = await chamadoParaEditar(d.data.chamado_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ch } = alvo;
+  // OS terceirizada com link: a ARP valida e assina depois do terceirizado.
+  // O token é segredo (RLS): a leitura dos links vai pela service role, já
+  // conferido que a pessoa mexe nesta OS.
+  if (ch.execucao === "terceirizada") {
+    const { data: links } = await osAdmin()
+      .from("terceirizado_links")
+      .select("cancelado_em, recusado_em, assinado_em")
+      .eq("chamado_id", ch.id);
+    if (assinaturaDoLink(links ?? []) === false)
+      return {
+        erro: "Aguarde o terceirizado conferir e assinar pelo link (ou cancele o link).",
+      };
+  }
 
   const path = caminhoDoArquivo("assinaturas", ch.id, "assinatura.png");
   try {
@@ -178,7 +193,10 @@ export async function assinarOS(
   if (ch.assinatura_path) await removerArquivos([ch.assinatura_path]);
   await registrar(ch.id, {
     tipo: "alteracao",
-    texto: `Assinatura do responsável registrada (${d.data.nome}).`,
+    texto:
+      ch.execucao === "terceirizada"
+        ? `OS validada e assinada pela ARP (${d.data.nome}).`
+        : `Assinatura do responsável registrada (${d.data.nome}).`,
     dados: { campo: "assinatura" },
   });
   refresh();

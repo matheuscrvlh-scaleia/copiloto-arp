@@ -54,6 +54,7 @@ const ROTULOS: Record<string, string> = {
   almoco_fim: "Fim do almoço",
   teto_terceirizado: "Teto do terceirizado",
   terceirizado_prazo_dias: "Retorno do terceirizado",
+  setor_financeiro_id: "Setor do Financeiro",
   causas_falha: "Causas de falha",
   preventiva_antecedencia_dias: "Antecedência das preventivas",
   recorrencia_antecedencia_dias: "Antecedência dos lembretes",
@@ -184,6 +185,7 @@ const operacoes = z
     almoco_fim: hora,
     teto_terceirizado: decimalOpcional(0, 10_000_000),
     terceirizado_prazo_dias: inteiro(1, 90),
+    setor_financeiro_id: uuidOpcional,
     causas_falha: json,
   })
   .refine((o) => o.almoco_inicio < o.almoco_fim, {

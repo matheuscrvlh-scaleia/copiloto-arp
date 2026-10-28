@@ -68,6 +68,7 @@ export type Etapa =
   | "chegar"
   | "terminar"
   | "terminado"
+  | "assinado"
   | "recusado";
 
 export function Andamento({ token, etapa }: { token: string; etapa: Etapa }) {
@@ -181,7 +182,8 @@ export function Andamento({ token, etapa }: { token: string; etapa: Etapa }) {
           {localizando || terminando ? "Registrando…" : "Terminei"}
         </button>
         <p className="text-center text-xs text-neutral-500">
-          Antes, mande as fotos e conte a solução logo abaixo.
+          Antes, mande as fotos e conte a solução logo abaixo. Depois, você
+          confere a OS e assina.
         </p>
         <Retorno estado={termino} />
       </div>

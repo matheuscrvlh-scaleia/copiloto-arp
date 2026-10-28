@@ -10,13 +10,15 @@ import { lerAtivo } from "@/server/os/chamado-detalhe";
 import { lerChamado } from "@/server/os/chamados";
 import { dadosDoFormulario } from "@/server/os/formulario";
 import { lojasDoModulo } from "@/server/os/lojas";
+import { ticketDoFinanceiro } from "@/server/os/ordem";
 import { NovoNaPagina } from "./novo-na-pagina";
 
 export const metadata: Metadata = { title: "Novo chamado" };
 
 // Abrir chamado com contexto pela URL: ?ativo=<id> (etiqueta QR do ativo),
 // ?loja=<id> (da lista de lojas em cache), ?vinculado=<id>, ?vistoria=<id>&ambiente=<id> ("Gerar OS"),
-// ?converter=<id> (Tarefa/Solicitação vira OS) e ?duplicar=<id>.
+// ?converter=<id> (Tarefa/Solicitação vira OS), ?duplicar=<id> e
+// ?financeiro=<id> (ticket do Financeiro de uma OS concluída).
 
 type Busca = Record<string, string | string[] | undefined>;
 
@@ -82,6 +84,8 @@ async function montarInicial(busca: Busca): Promise<InicialDoFormulario> {
   const lojaId = um(busca.loja);
   const vistoriaId = um(busca.vistoria);
   const ambienteId = um(busca.ambiente);
+  const financeiroId = um(busca.financeiro);
+  if (financeiroId) return inicialDoFinanceiro(financeiroId);
   if (!origemId && !vinculadoId && !ativoId && !lojaId && !vistoriaId)
     return inicial;
 
@@ -181,4 +185,19 @@ async function montarInicial(busca: Busca): Promise<InicialDoFormulario> {
     }
   }
   return inicial;
+}
+
+/** Ticket do Financeiro: setor dos Parâmetros, ligado à OS concluída. */
+async function inicialDoFinanceiro(osId: string): Promise<InicialDoFormulario> {
+  const t = await ticketDoFinanceiro(osId);
+  if (!t) return { contexto: [] };
+  return {
+    tipo: "solicitacao",
+    setorId: t.setorId ?? undefined,
+    titulo: t.titulo,
+    descricao: t.descricao,
+    lojaId: t.lojaId ?? undefined,
+    vinculadoAId: t.osId,
+    contexto: [{ rotulo: "Financeiro da OS", valor: t.rotuloOS }],
+  };
 }

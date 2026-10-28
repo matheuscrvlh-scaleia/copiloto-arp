@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { calcularOS } from "./calculos";
 import {
   almocoQueCabe,
+  assinaturaDoLink,
   envioGrandeDemais,
   erroDaSessao,
   erroDoArquivo,
@@ -162,6 +163,8 @@ describe("conclusão", () => {
     valorTerceirizado: null,
     teto: 1000,
     orcamentoAprovado: false,
+    assinaturaTerceirizado: null,
+    assinadaPelaArp: false,
   };
 
   it("interna sem pendência conclui", () => {
@@ -196,6 +199,28 @@ describe("conclusão", () => {
     expect(
       motivoParaNaoConcluir({ ...caro, orcamentoAprovado: true }),
     ).toBeNull();
+  });
+  it("com link, o terceirizado assina primeiro e a ARP por último", () => {
+    const t = {
+      ...base,
+      execucao: "terceirizada" as const,
+      solucao: "Troca do disjuntor",
+    };
+    expect(
+      motivoParaNaoConcluir({ ...t, assinaturaTerceirizado: false }),
+    ).toMatch(/terceirizado ainda não/);
+    expect(
+      motivoParaNaoConcluir({ ...t, assinaturaTerceirizado: true }),
+    ).toMatch(/assine como ARP/);
+    expect(
+      motivoParaNaoConcluir({
+        ...t,
+        assinaturaTerceirizado: true,
+        assinadaPelaArp: true,
+      }),
+    ).toBeNull();
+    // Sem link (ou cancelado/recusado), segue como antes.
+    expect(motivoParaNaoConcluir(t)).toBeNull();
   });
 });
 
@@ -242,7 +267,18 @@ describe("link do terceirizado", () => {
     chegada_em: null,
     terminado_em: null,
     cancelado_em: null,
+    assinado_em: null,
   };
+
+  it("assinatura: só espera pelo link que vale", () => {
+    expect(assinaturaDoLink([])).toBeNull();
+    expect(assinaturaDoLink([link])).toBe(false);
+    expect(assinaturaDoLink([{ ...link, assinado_em: "x" }])).toBe(true);
+    expect(assinaturaDoLink([{ ...link, recusado_em: "x" }])).toBeNull();
+    expect(assinaturaDoLink([{ ...link, cancelado_em: "x" }, link])).toBe(
+      false,
+    );
+  });
 
   it("etapa pelo que ele marcou", () => {
     expect(etapaDoTerceirizado(link)).toBe("enviado");
@@ -253,6 +289,9 @@ describe("link do terceirizado", () => {
     expect(
       etapaDoTerceirizado({ ...link, chegada_em: "y", terminado_em: "z" }),
     ).toBe("terminado");
+    expect(
+      etapaDoTerceirizado({ ...link, terminado_em: "z", assinado_em: "w" }),
+    ).toBe("assinado");
     expect(etapaDoTerceirizado({ ...link, recusado_em: "x" })).toBe("recusado");
     expect(
       etapaDoTerceirizado({ ...link, terminado_em: "z", cancelado_em: "w" }),

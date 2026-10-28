@@ -79,7 +79,7 @@ export function mensagemTerceirizado(
 // ---------------------------------------------------------------------------
 
 const COLUNAS_LINK =
-  "id, chamado_id, token, empresa_id, criado_por, criado_em, aceito_em, recusado_em, recusa_motivo, chegada_em, saida_em, solucao, valor_informado, orcamento_numero, terminado_em, cancelado_em" as const;
+  "id, chamado_id, token, empresa_id, criado_por, criado_em, aceito_em, recusado_em, recusa_motivo, chegada_em, saida_em, solucao, valor_informado, orcamento_numero, terminado_em, cancelado_em, assinado_em, assinatura_nome" as const;
 
 const COLUNAS_CHAMADO =
   "id, numero, titulo, descricao, status, prioridade, categoria_id, bloco, local, loja_id, empresa_id, visita_data, visita_periodo, prazo_terceirizado, responsavel_id, aberto_por, lixeira_em, solucao" as const;
@@ -106,6 +106,8 @@ type Link = Pick<
   | "orcamento_numero"
   | "terminado_em"
   | "cancelado_em"
+  | "assinado_em"
+  | "assinatura_nome"
 >;
 type ChamadoDoLink = Pick<
   Tabela<"chamados">,
@@ -206,7 +208,11 @@ export interface PaginaTerceirizado {
     | "solucao"
     | "valor_informado"
     | "orcamento_numero"
+    | "assinado_em"
+    | "assinatura_nome"
   >;
+  /** Solução que vai na OS (a dele, ou a que a ARP escreveu). */
+  solucaoDaOS: string | null;
 }
 
 /** O que a página pública mostra; grava o último acesso. */
@@ -325,7 +331,10 @@ export async function paginaDoTerceirizado(
       solucao: link.solucao,
       valor_informado: link.valor_informado,
       orcamento_numero: link.orcamento_numero,
+      assinado_em: link.assinado_em,
+      assinatura_nome: link.assinatura_nome,
     },
+    solucaoDaOS: chamado.solucao ?? link.solucao,
   };
 }
 

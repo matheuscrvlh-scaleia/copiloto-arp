@@ -20,6 +20,11 @@ export function rotaChamado(id: string): string {
   return `/os/chamados/${id}`;
 }
 
+/** Novo chamado para o Financeiro, preenchido com a OS concluída. */
+export function rotaTicketFinanceiro(osId: string): string {
+  return `/os/novo?financeiro=${osId}`;
+}
+
 /** Abre o chamado na janela lateral da tela atual (?c=<id>). */
 export const PARAM_PAINEL = "c";
 
