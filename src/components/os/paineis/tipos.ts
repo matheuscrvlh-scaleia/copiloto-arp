@@ -158,6 +158,8 @@ export interface CartaoPainel {
   titulo: string;
   valor: string;
   detalhe?: string;
+  /** Como o número é calculado (o "i" ao lado do título). */
+  calculo?: string;
   meta?: string;
   status?: Status;
   direcao?: Direcao;

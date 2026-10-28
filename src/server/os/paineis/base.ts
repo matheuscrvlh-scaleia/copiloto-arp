@@ -106,6 +106,7 @@ export function montarBase(ctx: Ctx): {
   const cartoes: CartaoPainel[] = [
     {
       titulo: "Em aberto",
+      calculo: `Abertos, em andamento ou aguardando ${ctx.quando}. Idade: dias desde a abertura, sem o tempo em Aguardando.`,
       valor: formatarNumero(n.abertos.length),
       detalhe: `Com a equipe ${ctx.quando} · idade média ${back.mediaDias === null ? "—" : `${formatarNumero(back.mediaDias, 1)} dias`}`,
       origem: listas.lista(`Em aberto ${ctx.quando}`, n.abertos, {
@@ -117,6 +118,7 @@ export function montarBase(ctx: Ctx): {
     },
     {
       titulo: "Atrasados",
+      calculo: `Em aberto com o prazo vencido ${ctx.quando}. % = atrasados ÷ em aberto.`,
       tom: "escuro",
       valor: formatarNumero(n.atrasados.length),
       detalhe: n.abertos.length
@@ -130,6 +132,8 @@ export function montarBase(ctx: Ctx): {
     },
     {
       titulo: "Fechados no período",
+      calculo:
+        "Concluídos dentro do período. Tempo médio: da abertura à conclusão, sem o tempo em Aguardando.",
       valor: formatarNumero(n.concluidos.length),
       detalhe: `${f.rotulo} · tempo médio ${tempoLegivel(n.resolucao.mediaMin)}`,
       // Só compara se a leitura do painel cobre o período anterior inteiro.
@@ -146,6 +150,8 @@ export function montarBase(ctx: Ctx): {
     },
     {
       titulo: "Fechados no prazo",
+      calculo:
+        "Concluídos até o prazo ÷ concluídos que tinham prazo. Os sem prazo ficam fora da conta.",
       tom: "verde",
       valor: formatarPct(n.prazo.pct),
       status: status(n.prazo.pct, metaPct),

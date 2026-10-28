@@ -1,4 +1,4 @@
-import { FlaskConical, Maximize2 } from "lucide-react";
+import { FlaskConical, Info, Maximize2 } from "lucide-react";
 import { TOM, type Tom } from "@/components/estilos";
 import { type Direcao, rotuloStatus, type Status } from "@/lib/indicadores";
 import { AbreDetalhe, type Detalhe } from "../modal-detalhe";
@@ -65,12 +65,15 @@ export function CartaoIndicador({
   variacao,
   serie,
   origem,
+  calculo,
   tom = "claro",
   children,
 }: {
   titulo: string;
   valor: string;
   detalhe?: string;
+  /** Como o número é calculado, em uma frase (o "i" ao lado do título). */
+  calculo?: string;
   status?: Status;
   direcao?: Direcao;
   meta?: string;
@@ -88,7 +91,7 @@ export function CartaoIndicador({
       <div
         className={`${TOM[tom]} flutua flex h-full flex-col gap-3 rounded-[1.75rem] p-5`}
       >
-        <Titulo texto={titulo} clicavel={!!origem} />
+        <Titulo texto={titulo} clicavel={!!origem} calculo={calculo} />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <p className="text-3xl font-semibold tracking-tight">{valor}</p>
           {status && <SeloStatus status={status} direcao={direcao} />}
@@ -171,10 +174,32 @@ function ComDetalhe({
   );
 }
 
-function Titulo({ texto, clicavel }: { texto: string; clicavel: boolean }) {
+function Titulo({
+  texto,
+  clicavel,
+  calculo,
+}: {
+  texto: string;
+  clicavel: boolean;
+  calculo?: string;
+}) {
   return (
     <p className="flex items-start justify-between gap-2 text-sm font-medium text-neutral-600">
-      {texto}
+      <span className="flex items-center gap-1.5">
+        {texto}
+        {calculo && (
+          <span className="group/calculo relative inline-flex">
+            <Info className="size-3.5 opacity-40" aria-hidden />
+            <span className="sr-only">{calculo}</span>
+            <span
+              aria-hidden
+              className="pointer-events-none invisible absolute top-full left-0 z-20 mt-1.5 w-60 rounded-xl bg-neutral-900 px-3 py-2 text-xs font-normal leading-snug text-white opacity-0 shadow-lg transition group-hover/calculo:visible group-hover/calculo:opacity-100"
+            >
+              {calculo}
+            </span>
+          </span>
+        )}
+      </span>
       {clicavel && (
         <span
           title="Ver de onde vêm os dados"
