@@ -140,6 +140,32 @@ function Conteudo({
   // biome-ignore lint/correctness/useExhaustiveDependencies: a lista nova do servidor substitui as mudanças locais
   useEffect(() => setMovidos(new Map()), [doServidor]);
 
+  // Altura do quadro: do topo dele até o fim da janela, menos o respiro de
+  // baixo (padding dos pais). O que fica acima (filtros que quebram linha,
+  // descrição) varia, então medir evita a rolagem da página inteira.
+  const quadro = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = quadro.current;
+    if (!el) return;
+    const ajustar = () => {
+      let abaixo = 0;
+      for (let p = el.parentElement; p; p = p.parentElement)
+        abaixo += Number.parseFloat(getComputedStyle(p).paddingBottom) || 0;
+      const topo = el.getBoundingClientRect().top + window.scrollY;
+      el.style.height = `${window.innerHeight - topo - abaixo}px`;
+    };
+    ajustar();
+    // O pai do quadro inclui os filtros: se quebram linha, o topo muda.
+    const obs = new ResizeObserver(ajustar);
+    if (el.parentElement?.parentElement)
+      obs.observe(el.parentElement.parentElement);
+    window.addEventListener("resize", ajustar);
+    return () => {
+      obs.disconnect();
+      window.removeEventListener("resize", ajustar);
+    };
+  }, []);
+
   /** "Mostrar mais" da coluna: mais cartões pela URL (o servidor busca). */
   function mostrarMais(s: StatusChamado) {
     const p = new URLSearchParams(params);
@@ -276,8 +302,12 @@ function Conteudo({
         </div>
         {/* Só rola de lado: com overflow-x, o eixo vertical também viraria
             "auto" e o quadro rolaria por dentro, escondendo o cabeçalho das
-            colunas. A altura é a da janela; cada coluna rola os seus cartões. */}
-        <div className="-mx-4 flex h-[calc(100dvh-12rem)] min-h-[26rem] snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain px-4 pb-3 md:mx-0 md:h-[calc(100dvh-17rem)] md:px-0">
+            colunas. A altura vai até o fim da janela (medida acima; o calc
+            vale só até a página hidratar); cada coluna rola os seus cartões. */}
+        <div
+          ref={quadro}
+          className="-mx-4 flex h-[calc(100dvh-12rem)] min-h-[26rem] snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain px-4 pb-3 md:mx-0 md:h-[calc(100dvh-23rem)] md:px-0"
+        >
           {COLUNAS_QUADRO.map((s) =>
             s === "fechado" && !fechadoAberto && !comFechados ? (
               <ColunaRecolhida
