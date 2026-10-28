@@ -1,12 +1,16 @@
 import {
   ArrowDown,
   ArrowUp,
+  BatteryFull,
+  ChevronRight,
   Copy,
   Pencil,
   Plus,
   Power,
+  Signal,
   Smartphone,
   Tags,
+  Wifi,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -16,6 +20,7 @@ import { Situacao } from "@/components/admin/ui";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { NotificarAoAbrir } from "@/components/notificacoes";
 import { IconeCatalogo, SeloIcone } from "@/components/os/configuracoes/icones";
+import { Logo } from "@/components/os/portal/publico/visual";
 import { IconeTipo } from "@/components/os/selos";
 import { Cartao } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
@@ -231,7 +236,6 @@ async function Catalogo({ busca }: { busca: Promise<Busca> }) {
         <Etiquetas lista={etiquetas} />
         <PreviaDoPortal
           categorias={todas.filter((c) => c.no_portal && c.ativo)}
-          setores={todosSetores}
           boasVindas={p.portal_boas_vindas}
         />
       </div>
@@ -427,17 +431,15 @@ function Etiquetas({
   );
 }
 
-/** Como o lojista vê os pedidos no portal (só ilustração; nada é enviado). */
+/** Como o lojista vê os pedidos no portal (só ilustração; nada é enviado):
+ *  um iPhone com o início do portal, nas mesmas peças da página real. */
 function PreviaDoPortal({
   categorias: lista,
-  setores: todosSetores,
   boasVindas,
 }: {
   categorias: Categoria[];
-  setores: Setor[];
   boasVindas: string;
 }) {
-  const corDoSetor = new Map(todosSetores.map((s) => [s.id, s.cor]));
   return (
     <Cartao>
       <h2 className="flex items-center gap-2 text-base font-semibold">
@@ -448,47 +450,123 @@ function PreviaDoPortal({
         Prévia do portal com as categorias marcadas para o lojista, de todos os
         setores. A mensagem de boas-vindas fica em Parâmetros.
       </p>
-      <div className="mx-auto mt-4 w-full max-w-sm rounded-[2rem] border-4 border-neutral-900/80 bg-white p-4 text-neutral-900 shadow-xl">
-        <p className="text-xs text-neutral-500">Loja Exemplo · Bloco A</p>
-        <p className="mt-1 text-sm">
-          {boasVindas || "Olá! Por aqui você faz pedidos à administração."}
-        </p>
-        <p className="mt-4 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
-          Novo pedido
-        </p>
-        {lista.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-500">
-            Nenhuma categoria aparece no portal.
-          </p>
-        ) : (
-          <ul className="mt-2 flex flex-col gap-2">
-            {lista.map((c) => (
-              <li
-                key={c.id}
-                className="flex items-start gap-3 rounded-2xl border border-neutral-200 p-3"
-              >
-                <span
-                  aria-hidden
-                  className="grid size-8 shrink-0 place-items-center rounded-full text-white"
-                  style={{
-                    backgroundColor:
-                      c.cor ?? corDoSetor.get(c.setor_id) ?? "#525252",
-                  }}
-                >
-                  <IconeCatalogo nome={c.icone} />
+      {/* Aparelho com cores fixas, para não inverter no tema escuro. */}
+      <div className="relative mx-auto mt-6 w-full max-w-[372px] rounded-[3.25rem] bg-[#1c1c1e] p-[11px] shadow-2xl ring-1 ring-[#3a3a3c]">
+        <span
+          aria-hidden
+          className="absolute top-28 -left-[3px] h-8 w-[3px] rounded-l bg-[#2c2c2e]"
+        />
+        <span
+          aria-hidden
+          className="absolute top-40 -left-[3px] h-14 w-[3px] rounded-l bg-[#2c2c2e]"
+        />
+        <span
+          aria-hidden
+          className="absolute top-56 -left-[3px] h-14 w-[3px] rounded-l bg-[#2c2c2e]"
+        />
+        <span
+          aria-hidden
+          className="absolute top-44 -right-[3px] h-20 w-[3px] rounded-r bg-[#2c2c2e]"
+        />
+        <div
+          className="relative aspect-[390/844] overflow-hidden rounded-[2.6rem] bg-neutral-50 text-neutral-900"
+          style={{
+            // A aurora do portal, parada.
+            backgroundImage:
+              "radial-gradient(24rem 24rem at -10% -5%, rgb(88 192 105 / 0.3), transparent 70%), radial-gradient(20rem 20rem at 110% 35%, rgb(143 217 155 / 0.26), transparent 70%), radial-gradient(22rem 22rem at 40% 110%, rgb(47 125 61 / 0.16), transparent 70%)",
+          }}
+        >
+          <div className="absolute inset-x-0 top-0 z-10 flex h-12 items-center justify-between px-7 text-[15px] font-semibold">
+            <span className="tabular-nums">9:41</span>
+            <span aria-hidden className="flex items-center gap-1.5">
+              <Signal className="size-4" strokeWidth={2.5} />
+              <Wifi className="size-4" strokeWidth={2.5} />
+              <BatteryFull className="size-5" />
+            </span>
+          </div>
+          <span
+            aria-hidden
+            className="absolute top-3 left-1/2 z-10 h-[30px] w-[104px] -translate-x-1/2 rounded-full bg-black"
+          />
+          <div className="flex h-full flex-col gap-5 overflow-y-auto px-4 pt-14 pb-10 [scrollbar-width:none]">
+            <div className="vidro flex flex-col gap-5 rounded-[1.75rem] p-5">
+              <div className="flex items-center justify-between gap-3">
+                <Logo />
+                <span className="px-3 py-1.5 text-sm text-neutral-500">
+                  Trocar de loja
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium">{c.nome}</span>
-                  {c.orientacao_portal && (
-                    <span className="block text-xs text-neutral-500">
-                      {c.orientacao_portal}
-                    </span>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+              </div>
+              <div>
+                <p className="text-3xl font-semibold tracking-tight">
+                  Loja Exemplo
+                </p>
+                <p className="mt-1 text-sm text-neutral-500">
+                  LUC 101 · Bloco A
+                </p>
+              </div>
+              {boasVindas && (
+                <p className="text-sm text-neutral-700">{boasVindas}</p>
+              )}
+              <span className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-neutral-900 px-6 py-3.5 text-base font-semibold text-white shadow-lg">
+                <Plus className="size-5" aria-hidden />
+                Fazer um pedido
+              </span>
+            </div>
+            <div className="vidro rounded-[1.75rem] p-5">
+              <p className="text-lg font-semibold">Fazer um pedido</p>
+              <p className="mt-1 text-sm text-neutral-500">
+                Escolha o que você precisa.
+              </p>
+              {lista.length ? (
+                <ul className="mt-4 flex flex-col gap-3">
+                  {lista.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex items-center gap-4 rounded-2xl border border-neutral-900/[0.06] bg-white/70 p-4"
+                    >
+                      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-marca text-[#fff] shadow-sm">
+                        <IconeCatalogo nome={c.icone} className="size-6" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-base font-semibold">
+                          {c.nome}
+                        </span>
+                        {c.orientacao_portal && (
+                          <span className="mt-0.5 line-clamp-2 block text-xs text-neutral-500">
+                            {c.orientacao_portal}
+                          </span>
+                        )}
+                      </span>
+                      <ChevronRight
+                        className="size-5 shrink-0 text-neutral-400"
+                        aria-hidden
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-sm text-neutral-500">
+                  Nenhum tipo de pedido disponível agora. Fale com a
+                  administração.
+                </p>
+              )}
+            </div>
+            <div className="vidro rounded-[1.75rem] p-5">
+              <p className="text-lg font-semibold">Meus pedidos</p>
+              <p className="mt-2 text-sm text-neutral-500">
+                Os pedidos da sua loja aparecem aqui, com o andamento de cada
+                um.
+              </p>
+            </div>
+            <p className="text-center text-xs text-neutral-500">
+              Portal do lojista · Espaço ARP, Nova Friburgo
+            </p>
+          </div>
+          <span
+            aria-hidden
+            className="absolute bottom-2 left-1/2 h-[5px] w-32 -translate-x-1/2 rounded-full bg-neutral-900"
+          />
+        </div>
       </div>
     </Cartao>
   );
