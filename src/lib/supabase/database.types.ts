@@ -836,10 +836,8 @@ export type Database = {
           chamado_id: string | null
           criado_em: string
           criado_por: string | null
-          exemplo: boolean
           fim: string
           id: string
-          importacao_id: string | null
           inicio: string
           loja_id: string | null
           observacao: string | null
@@ -851,10 +849,8 @@ export type Database = {
           chamado_id?: string | null
           criado_em?: string
           criado_por?: string | null
-          exemplo?: boolean
           fim: string
           id?: string
-          importacao_id?: string | null
           inicio: string
           loja_id?: string | null
           observacao?: string | null
@@ -866,10 +862,8 @@ export type Database = {
           chamado_id?: string | null
           criado_em?: string
           criado_por?: string | null
-          exemplo?: boolean
           fim?: string
           id?: string
-          importacao_id?: string | null
           inicio?: string
           loja_id?: string | null
           observacao?: string | null
@@ -954,9 +948,7 @@ export type Database = {
           enviado_por: string | null
           enviado_por_nome: string | null
           evento_id: number | null
-          exemplo: boolean
           id: string
-          importacao_id: string | null
           mime: string | null
           nome: string
           path: string
@@ -973,9 +965,7 @@ export type Database = {
           enviado_por?: string | null
           enviado_por_nome?: string | null
           evento_id?: number | null
-          exemplo?: boolean
           id?: string
-          importacao_id?: string | null
           mime?: string | null
           nome: string
           path: string
@@ -992,9 +982,7 @@ export type Database = {
           enviado_por?: string | null
           enviado_por_nome?: string | null
           evento_id?: number | null
-          exemplo?: boolean
           id?: string
-          importacao_id?: string | null
           mime?: string | null
           nome?: string
           path?: string
@@ -1111,12 +1099,10 @@ export type Database = {
           compra_data: string | null
           compra_valor: number | null
           criado_em: string
-          exemplo: boolean
           fabricante: string | null
           fornecedor_id: string | null
           garantia_fim: string | null
           id: string
-          importacao_id: string | null
           legado_id: string | null
           loja_id: string | null
           modelo: string | null
@@ -1141,12 +1127,10 @@ export type Database = {
           compra_data?: string | null
           compra_valor?: number | null
           criado_em?: string
-          exemplo?: boolean
           fabricante?: string | null
           fornecedor_id?: string | null
           garantia_fim?: string | null
           id?: string
-          importacao_id?: string | null
           legado_id?: string | null
           loja_id?: string | null
           modelo?: string | null
@@ -1171,12 +1155,10 @@ export type Database = {
           compra_data?: string | null
           compra_valor?: number | null
           criado_em?: string
-          exemplo?: boolean
           fabricante?: string | null
           fornecedor_id?: string | null
           garantia_fim?: string | null
           id?: string
-          importacao_id?: string | null
           legado_id?: string | null
           loja_id?: string | null
           modelo?: string | null
@@ -1398,17 +1380,13 @@ export type Database = {
           empresa_id: string | null
           etiquetas: string[]
           execucao: Database["os"]["Enums"]["execucao"] | null
-          exemplo: boolean
           fechado_automatico: boolean
           fechado_em: string | null
           fechado_por: string | null
           id: string
-          importacao_id: string | null
           iniciado_em: string | null
           legado_id: string | null
           legado_origem: string | null
-          lixeira_em: string | null
-          lixeira_por: string | null
           local: string | null
           loja_id: string | null
           motivo_cancelamento: string | null
@@ -1475,17 +1453,13 @@ export type Database = {
           empresa_id?: string | null
           etiquetas?: string[]
           execucao?: Database["os"]["Enums"]["execucao"] | null
-          exemplo?: boolean
           fechado_automatico?: boolean
           fechado_em?: string | null
           fechado_por?: string | null
           id?: string
-          importacao_id?: string | null
           iniciado_em?: string | null
           legado_id?: string | null
           legado_origem?: string | null
-          lixeira_em?: string | null
-          lixeira_por?: string | null
           local?: string | null
           loja_id?: string | null
           motivo_cancelamento?: string | null
@@ -1552,17 +1526,13 @@ export type Database = {
           empresa_id?: string | null
           etiquetas?: string[]
           execucao?: Database["os"]["Enums"]["execucao"] | null
-          exemplo?: boolean
           fechado_automatico?: boolean
           fechado_em?: string | null
           fechado_por?: string | null
           id?: string
-          importacao_id?: string | null
           iniciado_em?: string | null
           legado_id?: string | null
           legado_origem?: string | null
-          lixeira_em?: string | null
-          lixeira_por?: string | null
           local?: string | null
           loja_id?: string | null
           motivo_cancelamento?: string | null
@@ -1680,9 +1650,7 @@ export type Database = {
           atualizado_em: string
           criado_em: string
           empresa: string | null
-          exemplo: boolean
           id: string
-          importacao_id: string | null
           legado_id: string | null
           nome: string
           observacao: string | null
@@ -1692,9 +1660,7 @@ export type Database = {
           atualizado_em?: string
           criado_em?: string
           empresa?: string | null
-          exemplo?: boolean
           id?: string
-          importacao_id?: string | null
           legado_id?: string | null
           nome: string
           observacao?: string | null
@@ -1704,9 +1670,7 @@ export type Database = {
           atualizado_em?: string
           criado_em?: string
           empresa?: string | null
-          exemplo?: boolean
           id?: string
-          importacao_id?: string | null
           legado_id?: string | null
           nome?: string
           observacao?: string | null
@@ -1843,9 +1807,7 @@ export type Database = {
           contato: string | null
           criado_em: string
           email: string | null
-          exemplo: boolean
           id: string
-          importacao_id: string | null
           legado_id: string | null
           nome: string
           prazo_retorno_dias: number | null
@@ -1859,9 +1821,7 @@ export type Database = {
           contato?: string | null
           criado_em?: string
           email?: string | null
-          exemplo?: boolean
           id?: string
-          importacao_id?: string | null
           legado_id?: string | null
           nome: string
           prazo_retorno_dias?: number | null
@@ -1875,9 +1835,7 @@ export type Database = {
           contato?: string | null
           criado_em?: string
           email?: string | null
-          exemplo?: boolean
           id?: string
-          importacao_id?: string | null
           legado_id?: string | null
           nome?: string
           prazo_retorno_dias?: number | null
@@ -1945,54 +1903,6 @@ export type Database = {
         }
         Relationships: []
       }
-      importacoes: {
-        Row: {
-          arquivo_nome: string
-          arquivo_path: string | null
-          confirmado_em: string | null
-          confirmado_por: string | null
-          criado_em: string
-          desfeito_em: string | null
-          desfeito_por: string | null
-          enviado_por: string | null
-          id: string
-          mapeamento: Json
-          problemas: Json
-          resumo: Json
-          status: string
-        }
-        Insert: {
-          arquivo_nome: string
-          arquivo_path?: string | null
-          confirmado_em?: string | null
-          confirmado_por?: string | null
-          criado_em?: string
-          desfeito_em?: string | null
-          desfeito_por?: string | null
-          enviado_por?: string | null
-          id?: string
-          mapeamento?: Json
-          problemas?: Json
-          resumo?: Json
-          status?: string
-        }
-        Update: {
-          arquivo_nome?: string
-          arquivo_path?: string | null
-          confirmado_em?: string | null
-          confirmado_por?: string | null
-          criado_em?: string
-          desfeito_em?: string | null
-          desfeito_por?: string | null
-          enviado_por?: string | null
-          id?: string
-          mapeamento?: Json
-          problemas?: Json
-          resumo?: Json
-          status?: string
-        }
-        Relationships: []
-      }
       lojas: {
         Row: {
           atualizado_em: string
@@ -2001,7 +1911,6 @@ export type Database = {
           contrato: string | null
           criado_em: string
           enet_id: string | null
-          exemplo: boolean
           fim: string | null
           id: string
           inicio: string | null
@@ -2019,7 +1928,6 @@ export type Database = {
           contrato?: string | null
           criado_em?: string
           enet_id?: string | null
-          exemplo?: boolean
           fim?: string | null
           id?: string
           inicio?: string | null
@@ -2037,7 +1945,6 @@ export type Database = {
           contrato?: string | null
           criado_em?: string
           enet_id?: string | null
-          exemplo?: boolean
           fim?: string | null
           id?: string
           inicio?: string | null
@@ -2521,7 +2428,6 @@ export type Database = {
           checklist: Json
           criado_em: string
           descricao: string | null
-          exemplo: boolean
           frequencia_dias: number | null
           frequencia_meses: number | null
           id: string
@@ -2539,7 +2445,6 @@ export type Database = {
           checklist?: Json
           criado_em?: string
           descricao?: string | null
-          exemplo?: boolean
           frequencia_dias?: number | null
           frequencia_meses?: number | null
           id?: string
@@ -2557,7 +2462,6 @@ export type Database = {
           checklist?: Json
           criado_em?: string
           descricao?: string | null
-          exemplo?: boolean
           frequencia_dias?: number | null
           frequencia_meses?: number | null
           id?: string
@@ -2699,9 +2603,7 @@ export type Database = {
           atualizado_em: string
           criado_em: string
           empresa_id: string
-          exemplo: boolean
           id: string
-          importacao_id: string | null
           legado_id: string | null
           nome: string
           telefone: string | null
@@ -2711,9 +2613,7 @@ export type Database = {
           atualizado_em?: string
           criado_em?: string
           empresa_id: string
-          exemplo?: boolean
           id?: string
-          importacao_id?: string | null
           legado_id?: string | null
           nome: string
           telefone?: string | null
@@ -2723,9 +2623,7 @@ export type Database = {
           atualizado_em?: string
           criado_em?: string
           empresa_id?: string
-          exemplo?: boolean
           id?: string
-          importacao_id?: string | null
           legado_id?: string | null
           nome?: string
           telefone?: string | null
@@ -2781,7 +2679,6 @@ export type Database = {
           data: string
           fim: string | null
           id: string
-          importacao_id: string | null
           inicio: string
           observacao: string | null
         }
@@ -2795,7 +2692,6 @@ export type Database = {
           data: string
           fim?: string | null
           id?: string
-          importacao_id?: string | null
           inicio: string
           observacao?: string | null
         }
@@ -2809,7 +2705,6 @@ export type Database = {
           data?: string
           fim?: string | null
           id?: string
-          importacao_id?: string | null
           inicio?: string
           observacao?: string | null
         }
@@ -2919,9 +2814,7 @@ export type Database = {
           atualizado_em: string
           criado_em: string
           desligado_em: string | null
-          exemplo: boolean
           id: string
-          importacao_id: string | null
           legado_id: string | null
           nome: string
           setor_id: string | null
@@ -2931,9 +2824,7 @@ export type Database = {
           atualizado_em?: string
           criado_em?: string
           desligado_em?: string | null
-          exemplo?: boolean
           id?: string
-          importacao_id?: string | null
           legado_id?: string | null
           nome: string
           setor_id?: string | null
@@ -2943,9 +2834,7 @@ export type Database = {
           atualizado_em?: string
           criado_em?: string
           desligado_em?: string | null
-          exemplo?: boolean
           id?: string
-          importacao_id?: string | null
           legado_id?: string | null
           nome?: string
           setor_id?: string | null
@@ -3128,10 +3017,8 @@ export type Database = {
           criado_por: string | null
           data: string
           entrada_id: string | null
-          exemplo: boolean
           hora: string | null
           id: string
-          importacao_id: string | null
           itens_anteriores: string | null
           legado_id: string | null
           locador: string
@@ -3166,10 +3053,8 @@ export type Database = {
           criado_por?: string | null
           data: string
           entrada_id?: string | null
-          exemplo?: boolean
           hora?: string | null
           id?: string
-          importacao_id?: string | null
           itens_anteriores?: string | null
           legado_id?: string | null
           locador: string
@@ -3204,10 +3089,8 @@ export type Database = {
           criado_por?: string | null
           data?: string
           entrada_id?: string | null
-          exemplo?: boolean
           hora?: string | null
           id?: string
-          importacao_id?: string | null
           itens_anteriores?: string | null
           legado_id?: string | null
           locador?: string
@@ -3275,10 +3158,6 @@ export type Database = {
           atrasados: number
           responsavel_id: string
         }[]
-      }
-      desfazer_importacao: {
-        Args: { p_importacao: string }
-        Returns: undefined
       }
       edita_chamado: {
         Args: {

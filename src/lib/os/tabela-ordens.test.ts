@@ -20,7 +20,6 @@ const linha: LinhaOSTela = {
   rateio: true,
   valor: 150,
   valorRateio: 75,
-  exemplo: false,
   href: "/os/ordens?c=1",
 };
 

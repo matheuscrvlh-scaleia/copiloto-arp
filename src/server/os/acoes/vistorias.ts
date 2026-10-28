@@ -653,7 +653,6 @@ export async function prepararEnvio(entrada: {
         .from("chamados")
         .select("id, tipo, ambiente_id")
         .eq("vistoria_id", id)
-        .is("lixeira_em", null)
         .order("criado_em"),
       db
         .from("anexos")

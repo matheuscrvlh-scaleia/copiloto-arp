@@ -50,7 +50,7 @@ import { type Cadastros, cadastros, localDa } from "./ordem-consulta";
 // conferir que a pessoa mexe no chamado.
 
 const COLUNAS_CHAMADO =
-  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, status, prioridade, aberto_por, responsavel_id, loja_id, ativo_id, execucao, local, bloco, empresa_id, visita_data, visita_periodo, prazo_terceirizado, solucao, causa_falha, ativo_parado, rateio, assinatura_nome, assinatura_path, assinado_em, criado_em, concluido_em, fechado_em, legado_origem, lixeira_em, checklist, pessoal, precisa_confirmacao" as const;
+  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, status, prioridade, aberto_por, responsavel_id, loja_id, ativo_id, execucao, local, bloco, empresa_id, visita_data, visita_periodo, prazo_terceirizado, solucao, causa_falha, ativo_parado, rateio, assinatura_nome, assinatura_path, assinado_em, criado_em, concluido_em, fechado_em, legado_origem, checklist, pessoal, precisa_confirmacao" as const;
 
 export type ChamadoOS = Pick<
   Tabela<"chamados">,
@@ -85,7 +85,6 @@ export type ChamadoOS = Pick<
   | "concluido_em"
   | "fechado_em"
   | "legado_origem"
-  | "lixeira_em"
   | "checklist"
   | "pessoal"
   | "precisa_confirmacao"

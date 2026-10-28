@@ -3,7 +3,7 @@
 import { Printer, Timer, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { SeloExemplo, SeloStatusChamado } from "@/components/os/selos";
+import { SeloStatusChamado } from "@/components/os/selos";
 import { formatarMoeda, formatarNumero } from "@/lib/formato";
 import { formatarDuracao } from "@/lib/os/calculos";
 import { MAXIMO_LOTE_PDF, rotaPdfOS } from "@/lib/os/ordem";
@@ -204,7 +204,6 @@ export function ListaOrdens({
                       </span>
                       {l.tipoServico}
                       {l.rodando && <Rodando />}
-                      {l.exemplo && <SeloExemplo />}
                     </span>
                     <span className="mt-0.5 block font-medium break-words">
                       {l.titulo}
@@ -311,7 +310,6 @@ export function ListaOrdens({
                           </>
                         )}
                         {l.rodando && <Rodando />}
-                        {l.exemplo && <SeloExemplo />}
                       </span>
                       <span className="mt-1 block">
                         <Periodos texto={l.periodos} />

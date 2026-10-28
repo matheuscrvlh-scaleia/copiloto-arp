@@ -58,7 +58,6 @@ export interface NovoChamadoSistema {
     prazo?: Date | null;
     responsavelId?: string | null;
   }[];
-  exemplo?: boolean;
   /** Texto da notificação no lugar do padrão ("Preventiva criada."). */
   aviso?: { tipo: string; texto: string };
 }
@@ -135,7 +134,6 @@ export async function criarChamadoSistema(
       checklist: checklist as Json,
       etiquetas: n.etiquetas ?? [],
       execucao: tipo === "os" ? "interna" : null,
-      exemplo: n.exemplo ?? false,
     })
     .select("id, numero, responsavel_id")
     .single();

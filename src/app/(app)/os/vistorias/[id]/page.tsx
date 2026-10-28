@@ -5,11 +5,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Secao } from "@/components/admin/ui";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
-import {
-  SeloExemplo,
-  SeloStatusChamado,
-  SeloTipo,
-} from "@/components/os/selos";
+import { SeloStatusChamado, SeloTipo } from "@/components/os/selos";
 import { EditorVistoria } from "@/components/os/vistorias/editor";
 import { EnviarLaudo } from "@/components/os/vistorias/enviar";
 import {
@@ -142,7 +138,6 @@ async function Conteudo({
               Rascunho
             </span>
           )}
-          {v.exemplo && <SeloExemplo />}
         </h1>
         <p className="text-sm text-neutral-500">
           {[

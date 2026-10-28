@@ -35,11 +35,7 @@ import {
   SeloSinal,
   SeloSituacaoAtivo,
 } from "@/components/os/ativos/selos";
-import {
-  SeloExemplo,
-  SeloStatusChamado,
-  SeloTipo,
-} from "@/components/os/selos";
+import { SeloStatusChamado, SeloTipo } from "@/components/os/selos";
 import { tonsDaTela } from "@/components/os/tons";
 import { SemAcesso } from "@/components/protegido";
 import {
@@ -334,7 +330,6 @@ function Cabecalho({
             {ficha.faltas.length > 0 && ficha.sinal.sinal !== "incompleto" && (
               <SeloIncompleto faltas={ficha.faltas} />
             )}
-            {a.exemplo && <SeloExemplo />}
           </div>
         </div>
       </div>

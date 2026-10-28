@@ -73,7 +73,6 @@ export async function blocosDoPortal(ctx: Ctx): Promise<Bloco[]> {
   // Agendas: só as que alguma categoria do recorte usa.
   const usadas = new Set(cats.map((c) => c.agenda_id).filter(Boolean));
   const agendas = agenda.agendas.filter((a) => usadas.has(a.id));
-  if (agenda.agendamentos.some((a) => a.exemplo)) ctx.exemplo = true;
   const numerosAgenda = agendas.map((a) => {
     const marcados = agenda.agendamentos.filter((x) => x.agenda_id === a.id);
     const bloqueios = agenda.bloqueios.filter((b) => b.agenda_id === a.id);
@@ -263,7 +262,7 @@ function detalheDeVistorias(titulo: string, vs: VistoriaDoPainel[]): Detalhe {
         linhas: vs.map((v) => ({
           chave: v.id,
           celulas: [
-            `${v.codigo}${v.exemplo ? " (exemplo)" : ""}`,
+            v.codigo,
             TIPOS_VISTORIA[v.tipo],
             formatarData(v.data),
             v.locatario,
@@ -300,7 +299,6 @@ export async function blocosDeVistorias(
     f.periodo.ate,
   );
   if (vistorias.length === 0) return [];
-  if (vistorias.some((v) => v.exemplo)) ctx.exemplo = true;
 
   const aguardando = vistorias.filter(
     (v) => v.status !== "cancelado" && !v.rascunho && !v.assinado_em,

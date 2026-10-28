@@ -129,11 +129,7 @@ async function linhasAntigas(
 ): Promise<{ responsavel_id: string | null; prazo: string | null }[]> {
   const status = statusDaConsulta(b.status);
   if (!status.length) return [];
-  const onde = [
-    "lixeira_em is null",
-    "setor_id = $1",
-    "status::text = any ($2)",
-  ];
+  const onde = ["setor_id = $1", "status::text = any ($2)"];
   const valores: unknown[] = [b.setor, status];
   const mais = (sql: string, v: unknown) => {
     valores.push(v);
@@ -273,7 +269,7 @@ beforeAll(async () => {
   // Chamados variados no setor S (e alguns em M, que não podem contar):
   // todos os status, responsáveis (do setor, de fora, a fila), prazos
   // (vencido, exatamente agora, no futuro, sem prazo), tipos, prioridades,
-  // categorias, etiquetas, datas de abertura e alguns na lixeira.
+  // categorias, etiquetas, datas de abertura.
   const STATUS = [
     "aberto",
     "em_andamento",
@@ -315,7 +311,6 @@ beforeAll(async () => {
       etiquetas: ETIQUETAS[(i >> 2) % ETIQUETAS.length] as string[],
       aberto_por: i % 13 === 0 ? U.bia : null,
       criado_em: `2026-10-${dia}T${hora}`,
-      lixeira_em: i % 17 === 0 ? "2026-10-25T12:00:00Z" : null,
     });
   }
 }, 60_000);

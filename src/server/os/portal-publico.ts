@@ -283,14 +283,13 @@ export interface Pedido extends LinhaPedido {
   camposDaCategoria: CampoExtra[];
 }
 
-/** Pedidos que a loja fez pelo portal (fora da lixeira), do mais novo. */
+/** Pedidos que a loja fez pelo portal, do mais novo. */
 export async function pedidosDaLoja(lojaId: string): Promise<Pedido[]> {
   const { data, error } = await osAdmin()
     .from("chamados")
     .select(COLUNAS_PEDIDO)
     .eq("loja_id", lojaId)
     .eq("origem", "portal")
-    .is("lixeira_em", null)
     // Convertido em OS: a loja acompanha pela OS (que também é do portal).
     .is("convertido_em_id", null)
     .order("criado_em", { ascending: false })
@@ -325,7 +324,6 @@ export async function pedidoParaAcao(lojaId: string, id: string) {
     .eq("id", id)
     .eq("loja_id", lojaId)
     .eq("origem", "portal")
-    .is("lixeira_em", null)
     .maybeSingle();
   if (error) throw new Error(`Pedido: ${error.message}`);
   return data;
@@ -385,7 +383,6 @@ export async function pedidoDaLoja(
       .eq("id", id)
       .eq("loja_id", lojaId)
       .eq("origem", "portal")
-      .is("lixeira_em", null)
       .maybeSingle(),
     db
       .from("chamados")

@@ -9,7 +9,6 @@ import { Secao } from "@/components/dashboard/tabela";
 import { BotaoExportar } from "@/components/os/exportar";
 import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import { ListaBusca } from "@/components/os/portal/lista-busca";
-import { SeloExemplo } from "@/components/os/selos";
 import { SemAcesso } from "@/components/protegido";
 import { formatarData } from "@/lib/formato";
 import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
@@ -135,7 +134,6 @@ async function Lojas({
                     {l.enet_id && (
                       <span className="text-xs text-neutral-500">ENET</span>
                     )}
-                    {l.exemplo && <SeloExemplo />}
                   </span>
                   <span className="mt-1 block text-xs text-neutral-500">
                     {[

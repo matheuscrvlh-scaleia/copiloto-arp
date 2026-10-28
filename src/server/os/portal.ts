@@ -126,10 +126,7 @@ export async function encerrarComSessao(
 }
 
 export interface LinhaDoPortal {
-  loja: Pick<
-    Loja,
-    "id" | "luc" | "nome" | "bloco" | "telefone" | "cnpj" | "exemplo"
-  >;
+  loja: Pick<Loja, "id" | "luc" | "nome" | "bloco" | "telefone" | "cnpj">;
   /** Último acesso de qualquer sessão; dentro: tem sessão aberta agora. */
   acesso: { ultimo: string | null; dentro: boolean };
   /** WhatsApp com a mensagem e o link do portal. */
@@ -200,7 +197,6 @@ function filtrarLojas<Q extends Filtravel<Q>>(
     case "pedidos":
       return r
         .eq("ped.origem", "portal")
-        .is("ped.lixeira_em", null)
         .gte("ped.criado_em", inicioDoMes(agora));
     case "avaliadas":
       return r
@@ -212,7 +208,7 @@ function filtrarLojas<Q extends Filtravel<Q>>(
   }
 }
 
-const COLUNAS_LOJA = "id, luc, nome, bloco, telefone, cnpj, exemplo" as const;
+const COLUNAS_LOJA = "id, luc, nome, bloco, telefone, cnpj" as const;
 const colunasDoFiltro = (colunas: string, f: FiltroPortal | null) => {
   const embutido = f ? EMBUTIDO[f] : null;
   return embutido ? `${colunas}, ${embutido}` : colunas;
@@ -237,7 +233,6 @@ async function completarLojas(
       .select("loja_id")
       .in("loja_id", ids)
       .eq("origem", "portal")
-      .is("lixeira_em", null)
       .gte("criado_em", inicioDoMes(agora))
       .limit(5000),
     notasRecentes(agora.toISOString()),
@@ -378,7 +373,6 @@ export async function indicadoresDoPortal(
       .from("chamados")
       .select("id", { count: "exact", head: true })
       .eq("origem", "portal")
-      .is("lixeira_em", null)
       .gte("criado_em", inicioDoMes(agora)),
     notasRecentes(agora.toISOString()),
   ]);

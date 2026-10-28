@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArchiveRestore,
   Bell,
   BellOff,
   Copy,
@@ -10,7 +9,6 @@ import {
   Link2,
   MessageCircle,
   Printer,
-  Trash2,
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
@@ -19,12 +17,12 @@ import { classeCampo } from "@/components/estilos";
 import { PILULA_OPCAO } from "@/components/os/novo/repetir";
 import { Selecao } from "@/components/selecao";
 import { limparTelefone, linkWhatsApp } from "@/lib/os/whatsapp";
-import { lixeira, seguirChamado } from "@/server/os/acoes/chamados";
-import { BOTAO_PRIMARIO, FormNaJanela, Janela } from "./janela";
+import { seguirChamado } from "@/server/os/acoes/chamados";
+import { BOTAO_PRIMARIO, Janela } from "./janela";
 
 // Ferramentas do chamado, numa barra no topo: Seguir, WhatsApp e Imprimir
-// à mão; converter em OS, duplicar, criar vinculado, histórico e lixeira
-// no menu "Mais". Cada uma só aparece para quem pode usá-la.
+// à mão; converter em OS, duplicar, criar vinculado e histórico no
+// menu "Mais". Cada uma só aparece para quem pode usá-la.
 
 const ICONE =
   "grid size-10 shrink-0 place-items-center rounded-full text-neutral-600 transition hover:bg-neutral-900/[0.06] hover:text-neutral-900 aria-pressed:bg-neutral-900/[0.06] aria-pressed:text-neutral-900 aria-expanded:bg-neutral-900/[0.06] disabled:opacity-60";
@@ -41,8 +39,6 @@ export function Ferramentas({
   id,
   links,
   sigo,
-  naLixeira,
-  pode,
   whatsapp,
 }: {
   id: string;
@@ -54,8 +50,6 @@ export function Ferramentas({
     historico: string | null;
   };
   sigo: boolean;
-  naLixeira: boolean;
-  pode: { excluir: boolean };
   /** null: a OS tem o próprio WhatsApp, com a mensagem da OS. */
   whatsapp: {
     mensagem: string;
@@ -64,7 +58,6 @@ export function Ferramentas({
   } | null;
 }) {
   const [zap, setZap] = useState(false);
-  const [confirmarLixeira, setConfirmarLixeira] = useState(false);
   const [mais, setMais] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
   const [estado, seguir, seguindo] = useActionState(seguirChamado, {});
@@ -173,29 +166,6 @@ export function Ferramentas({
                   Histórico de alterações
                 </Link>
               )}
-              {pode.excluir && (
-                <>
-                  <hr className="my-1 border-neutral-900/[0.06]" />
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMais(false);
-                      setConfirmarLixeira(true);
-                    }}
-                    className={`${ITEM} ${naLixeira ? "" : "text-red-700 hover:bg-red-50"}`}
-                  >
-                    {naLixeira ? (
-                      <ArchiveRestore className="size-4" aria-hidden />
-                    ) : (
-                      <Trash2 className="size-4" aria-hidden />
-                    )}
-                    {naLixeira
-                      ? "Restaurar da lixeira"
-                      : "Mandar para a lixeira"}
-                  </button>
-                </>
-              )}
             </div>
           )}
         </div>
@@ -205,28 +175,6 @@ export function Ferramentas({
           {estado.erro}
         </p>
       )}
-
-      <Janela
-        aberta={confirmarLixeira}
-        aoFechar={() => setConfirmarLixeira(false)}
-        titulo={naLixeira ? "Restaurar o chamado?" : "Mandar para a lixeira?"}
-        descricao={
-          naLixeira
-            ? "Ele volta para as listas."
-            : "Some das listas, mas nada é apagado: dá para restaurar depois."
-        }
-        largura="sm"
-      >
-        <FormNaJanela
-          acao={lixeira}
-          aoConcluir={() => setConfirmarLixeira(false)}
-          rotulo={naLixeira ? "Restaurar" : "Mandar para a lixeira"}
-          perigo={!naLixeira}
-        >
-          <input type="hidden" name="id" value={id} />
-          <input type="hidden" name="ligar" value={naLixeira ? "0" : "1"} />
-        </FormNaJanela>
-      </Janela>
 
       {whatsapp && (
         <JanelaWhatsApp

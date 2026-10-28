@@ -41,18 +41,6 @@ const ABAS: (Aba & { permissoes: Permissao[] })[] = [
     permissoes: ["os.parametros"],
   },
   {
-    href: CONFIGURACOES_OS.importacao,
-    rotulo: "Importação e exemplos",
-    descricao: "Importação do sistema de OS atual e dados de exemplo",
-    permissoes: ["os.importacao"],
-  },
-  {
-    href: CONFIGURACOES_OS.lixeira,
-    rotulo: "Lixeira",
-    descricao: "Chamados excluídos: restaure quando precisar",
-    permissoes: ["os.excluir"],
-  },
-  {
     href: CONFIGURACOES_OS.historico,
     rotulo: "Histórico",
     descricao: "Quem alterou o quê e quando nos chamados e parâmetros",

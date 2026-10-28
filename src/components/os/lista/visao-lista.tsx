@@ -14,11 +14,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { BotaoExportar } from "@/components/os/exportar";
 import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
-import {
-  IconeTipo,
-  SeloExemplo,
-  SeloStatusChamado,
-} from "@/components/os/selos";
+import { IconeTipo, SeloStatusChamado } from "@/components/os/selos";
 import { Selecao } from "@/components/selecao";
 import {
   agrupar,
@@ -617,7 +613,6 @@ function Resumo({
               ` · faltam ${l.destinos.faltam.slice(0, 3).join(", ")}${l.destinos.faltam.length > 3 ? ` e mais ${l.destinos.faltam.length - 3}` : ""}`}
           </span>
         )}
-        {l.exemplo && <SeloExemplo />}
       </span>
     </div>
   );

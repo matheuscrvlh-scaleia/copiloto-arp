@@ -14,9 +14,17 @@ describe("catálogo de permissões", () => {
     const blocos = [
       ...sql.matchAll(/insert into core\.permissoes[\s\S]*?values([\s\S]*?);/g),
     ].map((m) => m[1] ?? "");
-    const noBanco = blocos.flatMap((b) =>
-      [...b.matchAll(/\('([a-z_.]+)',/g)].map((m) => m[1]),
+    // Menos as que uma migration depois tirou.
+    const tiradas = [
+      ...sql.matchAll(
+        /delete from core\.permissoes where codigo in \(([^)]*)\)/g,
+      ),
+    ].flatMap((m) =>
+      [...(m[1] ?? "").matchAll(/'([a-z_.]+)'/g)].map((c) => c[1]),
     );
+    const noBanco = blocos
+      .flatMap((b) => [...b.matchAll(/\('([a-z_.]+)',/g)].map((m) => m[1]))
+      .filter((c) => !tiradas.includes(c));
     expect(noBanco.sort()).toEqual(Object.keys(PERMISSOES).sort());
   });
 });

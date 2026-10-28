@@ -14,7 +14,6 @@ import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import { AcoesDaLoja } from "@/components/os/portal/acoes-link";
 import { Atualizado, CartaoFiltro } from "@/components/os/portal/cartao-filtro";
 import { ListaBusca } from "@/components/os/portal/lista-busca";
-import { SeloExemplo } from "@/components/os/selos";
 import { tonsDaTela } from "@/components/os/tons";
 import { SemAcesso } from "@/components/protegido";
 import { formatarNumero } from "@/lib/formato";
@@ -198,7 +197,6 @@ function LinhaDaLoja({ l, agora }: { l: LinhaDoPortal; agora: Date }) {
           ) : (
             l.acesso.dentro && <Situacao tipo="ok">Dentro do portal</Situacao>
           )}
-          {l.loja.exemplo && <SeloExemplo />}
         </p>
         {(detalhes.length > 0 || l.media !== null) && (
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-neutral-500">

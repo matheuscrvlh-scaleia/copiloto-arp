@@ -69,7 +69,6 @@ function linha(p: Partial<LinhaChamado> = {}): LinhaChamado {
     concluidoEm: null,
     fechadoEm: null,
     criadoEm: "2026-10-20T12:00:00Z",
-    exemplo: false,
     podeAtribuir: false,
     podePrazo: false,
     ...p,

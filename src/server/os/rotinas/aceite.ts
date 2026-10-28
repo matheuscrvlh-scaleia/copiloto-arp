@@ -60,7 +60,6 @@ async function fecharVencidos(
     .select("id, numero, titulo, concluido_em, responsavel_id")
     .eq("status", "concluido")
     .not("concluido_em", "is", null)
-    .is("lixeira_em", null)
     .order("concluido_em")
     .limit(LOTE);
   if (error) throw new Error(`Chamados concluídos: ${error.message}`);
@@ -114,7 +113,6 @@ async function avisosDePrazo(
     .from("chamados")
     .select("id, numero, titulo, status, prazo, responsavel_id, setor_id")
     .in("status", ["aberto", "em_andamento"])
-    .is("lixeira_em", null)
     .gte("prazo", desde.toISOString())
     .lte("prazo", ate.toISOString())
     .limit(LOTE);
@@ -158,13 +156,12 @@ async function avisosDosDestinos(
   const { data, error } = await osAdmin()
     .from("destinatarios")
     .select(
-      "id, chamado_id, setor_id, usuario_id, responsavel_id, titulo, prazo, status, chamado:chamados!inner(numero, titulo, status, lixeira_em)",
+      "id, chamado_id, setor_id, usuario_id, responsavel_id, titulo, prazo, status, chamado:chamados!inner(numero, titulo, status)",
     )
     .neq("status", "concluido")
     .gte("prazo", desde.toISOString())
     .lte("prazo", agora.toISOString())
     .in("chamado.status", ["aberto", "em_andamento", "aguardando"])
-    .is("chamado.lixeira_em", null)
     .limit(LOTE);
   if (error) throw new Error(`Destinos: ${error.message}`);
 
@@ -202,7 +199,6 @@ async function lembretesDeConfirmacao(
     .eq("status", "concluido")
     .not("aberto_por", "is", null)
     .not("concluido_em", "is", null)
-    .is("lixeira_em", null)
     .limit(LOTE);
   if (error) throw new Error(`Confirmações: ${error.message}`);
 

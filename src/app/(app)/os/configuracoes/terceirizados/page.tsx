@@ -8,7 +8,6 @@ import { Secao } from "@/components/dashboard/tabela";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { TelefoneComWhatsApp } from "@/components/os/configuracoes/whatsapp";
-import { SeloExemplo } from "@/components/os/selos";
 import { SemAcesso } from "@/components/protegido";
 import {
   removerContato,
@@ -269,7 +268,6 @@ function CartaoEmpresa({ e }: { e: Empresa }) {
           <p className="flex flex-wrap items-center gap-2 font-medium">
             {e.nome}
             {!e.ativo && <Situacao tipo="neutro">Inativa</Situacao>}
-            {e.exemplo && <SeloExemplo />}
           </p>
           <p className="text-xs text-neutral-500">
             {[e.cnpj, e.contato].filter(Boolean).join(" · ") ||
@@ -476,10 +474,7 @@ function LinhaContato({ c }: { c: Tabela<"contatos"> }) {
     <details className="group">
       <summary className="flex cursor-pointer list-none flex-col gap-1 rounded-2xl px-2 py-2.5 text-sm hover:bg-white/50 sm:flex-row sm:items-center sm:gap-4 [&::-webkit-details-marker]:hidden">
         <span className="min-w-0 sm:w-56">
-          <span className="flex items-center gap-2 font-medium">
-            {c.nome}
-            {c.exemplo && <SeloExemplo />}
-          </span>
+          <span className="flex items-center gap-2 font-medium">{c.nome}</span>
           {c.empresa && (
             <span className="block text-xs text-neutral-500">{c.empresa}</span>
           )}

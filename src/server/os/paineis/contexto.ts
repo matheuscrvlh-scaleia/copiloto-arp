@@ -45,8 +45,6 @@ export interface Ctx {
   listas: Listas;
   /** Chamados citados que não vieram na consulta do painel (viram linhas). */
   extras: ChamadoDoPainel[];
-  /** Algum bloco usou dado de exemplo (vistorias, agenda). */
-  exemplo: boolean;
   /** aaaa-mm-dd: a leitura cobre o que mudou desde esta data. */
   desde: string;
 }
@@ -135,7 +133,6 @@ export function linhaDe(c: ChamadoDoPainel, ctx: Ctx): LinhaChamado {
     concluido: c.concluido_em
       ? paraBrasilia(instante(c.concluido_em)).data
       : null,
-    exemplo: c.exemplo,
   };
 }
 

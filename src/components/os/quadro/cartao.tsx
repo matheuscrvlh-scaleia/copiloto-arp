@@ -3,7 +3,7 @@
 import { Camera, MessageSquare, Paperclip } from "lucide-react";
 import Link from "next/link";
 import { useAtributos, usePonte } from "@/components/os/arraste/ponte";
-import { IconeTipo, SeloExemplo, SeloPrazo } from "@/components/os/selos";
+import { IconeTipo, SeloPrazo } from "@/components/os/selos";
 import { iniciais } from "@/lib/formato";
 import type { LinhaChamado } from "@/lib/os/lista";
 import { MOTIVOS_AGUARDANDO, PRIORIDADES, TIPOS } from "@/lib/os/rotulos";
@@ -87,7 +87,6 @@ export function CartaoDoQuadro({
           agora={agora}
           avisoHoras={avisoHoras}
         />
-        {c.exemplo && <SeloExemplo />}
       </div>
       <div className="flex items-center gap-3 text-xs text-neutral-500">
         {c.responsavel ? (

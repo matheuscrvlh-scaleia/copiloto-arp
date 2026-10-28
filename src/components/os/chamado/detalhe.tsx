@@ -5,7 +5,6 @@ import {
   Lightbulb,
   RotateCcw,
   Star,
-  Trash2,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -13,7 +12,6 @@ import { Suspense } from "react";
 import { CartaoCarregando } from "@/components/carregando";
 import { BlocoOS, CronometroDaOS } from "@/components/os/ordem/bloco-os";
 import {
-  SeloExemplo,
   SeloPrazo,
   SeloPrioridade,
   SeloSetor,
@@ -108,8 +106,6 @@ export async function DetalheChamado({
           : null,
       }}
       sigo={d.sigo}
-      naLixeira={!!ch.lixeira_em}
-      pode={{ excluir: d.pode.excluir }}
       whatsapp={
         ehOS
           ? null
@@ -173,7 +169,6 @@ export async function DetalheChamado({
             agora={agora}
             avisoHoras={d.avisoHoras}
           />
-          {ch.exemplo && <SeloExemplo />}
         </div>
         {ferramentas}
       </div>
@@ -385,7 +380,7 @@ function quemPediu(d: Detalhe): string {
   return `Aberto por ${nome ?? ch.solicitante_nome ?? ORIGENS[ch.origem]}`;
 }
 
-/** Faixas do momento: aguardando, concluído, cancelado, lixeira, reaberto. */
+/** Faixas do momento: aguardando, concluído, cancelado, reaberto. */
 function Avisos({ d }: { d: Detalhe }) {
   const { ch } = d;
   const faixas: {
@@ -396,13 +391,6 @@ function Avisos({ d }: { d: Detalhe }) {
   }[] = [];
   const amarelo = "bg-amber-50 text-amber-900";
   const neutro = "bg-neutral-900/[0.05] text-neutral-800";
-  if (ch.lixeira_em)
-    faixas.push({
-      chave: "lixeira",
-      Icone: Trash2,
-      classe: "bg-red-50 text-red-700",
-      texto: `Na lixeira desde ${formatarDataHora(ch.lixeira_em)}.`,
-    });
   if (ch.status === "aguardando" && ch.aguardando_tipo)
     faixas.push({
       chave: "aguardando",

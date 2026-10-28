@@ -53,7 +53,6 @@ const PESSOAS = {
   responsavel: { p: ["os.acessar"], s: [] },
   todos: { p: ["os.acessar", "os.todos_setores"], s: [] },
   painelGeral: { p: ["os.painel_geral"], s: [] },
-  excluir: { p: ["os.acessar", "os.painel_geral", "os.excluir"], s: [] },
   membro: { p: ["os.acessar"], s: ["S"] },
   meuSetor: { p: ["os.acessar", "os.meu_setor"], s: ["S"] },
   painelSetor: { p: ["os.painel_setor"], s: ["S"] },
@@ -79,7 +78,7 @@ const PESSOAS = {
   },
   semModulo: { p: ["rh.painel"], s: ["S"] },
   financeiro: {
-    p: ["os.acessar", "os.todos_setores", "os.custos", "os.excluir"],
+    p: ["os.acessar", "os.todos_setores", "os.custos"],
     s: [],
   },
   terceirizados: { p: ["os.terceirizados"], s: [] },
@@ -265,10 +264,7 @@ beforeAll(async () => {
   await chamado("K08 aberto por quem perdeu o módulo", "G", {
     aberto_por: U.semModulo,
   });
-  const k9 = await chamado("K09 na lixeira", "S");
-  await db.query("update os.chamados set lixeira_em = now() where id = $1", [
-    k9,
-  ]);
+  await chamado("K09 do setor", "S");
   await chamado("K10 fila da gestão", "G", { responsavel_id: null });
 
   // Filhas em todos os chamados.
@@ -320,10 +316,10 @@ const TODOS = [
   "K06 destino com responsável",
   "K07 participante",
   "K08 aberto por quem perdeu o módulo",
-  "K09 na lixeira",
+  "K09 do setor",
   "K10 fila da gestão",
 ];
-const DO_SETOR_S = ["K01 fila", "K02 atribuído", "K09 na lixeira"];
+const DO_SETOR_S = ["K01 fila", "K02 atribuído", "K09 do setor"];
 const DO_RESPONSAVEL = TODOS.filter(
   (t) =>
     !["K01 fila", "K03 fila do marketing", "K10 fila da gestão"].includes(t),
@@ -658,8 +654,7 @@ describe("edição (casos da regra)", () => {
     expect(await editaveis("participante")).toEqual(["K07 participante"]);
   });
 
-  it("os.excluir e gerenciar com todos_setores alcançam tudo que veem", async () => {
-    expect(await editaveis("excluir")).toEqual(TODOS);
+  it("gerenciar com todos_setores alcança tudo que vê", async () => {
     expect(await editaveis("gestorTodos")).toEqual(TODOS);
   });
 });

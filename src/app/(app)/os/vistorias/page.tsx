@@ -13,7 +13,6 @@ import { CartaoIndicador } from "@/components/dashboard/indicador";
 import { type Coluna, Secao, Tabela } from "@/components/dashboard/tabela";
 import { BotaoExportar } from "@/components/os/exportar";
 import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
-import { SeloExemplo } from "@/components/os/selos";
 import { CLASSE_MARCADO, tonsDaTela } from "@/components/os/tons";
 import { FiltrosVistorias } from "@/components/os/vistorias/filtros";
 import {
@@ -137,7 +136,6 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
           >
             {v.codigo}
           </Link>
-          {v.exemplo && <SeloExemplo />}
         </span>
       ),
     },

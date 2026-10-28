@@ -17,7 +17,6 @@ type PlanoDaOS = Pick<
   | "categoria_id"
   | "responsavel_id"
   | "checklist"
-  | "exemplo"
 >;
 
 export type AtivoDaOS = Pick<
@@ -63,7 +62,6 @@ export async function criarPreventiva(
       checklist: checklist.length ? checklist : undefined,
       aviso: { tipo: "preventiva", texto: "Preventiva criada." },
       // Plano de exemplo gera OS de exemplo (some junto ao apagar).
-      exemplo: plano.exemplo,
     },
     opcoes.agora,
   );

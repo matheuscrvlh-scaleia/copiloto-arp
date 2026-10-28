@@ -309,7 +309,6 @@ const atrasadasPorAtivo = cache(
         .not("plano_id", "is", null)
         .not("ativo_id", "is", null)
         .in("status", ["aberto", "em_andamento", "aguardando"])
-        .is("lixeira_em", null)
         .lt("prazo", agoraIso)
         .order("id")
         .range(de, ate),
@@ -710,7 +709,6 @@ export async function fichaDoAtivo(
         "id, numero, tipo, titulo, status, prazo, criado_em, concluido_em, aguardando_min, causa_falha, plano_id, categoria_id",
       )
       .eq("ativo_id", id)
-      .is("lixeira_em", null)
       .order("criado_em", { ascending: false })
       .limit(1000),
     db

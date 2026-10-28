@@ -1,7 +1,6 @@
 import { CalendarClock, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { type Coluna, Tabela } from "@/components/dashboard/tabela";
-import { SeloExemplo } from "@/components/os/selos";
 import {
   formatarData,
   formatarMoeda,
@@ -142,7 +141,6 @@ export function TabelaAtivos({
       valor: (a) => (
         <span className="flex flex-wrap items-center gap-1.5">
           <SeloSinal sinal={a.sinal.sinal} />
-          {a.ativo.exemplo && <SeloExemplo />}
         </span>
       ),
     },

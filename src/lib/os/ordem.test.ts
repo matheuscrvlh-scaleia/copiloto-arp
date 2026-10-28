@@ -299,12 +299,11 @@ describe("link do terceirizado", () => {
   });
 
   it("deixa de valer quando a OS fecha, cancela ou o link é cancelado", () => {
-    const aberta = { status: "em_andamento" as const, lixeira_em: null };
+    const aberta = { status: "em_andamento" as const };
     expect(linkAtivo(link, aberta)).toBe(true);
     expect(linkAtivo(link, { ...aberta, status: "concluido" })).toBe(true);
     expect(linkAtivo(link, { ...aberta, status: "fechado" })).toBe(false);
     expect(linkAtivo(link, { ...aberta, status: "cancelado" })).toBe(false);
-    expect(linkAtivo(link, { ...aberta, lixeira_em: "x" })).toBe(false);
     expect(linkAtivo({ cancelado_em: "x" }, aberta)).toBe(false);
   });
 

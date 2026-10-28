@@ -60,7 +60,6 @@ export interface LinhaChamado {
   concluidoEm: string | null;
   fechadoEm: string | null;
   criadoEm: string;
-  exemplo: boolean;
   /** Fora dos filtros da barra: só aparece pelo cartão (ex.: fechados no mês). */
   soNoCartao?: boolean;
   /** O que a pessoa pode mudar direto na lista (o banco confere de novo). */

@@ -218,12 +218,12 @@ feriados e textos do laudo).
 |---|---|
 | Setores e configuração | `setores`, `setor_membros` (quem é de cada setor; `gestor` recebe os vencidos), `parametros` (uma linha: ciclo, almoço, teto do terceirizado, faixas do sinal, textos do laudo, mensagens do WhatsApp…), `feriados`, `metas` (% no prazo e tempo médio por setor/categoria), `agendas`, `agenda_bloqueios` |
 | Catálogo | `categorias` (por setor, um nível de subcategoria: tipo, responsável, prioridade e prazo padrão, SLA de resposta, confirmação, recursos, campos extras, checklist, portal) |
-| Chamados | `chamados` (comuns + ciclo + campos da OS + portal + recorrência + lixeira + importação), `destinatarios` (vários setores/pessoas, cada um com andamento), `participantes` (citados e quem segue), `eventos` (linha do tempo: só cresce), `anexos` (bucket privado `os`) |
+| Chamados | `chamados` (comuns + ciclo + campos da OS + portal + recorrência; `legado_*` guarda o que veio do sistema anterior), `destinatarios` (vários setores/pessoas, cada um com andamento), `participantes` (citados e quem segue), `eventos` (linha do tempo: só cresce), `anexos` (bucket privado `os`) |
 | Ordem de Serviço | `sessoes` + `sessao_tecnicos` (tempo), `materiais`, `material_valores` 🔒, `os_custos` 🔒 (terceirizado, rateio e o cálculo gravado pelo servidor), `tecnicos`, `tecnico_valores` 🔒 (valor por minuto com vigência), `empresas`, `profissionais`, `chamado_profissionais`, `terceirizado_links` (link sem login) |
 | Ativos | `ativo_categorias`, `ativos`, `ativo_situacoes` (períodos, por gatilho), `planos_preventivos` |
 | Vistorias | `vistorias` (código ARP01…), `vistoria_ambientes` |
 | Portal e modelos | `lojas` (contrato do ENET, uma linha por contrato), `portal_sessoes` (a loja entra no `/portal` com o CNPJ; `portal_tentativas` limita CNPJ errado por IP; `portal_links`, dos links por loja, ficou só como histórico), `agendamentos`, `modelos`, `modelo_itens`, `disparos` (uma vez por modelo e loja) |
-| Sistema | `notificacoes` (sininho; só o servidor grava), `contatos` (WhatsApp), `importacoes` (importação única do sistema atual, com desfazer) |
+| Sistema | `notificacoes` (sininho; só o servidor grava), `contatos` (WhatsApp) |
 
 ### Regras no banco
 
@@ -239,7 +239,7 @@ feriados e textos do laudo).
 - **Quem pode** (`os.validar_chamado`): prazo e prioridade só quem pediu ou
   quem gerencia o setor; responsável só o gestor (ou assumir a fila, devolver
   o próprio); confirmar e reabrir só quem pediu ou o gestor; cancelar só quem
-  pediu ou o gestor; lixeira só com `os.excluir`. A service role e as
+  pediu ou o gestor. A service role e as
   rotinas não passam por esta trava.
 - **Vários destinatários** (`os.sincronizar_destinos`): o chamado anda junto
   com os destinos e só conclui quando todos concluírem.
@@ -248,7 +248,7 @@ feriados e textos do laudo).
 - **Carga por pessoa do Meu setor** (`os.carga_do_setor`,
   `20261026190000_os_carga_setor.sql`): uma linha por responsável do setor
   (a fila com `responsavel_id` nulo) com os chamados em aberto (aberto, em
-  andamento ou aguardando, fora da lixeira) e os atrasados (prazo antes de
+  andamento ou aguardando) e os atrasados (prazo antes de
   `p_agora`), com os filtros da barra (status, tipo, categoria, responsável,
   prioridade, etiqueta e o período de abertura, já em Brasília). `security
   invoker`: conta só o que quem pede vê (RLS de `os.chamados`). O servidor

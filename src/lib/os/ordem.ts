@@ -287,9 +287,9 @@ export function etapaDoTerceirizado(l: LinkTerceirizado): EtapaTerceirizado {
 /** O link público só vale enquanto a OS está aberta e ele não foi cancelado. */
 export function linkAtivo(
   l: Pick<LinkTerceirizado, "cancelado_em">,
-  ch: { status: StatusChamado; lixeira_em: string | null },
+  ch: { status: StatusChamado },
 ): boolean {
-  return !l.cancelado_em && !ch.lixeira_em && !osEncerrada(ch.status);
+  return !l.cancelado_em && !osEncerrada(ch.status);
 }
 
 /**

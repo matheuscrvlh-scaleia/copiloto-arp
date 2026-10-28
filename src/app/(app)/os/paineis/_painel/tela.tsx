@@ -6,7 +6,6 @@ import {
   TelaCarregando,
 } from "@/components/carregando";
 import { FiltroPeriodo } from "@/components/dashboard/filtro-periodo";
-import { SeloIlustrativo } from "@/components/dashboard/indicador";
 import { Nota } from "@/components/dashboard/tabela";
 import { BlocoDoPainel } from "@/components/os/paineis/blocos";
 import { FiltrosDoPainel } from "@/components/os/paineis/filtros";
@@ -115,9 +114,6 @@ export async function Painel({
             pessoa={f.pessoa}
           />
           <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
-            {painel.temExemplo && (
-              <SeloIlustrativo texto="Inclui dados de exemplo" />
-            )}
             <span>
               {painel.titulo} · atualizado às {painel.atualizadoAs}
             </span>

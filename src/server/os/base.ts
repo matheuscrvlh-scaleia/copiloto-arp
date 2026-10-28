@@ -300,7 +300,7 @@ export const nomes = cache(async (): Promise<Map<string, string>> => {
 
 /** Colunas que as listas usam; o detalhe lê o chamado inteiro. */
 export const COLUNAS_RESUMO =
-  "id, numero, tipo, titulo, setor_id, categoria_id, status, prioridade, origem, pessoal, precisa_confirmacao, aberto_por, solicitante_nome, responsavel_id, prazo, loja_id, ativo_id, etiquetas, aguardando_tipo, aguardando_min, aguardando_desde, primeira_resposta_em, concluido_em, fechado_em, cancelado_em, execucao, local, rateio, avaliacao, lixeira_em, exemplo, criado_em, atualizado_em" as const;
+  "id, numero, tipo, titulo, setor_id, categoria_id, status, prioridade, origem, pessoal, precisa_confirmacao, aberto_por, solicitante_nome, responsavel_id, prazo, loja_id, ativo_id, etiquetas, aguardando_tipo, aguardando_min, aguardando_desde, primeira_resposta_em, concluido_em, fechado_em, cancelado_em, execucao, local, rateio, avaliacao, criado_em, atualizado_em" as const;
 
 export type ChamadoResumo = Pick<
   Tabela<"chamados">,
@@ -333,8 +333,6 @@ export type ChamadoResumo = Pick<
   | "local"
   | "rateio"
   | "avaliacao"
-  | "lixeira_em"
-  | "exemplo"
   | "criado_em"
   | "atualizado_em"
 >;
@@ -356,8 +354,6 @@ export interface FiltroChamados {
   /** Criados a partir de / até (aaaa-mm-dd, inclusive). */
   de?: string | null;
   ate?: string | null;
-  /** Só os da lixeira (padrão: fora dela). */
-  lixeira?: boolean;
   limite?: number;
   /**
    * Minha caixa: junta os pedidos meus já concluídos (esperam a minha
@@ -393,7 +389,7 @@ async function montarConsulta(
     contexto(),
     os(),
     f.recorte === "minha_caixa"
-      ? destinosEmCache(!!f.lixeira, (daBarra ?? []).join(","))
+      ? destinosEmCache((daBarra ?? []).join(","))
       : [],
   ]);
   const ids = destinos
@@ -478,7 +474,6 @@ function filtrar(
 ): Consulta {
   const eu = ctx.usuario.id;
   let q = consulta;
-  q = f.lixeira ? q.not("lixeira_em", "is", null) : q.is("lixeira_em", null);
   if (f.setor) q = q.eq("setor_id", f.setor);
   if (f.setores?.length) q = q.in("setor_id", f.setores);
   if (f.tipos?.length) q = q.in("tipo", f.tipos);
@@ -630,16 +625,15 @@ interface DestinoMeu {
  * consulta.
  */
 const destinosEmCache = cache(
-  async (lixeira: boolean, status: string): Promise<DestinoMeu[]> =>
+  async (status: string): Promise<DestinoMeu[]> =>
     destinosDaMinhaCaixa(await contexto(), {
-      lixeira,
       status: status ? (status.split(",") as Enum<"status_chamado">[]) : [],
     }),
 );
 
 /**
  * Chamados em que um destino é meu (ou do meu setor) e ainda não concluiu.
- * Só os chamados que a consulta pediria (status e lixeira): o destino de um
+ * Só os chamados que a consulta pediria (status): o destino de um
  * chamado cancelado fica "aberto" para sempre, e a lista de ids vai na URL
  * da consulta principal (sem o filtro ela cresce sem fim).
  */
@@ -652,12 +646,9 @@ async function destinosDaMinhaCaixa(
   if (ctx.setores.length) ou.push(`setor_id.in.(${ctx.setores.join(",")})`);
   let q = (await os())
     .from("destinatarios")
-    .select("chamado_id, chamados!inner(status, lixeira_em)")
+    .select("chamado_id, chamados!inner(status)")
     .neq("status", "concluido")
     .or(ou.join(","));
-  q = f.lixeira
-    ? q.not("chamados.lixeira_em", "is", null)
-    : q.is("chamados.lixeira_em", null);
   if (f.status?.length) q = q.in("chamados.status", f.status);
   const { data, error } = await q;
   falhar(error);

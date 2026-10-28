@@ -53,7 +53,7 @@ import {
 } from "@/server/os/chamados";
 
 // Ações do chamado: abrir, andar no ciclo, gerenciar, checklist, conversa,
-// destinos, seguir e lixeira. Tudo com a sessão; o banco confere de novo
+// destinos e seguir. Tudo com a sessão; o banco confere de novo
 // quem pode cada coisa (RLS e gatilhos).
 
 const uuid = z.uuid("inválido");
@@ -782,7 +782,7 @@ export async function andarDestino(
 }
 
 // ---------------------------------------------------------------------------
-// Seguir e lixeira
+// Seguir
 // ---------------------------------------------------------------------------
 
 const alternar = z.object({ id: uuid, ligar: z.enum(["0", "1"]) });
@@ -813,35 +813,6 @@ export async function seguirChamado(
   if (error) return erroDoBanco(error);
   refresh();
   return { ok: d.data.ligar === "1" ? "Seguindo." : "Deixou de seguir." };
-}
-
-export async function lixeira(
-  _: EstadoAcao,
-  form: FormData,
-): Promise<EstadoAcao> {
-  const d = alternar.safeParse(Object.fromEntries(form));
-  if (!d.success) return primeiroErro(d.error);
-  const ctx = await contexto();
-  if (!ctx.pode("os.excluir"))
-    return { erro: "Você não tem permissão para a lixeira." };
-  const mandar = d.data.ligar === "1";
-  const { data, error } = await (await os())
-    .from("chamados")
-    .update({
-      lixeira_em: mandar ? new Date().toISOString() : null,
-      lixeira_por: mandar ? ctx.usuario.id : null,
-    })
-    .eq("id", d.data.id)
-    .select("id");
-  if (error) return erroDoBanco(error);
-  if (!data?.length) return { erro: "Chamado não encontrado." };
-  await registrar(d.data.id, {
-    tipo: "alteracao",
-    texto: mandar ? "Mandou para a lixeira." : "Restaurou da lixeira.",
-    dados: { campo: "lixeira", para: mandar },
-  });
-  refresh();
-  return { ok: mandar ? "Na lixeira." : "Restaurado." };
 }
 
 // ---------------------------------------------------------------------------

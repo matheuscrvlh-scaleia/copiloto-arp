@@ -41,7 +41,6 @@ export const PERMISSOES = {
   "os.todos_setores": "Ver os chamados de todos os setores",
   "os.gerenciar_setor":
     "Trocar responsável, prazo e prioridade e cancelar chamados do setor",
-  "os.excluir": "Mandar chamados para a lixeira e restaurar",
   "os.catalogo":
     "Configurar setores, categorias, prazos, campos extras e o que aparece no portal",
   "os.modelos":
@@ -61,7 +60,6 @@ export const PERMISSOES = {
   "os.exportar": "Exportar Excel e PDF das telas de chamados e OS",
   "os.parametros":
     "Editar técnicos e valor por minuto, rateio, faixas do sinal, prazos e metas",
-  "os.importacao": "Rodar e desfazer a importação do sistema de OS atual",
   "os.historico": "Ver quem alterou o quê e quando nos chamados e parâmetros",
 } as const;
 

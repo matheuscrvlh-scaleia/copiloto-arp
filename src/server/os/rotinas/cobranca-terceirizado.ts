@@ -22,7 +22,6 @@ export async function rotinaCobrancaTerceirizado(agora: Date): Promise<number> {
     .eq("tipo", "os")
     .eq("execucao", "terceirizada")
     .in("status", ["aberto", "em_andamento", "aguardando"])
-    .is("lixeira_em", null)
     .is("cobranca_avisada_em", null)
     .not("prazo_terceirizado", "is", null)
     .lte(

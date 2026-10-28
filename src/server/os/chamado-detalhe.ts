@@ -83,7 +83,6 @@ export interface DetalheChamado {
   pode: {
     gerenciar: boolean;
     editarPrazo: boolean;
-    excluir: boolean;
     historico: boolean;
     verAtivo: boolean;
     verVistoria: boolean;
@@ -267,7 +266,6 @@ export const carregarDetalhe = cache(
       pode: {
         gerenciar: ehGestor,
         editarPrazo: ehGestor || papel.solicitante,
-        excluir: ctx.pode("os.excluir"),
         historico: ctx.pode("os.historico"),
         verAtivo: ctx.pode("os.ativos") || ctx.pode("os.ativos_gerenciar"),
         verVistoria: ctx.pode("os.vistorias"),

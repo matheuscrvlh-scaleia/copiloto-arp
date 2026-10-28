@@ -82,7 +82,7 @@ const COLUNAS_LINK =
   "id, chamado_id, token, empresa_id, criado_por, criado_em, aceito_em, recusado_em, recusa_motivo, chegada_em, saida_em, solucao, valor_informado, orcamento_numero, terminado_em, cancelado_em, assinado_em, assinatura_nome" as const;
 
 const COLUNAS_CHAMADO =
-  "id, numero, titulo, descricao, status, prioridade, categoria_id, bloco, local, loja_id, empresa_id, visita_data, visita_periodo, prazo_terceirizado, responsavel_id, aberto_por, lixeira_em, solucao" as const;
+  "id, numero, titulo, descricao, status, prioridade, categoria_id, bloco, local, loja_id, empresa_id, visita_data, visita_periodo, prazo_terceirizado, responsavel_id, aberto_por, solucao" as const;
 
 /** O link, a OS e a empresa (do link ou da OS) numa consulta só. */
 const COLUNAS_ACESSO =
@@ -127,7 +127,6 @@ type ChamadoDoLink = Pick<
   | "prazo_terceirizado"
   | "responsavel_id"
   | "aberto_por"
-  | "lixeira_em"
   | "solucao"
 >;
 

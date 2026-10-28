@@ -35,11 +35,10 @@ export type LojaDoModelo = Pick<
   | "fim"
   | "tem_vaga"
   | "atualizado_em"
-  | "exemplo"
 >;
 
 export const COLUNAS_LOJA =
-  "id, nome, luc, situacao, inicio, fim, tem_vaga, atualizado_em, exemplo" as const;
+  "id, nome, luc, situacao, inicio, fim, tem_vaga, atualizado_em" as const;
 
 export interface ModeloComItens extends Modelo {
   itens: ItemModelo[];
@@ -176,7 +175,6 @@ async function criarAviso(
         prazo: d.prazo,
         responsavelId: d.responsavelId,
       })),
-      exemplo: p.loja.exemplo,
     },
     agora,
   );
@@ -364,7 +362,6 @@ export async function seriesAtivas(): Promise<Serie[]> {
         "id, numero, titulo, tipo, setor_id, responsavel_id, recorrencia, serie_id, serie_data, prazo, criado_em",
       )
       .not("recorrencia", "is", null)
-      .is("lixeira_em", null)
       .order("criado_em", { ascending: false })
       .order("id")
       .range(de, de + 999);

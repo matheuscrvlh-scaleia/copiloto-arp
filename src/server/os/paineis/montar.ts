@@ -104,7 +104,6 @@ export async function montarPainel(
     ),
     desde,
     extras: [],
-    exemplo: false,
   };
 
   const { cartoes, blocos: daBase } = montarBase(ctx);
@@ -126,7 +125,6 @@ export async function montarPainel(
     titulo: f.setor ? `Painel de ${f.setor.nome}` : "Painel geral",
     rotulo: f.rotulo,
     atualizadoAs: paraBrasilia(agora).hora,
-    temExemplo: ctx.exemplo || base.some((c) => c.exemplo),
     cartoes,
     blocos: [...daBase, ...proprios, ...portal, ...vistorias],
     linhas: citados.map((c) => linhaDe(c, ctx)),

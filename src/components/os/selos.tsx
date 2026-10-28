@@ -172,15 +172,3 @@ export function SeloSetor({ nome, cor }: { nome: string; cor: string }) {
     </span>
   );
 }
-
-/** Marca de dado de exemplo (ilustrativo) numa linha ou ficha. */
-export function SeloExemplo() {
-  return (
-    <span
-      title="Dado de exemplo, gerado para o protótipo"
-      className={`${PILULA} bg-violet-400/20 text-violet-700`}
-    >
-      Exemplo
-    </span>
-  );
-}

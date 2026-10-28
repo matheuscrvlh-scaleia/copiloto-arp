@@ -163,7 +163,7 @@ export const padroesVistoria = cache(
 // ---------------------------------------------------------------------------
 
 const COLUNAS_LISTA =
-  "id, codigo, tipo, status, rascunho, data, hora, vistoriador_id, vistoriador_nome, loja_id, locatario, bloco, unidade, assinatura_locador_path, assinatura_locatario_path, legado_id, exemplo, criado_em, atualizado_em" as const;
+  "id, codigo, tipo, status, rascunho, data, hora, vistoriador_id, vistoriador_nome, loja_id, locatario, bloco, unidade, assinatura_locador_path, assinatura_locatario_path, legado_id, criado_em, atualizado_em" as const;
 
 export type VistoriaResumo = Pick<
   Vistoria,
@@ -183,7 +183,6 @@ export type VistoriaResumo = Pick<
   | "assinatura_locador_path"
   | "assinatura_locatario_path"
   | "legado_id"
-  | "exemplo"
   | "criado_em"
   | "atualizado_em"
 > & {
@@ -197,7 +196,7 @@ const ehOsDaVistoria = (c: { tipo: string; ambiente_id: string | null }) =>
 
 /**
  * "Com OS gerada" no banco: um segundo embutido dos chamados, com !inner,
- * deixa só as vistorias com OS (ou chamado de ambiente) fora da lixeira.
+ * deixa só as vistorias com OS (ou chamado de ambiente).
  */
 const comOS = (colunas: string, cartao: CriterioVistoria | null) =>
   cartao?.comOS ? `${colunas}, osv:chamados!inner(id)` : colunas;
@@ -230,9 +229,9 @@ function filtrarVistorias<Q extends Filtravel<Q>>(
     if (c.dataEntre)
       r = r.gte("data", c.dataEntre.de).lt("data", c.dataEntre.ate);
     if (c.comOS)
-      r = r
-        .is("osv.lixeira_em", null)
-        .or("tipo.eq.os,ambiente_id.not.is.null", { referencedTable: "osv" });
+      r = r.or("tipo.eq.os,ambiente_id.not.is.null", {
+        referencedTable: "osv",
+      });
   }
   return r;
 }
@@ -247,7 +246,6 @@ async function ordensDasVistorias(ids: string[]): Promise<Map<string, number>> {
       .from("chamados")
       .select("vistoria_id, tipo, ambiente_id")
       .in("vistoria_id", ids)
-      .is("lixeira_em", null)
       .order("id")
       .range(de, ate),
   );
@@ -461,7 +459,6 @@ export async function vistoriaCompleta(
       .from("chamados")
       .select("id, numero, tipo, titulo, status, ambiente_id, criado_em")
       .eq("vistoria_id", id)
-      .is("lixeira_em", null)
       .order("criado_em"),
   ]);
   falhar(lida.error);

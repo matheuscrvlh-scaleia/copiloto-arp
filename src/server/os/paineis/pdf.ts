@@ -222,12 +222,6 @@ export async function pdfDoPainel(
   e.texto(painel.titulo, { tamanho: 16, fonte: e.f.negrito, depois: 2 });
   e.texto(filtros, { tamanho: 9, cor: CINZA_ESCURO });
   e.texto(`Gerado em ${geradoEm}`, { tamanho: 8, cor: CINZA, depois: 6 });
-  if (painel.temExemplo)
-    e.texto("Inclui dados de exemplo (ilustrativos).", {
-      tamanho: 8,
-      cor: CINZA,
-      depois: 4,
-    });
 
   e.tabela({
     colunas: ["Indicador", "Valor", "Detalhe", "Meta"],

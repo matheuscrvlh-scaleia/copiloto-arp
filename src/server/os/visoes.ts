@@ -186,7 +186,6 @@ export function paraLinha(
     concluidoEm: ch.concluido_em,
     fechadoEm: ch.fechado_em,
     criadoEm: ch.criado_em,
-    exemplo: ch.exemplo,
     soNoCartao,
     // As mesmas regras do gatilho os.validar_chamado (o banco confere).
     podeAtribuir: aberto && (gestor || (pediu && ch.status === "aberto")),
@@ -499,7 +498,11 @@ export async function estadoDoQuadro(busca: Busca): Promise<EstadoDoQuadro> {
       recorte === "todos"
         ? a.setores.filter((s) => s.ativo)
         : setoresDisponiveis(a),
-    consulta: paraConsulta({ ...valores, status: undefined }, recorte),
+    consulta: paraConsulta(
+      { ...valores, status: undefined },
+      recorte,
+      "tickets",
+    ),
     mais: lerMais(busca.mais),
   };
 }
@@ -786,7 +789,6 @@ export async function itensDeVisita(
       .select("id, numero, titulo, status, visita_data, visita_periodo")
       .gte("visita_data", de)
       .lte("visita_data", ate)
-      .is("lixeira_em", null)
       .neq("status", "cancelado")
       .limit(500),
     recorte

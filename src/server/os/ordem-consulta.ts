@@ -32,7 +32,7 @@ import { lojasDoModulo } from "./lojas";
 // esconde os_custos de quem não tem os.custos.
 
 const COLUNAS_OS =
-  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, status, prioridade, aguardando_tipo, aberto_por, solicitante_nome, responsavel_id, loja_id, ativo_id, execucao, local, bloco, empresa_id, visita_data, visita_periodo, prazo_terceirizado, solucao, causa_falha, ativo_parado, rateio, assinatura_nome, assinatura_path, assinado_em, concluido_em, fechado_em, fechado_por, cancelado_em, criado_em, legado_origem, lixeira_em, exemplo, sessoes(id, data, inicio, fim, almoco_inicio, almoco_fim, sessao_tecnicos(tecnico_id)), chamado_profissionais(profissional_id), os_custos(custo_total, valor_rateio, custo_mao_obra, custo_materiais, valor_terceirizado, completo, legado_valor, legado_valor_rateio)" as const;
+  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, status, prioridade, aguardando_tipo, aberto_por, solicitante_nome, responsavel_id, loja_id, ativo_id, execucao, local, bloco, empresa_id, visita_data, visita_periodo, prazo_terceirizado, solucao, causa_falha, ativo_parado, rateio, assinatura_nome, assinatura_path, assinado_em, concluido_em, fechado_em, fechado_por, cancelado_em, criado_em, legado_origem, sessoes(id, data, inicio, fim, almoco_inicio, almoco_fim, sessao_tecnicos(tecnico_id)), chamado_profissionais(profissional_id), os_custos(custo_total, valor_rateio, custo_mao_obra, custo_materiais, valor_terceirizado, completo, legado_valor, legado_valor_rateio)" as const;
 
 function consultaBase(db: Awaited<ReturnType<typeof os>>) {
   return db.from("chamados").select(COLUNAS_OS);
@@ -89,9 +89,7 @@ export async function todasAsLinhas<T>(
 export async function consultarOS(f: FiltroOS = {}): Promise<LinhaOS[]> {
   const db = await os();
   const montar = () => {
-    let q = consultaBase(db)
-      .is("lixeira_em", null)
-      .order("numero", { ascending: false });
+    let q = consultaBase(db).order("numero", { ascending: false });
     if (f.ids) q = q.in("id", f.ids);
     if (f.soOS ?? true) q = q.eq("tipo", "os");
     if (f.status?.length) q = q.in("status", f.status);
@@ -334,7 +332,7 @@ function filtrarOS<Q extends Filtravel<Q>>(
   extra: CriterioDoCartao | null,
   rodando: string[],
 ): Q {
-  let c = q.is("lixeira_em", null).eq("tipo", "os");
+  let c = q.eq("tipo", "os");
   if (f.status.length) c = c.in("status", f.status);
   if (f.execucao) c = c.eq("execucao", f.execucao);
   if (f.categoria) c = c.eq("categoria_id", f.categoria);

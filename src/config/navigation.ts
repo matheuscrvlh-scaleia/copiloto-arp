@@ -72,8 +72,6 @@ export const CONFIGURACOES_OS = {
   modelos: "/os/configuracoes/modelos",
   terceirizados: "/os/configuracoes/terceirizados",
   parametros: "/os/configuracoes/parametros",
-  importacao: "/os/configuracoes/importacao",
-  lixeira: "/os/configuracoes/lixeira",
   historico: "/os/configuracoes/historico",
 } as const;
 
@@ -237,8 +235,6 @@ export const navigation: NavSection[] = [
           "os.modelos",
           "os.terceirizados",
           "os.parametros",
-          "os.importacao",
-          "os.excluir",
           "os.historico",
         ],
       },

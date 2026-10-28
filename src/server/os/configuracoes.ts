@@ -42,7 +42,7 @@ export const agendas = cache(
 );
 
 /**
- * Chamados de cada categoria (fora da lixeira). Conta o que a pessoa vê:
+ * Chamados de cada categoria. Conta o que a pessoa vê:
  * quem configura o catálogo costuma ver todos os setores.
  */
 export async function chamadosPorCategoria(
@@ -54,8 +54,7 @@ export async function chamadosPorCategoria(
       const { count, error } = await cliente
         .from("chamados")
         .select("id", { count: "exact", head: true })
-        .eq("categoria_id", id)
-        .is("lixeira_em", null);
+        .eq("categoria_id", id);
       falhar(error);
       return [id, count ?? 0] as const;
     }),
@@ -295,36 +294,8 @@ export const TABELAS_OS = Object.entries(TABELAS)
   .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
 // ---------------------------------------------------------------------------
-// Lixeira e papel timbrado
+// Papel timbrado
 // ---------------------------------------------------------------------------
-
-export type ChamadoNaLixeira = Pick<
-  Tabela<"chamados">,
-  | "id"
-  | "numero"
-  | "tipo"
-  | "titulo"
-  | "setor_id"
-  | "status"
-  | "lixeira_em"
-  | "lixeira_por"
-  | "aberto_por"
-  | "criado_em"
-  | "exemplo"
->;
-
-export async function chamadosNaLixeira(): Promise<ChamadoNaLixeira[]> {
-  const { data, error } = await (await os())
-    .from("chamados")
-    .select(
-      "id, numero, tipo, titulo, setor_id, status, lixeira_em, lixeira_por, aberto_por, criado_em, exemplo",
-    )
-    .not("lixeira_em", "is", null)
-    .order("lixeira_em", { ascending: false })
-    .limit(500);
-  falhar(error);
-  return data ?? [];
-}
 
 /** Imagem atual do papel timbrado (endereço temporário) ou null. */
 export async function papelTimbradoAtual(): Promise<{

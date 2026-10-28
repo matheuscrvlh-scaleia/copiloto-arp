@@ -19,7 +19,7 @@ import { criarChamadoSistema } from "../criar";
 // rodar duas vezes não cria nada a mais. Parar a série = tirar o Repetir.
 
 const COLUNAS =
-  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, prioridade, responsavel_id, aberto_por, pessoal, precisa_confirmacao, destinos_em_ordem, loja_id, ativo_id, checklist, etiquetas, campos, recorrencia, serie_id, serie_data, prazo, criado_em, exemplo, destinatarios(setor_id, usuario_id, titulo, responsavel_id, ordem)" as const;
+  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, prioridade, responsavel_id, aberto_por, pessoal, precisa_confirmacao, destinos_em_ordem, loja_id, ativo_id, checklist, etiquetas, campos, recorrencia, serie_id, serie_data, prazo, criado_em, destinatarios(setor_id, usuario_id, titulo, responsavel_id, ordem)" as const;
 
 export async function rotinaRecorrencias(agora: Date): Promise<number> {
   const { p, cal } = await configDoSistema();
@@ -91,7 +91,6 @@ export async function rotinaRecorrencias(agora: Date): Promise<number> {
               responsavelId: d.responsavel_id,
               prazo: prazoDaOcorrencia(dia, cal),
             })),
-          exemplo: ultima.exemplo,
         },
         agora,
       );
@@ -116,7 +115,6 @@ async function ocorrenciasComRepetir() {
       .from("chamados")
       .select(COLUNAS)
       .not("recorrencia", "is", null)
-      .is("lixeira_em", null)
       .order("id")
       .range(de, de + POR_PAGINA - 1);
     if (error) throw new Error(`Séries: ${error.message}`);
@@ -126,8 +124,7 @@ async function ocorrenciasComRepetir() {
 }
 
 /**
- * A data mais nova de cada série, contando as ocorrências sem Repetir e as
- * da lixeira (ocorrência apagada não volta a ser criada).
+ * A data mais nova de cada série, contando as ocorrências sem Repetir.
  */
 async function fimDasSeries(
   ids: string[],

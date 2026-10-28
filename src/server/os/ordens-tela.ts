@@ -68,7 +68,6 @@ export function paraTela(
     rateio: o.rateio,
     valor: comCustos ? (v.valor ?? 0) : null,
     valorRateio: comCustos ? (v.valorRateio ?? 0) : null,
-    exemplo: o.exemplo,
     href: `${CAMINHO_ORDENS}?${painel.toString()}`,
   };
 }

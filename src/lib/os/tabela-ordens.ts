@@ -30,7 +30,6 @@ export interface LinhaOSTela {
   /** null: quem vê não tem os.custos. */
   valor: number | null;
   valorRateio: number | null;
-  exemplo: boolean;
   /** A mesma tela com ?c=<id> (janela lateral). */
   href: string;
 }

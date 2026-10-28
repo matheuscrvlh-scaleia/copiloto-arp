@@ -22,7 +22,6 @@ export interface LinhaChamado {
   aberto: string;
   prazo: string | null;
   concluido: string | null;
-  exemplo: boolean;
 }
 
 /** Coluna a mais numa lista (ex.: dias em aberto, custo da OS). */
@@ -171,7 +170,6 @@ export interface PainelMontado {
   titulo: string;
   rotulo: string;
   atualizadoAs: string;
-  temExemplo: boolean;
   cartoes: CartaoPainel[];
   blocos: Bloco[];
   linhas: LinhaChamado[];
@@ -213,7 +211,7 @@ export function tabelaDaParte(
       const l = linhas.get(id);
       if (!l) return [];
       const valores: Record<(typeof COLUNAS)[number], string> = {
-        Nº: `${formatarNumeroChamado(l.numero)}${l.exemplo ? " (exemplo)" : ""}`,
+        Nº: `${formatarNumeroChamado(l.numero)}`,
         Título: l.titulo,
         Setor: l.setor,
         Categoria: l.categoria,

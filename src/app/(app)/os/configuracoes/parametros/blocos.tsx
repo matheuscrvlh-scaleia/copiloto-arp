@@ -7,7 +7,6 @@ import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { UltimasAlteracoes } from "@/components/os/configuracoes/alteracoes";
 import { ListaDeTextos } from "@/components/os/configuracoes/lista-editavel";
-import { SeloExemplo } from "@/components/os/selos";
 import { Selecao } from "@/components/selecao";
 import { formatarData, formatarMoeda, formatarNumero } from "@/lib/formato";
 import {
@@ -505,7 +504,6 @@ function CartaoTecnico({
                   Sai em {formatarData(t.desligado_em)}
                 </Situacao>
               )}
-              {t.exemplo && <SeloExemplo />}
             </span>
             <span className="block text-xs text-neutral-500">
               {[

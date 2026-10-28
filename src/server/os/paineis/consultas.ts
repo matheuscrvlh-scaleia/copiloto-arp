@@ -91,7 +91,7 @@ export async function lerFiltrosDoPainel(
 // ---------------------------------------------------------------------------
 
 const COLUNAS_PAINEL =
-  "id, numero, tipo, titulo, setor_id, categoria_id, status, prioridade, origem, pessoal, precisa_confirmacao, aberto_por, solicitante_nome, responsavel_id, prazo, loja_id, ativo_id, etiquetas, aguardando_tipo, aguardando_min, aguardando_desde, primeira_resposta_em, concluido_em, fechado_em, cancelado_em, execucao, local, rateio, avaliacao, lixeira_em, exemplo, criado_em, atualizado_em, bloco, empresa_id, prazo_terceirizado, reaberto_vezes, plano_id, vistoria_id, ambiente_id, avaliado_em" as const;
+  "id, numero, tipo, titulo, setor_id, categoria_id, status, prioridade, origem, pessoal, precisa_confirmacao, aberto_por, solicitante_nome, responsavel_id, prazo, loja_id, ativo_id, etiquetas, aguardando_tipo, aguardando_min, aguardando_desde, primeira_resposta_em, concluido_em, fechado_em, cancelado_em, execucao, local, rateio, avaliacao, criado_em, atualizado_em, bloco, empresa_id, prazo_terceirizado, reaberto_vezes, plano_id, vistoria_id, ambiente_id, avaliado_em" as const;
 
 export type ChamadoDoPainel = ChamadoResumo &
   Pick<
@@ -178,7 +178,7 @@ async function paginasEmParalelo<T>(
 /**
  * Chamados que o usuário vê e que importam para o período: os que estão em
  * aberto e os que nasceram, concluíram, fecharam ou foram cancelados desde
- * `desde`, criados até `ate` (fora da lixeira). Paginado: o PostgREST corta
+ * `desde`, criados até `ate`. Paginado: o PostgREST corta
  * cada resposta em mil linhas.
  */
 export async function chamadosDoPainel(
@@ -192,7 +192,6 @@ export async function chamadosDoPainel(
     cliente
       .from("chamados")
       .select(COLUNAS_PAINEL, contar ? { count: "estimated" } : undefined)
-      .is("lixeira_em", null)
       .lt("criado_em", fim)
       .or(
         [
@@ -215,8 +214,7 @@ export async function chamadosPorId(ids: string[]): Promise<ChamadoDoPainel[]> {
     const { data, error } = await (await os())
       .from("chamados")
       .select(COLUNAS_PAINEL)
-      .in("id", lote)
-      .is("lixeira_em", null);
+      .in("id", lote);
     falhar(error);
     return data ?? [];
   });
@@ -310,21 +308,17 @@ export async function destinosDoSetor(
   desde: string,
 ): Promise<DestinoDoPainel[]> {
   const cliente = await os();
-  // Fora os itens de chamados na lixeira: a lista que o número abre não os
-  // mostraria (o número contaria a mais).
-  const linhas = await todasAsPaginas((de, ate) =>
+  return todasAsPaginas((de, ate) =>
     cliente
       .from("destinatarios")
-      .select(`${COLUNAS_DESTINO}, chamados!inner(lixeira_em)`)
+      .select(COLUNAS_DESTINO)
       .eq("setor_id", setorId)
-      .is("chamados.lixeira_em", null)
       .or(
         `status.neq.concluido,concluido_em.gte."${desde}T00:00:00-03:00",criado_em.gte."${desde}T00:00:00-03:00"`,
       )
       .order("id")
       .range(de, ate),
   );
-  return linhas.map(({ chamados: _, ...d }) => d);
 }
 
 /** Sessões de trabalho dos chamados, com os técnicos de cada uma. */
@@ -487,7 +481,6 @@ export type VistoriaDoPainel = Pick<
   | "locatario"
   | "unidade"
   | "assinado_em"
-  | "exemplo"
 >;
 
 /** Vistorias com data no período e os ambientes com problema delas. */
@@ -497,7 +490,7 @@ export async function vistoriasDoPeriodo(de: string, ate: string) {
     cliente
       .from("vistorias")
       .select(
-        "id, codigo, tipo, status, rascunho, data, locatario, unidade, assinado_em, exemplo",
+        "id, codigo, tipo, status, rascunho, data, locatario, unidade, assinado_em",
       )
       .gte("data", de)
       .lte("data", ate)
@@ -531,7 +524,7 @@ export async function agendasDoPeriodo(de: string, ate: string) {
     todasAsPaginas((a, b) =>
       cliente
         .from("agendamentos")
-        .select("id, agenda_id, chamado_id, loja_id, inicio, status, exemplo")
+        .select("id, agenda_id, chamado_id, loja_id, inicio, status")
         .gte("inicio", inicio)
         .lt("inicio", fim)
         .order("inicio")

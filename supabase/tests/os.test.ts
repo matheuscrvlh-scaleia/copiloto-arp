@@ -51,13 +51,11 @@ const PESSOAS = {
   estranho: { p: ["rh.painel"], s: [] },
   inativo: { p: ["os.acessar"], s: ["operacoes"] },
   financeiro: { p: ["os.acessar", "os.todos_setores", "os.custos"], s: [] },
-  lixeira: { p: ["os.acessar", "os.excluir"], s: ["operacoes"] },
   agenda: { p: ["os.acessar", "os.portal_agenda"], s: [] },
   portal: { p: ["os.acessar", "os.portal"], s: [] },
   ativos: { p: ["os.ativos"], s: [] },
   ativosGerenciar: { p: ["os.ativos_gerenciar"], s: [] },
   vistoriador: { p: ["os.vistorias"], s: [] },
-  importador: { p: ["os.acessar", "os.importacao"], s: [] },
   auditor: { p: ["os.historico"], s: [] },
   parametros: { p: ["os.acessar", "os.parametros"], s: [] },
   porCargo: { p: [], s: [] },
@@ -206,10 +204,10 @@ describe("estrutura e dados iniciais", () => {
     expect(rows).toEqual([]);
   });
 
-  it("20 permissões os.*, todas no Administrador; a Diretoria acompanha", async () => {
+  it("18 permissões os.*, todas no Administrador; a Diretoria acompanha", async () => {
     expect(
       await linhas("select 1 from core.permissoes where codigo like 'os.%'"),
-    ).toBe(20);
+    ).toBe(18);
     const permissoesDe = async (cargo: string) =>
       (
         await db.query<{ p: string }>(
@@ -218,7 +216,7 @@ describe("estrutura e dados iniciais", () => {
            where c.nome = '${cargo}' and cp.permissao like 'os.%' order by 1`,
         )
       ).rows.map((r) => r.p);
-    expect(await permissoesDe("Administrador")).toHaveLength(20);
+    expect(await permissoesDe("Administrador")).toHaveLength(18);
     expect(await permissoesDe("Diretoria")).toEqual([
       "os.acessar",
       "os.ativos",
@@ -684,21 +682,6 @@ describe("quem pode mudar o quê (os.validar_chamado)", () => {
     });
     expect(await campo(id, "cancelado_por")).toBe(U.solicitante);
   });
-
-  it("lixeira só com os.excluir", async () => {
-    const id = await chamado("Q lixeira");
-    await como(U.gestor, async () => {
-      expect(await mudar(id, "lixeira_em = now()")).toMatch(
-        /só quem pode excluir/,
-      );
-    });
-    await como(U.lixeira, async () => {
-      expect(
-        await mudar(id, `lixeira_em = now(), lixeira_por = '${U.lixeira}'`),
-      ).toBeNull();
-    });
-    expect(await campo(id, "lixeira_em")).not.toBeNull();
-  });
 });
 
 describe("vários destinatários (os.sincronizar_destinos)", () => {
@@ -1124,11 +1107,6 @@ describe("ativos", () => {
       },
       999,
     );
-    await os(
-      "R na lixeira",
-      { categoria_id: eletrica, lixeira_em: "2026-10-01" },
-      500,
-    );
     await os("R não é OS", { tipo: "solicitacao" }, 77);
 
     const resumo = `select custo_periodo::float, custo_total::float, corretivas_periodo::int,
@@ -1279,78 +1257,6 @@ describe("pessoas do módulo (os.pessoas)", () => {
     expect(
       await como(U.estranho, () => linhas("select * from os.pessoas()")),
     ).toBe(0);
-  });
-});
-
-describe("importação (os.desfazer_importacao)", () => {
-  it("apaga só o que a importação trouxe e exige os.importacao", async () => {
-    const imp = await inserir("os.importacoes", {
-      arquivo_nome: "os.xlsx",
-      status: "confirmada",
-    });
-    const outra = await inserir("os.importacoes", {
-      arquivo_nome: "outra.xlsx",
-      status: "confirmada",
-    });
-    await chamado("I importado 1", { tipo: "os", importacao_id: imp });
-    await chamado("I importado 2", { tipo: "os", importacao_id: imp });
-    await chamado("I de outra importação", { importacao_id: outra });
-    const nova = await chamado("I criado no sistema", { tipo: "os" });
-    await inserir("os.empresas", {
-      nome: "Empresa Exemplo",
-      importacao_id: imp,
-    });
-    const usado = await inserir("os.tecnicos", {
-      nome: "Técnico usado",
-      importacao_id: imp,
-    });
-    await inserir("os.tecnicos", {
-      nome: "Técnico só da importação",
-      importacao_id: imp,
-    });
-    const sessao = await inserir("os.sessoes", {
-      chamado_id: nova,
-      data: "2026-10-20",
-      inicio: "08:00",
-    });
-    await db.query(
-      "insert into os.sessao_tecnicos (sessao_id, tecnico_id) values ($1, $2)",
-      [sessao, usado],
-    );
-
-    const desfazer = `select os.desfazer_importacao('${imp}')`;
-    await como(U.colega, async () => {
-      expect(await erro(desfazer)).toMatch(/sem permissão/);
-    });
-    expect(
-      await linhas(`select 1 from os.chamados where importacao_id = '${imp}'`),
-    ).toBe(2);
-
-    await como(U.importador, async () => {
-      expect(await erro(desfazer)).toBeNull();
-    });
-    const { rows } = await db.query<{ titulo: string }>(
-      "select titulo from os.chamados where titulo like 'I %' order by titulo",
-    );
-    expect(rows.map((r) => r.titulo)).toEqual([
-      "I criado no sistema",
-      "I de outra importação",
-    ]);
-    expect(
-      await linhas("select 1 from os.empresas where nome = 'Empresa Exemplo'"),
-    ).toBe(0);
-    const { rows: tecnicos } = await db.query<{
-      nome: string;
-      importacao_id: string | null;
-    }>(
-      "select nome, importacao_id from os.tecnicos where nome like 'Técnico %' and nome <> 'Técnico Exemplo'",
-    );
-    expect(tecnicos).toEqual([{ nome: "Técnico usado", importacao_id: null }]);
-    const { rows: st } = await db.query<{
-      status: string;
-      desfeito_por: string;
-    }>(`select status, desfeito_por from os.importacoes where id = '${imp}'`);
-    expect(st).toEqual([{ status: "desfeita", desfeito_por: U.importador }]);
   });
 });
 
