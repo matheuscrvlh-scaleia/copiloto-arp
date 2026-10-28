@@ -405,7 +405,7 @@ export function FormCategoria({
             <span className="font-normal text-neutral-500">
               Horários e limite de cada agenda ficam em{" "}
               <Link href={ROTAS_OS.portal} className="underline">
-                Portal e agenda
+                Portal lojista
               </Link>
               .
             </span>

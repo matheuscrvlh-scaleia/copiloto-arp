@@ -30,7 +30,7 @@ import {
 import { contexto, parametros } from "@/server/os/base";
 import { diasParaRemarcar, urlDoPortal } from "@/server/os/portal";
 
-export const metadata: Metadata = { title: "Agendas · Portal e agenda" };
+export const metadata: Metadata = { title: "Agendas · Portal lojista" };
 
 /** Quantos dias à frente a lista de próximos horários mostra. */
 const DIAS_PROXIMOS = 14;

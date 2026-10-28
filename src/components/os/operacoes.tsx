@@ -11,7 +11,7 @@ import { contexto } from "@/server/os/base";
 export function CabecalhoOperacoes({ descricao }: { descricao: string }) {
   return (
     <>
-      <PageHeader title="Operações" description={descricao} />
+      <PageHeader title="Chamados" description={descricao} />
       <div className="mb-6">
         <Suspense
           fallback={<div className="vidro h-11 w-96 max-w-full rounded-full" />}

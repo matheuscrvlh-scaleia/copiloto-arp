@@ -112,7 +112,7 @@ export async function BlocoPortal() {
               Quais pedidos aparecem no portal se define em cada categoria do
               Catálogo. Horários, limites e bloqueios das agendas ficam em{" "}
               <Link href={ROTAS_OS.portal} className="underline">
-                Portal e agenda
+                Portal lojista
               </Link>
               .
             </span>

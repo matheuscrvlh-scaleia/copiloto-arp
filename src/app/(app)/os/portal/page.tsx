@@ -36,7 +36,7 @@ import {
 
 const TONS = tonsDaTela("portal");
 
-export const metadata: Metadata = { title: "Portal e agenda" };
+export const metadata: Metadata = { title: "Portal lojista" };
 
 const CAMINHO = "/os/portal";
 

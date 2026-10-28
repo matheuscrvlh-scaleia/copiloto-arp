@@ -179,7 +179,7 @@ export const navigation: NavSection[] = [
   },
   {
     titulo: "Tickets",
-    // Painéis no topo; depois o dia a dia (Operações e calendário),
+    // Painéis no topo; depois o dia a dia (calendário e chamados),
     // ordens, ativos, vistorias e portal e, por último, a configuração.
     itens: [
       {
@@ -189,17 +189,17 @@ export const navigation: NavSection[] = [
         permissao: ["os.painel_setor", "os.painel_geral"],
       },
       {
-        // Abas: Minha caixa, Geral, Quadro, Avisos e Disparos e lembretes (as
-        // com permissão própria só aparecem para quem a tem).
-        href: "/os",
-        label: "Operações",
-        icone: "caixa",
-        permissao: "os.acessar",
-      },
-      {
         href: "/os/calendario",
         label: "Calendário",
         icone: "calendario",
+        permissao: "os.acessar",
+      },
+      {
+        // Abas: Minha caixa, Geral, Quadro, Avisos e Disparos e lembretes (as
+        // com permissão própria só aparecem para quem a tem).
+        href: "/os",
+        label: "Chamados",
+        icone: "caixa",
         permissao: "os.acessar",
       },
       {
@@ -216,7 +216,7 @@ export const navigation: NavSection[] = [
       },
       {
         href: "/os/portal",
-        label: "Portal e agenda",
+        label: "Portal lojista",
         icone: "portal",
         permissao: ["os.portal", "os.portal_agenda"],
       },

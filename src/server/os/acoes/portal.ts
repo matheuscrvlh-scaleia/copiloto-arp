@@ -22,7 +22,7 @@ import { contexto, os, registrarComoSistema } from "@/server/os/base";
 import { lojasDoFiltro } from "@/server/os/lojas";
 import { encerrarComSessao, lojasDoPortal } from "@/server/os/portal";
 
-// Portal e agenda (tela interna). Acesso das lojas e lojas: os.portal;
+// Portal lojista (tela interna). Acesso das lojas e lojas: os.portal;
 // agendas, bloqueios e remarcação: os.portal_agenda. Tudo pela sessão (RLS
 // e auditoria); encerrar o acesso fica também em core.logs.
 

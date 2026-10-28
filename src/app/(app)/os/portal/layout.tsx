@@ -5,14 +5,14 @@ import { PageHeader } from "@/components/page-header";
 import { contexto } from "@/server/os/base";
 import { urlDoPortal } from "@/server/os/portal";
 
-// Portal e agenda: links das lojas, cadastro das lojas (até o ENET) e as
+// Portal lojista: links das lojas, cadastro das lojas (até o ENET) e as
 // agendas (telhado e outras) com bloqueios e remarcação.
 
 export default function Layout({ children }: LayoutProps<"/os/portal">) {
   return (
     <>
       <PageHeader
-        title="Portal e agenda"
+        title="Portal lojista"
         description="Cada loja abre e acompanha os pedidos por um link próprio, sem senha. Aqui você gera e envia os links, cuida do cadastro das lojas e das agendas, como a do telhado."
       />
       <Suspense
@@ -46,7 +46,7 @@ async function Topo() {
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
       {abas.length > 1 && (
-        <AbasDaTela abas={abas} rotulo="Seções de Portal e agenda" />
+        <AbasDaTela abas={abas} rotulo="Seções de Portal lojista" />
       )}
       {link && <LinkDoPortal url={urlDoPortal()} />}
     </div>

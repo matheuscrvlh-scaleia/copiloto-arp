@@ -140,7 +140,7 @@ export async function blocosDoPortal(ctx: Ctx): Promise<Bloco[]> {
           vazio: "Nenhum bloqueio no período.",
         },
       ],
-      link: { href: ROTAS_OS.portal, rotulo: "Abrir Portal e agenda" },
+      link: { href: ROTAS_OS.portal, rotulo: "Abrir Portal lojista" },
     };
     return {
       rotulo: `Ocupação: ${a.nome}`,
@@ -235,7 +235,7 @@ export async function blocosDoPortal(ctx: Ctx): Promise<Bloco[]> {
       ],
       nota: `Pedidos por loja: as 10 que mais pediram${porLoja.length > 10 ? ` (de ${porLoja.length})` : ""}. Pedidos por categoria estão em "Chamados por categoria". Notas de 1 a 5 dadas pelo lojista ao concluir.`,
       exportar: listas.lista(`Pedidos do portal em ${f.rotulo}`, pedidos),
-      links: [{ href: ROTAS_OS.portal, rotulo: "Abrir Portal e agenda" }],
+      links: [{ href: ROTAS_OS.portal, rotulo: "Abrir Portal lojista" }],
     },
   ];
 }

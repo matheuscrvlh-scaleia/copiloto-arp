@@ -17,7 +17,7 @@ import { exportarLojas } from "@/server/os/acoes/portal";
 import { contexto } from "@/server/os/base";
 import { type Loja, paginaDeLojas } from "@/server/os/lojas";
 
-export const metadata: Metadata = { title: "Lojas · Portal e agenda" };
+export const metadata: Metadata = { title: "Lojas · Portal lojista" };
 
 const CAMINHO = "/os/portal/lojas";
 

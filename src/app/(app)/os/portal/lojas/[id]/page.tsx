@@ -7,7 +7,7 @@ import { Cartao } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { loja } from "@/server/os/lojas";
 
-export const metadata: Metadata = { title: "Loja · Portal e agenda" };
+export const metadata: Metadata = { title: "Loja · Portal lojista" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

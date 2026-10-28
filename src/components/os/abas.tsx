@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Abas de uma tela de Tickets (Operações, Portal e agenda): a ativa fica
+// Abas de uma tela de Tickets (Operações, Portal lojista): a ativa fica
 // escura, as outras em vidro.
 
 export interface Aba {

@@ -6,7 +6,7 @@ import { FormAgenda } from "@/components/os/portal/form-agenda";
 import { Cartao } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 
-export const metadata: Metadata = { title: "Nova agenda · Portal e agenda" };
+export const metadata: Metadata = { title: "Nova agenda · Portal lojista" };
 
 export default function Page() {
   return (
