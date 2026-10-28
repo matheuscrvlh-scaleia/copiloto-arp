@@ -11,7 +11,7 @@ import {
 import { Secao } from "@/components/dashboard/tabela";
 import { BotaoExportar } from "@/components/os/exportar";
 import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
-import { AcoesDaLoja, CopiarLink } from "@/components/os/portal/acoes-link";
+import { AcoesDaLoja } from "@/components/os/portal/acoes-link";
 import { Atualizado, CartaoFiltro } from "@/components/os/portal/cartao-filtro";
 import { ListaBusca } from "@/components/os/portal/lista-busca";
 import { SeloExemplo } from "@/components/os/selos";
@@ -33,7 +33,6 @@ import {
   indicadoresDoPortal,
   type LinhaDoPortal,
   paginaDoPortal,
-  urlDoPortal,
 } from "@/server/os/portal";
 
 const TONS = tonsDaTela("portal");
@@ -80,7 +79,6 @@ async function Links({
   // O cartão troca o filtro e mantém a busca (volta à página 1).
   const alternar = (x: FiltroPortal) =>
     hrefDaPagina(CAMINHO, { q: q || undefined, f: f === x ? undefined : x }, 1);
-  const url = urlDoPortal();
   const media = (m: number | null) => (m === null ? "—" : formatarNumero(m, 1));
   const busca: Record<string, string> = {};
   if (f) busca.f = f;
@@ -132,12 +130,8 @@ async function Links({
         titulo={f ? `Lojas · ${FILTROS_PORTAL[f]}` : "Lojas vigentes"}
         descricao={`Um link só para todas as lojas: cada loja entra com o próprio CNPJ e fica dentro por até ${LIMITES_PORTAL.sessaoDias} dias. Encerrar o acesso tira a loja na hora.`}
       >
-        <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
-          <span className="rounded-full bg-neutral-900/[0.04] px-3 py-1.5 text-xs text-neutral-700 select-all">
-            {url}
-          </span>
-          <CopiarLink url={url} />
-          {ctx.pode("os.exportar") && (
+        {ctx.pode("os.exportar") && (
+          <div className="mb-4 flex justify-end">
             <BotaoExportar
               titulo="Lojas no portal"
               filtros={[
@@ -150,8 +144,8 @@ async function Links({
               total={total}
               carregar={exportarLinks.bind(null, busca)}
             />
-          )}
-        </div>
+          </div>
+        )}
         <ListaBusca
           busca={q}
           placeholder="Buscar pela LUC, nome ou bloco…"

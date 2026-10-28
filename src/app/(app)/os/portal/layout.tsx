@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import { Abas as AbasDaTela } from "@/components/os/abas";
+import { LinkDoPortal } from "@/components/os/portal/acoes-link";
 import { PageHeader } from "@/components/page-header";
 import { contexto } from "@/server/os/base";
+import { urlDoPortal } from "@/server/os/portal";
 
 // Portal e agenda: links das lojas, cadastro das lojas (até o ENET) e as
 // agendas (telhado e outras) com bloqueios e remarcação.
@@ -13,19 +15,20 @@ export default function Layout({ children }: LayoutProps<"/os/portal">) {
         title="Portal e agenda"
         description="Cada loja abre e acompanha os pedidos por um link próprio, sem senha. Aqui você gera e envia os links, cuida do cadastro das lojas e das agendas, como a do telhado."
       />
-      <div className="mb-6">
-        <Suspense
-          fallback={<div className="vidro h-11 w-80 max-w-full rounded-full" />}
-        >
-          <Abas />
-        </Suspense>
-      </div>
+      <Suspense
+        fallback={
+          <div className="vidro mb-6 h-11 w-80 max-w-full rounded-full" />
+        }
+      >
+        <Topo />
+      </Suspense>
       {children}
     </>
   );
 }
 
-async function Abas() {
+// Abas à esquerda e, para quem cuida dos links, o link do portal à direita.
+async function Topo() {
   const ctx = await contexto();
   const abas = [
     ...(ctx.pode("os.portal")
@@ -38,6 +41,14 @@ async function Abas() {
       ? [{ href: "/os/portal/agendas", rotulo: "Agendas" }]
       : []),
   ];
-  if (abas.length < 2) return null;
-  return <AbasDaTela abas={abas} rotulo="Seções de Portal e agenda" />;
+  const link = ctx.pode("os.portal");
+  if (abas.length < 2 && !link) return null;
+  return (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      {abas.length > 1 && (
+        <AbasDaTela abas={abas} rotulo="Seções de Portal e agenda" />
+      )}
+      {link && <LinkDoPortal url={urlDoPortal()} />}
+    </div>
+  );
 }

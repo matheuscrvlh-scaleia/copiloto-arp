@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, MessageCircle } from "lucide-react";
+import { Check, Copy, ExternalLink, Link2, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { FormAcao } from "@/components/form-acao";
 import { encerrarAcesso } from "@/server/os/acoes/portal";
@@ -11,8 +11,6 @@ import { encerrarAcesso } from "@/server/os/acoes/portal";
 // Mesmo tamanho dos botões do FormAcao (px-4 py-2 text-sm), lado a lado.
 const BOTAO =
   "inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400";
-const PILULA =
-  "inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition hover:border-neutral-400";
 
 export function AcoesDaLoja({
   lojaId,
@@ -58,7 +56,9 @@ export function AcoesDaLoja({
   );
 }
 
-export function CopiarLink({ url }: { url: string }) {
+// O link do portal no topo da tela, ao lado das abas: endereço à vista,
+// copiar com um clique e abrir para conferir.
+export function LinkDoPortal({ url }: { url: string }) {
   const [copiado, setCopiado] = useState(false);
   async function copiar() {
     try {
@@ -70,13 +70,40 @@ export function CopiarLink({ url }: { url: string }) {
     }
   }
   return (
-    <button type="button" onClick={copiar} className={PILULA}>
-      {copiado ? (
-        <Check className="size-3.5 text-green-700" aria-hidden />
-      ) : (
-        <Copy className="size-3.5" aria-hidden />
-      )}
-      <span aria-live="polite">{copiado ? "Copiado" : "Copiar link"}</span>
-    </button>
+    <div className="vidro flex w-full min-w-0 items-center gap-3 rounded-full p-1 sm:w-auto">
+      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-green-600 text-white">
+        <Link2 className="size-4" aria-hidden />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col leading-tight">
+        <span className="text-[11px] text-neutral-500">
+          Link do portal das lojas
+        </span>
+        <span className="truncate text-sm font-medium text-neutral-900 select-all">
+          {url.replace(/^https?:\/\//, "")}
+        </span>
+      </span>
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        title="Abrir o portal"
+        aria-label="Abrir o portal"
+        className="grid size-9 shrink-0 place-items-center rounded-full text-neutral-600 transition hover:bg-white/70 hover:text-neutral-900"
+      >
+        <ExternalLink className="size-4" aria-hidden />
+      </a>
+      <button
+        type="button"
+        onClick={copiar}
+        className="inline-flex shrink-0 items-center gap-2 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-700"
+      >
+        {copiado ? (
+          <Check className="size-4 text-green-400" aria-hidden />
+        ) : (
+          <Copy className="size-4" aria-hidden />
+        )}
+        <span aria-live="polite">{copiado ? "Copiado" : "Copiar link"}</span>
+      </button>
+    </div>
   );
 }
