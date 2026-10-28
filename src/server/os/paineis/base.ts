@@ -561,6 +561,7 @@ function blocosPorCategoriaEStatus(ctx: Ctx): Bloco[] {
       titulo: "Chamados por categoria",
       descricao: `Abertos em ${f.rotulo}`,
       largura: 7,
+      rolagem: true,
       partes: [
         {
           tipo: "barras",
@@ -589,6 +590,7 @@ function blocosPorCategoriaEStatus(ctx: Ctx): Bloco[] {
       titulo: "Chamados por status",
       descricao: `Abertos em ${f.rotulo}, pelo status de agora`,
       largura: 5,
+      rolagem: true,
       partes: [
         {
           tipo: "rosca",
