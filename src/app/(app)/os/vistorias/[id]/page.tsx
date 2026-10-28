@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Secao } from "@/components/admin/ui";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
+import { NotificarAoAbrir } from "@/components/notificacoes";
 import { SeloStatusChamado, SeloTipo } from "@/components/os/selos";
 import { EditorVistoria } from "@/components/os/vistorias/editor";
 import { EnviarLaudo } from "@/components/os/vistorias/enviar";
@@ -128,37 +129,32 @@ async function Conteudo({
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-3">
-        <h1 className="flex flex-wrap items-center gap-3 text-4xl font-semibold tracking-tight md:text-5xl">
-          {v.codigo}
-          <SeloTipoVistoria tipo={v.tipo} />
-          <SeloSituacaoVistoria situacao={situacao} />
-          {v.rascunho && (
-            <span className="rounded-full bg-neutral-900/[0.06] px-2.5 py-1 text-xs font-medium text-neutral-600">
-              Rascunho
-            </span>
-          )}
-        </h1>
-        <p className="text-sm text-neutral-500">
-          {[
-            v.locatario || "Sem locatário",
-            localDaUnidade(v.bloco, v.unidade),
-            formatarData(v.data),
-            v.vistoriador_nome,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={laudo}
-            target="_blank"
-            rel="noopener"
-            className="inline-flex min-h-10 items-center gap-2 rounded-full bg-neutral-900 px-4 text-sm font-medium text-white shadow-lg transition hover:bg-neutral-800"
-          >
-            <FileText className="size-4" aria-hidden />
-            Laudo em PDF
-          </a>
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 flex-col gap-3">
+          <h1 className="flex flex-wrap items-center gap-3 text-4xl font-semibold tracking-tight md:text-5xl">
+            {v.codigo}
+            <SeloTipoVistoria tipo={v.tipo} />
+            <SeloSituacaoVistoria situacao={situacao} />
+            {v.rascunho && (
+              <span className="rounded-full bg-neutral-900/[0.06] px-2.5 py-1 text-xs font-medium text-neutral-600">
+                Rascunho
+              </span>
+            )}
+          </h1>
+          <p className="text-sm text-neutral-500">
+            {[
+              v.locatario || "Sem locatário",
+              localDaUnidade(v.bloco, v.unidade),
+              formatarData(v.data),
+              v.vistoriador_nome,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          <LinkDoLocatario v={v} />
+        </div>
+        {/* Ações no canto direito: as secundárias antes, o PDF por último. */}
+        <div className="flex flex-wrap items-center gap-2 lg:max-w-[55%] lg:shrink-0 lg:justify-end lg:pt-2">
           {comEntrada && (
             <Link
               href={`${rotaVistoria(v.id)}/comparar`}
@@ -172,15 +168,23 @@ async function Conteudo({
             <EnviarLaudo vistoriaId={v.id} modo="assinatura" />
           )}
           <EnviarLaudo vistoriaId={v.id} />
+          <a
+            href={laudo}
+            target="_blank"
+            rel="noopener"
+            className="inline-flex min-h-10 items-center gap-2 rounded-full bg-neutral-900 px-4 text-sm font-medium text-white shadow-lg transition hover:bg-neutral-800"
+          >
+            <FileText className="size-4" aria-hidden />
+            Laudo em PDF
+          </a>
         </div>
-        <LinkDoLocatario v={v} />
       </header>
 
       {sp.duplicada === "1" && (
-        <output className="flex items-center gap-2 rounded-3xl bg-green-50 px-4 py-3 text-sm text-green-800">
-          <CircleCheck className="size-4 shrink-0" aria-hidden />
-          Vistoria duplicada. Confira os dados, fotografe os ambientes e salve.
-        </output>
+        <NotificarAoAbrir
+          texto="Vistoria duplicada. Confira os dados, fotografe os ambientes e salve."
+          parametro="duplicada"
+        />
       )}
 
       <EditorVistoria

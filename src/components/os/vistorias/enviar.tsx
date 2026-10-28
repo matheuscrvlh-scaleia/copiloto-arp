@@ -9,6 +9,7 @@ import {
   Send,
 } from "lucide-react";
 import { useState } from "react";
+import { notificar } from "@/components/notificacoes";
 import {
   enviarParaAssinatura,
   prepararEnvio,
@@ -45,18 +46,18 @@ export function EnviarLaudo({
     | { fase: "parado" }
     | { fase: "gerando" }
     | { fase: "pronto"; link: string; whatsapp: string }
-    | { fase: "erro"; erro: string }
   >({ fase: "parado" });
   const [copiado, setCopiado] = useState(false);
 
   async function preparar() {
     setEstado({ fase: "gerando" });
     const r = await t.acao({ vistoriaId });
-    setEstado(
-      r.link && r.whatsapp
-        ? { fase: "pronto", link: r.link, whatsapp: r.whatsapp }
-        : { fase: "erro", erro: r.erro ?? "Não foi possível gerar o laudo." },
-    );
+    if (r.link && r.whatsapp) {
+      setEstado({ fase: "pronto", link: r.link, whatsapp: r.whatsapp });
+      return;
+    }
+    setEstado({ fase: "parado" });
+    notificar("erro", r.erro ?? "Não foi possível gerar o laudo.");
   }
 
   async function copiar(link: string) {
@@ -74,7 +75,7 @@ export function EnviarLaudo({
 
   if (estado.fase === "pronto")
     return (
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="contents">
         <a
           href={estado.whatsapp}
           target="_blank"
@@ -100,30 +101,23 @@ export function EnviarLaudo({
     );
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        onClick={preparar}
-        disabled={estado.fase === "gerando"}
-        className={secundario}
-      >
-        {estado.fase === "gerando" ? (
-          <Loader
-            className="size-4 animate-spin motion-reduce:animate-none"
-            aria-hidden
-          />
-        ) : modo === "assinatura" ? (
-          <PenLine className="size-4" aria-hidden />
-        ) : (
-          <Send className="size-4" aria-hidden />
-        )}
-        {estado.fase === "gerando" ? t.gerando : t.rotulo}
-      </button>
-      {estado.fase === "erro" && (
-        <span role="alert" className="text-xs text-red-700">
-          {estado.erro}
-        </span>
+    <button
+      type="button"
+      onClick={preparar}
+      disabled={estado.fase === "gerando"}
+      className={secundario}
+    >
+      {estado.fase === "gerando" ? (
+        <Loader
+          className="size-4 animate-spin motion-reduce:animate-none"
+          aria-hidden
+        />
+      ) : modo === "assinatura" ? (
+        <PenLine className="size-4" aria-hidden />
+      ) : (
+        <Send className="size-4" aria-hidden />
       )}
-    </div>
+      {estado.fase === "gerando" ? t.gerando : t.rotulo}
+    </button>
   );
 }

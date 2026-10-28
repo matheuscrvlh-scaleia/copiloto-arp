@@ -3,10 +3,16 @@
 import { Eraser, Loader, PenLine, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ModalConfirmacao } from "@/components/modal-confirmacao";
+import { notificar } from "@/components/notificacoes";
 import {
   removerAssinatura,
   salvarAssinatura,
 } from "@/server/os/acoes/vistorias";
+
+// Erros vão para a notificação no canto da tela, não ao lado do botão.
+function avisarErro(e: string | null) {
+  if (e) notificar("erro", e);
+}
 
 // Assinatura feita na tela, com o dedo ou a caneta. Vira um PNG no bucket e
 // sai no laudo sobre a linha da parte; sem ela, a linha fica em branco para
@@ -33,7 +39,6 @@ export function Assinatura({
   const [vazia, setVazia] = useState(true);
   const [atual, setAtual] = useState(url);
   const [enviando, setEnviando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
   const [refazer, setRefazer] = useState(false);
   const [apagando, setApagando] = useState(false);
   const vaziaRef = useRef(vazia);
@@ -112,13 +117,12 @@ export function Assinatura({
     const c = canvas.current;
     if (!c || vazia) return;
     setEnviando(true);
-    setErro(null);
     const blob = await new Promise<Blob | null>((ok) =>
       c.toBlob(ok, "image/png"),
     );
     if (!blob) {
       setEnviando(false);
-      setErro("Não foi possível ler a assinatura. Tente de novo.");
+      avisarErro("Não foi possível ler a assinatura. Tente de novo.");
       return;
     }
     const form = new FormData();
@@ -130,7 +134,7 @@ export function Assinatura({
     );
     const r = await salvarAssinatura(form);
     setEnviando(false);
-    if (r.erro) setErro(r.erro);
+    if (r.erro) avisarErro(r.erro);
     else setAtual(r.url ?? null);
   }
 
@@ -139,7 +143,7 @@ export function Assinatura({
     const r = await removerAssinatura({ vistoriaId, parte });
     setApagando(false);
     setRefazer(false);
-    if (r.erro) setErro(r.erro);
+    if (r.erro) avisarErro(r.erro);
     else setAtual(null);
   }
 
@@ -216,11 +220,6 @@ export function Assinatura({
           </>
         )}
       </div>
-      {erro && (
-        <p role="alert" className="text-center text-xs text-red-700">
-          {erro}
-        </p>
-      )}
       <ModalConfirmacao
         aberto={refazer}
         pergunta="Apagar esta assinatura? A pessoa assina de novo na tela."

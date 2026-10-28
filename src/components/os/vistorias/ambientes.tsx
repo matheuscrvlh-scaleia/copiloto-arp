@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import { ModalConfirmacao } from "@/components/modal-confirmacao";
+import { notificar } from "@/components/notificacoes";
 import { SeloStatusChamado } from "@/components/os/selos";
 import { rotaChamado } from "@/lib/os/rotas";
 import { RESPOSTAS_AMBIENTE, type RespostaAmbiente } from "@/lib/os/rotulos";
@@ -32,6 +33,11 @@ import {
 import { BotoesDeEscolha } from "./escolha";
 import { FotosDoAmbiente } from "./fotos";
 import type { AmbienteEditado, ChamadoDaVistoria } from "./tipos";
+
+// Erros vão para a notificação no canto da tela, não ao lado do botão.
+function avisarErro(e: string | null) {
+  if (e) notificar("erro", e);
+}
 
 // Ambientes da vistoria, um de cada vez (no celular, com botões grandes):
 // título, resposta, descrição e fotos. Cada ambiente salva sozinho ao
@@ -68,7 +74,6 @@ export function Ambientes({
   const [indice, setIndice] = useState(0);
   const [organizar, setOrganizar] = useState(false);
   const [salvamento, setSalvamento] = useState<Salvamento>("salvo");
-  const [erro, setErro] = useState<string | null>(null);
   const [remover, setRemover] = useState<AmbienteEditado | null>(null);
   const [removendo, setRemovendo] = useState(false);
   const [novo, setNovo] = useState("");
@@ -103,11 +108,10 @@ export function Ambientes({
       if (r.erro) {
         ok = false;
         sujos.current.add(id);
-        setErro(r.erro);
+        avisarErro(r.erro);
       }
     }
     setSalvamento(ok ? "salvo" : "erro");
-    if (ok) setErro(null);
     return ok;
   }, [vistoriaId]);
 
@@ -162,7 +166,7 @@ export function Ambientes({
       vistoriaId,
       ids: nova.map((a) => a.id),
     });
-    setErro(r.erro ?? null);
+    avisarErro(r.erro ?? null);
   }
 
   async function incluir(titulo: string) {
@@ -176,7 +180,7 @@ export function Ambientes({
     });
     setIncluindo(false);
     if (!r.id) {
-      setErro(r.erro ?? "Não foi possível incluir o ambiente.");
+      avisarErro(r.erro ?? "Não foi possível incluir o ambiente.");
       return;
     }
     aoMudar([
@@ -192,7 +196,6 @@ export function Ambientes({
       },
     ]);
     setNovo("");
-    setErro(null);
   }
 
   async function confirmarRemocao() {
@@ -200,7 +203,7 @@ export function Ambientes({
     setRemovendo(true);
     const r = await removerAmbiente({ id: remover.id });
     setRemovendo(false);
-    if (r.erro) setErro(r.erro);
+    if (r.erro) avisarErro(r.erro);
     else {
       sujos.current.delete(remover.id);
       const resto = lista.current.filter((a) => a.id !== remover.id);
@@ -227,11 +230,6 @@ export function Ambientes({
           {organizar ? "Voltar a preencher" : "Incluir, remover e ordenar"}
         </button>
       </div>
-      {erro && (
-        <p role="alert" className="text-xs text-red-700">
-          {erro}
-        </p>
-      )}
 
       {organizar ? (
         <div className="flex flex-col gap-3">

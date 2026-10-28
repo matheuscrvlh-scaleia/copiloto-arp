@@ -1,11 +1,17 @@
 "use client";
 
-import { Camera, ImagePlus, Loader, Trash2, TriangleAlert } from "lucide-react";
+import { Camera, ImagePlus, Loader, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { ModalConfirmacao } from "@/components/modal-confirmacao";
+import { notificar } from "@/components/notificacoes";
 import { tamanhoReduzido } from "@/lib/os/vistoria-regras";
 import { enviarFoto, removerFoto } from "@/server/os/acoes/vistorias";
 import type { Foto } from "./tipos";
+
+// Erros vão para a notificação no canto da tela, não ao lado do botão.
+function avisarErro(e: string | null) {
+  if (e) notificar("erro", e);
+}
 
 // Fotos do ambiente: tiradas direto do telefone (ou da galeria), várias por
 // vez, reduzidas no navegador antes de subir — o lado maior fica com uns
@@ -77,7 +83,6 @@ export function FotosDoAmbiente({
   const camera = useRef<HTMLInputElement>(null);
   const galeria = useRef<HTMLInputElement>(null);
   const [progresso, setProgresso] = useState<string | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
   const [remover, setRemover] = useState<Foto | null>(null);
   const [removendo, setRemovendo] = useState(false);
   // As fotos chegam uma a uma; a lista atual fica aqui para não perder nenhuma.
@@ -87,7 +92,6 @@ export function FotosDoAmbiente({
   async function enviar(lista: FileList | null) {
     const arquivos = [...(lista ?? [])];
     if (!arquivos.length) return;
-    setErro(null);
     let falhas = 0;
     for (const [i, arquivo] of arquivos.entries()) {
       setProgresso(`Enviando ${i + 1} de ${arquivos.length}…`);
@@ -108,7 +112,7 @@ export function FotosDoAmbiente({
     }
     setProgresso(null);
     if (falhas)
-      setErro(
+      avisarErro(
         falhas === 1
           ? "Uma foto não subiu. Tente de novo."
           : `${falhas} fotos não subiram. Tente de novo.`,
@@ -123,7 +127,7 @@ export function FotosDoAmbiente({
     const r = await removerFoto({ id: remover.id });
     setRemovendo(false);
     if (r.erro) {
-      setErro(r.erro);
+      avisarErro(r.erro);
     } else {
       aoMudar(atuais.current.filter((f) => f.id !== remover.id));
     }
@@ -185,15 +189,6 @@ export function FotosDoAmbiente({
           </output>
         )}
       </div>
-      {erro && (
-        <p
-          role="alert"
-          className="flex items-center gap-2 text-xs text-red-700"
-        >
-          <TriangleAlert className="size-3.5" aria-hidden />
-          {erro}
-        </p>
-      )}
 
       {fotos.length > 0 ? (
         <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">

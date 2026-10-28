@@ -7,6 +7,7 @@ import { Secao } from "@/components/admin/ui";
 import { classeCampo } from "@/components/estilos";
 import { type EstadoAcao, FormAcao } from "@/components/form-acao";
 import { ModalConfirmacao } from "@/components/modal-confirmacao";
+import { useNotificarEstado } from "@/components/notificacoes";
 import { Selecao } from "@/components/selecao";
 import { ROTAS_OS } from "@/lib/os/rotas";
 import {
@@ -84,6 +85,8 @@ export function EditorVistoria({
   const [pergunta, setPergunta] = useState<Pergunta | null>(null);
   const tipoAnterior = useRef(inicial.tipo);
   const router = useRouter();
+  // "Salvo." e os erros aparecem na notificação do canto da tela.
+  useNotificarEstado(estado);
 
   // Sair com alterações não salvas pede confirmação do navegador.
   useEffect(() => {
@@ -540,19 +543,8 @@ export function EditorVistoria({
           </FormAcao>
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
-          <span
-            className="min-w-0 flex-1 text-xs sm:text-right"
-            aria-live="polite"
-          >
-            {estado.erro ? (
-              <span role="alert" className="text-red-700">
-                {estado.erro}
-              </span>
-            ) : estado.ok ? (
-              <span className="text-green-700">{estado.ok}</span>
-            ) : sujo ? (
-              <span className="text-neutral-500">Alterações não salvas</span>
-            ) : null}
+          <span className="min-w-0 flex-1 text-xs text-neutral-500 sm:text-right">
+            {sujo && "Alterações não salvas"}
           </span>
           <button
             type="button"
