@@ -61,7 +61,8 @@ export type ChaveMensagem =
   | "portal_pedido"
   | "cobranca_terceirizado"
   | "remarcar"
-  | "laudo";
+  | "laudo"
+  | "vistoria_assinatura";
 
 export const ROTULOS_MENSAGEM: Record<ChaveMensagem, string> = {
   os: "Ordem de Serviço",
@@ -72,6 +73,7 @@ export const ROTULOS_MENSAGEM: Record<ChaveMensagem, string> = {
   cobranca_terceirizado: "Cobrar terceirizado",
   remarcar: "Remarcar agendamento",
   laudo: "Laudo de vistoria ao locatário",
+  vistoria_assinatura: "Vistoria para o locatário assinar",
 };
 
 /**
@@ -136,5 +138,12 @@ export const MENSAGENS_PADRAO: Record<ChaveMensagem, string> = {
     "{{link}}",
     "",
     "O link vale por {{dias}} dias. Qualquer divergência, fale com a gente.",
+  ].join("\n"),
+  vistoria_assinatura: [
+    "Olá, {{nome}}! Tudo bem?",
+    "",
+    "A *{{tipo}}* ({{codigo}}) da {{unidade}}, feita em {{data}}, está pronta.",
+    "Confira o laudo e, se estiver de acordo, assine por aqui:",
+    "{{link}}",
   ].join("\n"),
 };

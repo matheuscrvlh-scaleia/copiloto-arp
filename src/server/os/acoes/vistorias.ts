@@ -7,7 +7,7 @@ import type { EstadoAcao } from "@/components/form-acao";
 import { tipoCurto } from "@/components/os/vistorias/selos";
 import { formatarData } from "@/lib/formato";
 import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
-import { rotaVistoria } from "@/lib/os/rotas";
+import { rotaAssinaturaVistoria, rotaVistoria } from "@/lib/os/rotas";
 import {
   STATUS_VISTORIA,
   TIPOS_VISTORIA,
@@ -17,6 +17,7 @@ import { hojeEmBrasilia } from "@/lib/os/tempo";
 import { localEData } from "@/lib/os/vistoria";
 import {
   faltando,
+  motivoParaAssinaturaDoLocatario,
   ROTULOS_SITUACAO,
   situacaoDaVistoria,
 } from "@/lib/os/vistoria-regras";
@@ -28,9 +29,11 @@ import {
   caminhoDoArquivo,
   contexto,
   enviarArquivo,
+  novoToken,
   os,
   registrar,
   removerArquivos,
+  urlDoSistema,
   urlsAssinadas,
 } from "@/server/os/base";
 import { gerarLaudo } from "@/server/os/pdf/laudo";
@@ -451,6 +454,13 @@ const caminhoDaAssinatura = (
     ? { assinatura_locador_path: path }
     : { assinatura_locatario_path: path };
 
+/** A assinatura do locatário feita na tela (ou apagada) não é a do link. */
+const SEM_ASSINATURA_DO_LINK = {
+  locatario_assinatura_nome: null,
+  locatario_assinatura_documento: null,
+  locatario_assinado_em: null,
+};
+
 const novaAssinatura = z.object({
   vistoria_id: z.uuid(),
   parte,
@@ -491,6 +501,7 @@ export async function salvarAssinatura(
     .from("vistorias")
     .update({
       ...caminhoDaAssinatura(quem, path),
+      ...(quem === "locatario" ? SEM_ASSINATURA_DO_LINK : {}),
       assinado_em: outra ? new Date().toISOString() : null,
     })
     .eq("id", id);
@@ -523,7 +534,11 @@ export async function removerAssinatura(entrada: {
   if (!v) return { erro: "Vistoria não encontrada." };
   const { error: e2 } = await db
     .from("vistorias")
-    .update({ ...caminhoDaAssinatura(d.data.parte, null), assinado_em: null })
+    .update({
+      ...caminhoDaAssinatura(d.data.parte, null),
+      ...(d.data.parte === "locatario" ? SEM_ASSINATURA_DO_LINK : {}),
+      assinado_em: null,
+    })
     .eq("id", d.data.vistoriaId);
   if (e2) return erroDoBanco(e2);
   const anterior = v[coluna];
@@ -704,6 +719,57 @@ export async function prepararEnvio(entrada: {
   );
   return {
     ok: "Laudo pronto para enviar.",
+    link,
+    whatsapp: linkWhatsApp(loja?.telefone ?? null, mensagem),
+  };
+}
+
+/**
+ * Link para o locatário conferir o laudo e assinar por último (sem login).
+ * A ARP finaliza e assina como locador antes; o mesmo link vale até ele
+ * assinar (reenviar não troca o endereço).
+ */
+export async function enviarParaAssinatura(entrada: {
+  vistoriaId: string;
+}): Promise<EstadoAcao & { link?: string; whatsapp?: string }> {
+  if (!(await liberado())) return SEM_PERMISSAO;
+  const d = z.object({ vistoriaId: z.uuid() }).safeParse(entrada);
+  if (!d.success) return { erro: "Vistoria inválida." };
+  const db = await os();
+  const { data: v, error } = await db
+    .from("vistorias")
+    .select("*")
+    .eq("id", d.data.vistoriaId)
+    .maybeSingle();
+  if (error) return erroDoBanco(error);
+  if (!v) return { erro: "Vistoria não encontrada." };
+  const motivo = motivoParaAssinaturaDoLocatario(v);
+  if (motivo) return { erro: motivo };
+
+  const token = v.assinatura_token ?? novoToken();
+  const { error: e1 } = await db
+    .from("vistorias")
+    .update({
+      assinatura_token: token,
+      assinatura_enviada_em: new Date().toISOString(),
+    })
+    .eq("id", v.id);
+  if (e1) return erroDoBanco(e1);
+
+  const link = urlDoSistema(rotaAssinaturaVistoria(token));
+  const [padroes, { data: loja }] = await Promise.all([
+    padroesVistoria(),
+    v.loja_id
+      ? db.from("lojas").select("telefone").eq("id", v.loja_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const mensagem = preencher(
+    padroes.mensagemAssinatura,
+    variaveisDaMensagem(v, link, DIAS_DO_LINK),
+  );
+  refresh();
+  return {
+    ok: "Link pronto para o locatário assinar.",
     link,
     whatsapp: linkWhatsApp(loja?.telefone ?? null, mensagem),
   };

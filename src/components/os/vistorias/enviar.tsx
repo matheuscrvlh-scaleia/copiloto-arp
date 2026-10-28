@@ -1,13 +1,46 @@
 "use client";
 
-import { Check, Copy, Loader, MessageCircle, Send } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Loader,
+  MessageCircle,
+  PenLine,
+  Send,
+} from "lucide-react";
 import { useState } from "react";
-import { prepararEnvio } from "@/server/os/acoes/vistorias";
+import {
+  enviarParaAssinatura,
+  prepararEnvio,
+} from "@/server/os/acoes/vistorias";
 
-// Envio do laudo ao locatário: gera o PDF, guarda na vistoria (e no portal
-// da loja) e abre o WhatsApp com a mensagem pronta e o link do PDF.
+// Envio ao locatário pelo WhatsApp. "laudo": gera o PDF, guarda na vistoria
+// (e no portal da loja) e manda o link do PDF. "assinatura": manda o link
+// para ele conferir o laudo e assinar por último (depois da ARP).
 
-export function EnviarLaudo({ vistoriaId }: { vistoriaId: string }) {
+const TEXTOS = {
+  laudo: {
+    acao: prepararEnvio,
+    rotulo: "Enviar laudo (PDF)",
+    gerando: "Gerando o laudo…",
+    copiar: "Copiar link do PDF",
+  },
+  assinatura: {
+    acao: enviarParaAssinatura,
+    rotulo: "Enviar para o locatário assinar",
+    gerando: "Preparando o link…",
+    copiar: "Copiar link para assinar",
+  },
+} as const;
+
+export function EnviarLaudo({
+  vistoriaId,
+  modo = "laudo",
+}: {
+  vistoriaId: string;
+  modo?: keyof typeof TEXTOS;
+}) {
+  const t = TEXTOS[modo];
   const [estado, setEstado] = useState<
     | { fase: "parado" }
     | { fase: "gerando" }
@@ -18,7 +51,7 @@ export function EnviarLaudo({ vistoriaId }: { vistoriaId: string }) {
 
   async function preparar() {
     setEstado({ fase: "gerando" });
-    const r = await prepararEnvio({ vistoriaId });
+    const r = await t.acao({ vistoriaId });
     setEstado(
       r.link && r.whatsapp
         ? { fase: "pronto", link: r.link, whatsapp: r.whatsapp }
@@ -61,7 +94,7 @@ export function EnviarLaudo({ vistoriaId }: { vistoriaId: string }) {
           ) : (
             <Copy className="size-4" aria-hidden />
           )}
-          {copiado ? "Link copiado" : "Copiar link do PDF"}
+          {copiado ? "Link copiado" : t.copiar}
         </button>
       </div>
     );
@@ -79,10 +112,12 @@ export function EnviarLaudo({ vistoriaId }: { vistoriaId: string }) {
             className="size-4 animate-spin motion-reduce:animate-none"
             aria-hidden
           />
+        ) : modo === "assinatura" ? (
+          <PenLine className="size-4" aria-hidden />
         ) : (
           <Send className="size-4" aria-hidden />
         )}
-        {estado.fase === "gerando" ? "Gerando o laudo…" : "Enviar ao locatário"}
+        {estado.fase === "gerando" ? t.gerando : t.rotulo}
       </button>
       {estado.fase === "erro" && (
         <span role="alert" className="text-xs text-red-700">

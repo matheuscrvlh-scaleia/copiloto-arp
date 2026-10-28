@@ -46,6 +46,11 @@ export function rotaLaudo(id: string): string {
 /** Portal do lojista: um endereço só; a loja entra com o CNPJ. */
 export const ROTA_PORTAL = "/portal";
 
+/** Vistoria para o locatário conferir e assinar (sem login), pelo token. */
+export function rotaAssinaturaVistoria(token: string): string {
+  return `/vistoria/${token}`;
+}
+
 /** OS do terceirizado (sem login), aberta pelo token. */
 export function rotaTerceirizado(token: string): string {
   return `/ordem/${token}`;

@@ -111,6 +111,24 @@ export function situacaoDaVistoria(v: {
     : "aguardando_assinatura";
 }
 
+/**
+ * Por que o locatário ainda não pode assinar pelo link (null: pode). A ARP
+ * finaliza e assina como locador primeiro; o locatário assina por último.
+ */
+export function motivoParaAssinaturaDoLocatario(v: {
+  status: StatusVistoria;
+  assinatura_locador_path: string | null;
+  assinatura_locatario_path: string | null;
+}): string | null {
+  if (v.status === "cancelado") return "A vistoria foi cancelada.";
+  if (v.status === "andamento")
+    return "Finalize a vistoria antes de mandar para o locatário assinar.";
+  if (!v.assinatura_locador_path)
+    return "Assine como locador antes de mandar para o locatário.";
+  if (v.assinatura_locatario_path) return "O locatário já assinou.";
+  return null;
+}
+
 export const ROTULOS_SITUACAO: Record<SituacaoVistoria, string> = {
   andamento: "Em andamento",
   aguardando_assinatura: "Aguardando assinatura",

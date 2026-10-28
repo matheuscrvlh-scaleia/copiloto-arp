@@ -5,6 +5,7 @@ import {
   chaveDoAmbiente,
   faltando,
   localDaUnidade,
+  motivoParaAssinaturaDoLocatario,
   mover,
   situacaoDaVistoria,
   tamanhoReduzido,
@@ -86,6 +87,33 @@ describe("regras da vistoria", () => {
     expect(situacaoDaVistoria({ ...base, status: "cancelado" })).toBe(
       "cancelada",
     );
+  });
+
+  it("locatário assina pelo link por último", () => {
+    const base = {
+      status: "finalizado" as const,
+      assinatura_locador_path: "a.png",
+      assinatura_locatario_path: null,
+    };
+    expect(motivoParaAssinaturaDoLocatario(base)).toBeNull();
+    expect(
+      motivoParaAssinaturaDoLocatario({ ...base, status: "andamento" }),
+    ).toMatch(/Finalize/);
+    expect(
+      motivoParaAssinaturaDoLocatario({
+        ...base,
+        assinatura_locador_path: null,
+      }),
+    ).toMatch(/locador/);
+    expect(
+      motivoParaAssinaturaDoLocatario({
+        ...base,
+        assinatura_locatario_path: "b.png",
+      }),
+    ).toMatch(/já assinou/);
+    expect(
+      motivoParaAssinaturaDoLocatario({ ...base, status: "cancelado" }),
+    ).toMatch(/cancelada/);
   });
 
   it("local da unidade sem repetir a palavra bloco", () => {

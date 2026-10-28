@@ -3113,6 +3113,11 @@ export type Database = {
           assinado_em: string | null
           assinatura_locador_path: string | null
           assinatura_locatario_path: string | null
+          assinatura_enviada_em: string | null
+          assinatura_token: string | null
+          locatario_assinado_em: string | null
+          locatario_assinatura_documento: string | null
+          locatario_assinatura_nome: string | null
           atualizado_em: string
           bloco: string
           campo_tipo: string | null
@@ -3146,6 +3151,11 @@ export type Database = {
           assinado_em?: string | null
           assinatura_locador_path?: string | null
           assinatura_locatario_path?: string | null
+          assinatura_enviada_em?: string | null
+          assinatura_token?: string | null
+          locatario_assinado_em?: string | null
+          locatario_assinatura_documento?: string | null
+          locatario_assinatura_nome?: string | null
           atualizado_em?: string
           bloco: string
           campo_tipo?: string | null
@@ -3179,6 +3189,11 @@ export type Database = {
           assinado_em?: string | null
           assinatura_locador_path?: string | null
           assinatura_locatario_path?: string | null
+          assinatura_enviada_em?: string | null
+          assinatura_token?: string | null
+          locatario_assinado_em?: string | null
+          locatario_assinatura_documento?: string | null
+          locatario_assinatura_nome?: string | null
           atualizado_em?: string
           bloco?: string
           campo_tipo?: string | null

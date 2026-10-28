@@ -17,6 +17,7 @@ import {
   type Peca,
   paginar,
 } from "@/lib/os/laudo-layout";
+import { dataHoraBr } from "@/lib/os/relatorios";
 import {
   RESPOSTAS_AMBIENTE,
   STATUS_VISTORIA,
@@ -691,12 +692,25 @@ async function paginaDoTermo(
       nome: v.locador,
       papel: "LOCADOR (A)",
       imagem: d.assinaturas.locador,
+      detalhe: null as string | null,
     },
     {
       x: L + larguraAssinatura + vao,
       nome: v.locatario,
       papel: "LOCATÁRIO (A)",
       imagem: d.assinaturas.locatario,
+      // Assinada pelo link: quem assinou, documento e quando.
+      detalhe:
+        v.locatario_assinado_em && v.assinatura_locatario_path
+          ? [
+              "Assinado eletronicamente",
+              v.locatario_assinatura_nome,
+              v.locatario_assinatura_documento,
+              dataHoraBr(v.locatario_assinado_em).slice(0, 16),
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : null,
     },
   ];
   for (const parte of partes) {
@@ -742,6 +756,19 @@ async function paginaDoTermo(
       fonte: c.normal,
       cor: CINZA,
     });
+    if (parte.detalhe)
+      escrever(pagina, parte.detalhe, {
+        x:
+          parte.x +
+          Math.max(
+            0,
+            (larguraAssinatura - larguraMm(c.normal, 6.5, parte.detalhe)) / 2,
+          ),
+        topo: linhaAssinatura + 9.5,
+        tamanho: 6.5,
+        fonte: c.normal,
+        cor: CINZA,
+      });
   }
 
   const rotulo = "Laudo gerado por: ";

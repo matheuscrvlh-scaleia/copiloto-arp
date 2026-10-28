@@ -9,7 +9,11 @@ import {
 } from "@/lib/os/filtro-postgrest";
 import { intervalo } from "@/lib/os/paginacao";
 import { rotaVistoria } from "@/lib/os/rotas";
-import { TIPOS_VISTORIA, type TipoVistoria } from "@/lib/os/rotulos";
+import {
+  RESPOSTAS_AMBIENTE,
+  TIPOS_VISTORIA,
+  type TipoVistoria,
+} from "@/lib/os/rotulos";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import {
   AMBIENTES_PADRAO,
@@ -22,6 +26,7 @@ import {
   casarAmbientes,
   localDaUnidade,
   MENSAGEM_LAUDO_PADRAO,
+  motivoParaAssinaturaDoLocatario,
   type TextosDoTipo,
 } from "@/lib/os/vistoria-regras";
 import {
@@ -33,6 +38,7 @@ import {
   type FiltroVistorias,
   vistoriadorDe,
 } from "@/lib/os/vistorias-lista";
+import { MENSAGENS_PADRAO } from "@/lib/os/whatsapp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { configDoSistema } from "./automacao";
 import {
@@ -89,6 +95,8 @@ export interface PadroesVistoria {
   textos: Record<TipoVistoria, TextosDoTipo>;
   /** Mensagem do WhatsApp com o link do laudo. */
   mensagem: string;
+  /** Mensagem do WhatsApp com o link para o locatário assinar. */
+  mensagemAssinatura: string;
 }
 
 const textosLidos = z.record(
@@ -126,6 +134,9 @@ export function padroesDe(
   const ambientes = p.vistoria_ambientes.map((a) => a.trim()).filter(Boolean);
   const mensagens = mensagensLidas.safeParse(p.mensagens);
   const mensagem = mensagens.success ? mensagens.data.laudo : null;
+  const assinatura = mensagens.success
+    ? mensagens.data.vistoria_assinatura
+    : null;
   return {
     locador: p.vistoria_locador.trim() || LOCADOR_PADRAO,
     local: p.vistoria_local.trim() || LOCAL_PADRAO,
@@ -135,6 +146,10 @@ export function padroesDe(
       typeof mensagem === "string" && mensagem.trim()
         ? mensagem
         : MENSAGEM_LAUDO_PADRAO,
+    mensagemAssinatura:
+      typeof assinatura === "string" && assinatura.trim()
+        ? assinatura
+        : MENSAGENS_PADRAO.vistoria_assinatura,
   };
 }
 
@@ -830,13 +845,16 @@ async function baixarVarios(
 
 /**
  * Tudo o que o laudo precisa. As linhas são lidas pela sessão (o RLS
- * confere a permissão); os arquivos vêm do bucket depois disso.
+ * confere a permissão), ou pela service role no link do locatário; os
+ * arquivos vêm do bucket depois disso.
  */
 export async function dadosDoLaudo(
   id: string,
   opcoes: { comparar: boolean },
+  /** Service role: só no link do locatário, depois de conferir o token. */
+  admin?: Db,
 ): Promise<DadosDoLaudo | null> {
-  const db = await os();
+  const db = admin ?? (await os());
   // A vistoria e os ambientes juntos (os ambientes só dependem do id).
   const [lida, ambientes] = await Promise.all([
     db.from("vistorias").select("*").eq("id", id).maybeSingle(),
@@ -908,5 +926,119 @@ export function variaveisDaMensagem(
     data: formatarData(v.data),
     link,
     dias,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Link do locatário (sem login)
+// ---------------------------------------------------------------------------
+
+/** Token como o novoToken() gera (base64url, 32+ caracteres). */
+const FORMATO_TOKEN = /^[A-Za-z0-9_-]{32,64}$/;
+
+/**
+ * A vistoria do link, pela service role depois de conferir o token. null:
+ * token inexistente ou vistoria cancelada.
+ */
+export async function vistoriaPeloToken(
+  token: string,
+): Promise<Vistoria | null> {
+  if (!FORMATO_TOKEN.test(token)) return null;
+  const { data, error } = await osAdmin()
+    .from("vistorias")
+    .select("*")
+    .eq("assinatura_token", token)
+    .maybeSingle();
+  falhar(error);
+  return data && data.status !== "cancelado" ? data : null;
+}
+
+export interface PaginaDaVistoria {
+  token: string;
+  codigo: string;
+  tipo: string;
+  data: string;
+  unidade: string;
+  locador: string;
+  locatario: string;
+  observacao: string;
+  consideracoes: string | null;
+  termo: string;
+  localData: string;
+  ambientes: {
+    id: string;
+    titulo: string;
+    texto: string;
+    fotos: { id: string; nome: string; url: string }[];
+  }[];
+  assinaturaLocador: string | null;
+  /** Já assinou (pelo link ou na tela). */
+  assinado: {
+    nome: string;
+    documento: string | null;
+    em: string | null;
+  } | null;
+  /** Por que não dá para assinar agora (null: pode). */
+  motivo: string | null;
+}
+
+/** O que o locatário vê no link: o laudo inteiro, para conferir e assinar. */
+export async function paginaDaVistoria(
+  token: string,
+): Promise<PaginaDaVistoria | null> {
+  const v = await vistoriaPeloToken(token);
+  if (!v) return null;
+  const db = osAdmin();
+  const { data: ambientes, error } = await db
+    .from("vistoria_ambientes")
+    .select("id, titulo, resposta, descricao")
+    .eq("vistoria_id", v.id)
+    .order("ordem")
+    .order("criado_em");
+  falhar(error);
+  const lista = ambientes ?? [];
+  const fotos = await fotosDosAmbientes(
+    db,
+    lista.map((a) => a.id),
+  );
+  const urls = await urlsAssinadas([
+    ...[...fotos.values()].flat().map((f) => f.path),
+    ...(v.assinatura_locador_path ? [v.assinatura_locador_path] : []),
+  ]);
+  return {
+    token,
+    codigo: v.codigo,
+    tipo: TIPOS_VISTORIA[v.tipo],
+    data: formatarData(v.data),
+    unidade: localDaUnidade(v.bloco, v.unidade),
+    locador: v.locador,
+    locatario: v.locatario,
+    observacao: v.observacao,
+    consideracoes: v.consideracoes,
+    termo: v.termo,
+    localData: v.local_data,
+    ambientes: lista.map((a) => ({
+      id: a.id,
+      titulo: a.titulo,
+      texto:
+        a.resposta === "respondido"
+          ? a.descricao?.trim() || "Sem observações."
+          : RESPOSTAS_AMBIENTE[a.resposta],
+      fotos: (fotos.get(a.id) ?? []).flatMap((f) => {
+        const url = urls.get(f.path);
+        return url ? [{ id: f.id, nome: f.nome, url }] : [];
+      }),
+    })),
+    assinaturaLocador: v.assinatura_locador_path
+      ? (urls.get(v.assinatura_locador_path) ?? null)
+      : null,
+    assinado: v.assinatura_locatario_path
+      ? {
+          nome: v.locatario_assinatura_nome ?? v.locatario,
+          documento: v.locatario_assinatura_documento,
+          em: v.locatario_assinado_em ?? v.assinado_em,
+        }
+      : null,
+    motivo: motivoParaAssinaturaDoLocatario(v),
   };
 }

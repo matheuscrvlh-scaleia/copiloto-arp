@@ -491,7 +491,7 @@ export function EditorVistoria({
 
         <Secao
           titulo="Assinaturas"
-          descricao="Na tela, com o dedo ou a caneta. Sem assinatura, as linhas saem em branco no laudo para assinar no papel."
+          descricao="Na tela, com o dedo ou a caneta. A ARP assina como locador; o locatário assina aqui ou pelo link (Enviar para o locatário assinar, depois de finalizar). Sem assinatura, as linhas saem em branco no laudo."
         >
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Assinatura

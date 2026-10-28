@@ -23,7 +23,7 @@ import type {
   LojaEscolhida,
 } from "@/components/os/vistorias/tipos";
 import { SemAcesso } from "@/components/protegido";
-import { formatarData } from "@/lib/formato";
+import { formatarData, formatarDataHora } from "@/lib/formato";
 import { ROTAS_OS, rotaChamado, rotaVistoria } from "@/lib/os/rotas";
 import { localDaUnidade, situacaoDaVistoria } from "@/lib/os/vistoria-regras";
 import { contexto, pessoas } from "@/server/os/base";
@@ -173,8 +173,12 @@ async function Conteudo({
               Entrada × saída
             </Link>
           )}
+          {v.status !== "cancelado" && !v.assinatura_locatario_path && (
+            <EnviarLaudo vistoriaId={v.id} modo="assinatura" />
+          )}
           <EnviarLaudo vistoriaId={v.id} />
         </div>
+        <LinkDoLocatario v={v} />
       </header>
 
       {sp.duplicada === "1" && (
@@ -244,4 +248,28 @@ function Esqueleto() {
       <CartaoCarregando altura="h-[48rem]" />
     </TelaCarregando>
   );
+}
+
+/** Onde está a assinatura do locatário pelo link. */
+function LinkDoLocatario({ v }: { v: VistoriaCompleta["vistoria"] }) {
+  if (v.locatario_assinado_em && v.assinatura_locatario_path)
+    return (
+      <p className="flex items-center gap-2 text-sm text-green-800">
+        <CircleCheck className="size-4 shrink-0" aria-hidden />
+        Assinada pelo locatário pelo link em{" "}
+        {formatarDataHora(v.locatario_assinado_em)} (
+        {[v.locatario_assinatura_nome, v.locatario_assinatura_documento]
+          .filter(Boolean)
+          .join(" · ")}
+        ).
+      </p>
+    );
+  if (v.assinatura_enviada_em && !v.assinatura_locatario_path)
+    return (
+      <p className="text-sm text-neutral-500">
+        Link para assinar enviado em {formatarDataHora(v.assinatura_enviada_em)}
+        . Aguardando o locatário.
+      </p>
+    );
+  return null;
 }
