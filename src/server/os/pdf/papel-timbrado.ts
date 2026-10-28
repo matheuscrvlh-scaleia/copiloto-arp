@@ -98,8 +98,11 @@ export async function prepararPapel(doc: PDFDocument): Promise<Papel> {
   };
 }
 
-/** Página A4 retrato já com o papel timbrado no fundo. */
-export function novaPagina(papel: Papel): PDFPage {
+/**
+ * Página A4 retrato já com o papel timbrado no fundo. Sem rodapé (folhas
+ * do meio do laudo), o endereço não aparece e o conteúdo desce até o fim.
+ */
+export function novaPagina(papel: Papel, { rodape = true } = {}): PDFPage {
   const pagina = papel.doc.addPage([A4.largura, A4.altura]);
   if (papel.fundo) {
     pagina.drawImage(papel.fundo, {
@@ -108,8 +111,18 @@ export function novaPagina(papel: Papel): PDFPage {
       width: A4.largura,
       height: A4.altura,
     });
+    // atalho: cobre o rodapé da imagem enviada com branco (o trevo
+    // termina acima dele, em 233 mm).
+    if (!rodape)
+      pagina.drawRectangle({
+        x: 0,
+        y: y(276),
+        width: x(110),
+        height: 29 * MM,
+        color: BRANCO,
+      });
   } else {
-    desenharTimbrado(pagina, papel);
+    desenharTimbrado(pagina, papel, rodape);
   }
   return pagina;
 }
@@ -155,7 +168,11 @@ function folha(
 }
 
 /** Papel timbrado desenhado (quando a imagem oficial não foi enviada). */
-function desenharTimbrado(pagina: PDFPage, { fontes: f, logo }: Papel) {
+function desenharTimbrado(
+  pagina: PDFPage,
+  { fontes: f, logo }: Papel,
+  rodape: boolean,
+) {
   // Trevo verde claro, saindo pela borda direita.
   folha(
     pagina,
@@ -189,6 +206,7 @@ function desenharTimbrado(pagina: PDFPage, { fontes: f, logo }: Papel) {
   });
 
   // Rodapé.
+  if (!rodape) return;
   pagina.drawLine({
     start: { x: x(29.5), y: y(252) },
     end: { x: x(89), y: y(252) },

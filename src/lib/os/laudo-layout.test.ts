@@ -111,7 +111,7 @@ describe("quebra de página", () => {
   });
 
   it("depois da cabeça, as outras linhas de fotos quebram sozinhas", () => {
-    const fotos = linhasDeFotos(Array(12).fill(HORIZONTAL));
+    const fotos = linhasDeFotos(Array(18).fill(HORIZONTAL));
     const g = grupoDoAmbiente({ linhasDescricao: 1, fotos, ultimo: true });
     const { posicoes } = paginar([g], area);
     const lista = posicoes[0] ?? [];

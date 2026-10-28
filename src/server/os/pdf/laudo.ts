@@ -361,19 +361,21 @@ function faixa(
   numero: number,
   titulo: string,
   resposta: string,
+  esq: number = L,
+  largura: number = LARGURA,
 ): Desenho {
   return (p, topo) => {
     arredondado(p, {
-      x: L,
+      x: esq,
       topo,
-      largura: LARGURA,
+      largura,
       altura: ALTURAS.faixa,
       raio: 1.5,
       fundo: FAIXA,
       borda: BORDA_FAIXA,
     });
     const larguraSelo = larguraMm(c.negrito, 7, resposta) + 4;
-    const xSelo = L + LARGURA - 1.2 - larguraSelo;
+    const xSelo = esq + largura - 1.2 - larguraSelo;
     arredondado(p, {
       x: xSelo,
       topo: topo + 1,
@@ -391,7 +393,7 @@ function faixa(
     });
     // Título em maiúsculas; se for comprido, corta antes do selo.
     const completo = `${numero}. ${titulo.toLocaleUpperCase("pt-BR")}`;
-    const cabe = (t: string) => larguraMm(c.negrito, 8.5, t) <= xSelo - L - 5;
+    const cabe = (t: string) => larguraMm(c.negrito, 8.5, t) <= xSelo - esq - 5;
     let texto = completo;
     if (!cabe(texto)) {
       while (texto.length > 4 && !cabe(`${texto}...`))
@@ -399,7 +401,7 @@ function faixa(
       texto = `${texto.trimEnd()}...`;
     }
     escrever(p, texto, {
-      x: L + 2.5,
+      x: esq + 2.5,
       topo: topo + (ALTURAS.faixa - 8.5 * 0.75 * PT) / 2,
       tamanho: 8.5,
       fonte: c.negrito,
@@ -472,83 +474,149 @@ async function ambientes(
     ];
   }
 
+  // Dois ambientes seguidos sem fotos dividem a linha, um em cada coluna.
   const grupos: Grupo<Desenho>[] = [];
-  for (const [i, a] of d.ambientes.entries()) {
-    const [fotos, daEntrada] = await Promise.all([
-      Promise.all(a.fotos.map((b) => embutir(c.doc, b))),
-      Promise.all(a.fotosDaEntrada.map((b) => embutir(c.doc, b))),
-    ]);
-    const linhas = linhasDeFotos(dimensoes(fotos));
-    const linhasEntrada = linhasDeFotos(dimensoes(daEntrada));
-    const descricao = quebrarLinhas(
-      c.normal,
-      8.5,
-      a.descricao?.trim() || "Sem observações registradas.",
-      LARGURA * MM,
-    );
-    const g = grupoDoAmbiente({
-      linhasDescricao: descricao.length,
-      fotos: linhas,
-      fotosDaEntrada: linhasEntrada,
-      ultimo: i === d.ambientes.length - 1,
-    });
-    const pecas = g.pecas.map((peca): Peca<Desenho> => {
-      const k = peca.conteudo;
-      const desenho: Desenho = (() => {
-        switch (k.tipo) {
-          case "faixa":
-            return faixa(c, i + 1, a.titulo, RESPOSTAS_AMBIENTE[a.resposta]);
-          case "descricao":
-            return (p, topo) =>
-              escrever(p, descricao[k.linha] ?? "", {
-                x: L,
-                topo,
-                tamanho: 8.5,
-                fonte: c.normal,
-                cor: TEXTO,
-              });
-          case "rotulo":
-            return (p, topo) =>
-              escrever(p, k.qual === "entrada" ? "Na entrada" : "Na saída", {
-                x: L,
-                topo: topo + 0.5,
-                tamanho: 8,
-                fonte: c.negrito,
-                cor: CINZA,
-              });
-          case "fotos": {
-            const daVez =
-              k.qual === "entrada" ? linhasEntrada[k.linha] : linhas[k.linha];
-            return daVez
-              ? linhaDeFotos(c, daVez, k.qual === "entrada" ? daEntrada : fotos)
-              : () => undefined;
-          }
-          case "separador":
-            return (p, topo) =>
-              linha(
-                p,
-                topo + ALTURAS.separador / 2,
-                L,
-                L + LARGURA,
-                LINHA_CLARA,
-              );
-        }
-      })();
-      return {
-        altura: peca.altura,
-        opcional: peca.opcional,
-        comAProxima: peca.comAProxima,
-        conteudo: desenho,
-      };
-    });
+  const n = d.ambientes.length;
+  for (let i = 0; i < n; ) {
+    const a = d.ambientes[i] as Ambiente;
+    const b = d.ambientes[i + 1];
+    const dupla = !!b && semFotos(a) && semFotos(b);
+    const g = dupla
+      ? duplaDeAmbientes(c, [a, b], i, i + 2 >= n)
+      : await umAmbiente(c, a, i, i + 1 >= n);
     // O título da seção vai junto com o primeiro ambiente.
     grupos.push(
-      i === 0
-        ? { pecas: [titulo, ...pecas], juntas: g.juntas + 1 }
-        : { pecas, juntas: g.juntas },
+      i === 0 ? { pecas: [titulo, ...g.pecas], juntas: g.juntas + 1 } : g,
     );
+    i += dupla ? 2 : 1;
   }
   return grupos;
+}
+
+type Ambiente = DadosDoLaudo["ambientes"][number];
+
+const semFotos = (a: Ambiente) => !a.fotos.length && !a.fotosDaEntrada.length;
+
+const descricaoDe = (a: Ambiente) =>
+  a.descricao?.trim() || "Sem observações registradas.";
+
+/** Dois ambientes sem fotos lado a lado, cada um na sua coluna. */
+function duplaDeAmbientes(
+  c: Contexto,
+  par: [Ambiente, Ambiente],
+  i: number,
+  ultimo: boolean,
+): Grupo<Desenho> {
+  const coluna = (LARGURA - LAUDO.vaoDasColunas) / 2;
+  const colunas = par.map((a, k) => ({
+    a,
+    numero: i + k + 1,
+    esq: L + k * (coluna + LAUDO.vaoDasColunas),
+    descricao: quebrarLinhas(c.normal, 8.5, descricaoDe(a), coluna * MM),
+  }));
+  const g = grupoDoAmbiente({
+    linhasDescricao: Math.max(...colunas.map((k) => k.descricao.length)),
+    fotos: [],
+    ultimo,
+  });
+  const pecas = g.pecas.map(
+    (peca): Peca<Desenho> => ({
+      altura: peca.altura,
+      opcional: peca.opcional,
+      conteudo: (p, topo) => {
+        const k = peca.conteudo;
+        if (k.tipo === "separador") {
+          linha(p, topo + ALTURAS.separador / 2, L, L + LARGURA, LINHA_CLARA);
+          return;
+        }
+        for (const col of colunas) {
+          if (k.tipo === "faixa")
+            faixa(
+              c,
+              col.numero,
+              col.a.titulo,
+              RESPOSTAS_AMBIENTE[col.a.resposta],
+              col.esq,
+              coluna,
+            )(p, topo);
+          if (k.tipo === "descricao")
+            escrever(p, col.descricao[k.linha] ?? "", {
+              x: col.esq,
+              topo,
+              tamanho: 8.5,
+              fonte: c.normal,
+              cor: TEXTO,
+            });
+        }
+      },
+    }),
+  );
+  return { pecas, juntas: g.juntas };
+}
+
+async function umAmbiente(
+  c: Contexto,
+  a: Ambiente,
+  i: number,
+  ultimo: boolean,
+): Promise<Grupo<Desenho>> {
+  const [fotos, daEntrada] = await Promise.all([
+    Promise.all(a.fotos.map((b) => embutir(c.doc, b))),
+    Promise.all(a.fotosDaEntrada.map((b) => embutir(c.doc, b))),
+  ]);
+  const linhas = linhasDeFotos(dimensoes(fotos));
+  const linhasEntrada = linhasDeFotos(dimensoes(daEntrada));
+  const descricao = quebrarLinhas(c.normal, 8.5, descricaoDe(a), LARGURA * MM);
+  const g = grupoDoAmbiente({
+    linhasDescricao: descricao.length,
+    fotos: linhas,
+    fotosDaEntrada: linhasEntrada,
+    ultimo,
+  });
+  const pecas = g.pecas.map((peca): Peca<Desenho> => {
+    const k = peca.conteudo;
+    const desenho: Desenho = (() => {
+      switch (k.tipo) {
+        case "faixa":
+          return faixa(c, i + 1, a.titulo, RESPOSTAS_AMBIENTE[a.resposta]);
+        case "descricao":
+          return (p, topo) =>
+            escrever(p, descricao[k.linha] ?? "", {
+              x: L,
+              topo,
+              tamanho: 8.5,
+              fonte: c.normal,
+              cor: TEXTO,
+            });
+        case "rotulo":
+          return (p, topo) =>
+            escrever(p, k.qual === "entrada" ? "Na entrada" : "Na saída", {
+              x: L,
+              topo: topo + 0.5,
+              tamanho: 8,
+              fonte: c.negrito,
+              cor: CINZA,
+            });
+        case "fotos": {
+          const daVez =
+            k.qual === "entrada" ? linhasEntrada[k.linha] : linhas[k.linha];
+          return daVez
+            ? linhaDeFotos(c, daVez, k.qual === "entrada" ? daEntrada : fotos)
+            : () => undefined;
+        }
+        case "separador":
+          return (p, topo) =>
+            linha(p, topo + ALTURAS.separador / 2, L, L + LARGURA, LINHA_CLARA);
+      }
+    })();
+    return {
+      altura: peca.altura,
+      opcional: peca.opcional,
+      comAProxima: peca.comAProxima,
+      conteudo: desenho,
+    };
+  });
+  return { pecas, juntas: g.juntas };
 }
 
 // ---------------------------------------------------------------------------
@@ -573,7 +641,7 @@ async function paginaDoTermo(
   linha(pagina, topo + 6.5, L, L + LARGURA);
 
   // Termo comprido demais diminui a letra em vez de invadir as assinaturas.
-  const disponivel = LAUDO.conteudoFim - (topo + 11) - 14 - 40 - 25;
+  const disponivel = LAUDO.termoFim - (topo + 11) - 14 - 40 - 25;
   let tamanho = 8.5;
   const altura = (t: number) =>
     v.termo
@@ -749,9 +817,10 @@ export async function gerarLaudo(
 
   const { posicoes } = paginar(grupos);
   const paginas: PDFPage[] = [];
-  const pagina = (n: number) => {
+  // O rodapé com o endereço só sai na última folha (a do termo).
+  const pagina = (n: number, rodape = false) => {
     while (paginas.length <= n) {
-      const p = novaPagina(papel);
+      const p = novaPagina(papel, { rodape });
       cabecalho(c, p, d);
       paginas.push(p);
     }
@@ -766,7 +835,7 @@ export async function gerarLaudo(
   });
 
   // Termo e assinaturas: sempre numa folha só deles.
-  const ultima = pagina(paginas.length);
+  const ultima = pagina(paginas.length, true);
   await paginaDoTermo(c, ultima, d, agora);
   numerarPaginas(papel);
 

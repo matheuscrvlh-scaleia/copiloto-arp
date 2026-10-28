@@ -11,12 +11,16 @@ export const LAUDO = {
   /** Cabeçalho de toda página. */
   cabecalho: 38,
   /**
-   * Onde o conteúdo começa (abaixo do cabeçalho) e termina: acima do
-   * rodapé do papel timbrado, cuja linha fica a 252 mm (como no PDF da OS).
+   * Onde o conteúdo começa (abaixo do cabeçalho) e termina: as folhas dos
+   * ambientes não têm o rodapé e vão até perto do número da página (a
+   * 283 mm); a do termo tem, e para acima da linha dele (252 mm).
    */
   conteudoTopo: 53,
-  conteudoFim: 249,
+  conteudoFim: 276,
+  termoFim: 249,
   larguraUtil: 210 - 2 * 14,
+  /** Ambientes sem fotos vão dois por linha, com este vão entre eles. */
+  vaoDasColunas: 6,
   /** Rótulo das linhas de identificação; o valor vem 50 mm adiante. */
   recuoDoValor: 50,
 } as const;
