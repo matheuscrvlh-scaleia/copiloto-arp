@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useReducer, useRef, useState } from "react";
+import { BotaoExportar } from "@/components/os/exportar";
 import { iniciais } from "@/lib/formato";
 import {
   type Detalhe,
@@ -44,15 +45,21 @@ function ordenar(
 
 const sem = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
+/** Linhas que a busca deixa na tela (a tabela e o Excel usam as mesmas). */
+function filtrar(tabela: TabelaDetalhe, busca: string): LinhaDetalhe[] {
+  const termo = sem(busca.trim());
+  return termo
+    ? tabela.linhas.filter((l) => sem(l.celulas.join(" ")).includes(termo))
+    : tabela.linhas;
+}
+
 function Tabela({ tabela, busca }: { tabela: TabelaDetalhe; busca: string }) {
   const [ordem, setOrdem] = useState<{
     coluna: number;
     sentido: 1 | -1;
   } | null>(null);
-  const termo = sem(busca.trim());
-  const filtradas = termo
-    ? tabela.linhas.filter((l) => sem(l.celulas.join(" ")).includes(termo))
-    : tabela.linhas;
+  const termo = busca.trim();
+  const filtradas = filtrar(tabela, busca);
   const linhas = ordem
     ? ordenar(filtradas, ordem.coluna, ordem.sentido)
     : filtradas;
@@ -186,11 +193,56 @@ function useTabelasDo(detalhe: Detalhe | null): {
   return { lista: pedido?.lista ?? null, erro: pedido?.erro ?? false };
 }
 
+/**
+ * Excel e PDF do que está no modal: as tabelas com a busca aplicada. Com
+ * mais de uma tabela, a primeira coluna diz de qual lista veio a linha e as
+ * colunas são as da primeira.
+ */
+function ExportarDetalhe({
+  detalhe,
+  tabelas,
+  busca,
+}: {
+  detalhe: Detalhe;
+  tabelas: TabelaDetalhe[];
+  busca: string;
+}) {
+  const base = tabelas[0];
+  if (!base) return null;
+  const varias = tabelas.length > 1;
+  const termo = busca.trim();
+  return (
+    <BotaoExportar
+      titulo={detalhe.titulo}
+      filtros={[
+        detalhe.secao,
+        detalhe.subtitulo,
+        termo ? `Busca: ${termo}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+      nomeArquivo={detalhe.titulo}
+      colunas={[
+        ...(varias ? [{ titulo: "Lista" }] : []),
+        ...base.colunas.map((c) => ({ titulo: c.titulo, numero: c.numero })),
+      ]}
+      linhas={tabelas.flatMap((t, n) =>
+        filtrar(t, busca).map((l) => [
+          ...(varias ? [t.titulo ?? `Lista ${n + 1}`] : []),
+          ...base.colunas.map((_, k) => l.celulas[k] ?? null),
+        ]),
+      )}
+    />
+  );
+}
+
 export function ModalDetalhe({
   detalhe,
+  exportar,
   aoFechar,
 }: {
   detalhe: Detalhe | null;
+  exportar: boolean;
   aoFechar: () => void;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
@@ -288,19 +340,30 @@ export function ModalDetalhe({
               </dl>
             )}
 
-            {total > 6 && (
-              <label className="mt-4 flex items-center gap-2 rounded-full border border-neutral-900/10 bg-white/70 py-1.5 pr-4 pl-1.5 text-sm">
-                <span className="grid size-7 place-items-center rounded-full bg-neutral-900 text-white">
-                  <Search className="size-3.5" aria-hidden />
-                </span>
-                <span className="sr-only">Buscar pessoa</span>
-                <input
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Buscar pelo nome ou setor…"
-                  className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-neutral-400"
-                />
-              </label>
+            {(total > 6 || (exportar && total > 0)) && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {total > 6 && (
+                  <label className="flex min-w-60 flex-1 items-center gap-2 rounded-full border border-neutral-900/10 bg-white/70 py-1.5 pr-4 pl-1.5 text-sm">
+                    <span className="grid size-7 place-items-center rounded-full bg-neutral-900 text-white">
+                      <Search className="size-3.5" aria-hidden />
+                    </span>
+                    <span className="sr-only">Buscar pessoa</span>
+                    <input
+                      value={busca}
+                      onChange={(e) => setBusca(e.target.value)}
+                      placeholder="Buscar pelo nome ou setor…"
+                      className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-neutral-400"
+                    />
+                  </label>
+                )}
+                {exportar && tabelas.lista && (
+                  <ExportarDetalhe
+                    detalhe={visivel}
+                    tabelas={tabelas.lista}
+                    busca={busca}
+                  />
+                )}
+              </div>
             )}
           </header>
 

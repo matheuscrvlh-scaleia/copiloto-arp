@@ -35,15 +35,18 @@ const Linhas = createContext<Map<string, LinhaChamado>>(new Map());
 
 export function ProvedorPainel({
   linhas,
+  exportar,
   children,
 }: {
   linhas: LinhaChamado[];
+  /** Excel e PDF no modal (os.exportar). */
+  exportar: boolean;
   children: React.ReactNode;
 }) {
   const mapa = useMemo(() => new Map(linhas.map((l) => [l.id, l])), [linhas]);
   return (
     <Linhas.Provider value={mapa}>
-      <ProvedorDetalhe>{children}</ProvedorDetalhe>
+      <ProvedorDetalhe exportar={exportar}>{children}</ProvedorDetalhe>
     </Linhas.Provider>
   );
 }

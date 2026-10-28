@@ -139,7 +139,14 @@ const Janela = dynamic(() => carregarJanela().then((m) => m.ModalDetalhe), {
   ssr: false,
 });
 
-export function ProvedorDetalhe({ children }: { children: React.ReactNode }) {
+export function ProvedorDetalhe({
+  exportar = false,
+  children,
+}: {
+  /** Botões Excel e PDF no modal (quem tem a permissão de exportar). */
+  exportar?: boolean;
+  children: React.ReactNode;
+}) {
   const [detalhe, setDetalhe] = useState<Detalhe | null>(null);
   const [usado, setUsado] = useState(false);
   const abrir = useCallback((d: Detalhe) => {
@@ -157,7 +164,13 @@ export function ProvedorDetalhe({ children }: { children: React.ReactNode }) {
   return (
     <Contexto.Provider value={abrir}>
       {children}
-      {usado && <Janela detalhe={detalhe} aoFechar={() => setDetalhe(null)} />}
+      {usado && (
+        <Janela
+          detalhe={detalhe}
+          exportar={exportar}
+          aoFechar={() => setDetalhe(null)}
+        />
+      )}
     </Contexto.Provider>
   );
 }

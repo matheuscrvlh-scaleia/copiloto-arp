@@ -118,7 +118,7 @@ async function Conteudo({ params, searchParams }: Props) {
   const baixado = a.situacao === "baixado";
 
   return (
-    <ProvedorDetalhe>
+    <ProvedorDetalhe exportar={ctx.pode("os.exportar")}>
       <div className="flex flex-col gap-6">
         <Cabecalho ficha={ficha} gerenciar={gerenciar} agora={agora} />
 

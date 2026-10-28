@@ -97,7 +97,7 @@ export async function Painel({
   });
 
   return (
-    <ProvedorPainel linhas={painel.linhas}>
+    <ProvedorPainel linhas={painel.linhas} exportar={exportar}>
       <div className="flex flex-col gap-6">
         <FiltroPeriodo
           de={f.periodo.de}
