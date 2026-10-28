@@ -21,6 +21,12 @@ export const campoTipo: CampoBarra = {
   largura: "w-48",
 };
 
+/** Abas de tickets: os avisos têm a aba deles. */
+export const campoTipoSemAviso: CampoBarra = {
+  ...campoTipo,
+  opcoes: campoTipo.opcoes.filter((o) => o.valor !== "aviso"),
+};
+
 export const campoPrioridade: CampoBarra = {
   chave: "prioridade",
   rotulo: "Prioridade",

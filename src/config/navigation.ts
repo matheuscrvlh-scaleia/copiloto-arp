@@ -190,7 +190,7 @@ export const navigation: NavSection[] = [
         permissao: ["os.painel_setor", "os.painel_geral"],
       },
       {
-        // Abas: Minha caixa, Geral, Quadro e Modelos e lembretes (as
+        // Abas: Minha caixa, Geral, Quadro, Avisos e Modelos e lembretes (as
         // com permissão própria só aparecem para quem a tem).
         href: "/os",
         label: "Operações",

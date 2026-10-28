@@ -604,6 +604,15 @@ export const TELAS = {
   ],
   quadro: ["recorte", "setor", "tipo", "categoria", "prioridade", "fechados"],
   calendario: ["recorte", "setor", "tipo", "visao"],
+  /** A Minha caixa só dos avisos (que não aparecem nas outras abas). */
+  avisos: [
+    "aberto_por",
+    "setor",
+    "categoria",
+    "status",
+    "prioridade",
+    "etiqueta",
+  ],
 } as const satisfies Record<string, readonly CampoFiltro[]>;
 export type Tela = keyof typeof TELAS;
 
@@ -613,7 +622,16 @@ export const PREFERENCIA_FILTROS: Record<Tela, string> = {
   setor: "os.meu_setor.filtros",
   quadro: "os.quadro.filtros",
   calendario: "os.calendario.filtros",
+  avisos: "os.avisos.filtros",
 };
+
+/** Telas com lista paginada (a de Avisos é a Minha caixa dos avisos). */
+export type TelaComLista = "caixa" | "setor" | "avisos";
+
+/** Tipos das abas de tickets: os avisos têm a aba deles. */
+export const TIPOS_SEM_AVISO = (Object.keys(TIPOS) as TipoChamado[]).filter(
+  (t) => t !== "aviso",
+);
 
 export type Busca = Record<string, unknown>;
 
@@ -706,7 +724,7 @@ export function descreverFiltros(
         break;
       case "status":
         // A Minha caixa só tem status na lista dos abertos por mim.
-        if (tela === "caixa" && !f.aberto_por) break;
+        if ((tela === "caixa" || tela === "avisos") && !f.aberto_por) break;
         partes.push(
           `Status: ${!f.status ? "Em aberto" : f.status === "todos" ? "Todos" : STATUS[f.status]}`,
         );

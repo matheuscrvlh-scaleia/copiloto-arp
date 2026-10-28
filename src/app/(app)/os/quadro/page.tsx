@@ -6,7 +6,7 @@ import {
   campoPrioridade,
   campoRecorte,
   campoSetor,
-  campoTipo,
+  campoTipoSemAviso,
 } from "@/components/os/filtros/opcoes";
 import { Atualizado, PainelDaBusca } from "@/components/os/lista/topo";
 import { CabecalhoOperacoes } from "@/components/os/operacoes";
@@ -88,7 +88,7 @@ async function QuadroDaTela({ busca }: { busca: Promise<Busca> }) {
           ...(e.comSetor
             ? [{ ...campoSetor(e.setores), largura: "w-48" }]
             : []),
-          { ...campoTipo, largura: "w-44" },
+          { ...campoTipoSemAviso, largura: "w-44" },
         ]}
         extras={[
           {

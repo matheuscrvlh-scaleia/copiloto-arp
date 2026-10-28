@@ -35,7 +35,7 @@ import {
   type Ordem,
   ordemNaUrl,
   ordenavelNoBanco,
-  type TelaLista,
+  type TelaComLista,
 } from "@/lib/os/lista";
 import { POR_PAGINA } from "@/lib/os/paginacao";
 import { PARAM_PAINEL } from "@/lib/os/rotas";
@@ -88,7 +88,7 @@ export function VisaoLista(props: {
   avisoHoras: number;
   pessoasPorSetor: Record<string, PessoaOpcao[]>;
   exportar: {
-    tela: TelaLista;
+    tela: TelaComLista;
     titulo: string;
     filtros: string;
     nomeArquivo: string;

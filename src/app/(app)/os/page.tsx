@@ -5,7 +5,7 @@ import {
   campoPrioridade,
   campoSetor,
   campoStatus,
-  campoTipo,
+  campoTipoSemAviso,
 } from "@/components/os/filtros/opcoes";
 import {
   Atualizado,
@@ -106,7 +106,7 @@ async function Caixa({ busca }: { busca: Promise<Busca> }) {
                 opcoes: [{ valor: "eu", rotulo: "Abertos por mim" }],
                 largura: "w-48",
               },
-              { ...campoTipo, largura: "w-44" },
+              { ...campoTipoSemAviso, largura: "w-44" },
               { ...campoSetor(setores), largura: "w-48" },
               ...(lista === "abertos"
                 ? [{ ...campoStatus, largura: "w-40" }]

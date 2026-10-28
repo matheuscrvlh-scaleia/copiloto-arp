@@ -36,7 +36,9 @@ import {
   type Recorte,
   statusDoFiltro,
   type Tela,
+  type TelaComLista,
   type TelaLista,
+  TIPOS_SEM_AVISO,
   temFiltrosNaUrl,
 } from "@/lib/os/lista";
 import { paginaDaUrl } from "@/lib/os/paginacao";
@@ -222,12 +224,28 @@ export async function filtrosDaTela(
   return { filtros, lembrados: Object.keys(filtros).length > 0 };
 }
 
-/** Filtros da barra → consulta padrão (base.ts). */
-export function paraConsulta(f: Filtros, recorte: Recorte): FiltroChamados {
+/**
+ * Filtros da barra → consulta padrão (base.ts). Os avisos têm aba própria:
+ * "tickets" os tira (mesmo de um filtro lembrado), "avisos" só os traz e
+ * "tudo" (o Calendário) não separa.
+ */
+export function paraConsulta(
+  f: Filtros,
+  recorte: Recorte,
+  escopo: "tickets" | "avisos" | "tudo" = "tudo",
+): FiltroChamados {
+  const tipos =
+    escopo === "avisos"
+      ? (["aviso"] as const)
+      : escopo === "tudo"
+        ? f.tipo && [f.tipo]
+        : f.tipo && f.tipo !== "aviso"
+          ? [f.tipo]
+          : TIPOS_SEM_AVISO;
   return {
     recorte,
     setor: f.setor ?? null,
-    tipos: f.tipo ? [f.tipo] : undefined,
+    tipos: tipos ? [...tipos] : undefined,
     status: statusDoFiltro(f.status),
     categoria: f.categoria ?? null,
     responsavel: f.responsavel ?? null,
@@ -281,13 +299,15 @@ export interface EstadoDaLista {
  * avisos de "abertos"); no Meu setor só restringe.
  */
 export async function estadoDaLista(
-  tela: "caixa" | "setor",
+  tela: TelaComLista,
   busca: Busca,
 ): Promise<EstadoDaLista> {
   const [a, lidos] = await Promise.all([apoio(), filtrosDaTela(tela, busca)]);
   let filtros = lidos.filtros;
   const porMim = filtros.aberto_por === "eu";
-  const lista: TelaLista = tela === "caixa" && porMim ? "abertos" : tela;
+  // Avisos: a mesma lista da Minha caixa, só com os avisos.
+  const lista: TelaLista =
+    tela === "setor" ? "setor" : porMim ? "abertos" : "caixa";
   // O status só aparece na barra dos abertos por mim.
   if (lista === "caixa") filtros = { ...filtros, status: undefined };
   let disponiveis: Setor[] = [];
@@ -315,7 +335,11 @@ export async function estadoDaLista(
     filtros,
     lembrados: lidos.lembrados,
     consulta: {
-      ...paraConsulta(filtros, RECORTE_DA_TELA[lista]),
+      ...paraConsulta(
+        filtros,
+        RECORTE_DA_TELA[lista],
+        tela === "avisos" ? "avisos" : "tickets",
+      ),
       setores: setores.length ? setores : null,
       abertoPor: porMim ? a.ctx.usuario.id : null,
       comConfirmacao: lista === "caixa",

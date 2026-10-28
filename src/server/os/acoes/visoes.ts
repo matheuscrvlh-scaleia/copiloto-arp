@@ -245,7 +245,7 @@ export async function moverChamado(entrada: {
 // Exportação das listas paginadas: o resultado filtrado inteiro, no clique
 // ---------------------------------------------------------------------------
 
-const telaLista = z.enum(["caixa", "setor"]);
+const telaLista = z.enum(["caixa", "setor", "avisos"]);
 /** Parâmetros da URL da tela (filtros, cartão, busca, ordem). */
 const parametrosDaUrl = z
   .record(z.string().max(40), z.string().max(400))
