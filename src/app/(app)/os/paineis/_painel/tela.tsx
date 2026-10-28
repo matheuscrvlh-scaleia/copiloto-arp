@@ -1,5 +1,4 @@
 import { FileDown } from "lucide-react";
-import Link from "next/link";
 import {
   CartaoCarregando,
   FiltrosCarregando,
@@ -15,7 +14,6 @@ import { CartaoLista, ProvedorPainel } from "@/components/os/paineis/provedor";
 import { tonsDaTela, tonsDosBlocos } from "@/components/os/tons";
 import { slugDoSetor } from "@/lib/os/indicadores-setor";
 import { ROTAS_OS } from "@/lib/os/rotas";
-import { paramsDoPeriodo } from "@/lib/periodo";
 import {
   contexto,
   categorias as lerCategorias,
@@ -26,7 +24,7 @@ import { setoresDoPainel } from "@/server/os/paineis/acesso";
 import { type Busca, lerFiltrosDoPainel } from "@/server/os/paineis/consultas";
 import { montarPainel } from "@/server/os/paineis/montar";
 
-// Tela de um painel (geral ou de setor): abas dos setores, filtros, os 4
+// Tela de um painel (geral ou de setor): filtros (setor entre eles), os 4
 // cartões e os blocos. Os números vêm prontos de montarPainel.
 
 export async function Painel({
@@ -51,21 +49,19 @@ export async function Painel({
   const tonsCartoes = tonsDaTela(chaveTons, painel.cartoes.length);
   const tonsBlocos = tonsDosBlocos(chaveTons, painel.blocos.length);
 
-  // Os links das abas levam o período e a pessoa (a categoria é do setor).
-  const qs = new URLSearchParams({
-    ...paramsDoPeriodo(f.periodo),
-    ...(f.pessoa ? { pessoa: f.pessoa } : {}),
-  }).toString();
-  const abas = [
+  // Setor é filtro: cada opção é a rota do painel dele.
+  const opcoesSetor = [
     ...(ctx.pode("os.painel_geral")
-      ? [{ chave: "geral", href: `${ROTAS_OS.paineis}?${qs}`, rotulo: "Geral" }]
+      ? [{ rota: ROTAS_OS.paineis, nome: "Todos os setores" }]
       : []),
     ...visiveis.map((s) => ({
-      chave: s.id,
-      href: `${ROTAS_OS.paineis}/${slugDoSetor(s.nome)}?${qs}`,
-      rotulo: s.nome,
+      rota: `${ROTAS_OS.paineis}/${slugDoSetor(s.nome)}`,
+      nome: s.nome,
     })),
   ];
+  const rotaAtual = setor
+    ? `${ROTAS_OS.paineis}/${slugDoSetor(setor.nome)}`
+    : ROTAS_OS.paineis;
   const opcoesCategoria = cats
     .filter((c) => c.ativo && (!setor || c.setor_id === setor.id))
     .map((c) => {
@@ -103,27 +99,6 @@ export async function Painel({
   return (
     <ProvedorPainel linhas={painel.linhas}>
       <div className="flex flex-col gap-6">
-        {abas.length > 1 && (
-          <nav
-            aria-label="Painéis por setor"
-            className="vidro inline-flex max-w-full gap-1 self-start overflow-x-auto rounded-full p-1"
-          >
-            {abas.map((a) => {
-              const atual = (setor?.id ?? "geral") === a.chave;
-              return (
-                <Link
-                  key={a.chave}
-                  href={a.href}
-                  aria-current={atual ? "page" : undefined}
-                  className="shrink-0 rounded-full px-4 py-2 text-sm text-neutral-500 transition hover:text-neutral-900 aria-[current=page]:bg-neutral-900 aria-[current=page]:font-medium aria-[current=page]:text-white"
-                >
-                  {a.rotulo}
-                </Link>
-              );
-            })}
-          </nav>
-        )}
-
         <FiltroPeriodo
           de={f.periodo.de}
           ate={f.periodo.ate}
@@ -132,6 +107,8 @@ export async function Painel({
         />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <FiltrosDoPainel
+            setores={opcoesSetor}
+            setor={rotaAtual}
             categorias={opcoesCategoria}
             categoria={f.categoria?.id ?? null}
             pessoas={pessoasDoRecorte}

@@ -1,20 +1,26 @@
 "use client";
 
-import { Loader, Tag, UserRound } from "lucide-react";
+import { Building2, Loader, Tag, UserRound } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { Selecao } from "@/components/selecao";
 
 /**
- * Categoria e pessoa (responsável) do painel, na URL (?categoria=&pessoa=),
- * ao lado do filtro de período padrão do sistema.
+ * Setor, categoria e pessoa (responsável) do painel, ao lado do filtro de
+ * período padrão do sistema. O setor troca a rota (/paineis/<setor>); os
+ * outros vão na URL (?categoria=&pessoa=).
  */
 export function FiltrosDoPainel({
+  setores,
+  setor,
   categorias,
   categoria,
   pessoas,
   pessoa,
 }: {
+  /** Rota do painel de cada setor (a do geral, para quem o vê). */
+  setores: { rota: string; nome: string }[];
+  setor: string;
   categorias: { id: string; nome: string; grupo?: string }[];
   categoria: string | null;
   pessoas: { id: string; nome: string }[];
@@ -34,8 +40,28 @@ export function FiltrosDoPainel({
     );
   }
 
+  // A categoria é do setor: sai ao trocar de setor.
+  function trocarSetor(rota: string) {
+    const novos = new URLSearchParams(params);
+    novos.delete("categoria");
+    iniciar(() =>
+      router.push(`${rota}?${novos.toString()}`, { scroll: false }),
+    );
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2" aria-busy={carregando}>
+      {setores.length > 1 && (
+        <Selecao
+          variante="pilula"
+          rotulo="Setor"
+          icone={<Building2 className="size-4" />}
+          className="w-64 max-w-full"
+          valor={setor}
+          aoMudar={trocarSetor}
+          opcoes={setores.map((s) => ({ valor: s.rota, rotulo: s.nome }))}
+        />
+      )}
       <Selecao
         variante="pilula"
         rotulo="Categoria"
