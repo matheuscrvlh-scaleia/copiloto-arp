@@ -1,4 +1,3 @@
-import { Recolhivel } from "@/components/recolhivel";
 import { formatarMes, formatarMoeda, formatarNumero } from "@/lib/formato";
 import { type FaixaEtaria, valorPelaFaixa } from "@/lib/rh/custo";
 import { parteDoDependente, titularRecebe } from "@/lib/rh/dependentes";
@@ -8,9 +7,9 @@ import type {
   Vinculo,
   VinculoContrato,
 } from "@/server/rh/beneficios";
-import { dependentesDoCopiloto } from "@/server/rh/dependentes";
+import type { DependenteDoCopiloto } from "@/server/rh/dependentes";
 
-function quemPaga(b: Beneficio): string {
+export function quemPagaODependente(b: Beneficio): string {
   if (b.dependente_regra === "percentual")
     return `a empresa paga ${formatarNumero(b.dependente_valor ?? 0)}% da faixa e o funcionário, o resto`;
   if (b.dependente_regra === "valor_fixo")
@@ -23,104 +22,107 @@ function quemPaga(b: Beneficio): string {
  * a faixa pela idade e quem paga. Vale para quem recebe pela pessoa ou pelo
  * tipo de contrato; titular que não recebe o benefício no mês fica em aviso.
  */
-export async function DependentesDoPlano({
+export function DependentesDoPlano({
   beneficio: b,
+  dependentes,
   vinculos,
   contratos,
   faixas,
   mes,
 }: {
   beneficio: Beneficio;
+  /** Já filtrados: os marcados no plano (ou no odonto). */
+  dependentes: DependenteDoCopiloto[];
   vinculos: Vinculo[];
   contratos: VinculoContrato[];
   faixas: FaixaEtaria[] | null;
   /** Competência (aaaa-mm-01) da idade, da tabela e do vínculo. */
   mes: string;
 }) {
-  if (b.tipo !== "plano_saude" && b.tipo !== "odonto") return null;
-  const dependentes = (await dependentesDoCopiloto()).filter((d) =>
-    b.tipo === "plano_saude" ? d.tem_plano : d.tem_odonto,
+  if (dependentes.length === 0)
+    return (
+      <p className="py-4 text-center text-sm text-neutral-500">
+        Nenhum dependente marcado no {b.tipo === "odonto" ? "odonto" : "plano"}{" "}
+        no Copiloto RH.
+      </p>
+    );
+
+  const linhas = dependentes.map((d) => {
+    const r = valorPelaFaixa(faixas, d.nascimento, mes);
+    return {
+      d,
+      r,
+      parte: parteDoDependente(b.dependente_regra, b.dependente_valor, r.valor),
+      recebe: titularRecebe(d, vinculos, contratos, mes),
+    };
+  });
+  const total = linhas.reduce((s, l) => s + (l.r.valor ?? 0), 0);
+  const doFuncionario = linhas.reduce(
+    (s, l) => s + (l.parte.funcionario ?? 0),
+    0,
   );
 
   return (
     <div className="flex flex-col gap-3">
-      <div>
-        <p className="text-sm font-medium">Dependentes no plano</p>
-        <p className="text-xs text-neutral-500">
-          Marcados como dependentes de plano no Copiloto RH (vêm na
-          sincronização). Valor de {formatarMes(mes)} pela idade na tabela
-          vigente; {quemPaga(b)}.
-        </p>
-      </div>
-      {dependentes.length === 0 ? (
-        <p className="text-sm text-neutral-500">
-          Nenhum dependente marcado no plano no Copiloto RH.
-        </p>
-      ) : (
-        <Recolhivel
-          rotulo={`${dependentes.length} ${dependentes.length === 1 ? "dependente" : "dependentes"}`}
-          quantidade={dependentes.length}
-        >
-          <ul className="flex flex-col divide-y divide-neutral-900/[0.06] text-sm">
-            {dependentes.map((d) => {
-              const r = valorPelaFaixa(faixas, d.nascimento, mes);
-              const parte = parteDoDependente(
-                b.dependente_regra,
-                b.dependente_valor,
-                r.valor,
-              );
-              const recebe = titularRecebe(d, vinculos, contratos, mes);
-              return (
-                <li
-                  key={`${d.colaborador_id}:${d.nome}:${d.nascimento}`}
-                  className="py-2"
-                >
-                  <p className="font-medium">{d.nome}</p>
-                  <p className="text-xs text-neutral-500">
-                    dependente de {d.titular}
-                    {d.parentesco && ` · ${d.parentesco}`}
-                    {r.idade !== undefined && ` · ${r.idade} anos`}
-                    {r.valor !== null && r.faixa ? (
-                      <>
-                        {" "}
-                        · faixa{" "}
-                        {faixaTexto(r.faixa.idade_min, r.faixa.idade_max)} ·{" "}
-                        <span className="tabular-nums text-neutral-900">
-                          {formatarMoeda(r.valor)}
-                        </span>
-                        {parte.empresa > 0 ? (
-                          <>
-                            {" "}
-                            · empresa{" "}
-                            <span className="tabular-nums">
-                              {formatarMoeda(parte.empresa)}
-                            </span>
-                            , funcionário{" "}
-                            <span className="tabular-nums">
-                              {formatarMoeda(parte.funcionario)}
-                            </span>
-                          </>
-                        ) : (
-                          " · pago pelo funcionário"
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-amber-700"> · {r.pendencia}</span>
-                    )}
+      <ul className="flex flex-col divide-y divide-neutral-900/[0.06] text-sm">
+        {linhas.map(({ d, r, parte, recebe }) => (
+          <li
+            key={`${d.colaborador_id}:${d.nome}:${d.nascimento}`}
+            className="grid items-center gap-x-4 gap-y-1 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto]"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-medium">{d.nome}</p>
+              <p className="text-xs text-neutral-500">
+                dependente de {d.titular}
+                {d.parentesco && ` · ${d.parentesco}`}
+                {r.idade !== undefined && ` · ${r.idade} anos`}
+                {r.faixa &&
+                  ` · faixa ${faixaTexto(r.faixa.idade_min, r.faixa.idade_max)}`}
+              </p>
+              {!recebe && (
+                <p className="text-xs text-amber-700">
+                  {d.titular} não recebe {b.nome} em {formatarMes(mes)}:
+                  adicione a pessoa ou o contrato dela em Quem recebe para o
+                  dependente entrar.
+                </p>
+              )}
+            </div>
+            <div className="text-right text-xs">
+              {r.valor === null ? (
+                <span className="text-amber-700">{r.pendencia}</span>
+              ) : (
+                <>
+                  <p className="text-sm font-medium tabular-nums">
+                    {formatarMoeda(r.valor)}
                   </p>
-                  {!recebe && (
-                    <p className="text-xs text-amber-700">
-                      {d.titular} não recebe {b.nome} em {formatarMes(mes)}:
-                      vincule a pessoa ou o contrato dela acima para o
-                      dependente entrar.
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </Recolhivel>
-      )}
+                  <p className="text-neutral-500">
+                    {parte.empresa > 0
+                      ? `empresa ${formatarMoeda(parte.empresa)} · funcionário ${formatarMoeda(parte.funcionario)}`
+                      : "pago pelo funcionário"}
+                  </p>
+                </>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="flex flex-wrap justify-between gap-2 border-t border-neutral-900/[0.06] pt-3 text-xs text-neutral-500">
+        <span>
+          {dependentes.length}{" "}
+          {dependentes.length === 1 ? "dependente" : "dependentes"} · valor de{" "}
+          {formatarMes(mes)}
+        </span>
+        <span>
+          Total{" "}
+          <span className="font-medium text-neutral-900 tabular-nums">
+            {formatarMoeda(total)}
+          </span>
+          , pago pelo funcionário{" "}
+          <span className="font-medium text-neutral-900 tabular-nums">
+            {formatarMoeda(doFuncionario)}
+          </span>
+        </span>
+      </p>
     </div>
   );
 }

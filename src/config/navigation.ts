@@ -61,6 +61,10 @@ export const CONFIGURACOES_RH = {
   parametros: "/rh/configuracoes/parametros",
 } as const;
 
+/** Página de um benefício (quem recebe, valores do mês, dependentes). */
+export const rotaDoBeneficio = (id: string, aba?: string) =>
+  `${CONFIGURACOES_RH.cadastros}/beneficios/${id}${aba ? `?aba=${aba}` : ""}`;
+
 /** Abas de Tickets › Configurações (cada uma com a sua permissão). */
 export const CONFIGURACOES_OS = {
   catalogo: "/os/configuracoes/catalogo",

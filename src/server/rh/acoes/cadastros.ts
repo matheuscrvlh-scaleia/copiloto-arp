@@ -1,8 +1,10 @@
 "use server";
 
 import { refresh, updateTag } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import { rotaDoBeneficio } from "@/config/navigation";
 import {
   fimDoMes,
   formatarMes,
@@ -202,12 +204,21 @@ export async function salvarBeneficio(
       dados.dependente_regra === "nao_paga" ? null : dados.dependente_valor,
   };
   const rh = (await createClient()).schema("rh");
-  const { error } = id
-    ? await rh.from("beneficios").update(registro).eq("id", id)
-    : await rh.from("beneficios").insert(registro);
+  if (id) {
+    const { error } = await rh.from("beneficios").update(registro).eq("id", id);
+    if (error) return erroDoBanco(error);
+    updateTag(TAG.rh.beneficios);
+    return salvoERecalculado("Benefício salvo.");
+  }
+  // Novo: abre a página dele, para vincular quem recebe.
+  const { data, error } = await rh
+    .from("beneficios")
+    .insert(registro)
+    .select("id")
+    .single();
   if (error) return erroDoBanco(error);
   updateTag(TAG.rh.beneficios);
-  return salvoERecalculado(id ? "Benefício salvo." : "Benefício cadastrado.");
+  redirect(rotaDoBeneficio(data.id));
 }
 
 const vinculo = z.object({
