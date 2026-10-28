@@ -2,8 +2,8 @@
 
 import {
   ArrowLeft,
-  ChevronDown,
   CircleUserRound,
+  Flag,
   Search,
   Send,
   Sparkles,
@@ -64,10 +64,13 @@ interface Escolha {
 export function FormularioChamado({
   dados,
   inicial,
+  naJanela = false,
   aoCriar,
 }: {
   dados: DadosDoFormulario;
   inicial?: InicialDoFormulario;
+  /** Na Janela (corpo cheio): o formulário cuida da rolagem e do respiro. */
+  naJanela?: boolean;
   aoCriar: (r: { id: string; numero: number; aviso?: string }) => void;
 }) {
   const [escolha, setEscolha] = useState<Escolha | null>(() =>
@@ -80,8 +83,8 @@ export function FormularioChamado({
       : null,
   );
 
-  if (!escolha)
-    return (
+  if (!escolha) {
+    const passo = (
       <EscolherCategoria
         dados={dados}
         dica={
@@ -94,12 +97,21 @@ export function FormularioChamado({
         aoEscolher={setEscolha}
       />
     );
+    return naJanela ? (
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-7 sm:pb-7">
+        {passo}
+      </div>
+    ) : (
+      passo
+    );
+  }
   return (
     <Detalhes
       // Trocar a categoria recomeça os campos dela.
       key={`${escolha.setorId}-${escolha.categoriaId}-${escolha.pessoal}`}
       dados={dados}
       inicial={inicial}
+      naJanela={naJanela}
       escolha={escolha}
       aoTrocar={() => setEscolha(null)}
       aoMudarCategoria={(categoriaId) =>
@@ -343,10 +355,41 @@ function Contexto({ itens }: { itens: InicialDoFormulario["contexto"] }) {
 // ---------------------------------------------------------------------------
 
 const rotulo = "flex flex-col gap-1.5 text-xs font-medium text-neutral-600";
+const SECAO =
+  "text-[11px] font-semibold tracking-[0.12em] text-neutral-500 uppercase";
 
+/** Propriedade na coluna lateral: rótulo à esquerda, campo à direita. */
+function Propriedade({
+  nome,
+  htmlFor,
+  dica,
+  children,
+}: {
+  nome: string;
+  htmlFor: string;
+  dica?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
+      <label htmlFor={htmlFor} className="text-xs font-medium text-neutral-600">
+        {nome}
+      </label>
+      {children}
+      {dica && (
+        <p className="col-start-2 text-[11px] text-neutral-500">{dica}</p>
+      )}
+    </div>
+  );
+}
+
+// Duas colunas, como um editor: à esquerda o que se digita (título,
+// descrição, campos da categoria, arquivos); à direita as propriedades.
+// No celular, uma coluna só. O rodapé com o envio fica sempre à vista.
 function Detalhes({
   dados,
   inicial,
+  naJanela,
   escolha,
   aoTrocar,
   aoMudarCategoria,
@@ -354,6 +397,7 @@ function Detalhes({
 }: {
   dados: DadosDoFormulario;
   inicial?: InicialDoFormulario;
+  naJanela: boolean;
   escolha: Escolha;
   aoTrocar: () => void;
   aoMudarCategoria: (id: string | null) => void;
@@ -383,9 +427,6 @@ function Detalhes({
     {},
   );
   const [pessoasExtras, setPessoasExtras] = useState<string[]>([]);
-  const [maisAberto, setMaisAberto] = useState(
-    Boolean(inicial?.descricao || inicial?.etiquetas),
-  );
   const [vinculos, setVinculos] = useState<OpcoesDeVinculo | null>(null);
   const [, carregar] = useTransition();
   const [erroLocal, setErroLocal] = useState<string | null>(null);
@@ -407,13 +448,11 @@ function Detalhes({
     }
   }, [estado, aoCriar]);
 
-  // Lojas e ativos só quando a pessoa precisa (ou já vieram pela URL).
-  const precisaVinculos =
-    maisAberto || Boolean(inicial?.lojaId || inicial?.ativoId);
+  // Lojas e ativos dos vínculos (a tarefa pessoal não tem).
   useEffect(() => {
-    if (precisaVinculos && !vinculos)
+    if (!pessoal && !vinculos)
       carregar(async () => setVinculos(await opcoesDeVinculo()));
-  }, [precisaVinculos, vinculos]);
+  }, [pessoal, vinculos]);
 
   function aoEnviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -439,9 +478,22 @@ function Detalhes({
   const destino = pessoal
     ? "Você"
     : (nomeResponsavel ?? `Fila de ${setor?.nome ?? "setor"}`);
+  const cor = categoria?.cor ?? setor?.cor ?? "#525252";
+  const erro = erroLocal ?? estado.erro;
+  const falta = titulo.trim().length < 3;
 
   return (
-    <form onSubmit={aoEnviar} className="flex flex-col gap-5">
+    <form
+      onSubmit={aoEnviar}
+      onKeyDown={(e) => {
+        // Ctrl+Enter (⌘+Enter) envia de qualquer campo.
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          e.currentTarget.requestSubmit();
+        }
+      }}
+      className={naJanela ? "flex min-h-0 flex-1 flex-col" : "flex flex-col"}
+    >
       <input type="hidden" name="setor_id" value={escolha.setorId} />
       <input
         type="hidden"
@@ -472,241 +524,152 @@ function Detalhes({
         value={inicial?.convertidoDeId ?? ""}
       />
 
-      {/* Passo 1 escolhido: mostra e deixa trocar. */}
-      <div className="flex items-center gap-3 rounded-2xl bg-neutral-900/[0.04] p-2.5 pr-3">
-        <span
-          className="grid size-10 shrink-0 place-items-center rounded-xl"
-          style={{
-            backgroundColor: `${categoria?.cor ?? setor?.cor ?? "#525252"}22`,
-            color: categoria?.cor ?? setor?.cor ?? "#525252",
-          }}
-        >
-          {pessoal ? (
-            <Sparkles className="size-5" aria-hidden />
-          ) : (
-            <IconeCatalogo
-              nome={categoria?.icone ?? setor?.icone}
-              className="size-5"
-            />
-          )}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold">
-            {pessoal
-              ? "Tarefa pessoal rápida"
-              : `${setor?.nome ?? ""} › ${pai?.nome ?? "Outro assunto"}${categoria?.paiId ? ` › ${categoria.nome}` : ""}`}
-          </span>
-          <span className="flex items-center gap-1.5 text-xs text-neutral-500">
-            <IconeTipo tipo={tipo} className="size-3.5" />
-            {TIPOS[tipo]} · para {destino}
-            {categoria?.prazo && !pessoal ? ` · prazo ${categoria.prazo}` : ""}
-          </span>
-        </span>
-        <button
-          type="button"
-          onClick={aoTrocar}
-          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-neutral-700 transition hover:bg-white"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Trocar
-        </button>
-      </div>
-
-      {inicial?.contexto.length ? <Contexto itens={inicial.contexto} /> : null}
-
-      {subcategorias.length > 0 && (
-        <fieldset>
-          <legend className="mb-2 text-xs font-medium text-neutral-600">
-            Subcategoria (opcional)
-          </legend>
-          <div className="flex flex-wrap gap-1.5">
-            {subcategorias.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                aria-pressed={escolha.categoriaId === s.id}
-                onClick={() =>
-                  aoMudarCategoria(
-                    escolha.categoriaId === s.id ? (pai?.id ?? null) : s.id,
-                  )
-                }
-                className={PILULA_OPCAO}
-              >
-                {s.nome}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-      )}
-
-      <label htmlFor={`${id}-titulo`} className={rotulo}>
-        {pessoal ? "O que você precisa fazer?" : "Título"}
-        <input
-          id={`${id}-titulo`}
-          name="titulo"
-          required
-          minLength={3}
-          maxLength={200}
-          // biome-ignore lint/a11y/noAutofocus: passo 2, o título é o próximo campo
-          autoFocus
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-          placeholder={
-            pessoal
-              ? "Ex.: ligar para o fornecedor"
-              : "Ex.: lâmpada queimada no corredor B"
-          }
-          className={`${classeCampo} min-h-12 text-base`}
-        />
-      </label>
-
-      {categoria && categoria.campos.length > 0 && (
-        <CamposExtras
-          campos={categoria.campos}
-          arquivos={arquivosCampo}
-          aoMudarArquivos={(chave, lista) =>
-            setArquivosCampo((a) => ({ ...a, [chave]: lista }))
-          }
-        />
-      )}
-
-      {tipo === "aviso" && !pessoal && (
-        <SetoresExtras
-          dados={dados}
-          setorPrincipal={escolha.setorId}
-          destaque
-        />
-      )}
-
-      <div className="rounded-2xl border border-neutral-900/[0.07]">
-        <button
-          type="button"
-          aria-expanded={maisAberto}
-          aria-controls={`${id}-mais`}
-          onClick={() => setMaisAberto((m) => !m)}
-          className="flex min-h-12 w-full items-center justify-between gap-2 px-4 text-sm font-medium"
-        >
-          Mais detalhes
-          <span className="flex items-center gap-2 text-xs font-normal text-neutral-500">
-            descrição, prazo, fotos, vínculos…
-            <ChevronDown
-              className={`size-4 transition-transform ${maisAberto ? "rotate-180" : ""}`}
-              aria-hidden
-            />
-          </span>
-        </button>
-        {/* Fica no formulário mesmo fechado: o que veio da URL vai junto. */}
+      <div
+        className={
+          naJanela
+            ? "min-h-0 flex-1 overflow-y-auto border-t border-neutral-900/[0.07] md:grid md:min-h-[min(34rem,62dvh)] md:grid-cols-[minmax(0,1fr)_21rem] md:grid-rows-1 md:overflow-hidden"
+            : "md:grid md:grid-cols-[minmax(0,1fr)_20rem]"
+        }
+      >
         <div
-          id={`${id}-mais`}
-          hidden={!maisAberto}
-          className="flex flex-col gap-5 border-t border-neutral-900/[0.07] p-4"
+          className={`flex flex-col gap-5 ${naJanela ? "p-5 sm:px-7 sm:py-6 md:overflow-y-auto" : "pb-5 md:pr-7"}`}
         >
-          <label htmlFor={`${id}-descricao`} className={rotulo}>
-            Descrição
-            <CampoComMencao
-              id={`${id}-descricao`}
-              name="descricao"
-              pessoas={dados.pessoas}
-              valor={descricao}
-              aoMudar={setDescricao}
-              placeholder="Conte o que precisa. Use @ para citar alguém."
-            />
-          </label>
+          {/* Categoria escolhida: mostra e deixa trocar. */}
+          <div className="flex items-center gap-3">
+            <span
+              className="grid size-9 shrink-0 place-items-center rounded-xl"
+              style={{ backgroundColor: `${cor}22`, color: cor }}
+            >
+              {pessoal ? (
+                <Sparkles className="size-[18px]" aria-hidden />
+              ) : (
+                <IconeCatalogo
+                  nome={categoria?.icone ?? setor?.icone}
+                  className="size-[18px]"
+                />
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold">
+                {pessoal
+                  ? "Tarefa pessoal rápida"
+                  : `${setor?.nome ?? ""} › ${pai?.nome ?? "Outro assunto"}${categoria?.paiId ? ` › ${categoria.nome}` : ""}`}
+              </span>
+              <span className="block truncate text-xs text-neutral-500">
+                Para {destino}
+                {categoria?.prazo && !pessoal
+                  ? ` · prazo ${categoria.prazo}`
+                  : ""}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={aoTrocar}
+              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-3 text-sm font-medium text-neutral-700 transition hover:border-neutral-400"
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              Trocar
+            </button>
+          </div>
 
-          {!pessoal && (
+          {inicial?.contexto.length ? (
+            <Contexto itens={inicial.contexto} />
+          ) : null}
+
+          {subcategorias.length > 0 && (
             <fieldset>
               <legend className="mb-2 text-xs font-medium text-neutral-600">
-                Tipo
+                Subcategoria (opcional)
               </legend>
               <div className="flex flex-wrap gap-1.5">
-                {(Object.keys(TIPOS) as TipoChamado[]).map((t) => (
+                {subcategorias.map((s) => (
                   <button
-                    key={t}
+                    key={s.id}
                     type="button"
-                    aria-pressed={tipo === t}
-                    onClick={() => setTipo(t)}
+                    aria-pressed={escolha.categoriaId === s.id}
+                    onClick={() =>
+                      aoMudarCategoria(
+                        escolha.categoriaId === s.id ? (pai?.id ?? null) : s.id,
+                      )
+                    }
                     className={PILULA_OPCAO}
                   >
-                    <IconeTipo tipo={t} className="size-3.5" />
-                    {TIPOS[t]}
+                    {s.nome}
                   </button>
                 ))}
               </div>
             </fieldset>
           )}
 
-          <fieldset>
-            <legend className="mb-2 text-xs font-medium text-neutral-600">
-              Prioridade
-            </legend>
-            <div className="flex flex-wrap gap-1.5">
-              {(Object.keys(PRIORIDADES) as Prioridade[]).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  aria-pressed={prioridade === p}
-                  onClick={() => setPrioridade(p)}
-                  className={PILULA_OPCAO}
-                >
-                  {PRIORIDADES[p]}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label htmlFor={`${id}-prazo`} className={rotulo}>
-              Prazo
-              <input
-                id={`${id}-prazo`}
-                type="datetime-local"
-                name="prazo"
-                className={`${classeCampo} min-h-11`}
-              />
-              <span className="font-normal text-neutral-500">
-                {categoria?.prazo && !pessoal
-                  ? `Vazio: ${categoria.prazo} a partir de agora.`
-                  : "Vazio: sem prazo."}
-              </span>
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor={`${id}-titulo`}
+              className="text-xs font-medium text-neutral-600"
+            >
+              {pessoal ? "O que você precisa fazer?" : "Título"}
             </label>
-            {!pessoal && (
-              <label htmlFor={`${id}-responsavel`} className={rotulo}>
-                Responsável
-                <Selecao
-                  id={`${id}-responsavel`}
-                  name="responsavel"
-                  valorInicial=""
-                  opcoes={opcoesResponsavel(
-                    dados,
-                    escolha.setorId,
-                    nomeResponsavel,
-                  )}
-                />
-              </label>
-            )}
+            <input
+              id={`${id}-titulo`}
+              name="titulo"
+              required
+              minLength={3}
+              maxLength={200}
+              // biome-ignore lint/a11y/noAutofocus: passo 2, o título é o próximo campo
+              autoFocus
+              autoComplete="off"
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter no título passa para a descrição (não envia sem querer).
+                if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
+                  e.preventDefault();
+                  document.getElementById(`${id}-descricao`)?.focus();
+                }
+              }}
+              placeholder={
+                pessoal
+                  ? "Ex.: ligar para o fornecedor"
+                  : "Ex.: lâmpada queimada no corredor B"
+              }
+              className="w-full border-0 border-b-2 border-neutral-200 bg-transparent pt-1 pb-2 text-xl font-semibold tracking-tight text-neutral-900 outline-none transition placeholder:font-normal placeholder:text-neutral-400 focus:border-neutral-900 sm:text-2xl"
+            />
           </div>
 
-          {!pessoal && tipo !== "aviso" && (
-            <SetoresExtras dados={dados} setorPrincipal={escolha.setorId} />
-          )}
-          {!pessoal && (
-            <PessoasExtras
-              dados={dados}
-              escolhidas={pessoasExtras}
-              aoMudar={setPessoasExtras}
+          <label htmlFor={`${id}-descricao`} className={rotulo}>
+            <span>
+              Descrição{" "}
+              <span className="font-normal text-neutral-500">
+                · @ cita alguém
+              </span>
+            </span>
+            <CampoComMencao
+              id={`${id}-descricao`}
+              name="descricao"
+              pessoas={dados.pessoas}
+              valor={descricao}
+              aoMudar={setDescricao}
+              linhas={6}
+              placeholder="Contexto, onde é, o que já foi tentado…"
+            />
+          </label>
+
+          {categoria && categoria.campos.length > 0 && (
+            <CamposExtras
+              campos={categoria.campos}
+              arquivos={arquivosCampo}
+              aoMudarArquivos={(chave, lista) =>
+                setArquivosCampo((a) => ({ ...a, [chave]: lista }))
+              }
             />
           )}
 
-          <label htmlFor={`${id}-etiquetas`} className={rotulo}>
-            Etiquetas
-            <input
-              id={`${id}-etiquetas`}
-              name="etiquetas"
-              defaultValue={inicial?.etiquetas ?? ""}
-              placeholder="Separe por vírgula (ex.: bloco B, reincidente)"
-              className={classeCampo}
+          {tipo === "aviso" && !pessoal && (
+            <SetoresExtras
+              dados={dados}
+              setorPrincipal={escolha.setorId}
+              destaque
             />
-          </label>
+          )}
 
           <div className={rotulo}>
             Fotos e arquivos
@@ -716,11 +679,77 @@ function Detalhes({
               rotulo="Fotos e arquivos"
             />
           </div>
+        </div>
+
+        <aside
+          aria-label="Propriedades do chamado"
+          className={`flex flex-col gap-6 border-t border-neutral-900/[0.07] md:border-t-0 md:border-l ${naJanela ? "bg-neutral-900/[0.025] p-5 sm:px-6 sm:py-6 md:overflow-y-auto" : "py-5 md:py-0 md:pl-7"}`}
+        >
+          <section className="flex flex-col gap-3">
+            <h3 className={SECAO}>Essencial</h3>
+            {!pessoal && (
+              <Propriedade nome="Tipo" htmlFor={`${id}-tipo`}>
+                <Selecao
+                  id={`${id}-tipo`}
+                  valor={tipo}
+                  aoMudar={(v) => setTipo(v as TipoChamado)}
+                  icone={<IconeTipo tipo={tipo} className="size-4" />}
+                  opcoes={(Object.keys(TIPOS) as TipoChamado[]).map((t) => ({
+                    valor: t,
+                    rotulo: TIPOS[t],
+                  }))}
+                />
+              </Propriedade>
+            )}
+            <Propriedade nome="Prioridade" htmlFor={`${id}-prioridade`}>
+              <Selecao
+                id={`${id}-prioridade`}
+                valor={prioridade}
+                aoMudar={(v) => setPrioridade(v as Prioridade)}
+                icone={<Flag className="size-4" />}
+                opcoes={(Object.keys(PRIORIDADES) as Prioridade[]).map((p) => ({
+                  valor: p,
+                  rotulo: PRIORIDADES[p],
+                }))}
+              />
+            </Propriedade>
+            {!pessoal && (
+              <Propriedade nome="Responsável" htmlFor={`${id}-responsavel`}>
+                <Selecao
+                  id={`${id}-responsavel`}
+                  name="responsavel"
+                  valorInicial=""
+                  icone={<CircleUserRound className="size-4" />}
+                  opcoes={opcoesResponsavel(
+                    dados,
+                    escolha.setorId,
+                    nomeResponsavel,
+                  )}
+                />
+              </Propriedade>
+            )}
+            <Propriedade
+              nome="Prazo"
+              htmlFor={`${id}-prazo`}
+              dica={
+                categoria?.prazo && !pessoal
+                  ? `Vazio: ${categoria.prazo} a partir de agora.`
+                  : "Vazio: sem prazo."
+              }
+            >
+              <input
+                id={`${id}-prazo`}
+                type="datetime-local"
+                name="prazo"
+                className={`${classeCampo} min-w-0`}
+              />
+            </Propriedade>
+          </section>
 
           {!pessoal && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <label htmlFor={`${id}-loja`} className={rotulo}>
-                Loja / contrato
+            <section className="flex flex-col gap-3">
+              <h3 className={SECAO}>Vínculos</h3>
+              <Propriedade nome="Loja" htmlFor={`${id}-loja`}>
                 <Selecao
                   id={`${id}-loja`}
                   name="loja_id"
@@ -735,9 +764,8 @@ function Detalhes({
                     })),
                   ]}
                 />
-              </label>
-              <label htmlFor={`${id}-ativo`} className={rotulo}>
-                Ativo
+              </Propriedade>
+              <Propriedade nome="Ativo" htmlFor={`${id}-ativo`}>
                 <Selecao
                   id={`${id}-ativo`}
                   name="ativo_id"
@@ -753,47 +781,82 @@ function Detalhes({
                     })),
                   ]}
                 />
-              </label>
+              </Propriedade>
               {!inicial?.vinculadoAId && (
-                <label htmlFor={`${id}-vinculado`} className={rotulo}>
-                  Ligado a outro chamado (nº)
+                <Propriedade nome="Chamado nº" htmlFor={`${id}-vinculado`}>
                   <input
                     id={`${id}-vinculado`}
                     name="vinculado_numero"
                     inputMode="numeric"
-                    placeholder="Ex.: 1234"
+                    placeholder="Ligado a outro (ex.: 1234)"
                     className={classeCampo}
                   />
-                </label>
+                </Propriedade>
               )}
-            </div>
+            </section>
           )}
 
-          <Repetir />
-
-          {categoria?.agendaId && (
-            <Horario
-              agendaId={categoria.agendaId}
-              nome={
-                dados.agendas.find((a) => a.id === categoria.agendaId)?.nome ??
-                "Agenda"
-              }
-            />
-          )}
-        </div>
+          <section className="flex flex-col gap-4">
+            <h3 className={SECAO}>Mais</h3>
+            <Propriedade nome="Etiquetas" htmlFor={`${id}-etiquetas`}>
+              <input
+                id={`${id}-etiquetas`}
+                name="etiquetas"
+                defaultValue={inicial?.etiquetas ?? ""}
+                placeholder="bloco B, reincidente"
+                className={classeCampo}
+              />
+            </Propriedade>
+            {!pessoal && tipo !== "aviso" && (
+              <SetoresExtras dados={dados} setorPrincipal={escolha.setorId} />
+            )}
+            {!pessoal && (
+              <PessoasExtras
+                dados={dados}
+                escolhidas={pessoasExtras}
+                aoMudar={setPessoasExtras}
+              />
+            )}
+            <Repetir />
+            {categoria?.agendaId && (
+              <Horario
+                agendaId={categoria.agendaId}
+                nome={
+                  dados.agendas.find((a) => a.id === categoria.agendaId)
+                    ?.nome ?? "Agenda"
+                }
+              />
+            )}
+          </section>
+        </aside>
       </div>
 
-      {/* Na Janela, rodapé colado na borda: as margens negativas anulam o
-          respiro do corpo dela (px-5 pb-5 / sm:px-7 sm:pb-7). */}
-      <div className="sticky bottom-0 z-[1] flex flex-col gap-2 rounded-2xl bg-neutral-50/95 p-2 shadow-[0_-12px_24px_-20px_rgb(0_0_0/0.4)] backdrop-blur sm:flex-row sm:items-center sm:justify-end in-[.painel-modal]:-bottom-5 in-[.painel-modal]:-mx-5 in-[.painel-modal]:-mb-5 in-[.painel-modal]:rounded-none in-[.painel-modal]:border-t in-[.painel-modal]:border-neutral-200 in-[.painel-modal]:px-5 in-[.painel-modal]:pt-3 in-[.painel-modal]:pb-5 in-[.painel-modal]:shadow-none sm:in-[.painel-modal]:-bottom-7 sm:in-[.painel-modal]:-mx-7 sm:in-[.painel-modal]:-mb-7 sm:in-[.painel-modal]:px-7 sm:in-[.painel-modal]:pt-4 sm:in-[.painel-modal]:pb-6">
-        {(erroLocal || estado.erro) && (
-          <p role="alert" className="px-2 text-sm text-red-700 sm:mr-auto">
-            {erroLocal ?? estado.erro}
+      <div
+        className={`sticky bottom-0 z-[1] flex flex-col gap-2 border-t border-neutral-900/[0.07] sm:flex-row sm:items-center sm:justify-end sm:gap-4 ${naJanela ? "px-5 py-3 sm:px-7 sm:py-4" : "bg-neutral-50/95 py-3 backdrop-blur"}`}
+      >
+        {erro ? (
+          <p role="alert" className="text-sm text-red-700 sm:mr-auto">
+            {erro}
+          </p>
+        ) : (
+          <p className="flex items-center gap-1.5 text-xs text-neutral-500 sm:mr-auto">
+            {falta ? (
+              <>
+                <span
+                  aria-hidden
+                  className="size-1.5 rounded-full bg-amber-500"
+                />
+                Falta: título
+              </>
+            ) : (
+              <>Vai para {destino}</>
+            )}
           </p>
         )}
         <button
           type="submit"
           disabled={enviando || Boolean(estado.id)}
+          aria-keyshortcuts="Control+Enter"
           className={BOTAO_PRIMARIO}
         >
           <Send className="size-4" aria-hidden />
@@ -802,6 +865,9 @@ function Detalhes({
             : inicial?.convertidoDeId
               ? "Criar Ordem de Serviço"
               : "Abrir chamado"}
+          <kbd className="ml-1 hidden rounded-md border border-current px-1.5 font-sans text-[11px] opacity-60 sm:inline">
+            Ctrl ↵
+          </kbd>
         </button>
       </div>
     </form>

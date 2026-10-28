@@ -18,6 +18,7 @@ const LARGURAS = {
   sm: "sm:w-[min(28rem,calc(100vw-1.5rem))]",
   md: "sm:w-[min(36rem,calc(100vw-1.5rem))]",
   lg: "sm:w-[min(52rem,calc(100vw-1.5rem))]",
+  xl: "sm:w-[min(66rem,calc(100vw-1.5rem))]",
 } as const;
 
 export function Janela({
@@ -27,6 +28,7 @@ export function Janela({
   descricao,
   largura = "md",
   travada = false,
+  cheia = false,
   children,
 }: {
   aberta: boolean;
@@ -36,6 +38,8 @@ export function Janela({
   largura?: keyof typeof LARGURAS;
   /** Enquanto envia, Esc e clique fora não fecham. */
   travada?: boolean;
+  /** O conteúdo cuida do próprio respiro e da rolagem (colunas, rodapé fixo). */
+  cheia?: boolean;
   children: React.ReactNode;
 }) {
   if (!aberta) return null;
@@ -46,6 +50,7 @@ export function Janela({
       descricao={descricao}
       largura={largura}
       travada={travada}
+      cheia={cheia}
     >
       {children}
     </Painel>,
@@ -59,6 +64,7 @@ function Painel({
   descricao,
   largura,
   travada,
+  cheia,
   children,
 }: Omit<Parameters<typeof Janela>[0], "aberta"> & {
   largura: keyof typeof LARGURAS;
@@ -112,7 +118,13 @@ function Painel({
             <X className="size-4" aria-hidden />
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-7 sm:pb-7">
+        <div
+          className={
+            cheia
+              ? "flex min-h-0 flex-1 flex-col"
+              : "min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-7 sm:pb-7"
+          }
+        >
           {children}
         </div>
       </div>

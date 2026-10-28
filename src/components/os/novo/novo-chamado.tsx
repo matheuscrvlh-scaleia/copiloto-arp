@@ -20,7 +20,13 @@ import type { DadosDoFormulario } from "./tipos";
 const carregarFormulario = () => import("./formulario");
 const FormularioChamado = dynamic(
   () => carregarFormulario().then((m) => m.FormularioChamado),
-  { loading: () => <CartaoCarregando altura="h-[28rem]" /> },
+  {
+    loading: () => (
+      <div className="px-5 pb-5 sm:px-7 sm:pb-7">
+        <CartaoCarregando altura="h-[28rem]" />
+      </div>
+    ),
+  },
 );
 
 // Botão "+ Novo" flutuante de todas as telas do módulo. Fica no canto
@@ -123,13 +129,9 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
       <Janela
         aberta={aberta}
         aoFechar={fechar}
-        largura="lg"
+        largura={criado ? "lg" : "xl"}
+        cheia={!criado}
         titulo={criado ? "Pronto!" : "Novo chamado"}
-        descricao={
-          criado
-            ? undefined
-            : "Escolha a categoria, escreva o título e envie. O resto é opcional."
-        }
       >
         {criado ? (
           <Sucesso
@@ -141,7 +143,12 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
             }}
           />
         ) : (
-          <FormularioChamado key={rodada} dados={dados} aoCriar={setCriado} />
+          <FormularioChamado
+            key={rodada}
+            dados={dados}
+            naJanela
+            aoCriar={setCriado}
+          />
         )}
       </Janela>
     </>
