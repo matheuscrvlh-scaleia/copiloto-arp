@@ -89,7 +89,7 @@ export function CartaoIndicador({
   return (
     <ComDetalhe origem={origem}>
       <div
-        className={`${TOM[tom]} flutua flex h-full flex-col gap-3 rounded-[1.75rem] p-5`}
+        className={`${TOM[tom]} flutua relative flex h-full flex-col gap-3 rounded-[1.75rem] p-5 hover:z-10`}
       >
         <Titulo texto={titulo} clicavel={!!origem} calculo={calculo} />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -168,7 +168,10 @@ function ComDetalhe({
 }) {
   if (!origem) return children;
   return (
-    <AbreDetalhe detalhe={origem} className="flex rounded-[1.75rem] *:flex-1">
+    <AbreDetalhe
+      detalhe={origem}
+      className="relative flex rounded-[1.75rem] *:flex-1 hover:z-10"
+    >
       {children}
     </AbreDetalhe>
   );
@@ -184,16 +187,17 @@ function Titulo({
   calculo?: string;
 }) {
   return (
-    <p className="flex items-start justify-between gap-2 text-sm font-medium text-neutral-600">
+    <p className="relative flex items-start justify-between gap-2 text-sm font-medium text-neutral-600">
       <span className="flex items-center gap-1.5">
         {texto}
         {calculo && (
-          <span className="group/calculo relative inline-flex">
-            <Info className="size-3.5 opacity-40" aria-hidden />
+          <span className="group/calculo inline-flex">
+            <Info className="size-3 opacity-30" aria-hidden />
             <span className="sr-only">{calculo}</span>
+            {/* Ocupa a largura do título: não passa da borda do cartão. */}
             <span
               aria-hidden
-              className="pointer-events-none invisible absolute top-full left-0 z-20 mt-1.5 w-60 rounded-xl bg-neutral-900 px-3 py-2 text-xs font-normal leading-snug text-white opacity-0 shadow-lg transition group-hover/calculo:visible group-hover/calculo:opacity-100"
+              className="pointer-events-none invisible absolute inset-x-0 top-full z-20 mt-1.5 rounded-xl bg-neutral-900/60 px-3 py-2 text-xs font-normal leading-snug text-white opacity-0 backdrop-blur-md transition group-hover/calculo:visible group-hover/calculo:opacity-100"
             >
               {calculo}
             </span>
