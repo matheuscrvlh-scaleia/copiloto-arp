@@ -12,8 +12,8 @@ import {
 } from "@/lib/sessao";
 import { supabasePublico } from "./config";
 
-// Portal do lojista e link da OS do terceirizado: abrem só pelo token do
-// link, sem login (a página confere o token no servidor). O matcher de
+// Portal do lojista (a loja entra com o CNPJ) e link da OS do
+// terceirizado (pelo token): sem login, a página confere no servidor. O matcher de
 // src/proxy.ts já os deixa de fora; ficam aqui como segunda trava.
 const PUBLICAS = ["/login", "/portal", "/ordem"];
 

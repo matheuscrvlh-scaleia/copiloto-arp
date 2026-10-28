@@ -22,19 +22,12 @@ import { useEnvioDoPortal } from "./envio";
 // O que o lojista faz num pedido: responder à equipe, avaliar (e dizer
 // que não resolveu) e escolher outro horário quando o clima remarcou.
 
-export function FormResposta({
-  token,
-  pedido,
-}: {
-  token: string;
-  pedido: string;
-}) {
+export function FormResposta({ pedido }: { pedido: string }) {
   const { estado, erro, enviando, versao, aoEnviar } =
     useEnvioDoPortal(responder);
   const id = useId();
   return (
     <form onSubmit={aoEnviar} className="flex flex-col gap-4">
-      <input type="hidden" name="token" value={token} />
       <input type="hidden" name="pedido" value={pedido} />
       <div key={versao} className="flex flex-col gap-4">
         <div>
@@ -62,11 +55,9 @@ export function FormResposta({
 }
 
 export function FormAvaliacao({
-  token,
   pedido,
   podeReabrir,
 }: {
-  token: string;
   pedido: string;
   /** Concluído e ainda não confirmado: dá para dizer que não resolveu. */
   podeReabrir: boolean;
@@ -79,7 +70,6 @@ export function FormAvaliacao({
   if (modo === "reabrir")
     return (
       <form onSubmit={re.aoEnviar} className="flex flex-col gap-4">
-        <input type="hidden" name="token" value={token} />
         <input type="hidden" name="pedido" value={pedido} />
         <div>
           <Rotulo htmlFor={`${id}-motivo`} obrigatorio>
@@ -113,7 +103,6 @@ export function FormAvaliacao({
 
   return (
     <form onSubmit={av.aoEnviar} className="flex flex-col gap-4">
-      <input type="hidden" name="token" value={token} />
       <input type="hidden" name="pedido" value={pedido} />
       <Estrelas />
       <div>
@@ -146,12 +135,10 @@ export function FormAvaliacao({
 }
 
 export function FormRemarcar({
-  token,
   pedido,
   agendamento,
   dias,
 }: {
-  token: string;
   pedido: string;
   agendamento: string;
   dias: DiaDaEscolha[];
@@ -159,7 +146,6 @@ export function FormRemarcar({
   const { erro, enviando, aoEnviar } = useEnvioDoPortal(remarcar);
   return (
     <form onSubmit={aoEnviar} className="flex flex-col gap-4">
-      <input type="hidden" name="token" value={token} />
       <input type="hidden" name="pedido" value={pedido} />
       <input type="hidden" name="agendamento" value={agendamento} />
       <EscolhaHorario dias={dias} />

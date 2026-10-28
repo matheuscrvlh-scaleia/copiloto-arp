@@ -107,9 +107,12 @@ Modelo de dados: [docs/modelo-de-dados.md](docs/modelo-de-dados.md).
 
 As rotas de sincronização e de rotinas exigem `Authorization: Bearer <CRON_SECRET>`.
 
-O portal do lojista (`/portal/<token>`) e o link da OS do terceirizado
-(`/ordem/<token>`) abrem sem login: o servidor confere o token a cada acesso
-e o link para de funcionar quando é cancelado (ou quando a OS fecha).
+O portal do lojista (`/portal`, um link só para todas as lojas) e o link da
+OS do terceirizado (`/ordem/<token>`) abrem sem login. No portal, a loja
+entra com o CNPJ (com limite de tentativas por IP) e fica numa sessão que o
+servidor confere a cada acesso; encerrar o acesso na tela do Portal tira a
+loja na hora. O link do terceirizado para de funcionar quando é cancelado ou
+quando a OS fecha.
 Cada execução fica registrada em `integracao.sync_runs`.
 
 O acesso a cada sistema (usuário, senha, token) é cadastrado em

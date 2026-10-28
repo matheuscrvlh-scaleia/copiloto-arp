@@ -53,6 +53,7 @@ const PESSOAS = {
   financeiro: { p: ["os.acessar", "os.todos_setores", "os.custos"], s: [] },
   lixeira: { p: ["os.acessar", "os.excluir"], s: ["operacoes"] },
   agenda: { p: ["os.acessar", "os.portal_agenda"], s: [] },
+  portal: { p: ["os.acessar", "os.portal"], s: [] },
   ativos: { p: ["os.ativos"], s: [] },
   ativosGerenciar: { p: ["os.ativos_gerenciar"], s: [] },
   vistoriador: { p: ["os.vistorias"], s: [] },
@@ -243,7 +244,20 @@ describe("estrutura e dados iniciais", () => {
     ]);
     expect(
       await linhas("select 1 from os.categorias where pai_id is null"),
-    ).toBe(18);
+    ).toBe(20);
+    expect(
+      (
+        await db.query<{ nome: string }>(
+          "select nome from os.categorias where no_portal order by ordem",
+        )
+      ).rows.map((r) => r.nome),
+    ).toEqual([
+      "Manutenção",
+      "Acesso ao telhado",
+      "Enviar projeto",
+      "Reunião",
+      "Envio de documentos",
+    ]);
     const { rows: subs } = await db.query<{ nome: string; mesmo: boolean }>(
       `select c.nome, c.setor_id = p.setor_id as mesmo from os.categorias c
        join os.categorias p on p.id = c.pai_id
@@ -1332,5 +1346,57 @@ describe("auditoria", () => {
     expect(
       await como(U.colega, () => linhas("select 1 from core.auditoria")),
     ).toBe(0);
+  });
+});
+
+describe("portal do lojista: link único e sessão pelo CNPJ", () => {
+  let sessao = "";
+  beforeAll(async () => {
+    const loja = await inserir("os.lojas", {
+      luc: "P-01",
+      nome: "Loja do portal",
+      cnpj: "12345678000195",
+    });
+    sessao = await comoServidor(() =>
+      inserir("os.portal_sessoes", {
+        loja_id: loja,
+        token: "s".repeat(40),
+        expira_em: "2099-01-01",
+      }),
+    );
+  });
+
+  it("sessões: só quem gerencia o portal vê e encerra", async () => {
+    expect(
+      await como(U.solicitante, () =>
+        linhas("select 1 from os.portal_sessoes"),
+      ),
+    ).toBe(0);
+    expect(
+      await como(U.portal, () => linhas("select 1 from os.portal_sessoes")),
+    ).toBe(1);
+    await como(U.portal, () =>
+      db.query(
+        `update os.portal_sessoes set encerrado_em = now() where id = '${sessao}'`,
+      ),
+    );
+    expect(
+      await valor(
+        `select encerrado_em is not null from os.portal_sessoes where id = '${sessao}'`,
+      ),
+    ).toBe(true);
+  });
+
+  it("ninguém logado cria sessão nem lê as tentativas", async () => {
+    await como(U.portal, async () => {
+      expect(
+        await erro(
+          `insert into os.portal_sessoes (loja_id, token, expira_em) select loja_id, '${"t".repeat(40)}', '2099-01-01' from os.portal_sessoes limit 1`,
+        ),
+      ).toMatch(/permission denied|row-level security/);
+      expect(await erro("select 1 from os.portal_tentativas")).toMatch(
+        /permission denied/,
+      );
+    });
   });
 });

@@ -24,8 +24,8 @@ export const ACOES = {
   nenhuma: "Nenhuma",
   vistoria_entrada: "Criar a vistoria de entrada",
   vistoria_saida: "Criar a vistoria de saída",
-  portal_gerar: "Gerar o link do portal",
-  portal_cancelar: "Cancelar o link do portal",
+  portal_gerar: "Conferir o CNPJ para o portal",
+  portal_cancelar: "Encerrar o acesso ao portal",
 } as const;
 export type AcaoItem = keyof typeof ACOES;
 

@@ -1,77 +1,64 @@
 "use client";
 
 import { Check, Copy, MessageCircle } from "lucide-react";
-import { startTransition, useState } from "react";
+import { useState } from "react";
 import { FormAcao } from "@/components/form-acao";
-import {
-  cancelarLink,
-  gerarLink,
-  marcarLinkEnviado,
-  trocarLink,
-} from "@/server/os/acoes/portal";
+import { encerrarAcesso } from "@/server/os/acoes/portal";
 
-// Ações do link de uma loja: gerar, copiar, enviar pelo WhatsApp (com a
-// mensagem pronta), cancelar e gerar outro, cancelar.
+// O portal tem um link só: copiar, enviar a cada loja pelo WhatsApp (com
+// a mensagem pronta) e encerrar o acesso de quem está dentro.
 
+// Mesmo tamanho dos botões do FormAcao (px-4 py-2 text-sm), lado a lado.
+const BOTAO =
+  "inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400";
 const PILULA =
   "inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition hover:border-neutral-400";
 
-export function AcoesDoLink({
+export function AcoesDaLoja({
   lojaId,
   loja,
-  link,
+  whatsapp,
+  temTelefone,
+  dentro,
 }: {
   lojaId: string;
   loja: string;
-  link: { url: string; whatsapp: string; temTelefone: boolean } | null;
+  whatsapp: string;
+  temTelefone: boolean;
+  dentro: boolean;
 }) {
-  if (!link)
-    return (
-      <FormAcao acao={gerarLink} rotulo="Gerar link" rotuloEnviando="Gerando…">
-        <input type="hidden" name="loja" value={lojaId} />
-      </FormAcao>
-    );
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Copiar url={link.url} loja={loja} />
       <a
-        href={link.whatsapp}
+        href={whatsapp}
         target="_blank"
         rel="noreferrer"
-        onClick={() => startTransition(() => marcarLinkEnviado(lojaId))}
-        className={PILULA}
+        className={BOTAO}
         title={
-          link.temTelefone
+          temTelefone
             ? "Abre o WhatsApp com a mensagem pronta"
             : "A loja não tem telefone: o WhatsApp pede para escolher o contato"
         }
       >
-        <MessageCircle className="size-3.5" aria-hidden />
+        <MessageCircle className="size-4" aria-hidden />
         Enviar pelo WhatsApp
       </a>
-      <FormAcao
-        acao={trocarLink}
-        variante="secundario"
-        rotulo="Cancelar e gerar outro"
-        rotuloEnviando="Gerando…"
-        confirmar={`Cancelar o link de ${loja} e gerar outro? O link atual para de funcionar na hora; envie o novo à loja.`}
-      >
-        <input type="hidden" name="loja" value={lojaId} />
-      </FormAcao>
-      <FormAcao
-        acao={cancelarLink}
-        variante="perigo"
-        rotulo="Cancelar link"
-        rotuloEnviando="Cancelando…"
-        confirmar={`Cancelar o link de ${loja}? Ele para de funcionar na hora e a loja fica sem portal até você gerar outro.`}
-      >
-        <input type="hidden" name="loja" value={lojaId} />
-      </FormAcao>
+      {dentro && (
+        <FormAcao
+          acao={encerrarAcesso}
+          variante="perigo"
+          rotulo="Encerrar acesso"
+          rotuloEnviando="Encerrando…"
+          confirmar={`Encerrar o acesso de ${loja} ao portal? Quem estiver dentro sai na hora e precisa entrar de novo com o CNPJ.`}
+        >
+          <input type="hidden" name="loja" value={lojaId} />
+        </FormAcao>
+      )}
     </div>
   );
 }
 
-function Copiar({ url, loja }: { url: string; loja: string }) {
+export function CopiarLink({ url }: { url: string }) {
   const [copiado, setCopiado] = useState(false);
   async function copiar() {
     try {
@@ -79,7 +66,7 @@ function Copiar({ url, loja }: { url: string; loja: string }) {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch {
-      window.prompt(`Copie o link de ${loja}:`, url);
+      window.prompt("Copie o link do portal:", url);
     }
   }
   return (

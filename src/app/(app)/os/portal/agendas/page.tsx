@@ -28,7 +28,7 @@ import {
   proximosHorarios,
 } from "@/server/os/agenda";
 import { contexto, parametros } from "@/server/os/base";
-import { diasParaRemarcar, linkDoPortalDaLoja } from "@/server/os/portal";
+import { diasParaRemarcar, urlDoPortal } from "@/server/os/portal";
 
 export const metadata: Metadata = { title: "Agendas · Portal e agenda" };
 
@@ -68,11 +68,12 @@ async function Agendas({
     parametros(),
   ]);
   const nomeDa = new Map(lista.map((a) => [a.id, a.nome]));
-  // Os dias livres e as mensagens não dependem um do outro.
-  const [dias, avisos] = await Promise.all([
-    diasParaRemarcar(lista, new Set(remarcar.map((a) => a.agenda_id)), agora),
-    mensagensDeRemarcar(remarcar, nomeDa, p.mensagens),
-  ]);
+  const dias = await diasParaRemarcar(
+    lista,
+    new Set(remarcar.map((a) => a.agenda_id)),
+    agora,
+  );
+  const avisos = mensagensDeRemarcar(remarcar, nomeDa, p.mensagens);
 
   return (
     <div className="flex flex-col gap-6">
@@ -290,20 +291,13 @@ function Horario({
 }
 
 /** Mensagem "remarcar" pronta para o WhatsApp de cada agendamento. */
-async function mensagensDeRemarcar(
+function mensagensDeRemarcar(
   remarcar: Agendamento[],
   nomeDa: Map<string, string>,
   mensagens: unknown,
-): Promise<Map<string, string>> {
+): Map<string, string> {
   const modelo = modeloDaMensagem(mensagens, "remarcar");
-  const lojas = [
-    ...new Set(remarcar.flatMap((a) => (a.loja_id ? [a.loja_id] : []))),
-  ];
-  const links = new Map(
-    await Promise.all(
-      lojas.map(async (id) => [id, await linkDoPortalDaLoja(id)] as const),
-    ),
-  );
+  const url = urlDoPortal();
   return new Map(
     remarcar.map((a) => {
       const { data, hora } = paraBrasilia(new Date(a.inicio));
@@ -312,7 +306,7 @@ async function mensagensDeRemarcar(
         data: `${data.slice(8, 10)}/${data.slice(5, 7)}/${data.slice(0, 4)}`,
         hora,
         assunto: a.chamado?.titulo ?? nomeDa.get(a.agenda_id),
-        link: a.loja_id ? links.get(a.loja_id) : null,
+        link: a.loja_id ? url : null,
       });
       const telefone =
         a.chamado?.solicitante_telefone || a.loja?.telefone || null;

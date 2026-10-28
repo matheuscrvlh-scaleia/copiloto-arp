@@ -13,7 +13,7 @@ import { type ChaveMensagem, MENSAGENS_PADRAO } from "./whatsapp";
 // Portal do lojista (spec 4.11): regras puras do link público, do
 // formulário de pedido, da agenda vista pelo lojista e do que ele enxerga
 // da linha do tempo. O servidor (src/server/os/portal-publico.ts) confere
-// o token e grava; aqui só a decisão.
+// a sessão da loja e grava; aqui só a decisão.
 
 /**
  * Proteções do link público (não são regra de negócio): evitam abuso de
@@ -31,9 +31,14 @@ export const LIMITES_PORTAL = {
   ladoFoto: 1600,
   /** Não grava o último acesso a cada clique. */
   acessoMin: 5,
+  /** Quanto tempo a loja fica dentro depois de entrar com o CNPJ. */
+  sessaoDias: 30,
+  /** Entradas com CNPJ errado por IP na janela (contra tentar em série). */
+  tentativas: 10,
+  tentativasMin: 15,
 } as const;
 
-/** Token do link: só caracteres do base64url, 32 ou mais. */
+/** Token da sessão (cookie): só caracteres do base64url, 32 ou mais. */
 export function tokenValido(token: string): boolean {
   return /^[A-Za-z0-9_-]{32,128}$/.test(token);
 }

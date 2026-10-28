@@ -6,10 +6,10 @@ import { Moldura } from "@/components/os/portal/publico/visual";
 
 export const metadata: Metadata = {
   title: "Portal do lojista",
-  // O token está no endereço: nada de enviar a página inteira como origem.
+  // Nada de enviar o endereço do pedido como origem para sites de fora.
   referrer: "no-referrer",
 };
 
-export default function Layout({ children }: LayoutProps<"/portal/[token]">) {
+export default function Layout({ children }: LayoutProps<"/portal">) {
   return <Moldura>{children}</Moldura>;
 }

@@ -4,6 +4,7 @@ import { refresh, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import { formatarCnpj } from "@/lib/documentos";
 import { formatarData } from "@/lib/formato";
 import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 import {
@@ -19,18 +20,11 @@ import { TAG } from "@/server/cache";
 import { ocupacao, regrasDe, reservar } from "@/server/os/agenda";
 import { contexto, os, registrarComoSistema } from "@/server/os/base";
 import { lojasDoFiltro } from "@/server/os/lojas";
-import {
-  cancelarComSessao,
-  gerarComSessao,
-  gerarEmLote,
-  lojasDoPortal,
-  marcarEnviado,
-  trocarComSessao,
-} from "@/server/os/portal";
+import { encerrarComSessao, lojasDoPortal } from "@/server/os/portal";
 
-// Portal e agenda (tela interna). Links e lojas: os.portal; agendas,
-// bloqueios e remarcação: os.portal_agenda. Tudo pela sessão (RLS e
-// auditoria); gerar e cancelar link ficam também em core.logs.
+// Portal e agenda (tela interna). Acesso das lojas e lojas: os.portal;
+// agendas, bloqueios e remarcação: os.portal_agenda. Tudo pela sessão (RLS
+// e auditoria); encerrar o acesso fica também em core.logs.
 
 const SEM_PORTAL: EstadoAcao = {
   erro: "Você não tem permissão para gerenciar o portal.",
@@ -73,10 +67,11 @@ async function avisarNoPedido(
 }
 
 // ---------------------------------------------------------------------------
-// Links das lojas
+// Acesso das lojas ao portal
 // ---------------------------------------------------------------------------
 
-export async function gerarLink(
+/** Encerra o acesso da loja: quem estiver dentro sai na hora. */
+export async function encerrarAcesso(
   _: EstadoAcao,
   form: FormData,
 ): Promise<EstadoAcao> {
@@ -84,79 +79,18 @@ export async function gerarLink(
   if (!ctx) return SEM_PORTAL;
   const d = idLoja.safeParse(Object.fromEntries(form));
   if (!d.success) return { erro: "Loja inválida." };
-  try {
-    await gerarComSessao(d.data.loja, ctx.usuario.id);
-  } catch (e) {
-    return falhaDe(e);
-  }
-  refresh();
-  return { ok: "Link gerado." };
-}
-
-export async function trocarLink(
-  _: EstadoAcao,
-  form: FormData,
-): Promise<EstadoAcao> {
-  const ctx = await quemPode("os.portal");
-  if (!ctx) return SEM_PORTAL;
-  const d = idLoja.safeParse(Object.fromEntries(form));
-  if (!d.success) return { erro: "Loja inválida." };
-  try {
-    await trocarComSessao(d.data.loja, ctx.usuario.id);
-  } catch (e) {
-    return falhaDe(e);
-  }
-  refresh();
-  return { ok: "Link novo gerado. O antigo parou de funcionar." };
-}
-
-export async function cancelarLink(
-  _: EstadoAcao,
-  form: FormData,
-): Promise<EstadoAcao> {
-  const ctx = await quemPode("os.portal");
-  if (!ctx) return SEM_PORTAL;
-  const d = idLoja.safeParse(Object.fromEntries(form));
-  if (!d.success) return { erro: "Loja inválida." };
-  try {
-    await cancelarComSessao(d.data.loja, ctx.usuario.id);
-  } catch (e) {
-    return falhaDe(e);
-  }
-  refresh();
-  return { ok: "Link cancelado." };
-}
-
-export async function gerarLinksEmLote(
-  _: EstadoAcao,
-  _form: FormData,
-): Promise<EstadoAcao> {
-  const ctx = await quemPode("os.portal");
-  if (!ctx) return SEM_PORTAL;
   let n: number;
   try {
-    n = await gerarEmLote(ctx.usuario.id);
+    n = await encerrarComSessao(d.data.loja, ctx.usuario.id);
   } catch (e) {
     return falhaDe(e);
   }
   refresh();
   return {
     ok: n
-      ? `${n} link${n === 1 ? "" : "s"} gerado${n === 1 ? "" : "s"}.`
-      : "Todas as lojas vigentes já têm link.",
+      ? "Acesso encerrado. Para voltar, a loja entra de novo com o CNPJ."
+      : "A loja não estava dentro do portal.",
   };
-}
-
-/** Clique em "Enviar pelo WhatsApp": guarda a data do envio. */
-export async function marcarLinkEnviado(lojaId: string): Promise<void> {
-  if (!(await quemPode("os.portal"))) return;
-  if (!z.uuid().safeParse(lojaId).success) return;
-  try {
-    await marcarEnviado(lojaId);
-    refresh();
-  } catch (e) {
-    console.error("link enviado", e);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -236,13 +170,13 @@ export async function salvarLoja(
     const { error } = await db.from("lojas").update(loja).eq("id", id);
     if (error) return erroDoBanco(error);
     updateTag(TAG.os.lojas);
-    // Contrato encerrado: o link para de valer (o portal já recusa; aqui
-    // ele sai também da lista de links ativos).
+    // Contrato encerrado: o portal já recusa; aqui as sessões abertas
+    // também são encerradas.
     if (loja.situacao === "encerrado")
       try {
-        await cancelarComSessao(id, ctx.usuario.id);
+        await encerrarComSessao(id, ctx.usuario.id);
       } catch (e) {
-        console.error("cancelar link da loja encerrada", e);
+        console.error("encerrar acesso da loja encerrada", e);
       }
     refresh();
     return { ok: "Loja salva." };
@@ -517,7 +451,7 @@ export async function cancelarAgendamento(
 }
 
 // ---------------------------------------------------------------------------
-// Exportar as listas (links do portal e lojas)
+// Exportar as listas (lojas no portal e lojas)
 // ---------------------------------------------------------------------------
 
 const dia = (iso: string | null) =>
@@ -527,8 +461,8 @@ const COLUNAS_LINKS: ColunaExportar[] = [
   { titulo: "LUC" },
   { titulo: "Loja" },
   { titulo: "Bloco" },
-  { titulo: "Link" },
-  { titulo: "Enviado em" },
+  { titulo: "CNPJ" },
+  { titulo: "Dentro do portal" },
   { titulo: "Último acesso" },
   { titulo: "Pedidos no mês", numero: true },
   { titulo: "Avaliação", numero: true },
@@ -549,9 +483,9 @@ export async function exportarLinks(
       l.loja.luc,
       l.loja.nome,
       l.loja.bloco,
-      l.link ? "Ativo" : "Sem link",
-      dia(l.link?.enviado_em ?? null),
-      dia(l.link?.ultimo_acesso_em ?? null),
+      l.loja.cnpj ? formatarCnpj(l.loja.cnpj) : "Sem CNPJ",
+      l.acesso.dentro ? "Sim" : "Não",
+      dia(l.acesso.ultimo),
       l.pedidosNoMes,
       l.media,
     ]),

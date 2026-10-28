@@ -1,12 +1,12 @@
 import { buscaNoOr } from "./filtro-postgrest";
 
-// Aba "Links das lojas" do Portal e a lista de Lojas (contratos): filtros
+// Aba "Lojas no portal" do Portal e a lista de Lojas (contratos): filtros
 // da URL e a busca que vai ao banco. Regras puras; as consultas ficam em
 // src/server/os/portal.ts e src/server/os/lojas.ts.
 
 export const FILTROS_PORTAL = {
-  com_link: "Com link",
-  sem_link: "Sem link",
+  entraram: "Já entraram",
+  sem_cnpj: "Sem CNPJ",
   pedidos: "Com pedidos no mês",
   avaliadas: "Avaliadas",
 } as const;

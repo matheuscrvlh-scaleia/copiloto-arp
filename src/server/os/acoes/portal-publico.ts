@@ -1,8 +1,11 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import { soDigitos } from "@/lib/documentos";
+import { ROTA_PORTAL } from "@/lib/os/rotas";
 import { limparTelefone } from "@/lib/os/whatsapp";
 import {
   type ArquivoDoLojista,
@@ -13,18 +16,79 @@ import {
   responderPedido,
   type Solicitante,
 } from "@/server/os/portal-pedidos";
-import { abrirPortal } from "@/server/os/portal-publico";
+import {
+  abrirPortal,
+  abrirSessao,
+  bloqueadoPorTentativas,
+  fecharSessao,
+  ipDaRequisicao,
+  type LojaDaEntrada,
+  lojasDoCnpj,
+  registrarTentativa,
+} from "@/server/os/portal-publico";
 
-// Ações do portal do lojista (sem login). Cada uma confere o token de
-// novo: link cancelado ou contrato encerrado param na hora. Nome e
+// Ações do portal do lojista (sem login). Cada uma confere a sessão de
+// novo: sessão encerrada ou contrato encerrado param na hora. Nome e
 // telefone de quem pede são obrigatórios em tudo o que grava.
 
-const LINK_INATIVO: EstadoAcao = {
-  erro: "Este link não está mais ativo. Peça um novo à administração.",
+const SEM_SESSAO: EstadoAcao = {
+  erro: "Sua entrada no portal terminou. Recarregue a página e entre de novo com o CNPJ.",
 };
 
+// ---------------------------------------------------------------------------
+// Entrada pelo CNPJ
+// ---------------------------------------------------------------------------
+
+export interface EstadoEntrada extends EstadoAcao {
+  /** Mais de uma loja vigente no CNPJ: a pessoa escolhe. */
+  lojas?: LojaDaEntrada[];
+  /** O que foi digitado (o formulário volta preenchido). */
+  cnpj?: string;
+}
+
+export async function entrar(
+  _: EstadoEntrada,
+  form: FormData,
+): Promise<EstadoEntrada> {
+  const digitado = textoDoForm(form, "cnpj").slice(0, 18);
+  const cnpj = soDigitos(digitado);
+  if (cnpj.length !== 14)
+    return { erro: "Informe os 14 dígitos do CNPJ.", cnpj: digitado };
+  const agora = new Date();
+  const ip = await ipDaRequisicao();
+  if (await bloqueadoPorTentativas(ip, agora))
+    return {
+      erro: "Muitas tentativas com CNPJ errado. Espere alguns minutos e tente de novo.",
+      cnpj: digitado,
+    };
+  const lojas = await lojasDoCnpj(cnpj);
+  if (!lojas.length) {
+    await registrarTentativa(ip, agora);
+    return {
+      erro: "Nenhuma loja com contrato vigente neste CNPJ. Confira o número ou fale com a administração.",
+      cnpj: digitado,
+    };
+  }
+  const escolhida = textoDoForm(form, "loja");
+  const loja = escolhida
+    ? lojas.find((l) => l.id === escolhida)
+    : lojas.length === 1
+      ? lojas[0]
+      : undefined;
+  if (!loja) return { lojas, cnpj: digitado };
+  await abrirSessao(loja.id, agora);
+  redirect(ROTA_PORTAL);
+}
+
+/** "Trocar de loja": encerra a sessão e volta à entrada. */
+export async function sair(): Promise<void> {
+  await fecharSessao();
+  redirect(ROTA_PORTAL);
+}
+
+// ---------------------------------------------------------------------------
+
 const quem = z.object({
-  token: z.string().min(32).max(128),
   nome: z
     .string()
     .trim()
@@ -53,14 +117,13 @@ function arquivosDo(form: FormData): ArquivoDoLojista[] {
 
 async function conferir(form: FormData) {
   const d = quem.safeParse({
-    token: textoDoForm(form, "token"),
     nome: textoDoForm(form, "nome"),
     telefone: textoDoForm(form, "telefone"),
   });
   if (!d.success)
     return { erro: d.error.issues[0]?.message ?? "Confira os dados." } as const;
-  const acesso = await abrirPortal(d.data.token);
-  if (!acesso) return { erro: LINK_INATIVO.erro as string } as const;
+  const acesso = await abrirPortal();
+  if (!acesso) return { erro: SEM_SESSAO.erro as string } as const;
   const solicitante: Solicitante = {
     nome: d.data.nome,
     telefone: d.data.telefone,

@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
+import { FormAcao } from "@/components/form-acao";
 import {
   type CategoriaDoForm,
   FormCategoria,
 } from "@/components/os/configuracoes/form-categoria";
 import { SeloIcone } from "@/components/os/configuracoes/icones";
 import { CONFIGURACOES_OS } from "@/config/navigation";
-import { salvarCategoria } from "@/server/os/acoes/config-catalogo";
+import {
+  excluirCategoria,
+  salvarCategoria,
+} from "@/server/os/acoes/config-catalogo";
 import { categorias, pessoas, setores } from "@/server/os/base";
 import { agendas } from "@/server/os/configuracoes";
 
@@ -71,6 +75,18 @@ export async function EdicaoDeCategoria({
         >
           ← Catálogo{setor ? ` de ${setor.nome}` : ""}
         </Link>
+        {categoria.id && (
+          <FormAcao
+            acao={excluirCategoria}
+            variante="perigo"
+            rotulo="Excluir categoria"
+            rotuloEnviando="Excluindo…"
+            confirmar={`Excluir a categoria ${categoria.nome}? Só dá para excluir a que nunca foi usada; a usada se desativa.`}
+            className="ml-auto"
+          >
+            <input type="hidden" name="id" value={categoria.id} />
+          </FormAcao>
+        )}
       </div>
       <h2 className="flex items-center gap-3 text-2xl font-semibold tracking-tight">
         <SeloIcone

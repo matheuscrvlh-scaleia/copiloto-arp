@@ -7,13 +7,11 @@ import {
 } from "@/server/os/portal-publico";
 
 /**
- * Confere o token da página e registra o acesso depois da resposta (não
- * atrasa a tela). Null: link inativo.
+ * Confere a sessão da loja e registra o acesso depois da resposta (não
+ * atrasa a tela). Null: precisa entrar com o CNPJ.
  */
-export async function acessoDaPagina(
-  token: string,
-): Promise<AcessoPortal | null> {
-  const acesso = await abrirPortal(token);
+export async function acessoDaPagina(): Promise<AcessoPortal | null> {
+  const acesso = await abrirPortal();
   if (acesso) after(() => marcarAcesso(acesso, new Date()));
   return acesso;
 }

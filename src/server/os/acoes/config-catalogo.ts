@@ -15,9 +15,10 @@ import { PRIORIDADES, TIPOS, UNIDADES_PRAZO } from "@/lib/os/rotulos";
 import type { Json } from "@/lib/supabase/database.types";
 import { erroDoBanco, primeiroErro } from "@/server/acoes";
 import { TAG } from "@/server/cache";
-import { os } from "@/server/os/base";
+import { os, osAdmin } from "@/server/os/base";
 import {
   exigir,
+  exigirAgora,
   inteiroOpcional,
   json,
   marcado,
@@ -29,8 +30,9 @@ import {
 
 // Catálogo por setor (spec 4.5). Grava pelo RLS (os.catalogo); o banco
 // confere que a subcategoria tem um nível só e é do mesmo setor, e a
-// auditoria guarda o antes e o depois. Categoria nunca é apagada: usada ou
-// não, ela é desativada (os chamados antigos continuam apontando para ela).
+// auditoria guarda o antes e o depois. Categoria só é apagada se nunca foi
+// usada (sem chamados, subcategorias, preventivas nem itens de modelo); a
+// usada é desativada (os chamados antigos continuam apontando para ela).
 
 const ROTULOS = {
   nome: "Nome",
@@ -235,6 +237,61 @@ export async function alternarCategoria(
   return {
     ok: d.data.ativo ? "Categoria reativada." : "Categoria desativada.",
   };
+}
+
+/**
+ * Apaga a categoria que nunca foi usada. A contagem vê todos os chamados
+ * (service role, depois de conferir os.catalogo no banco); a exclusão vai
+ * pelo RLS.
+ */
+export async function excluirCategoria(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const acesso = await exigirAgora("os.catalogo");
+  if (acesso.erro) return acesso.erro;
+  const id = z.uuid().safeParse(form.get("id"));
+  if (!id.success) return primeiroErro(id.error);
+  const admin = osAdmin();
+  const contar = (tabela: "chamados" | "planos_preventivos" | "modelo_itens") =>
+    admin
+      .from(tabela)
+      .select("id", { count: "exact", head: true })
+      .eq("categoria_id", id.data);
+  const [categoria, filhas, ...usos] = await Promise.all([
+    admin.from("categorias").select("setor_id").eq("id", id.data).maybeSingle(),
+    admin
+      .from("categorias")
+      .select("id", { count: "exact", head: true })
+      .eq("pai_id", id.data),
+    contar("chamados"),
+    contar("planos_preventivos"),
+    contar("modelo_itens"),
+  ]);
+  const falha = [categoria, filhas, ...usos].find((r) => r.error)?.error;
+  if (falha) return erroDoBanco(falha);
+  if (!categoria.data) return NADA_ALTERADO;
+  if (filhas.count) return { erro: "Exclua ou mova as subcategorias antes." };
+  const [chamados, planos, itens] = usos.map((u) => u.count ?? 0);
+  if (chamados || planos || itens)
+    return {
+      erro: `Esta categoria já foi usada (${[
+        chamados && `${chamados} chamado${chamados === 1 ? "" : "s"}`,
+        planos && `${planos} preventiva${planos === 1 ? "" : "s"}`,
+        itens && `${itens} item${itens === 1 ? "" : "s"} de modelo`,
+      ]
+        .filter(Boolean)
+        .join(", ")}). Desative em vez de excluir.`,
+    };
+  const { data, error } = await (await os())
+    .from("categorias")
+    .delete()
+    .eq("id", id.data)
+    .select("id");
+  if (error) return erroDoBanco(error);
+  if (!data?.length) return NADA_ALTERADO;
+  updateTag(TAG.os.categorias);
+  redirect(`${CONFIGURACOES_OS.catalogo}?setor=${categoria.data.setor_id}`);
 }
 
 /** Cria uma cópia (sem as subcategorias) e abre para editar. */

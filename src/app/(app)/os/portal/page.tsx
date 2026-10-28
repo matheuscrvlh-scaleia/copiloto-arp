@@ -9,31 +9,31 @@ import {
   TelaCarregando,
 } from "@/components/carregando";
 import { Secao } from "@/components/dashboard/tabela";
-import { FormAcao } from "@/components/form-acao";
 import { BotaoExportar } from "@/components/os/exportar";
 import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
-import { AcoesDoLink } from "@/components/os/portal/acoes-link";
+import { AcoesDaLoja, CopiarLink } from "@/components/os/portal/acoes-link";
 import { Atualizado, CartaoFiltro } from "@/components/os/portal/cartao-filtro";
 import { ListaBusca } from "@/components/os/portal/lista-busca";
 import { SeloExemplo } from "@/components/os/selos";
 import { tonsDaTela } from "@/components/os/tons";
 import { SemAcesso } from "@/components/protegido";
-import { formatarData, formatarNumero } from "@/lib/formato";
+import { formatarNumero } from "@/lib/formato";
 import { paginaDaUrl, totalDePaginas } from "@/lib/os/paginacao";
+import { LIMITES_PORTAL } from "@/lib/os/portal";
 import {
   FILTROS_PORTAL,
   type FiltroPortal,
   lerFiltroPortal,
 } from "@/lib/os/portal-lista";
-import { paraBrasilia } from "@/lib/os/tempo";
 import { tempoAtras } from "@/lib/os/texto";
-import { exportarLinks, gerarLinksEmLote } from "@/server/os/acoes/portal";
+import { exportarLinks } from "@/server/os/acoes/portal";
 import { contexto } from "@/server/os/base";
 import {
   DIAS_DA_MEDIA,
   indicadoresDoPortal,
   type LinhaDoPortal,
   paginaDoPortal,
+  urlDoPortal,
 } from "@/server/os/portal";
 
 const TONS = tonsDaTela("portal");
@@ -59,9 +59,6 @@ function Esqueleto() {
   );
 }
 
-const dia = (iso: string | null) =>
-  iso ? formatarData(paraBrasilia(new Date(iso)).data) : null;
-
 async function Links({
   searchParams,
 }: Pick<PageProps<"/os/portal">, "searchParams">) {
@@ -83,6 +80,7 @@ async function Links({
   // O cartão troca o filtro e mantém a busca (volta à página 1).
   const alternar = (x: FiltroPortal) =>
     hrefDaPagina(CAMINHO, { q: q || undefined, f: f === x ? undefined : x }, 1);
+  const url = urlDoPortal();
   const media = (m: number | null) => (m === null ? "—" : formatarNumero(m, 1));
   const busca: Record<string, string> = {};
   if (f) busca.f = f;
@@ -94,20 +92,22 @@ async function Links({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <CartaoFiltro
           tom={TONS[0]}
-          href={alternar("com_link")}
-          ativo={f === "com_link"}
-          titulo="Lojas com link"
-          valor={formatarNumero(r.comLink)}
+          href={alternar("entraram")}
+          ativo={f === "entraram"}
+          titulo="Lojas que já entraram"
+          valor={formatarNumero(r.entraram)}
           detalhe={`de ${formatarNumero(r.vigentes)} lojas vigentes`}
         />
         <CartaoFiltro
           tom={TONS[1]}
-          href={alternar("sem_link")}
-          ativo={f === "sem_link"}
-          titulo="Sem link"
-          valor={formatarNumero(r.semLink)}
+          href={alternar("sem_cnpj")}
+          ativo={f === "sem_cnpj"}
+          titulo="Sem CNPJ"
+          valor={formatarNumero(r.semCnpj)}
           detalhe={
-            r.semLink ? "ainda não podem usar o portal" : "todas têm link"
+            r.semCnpj
+              ? "não conseguem entrar: cadastre o CNPJ em Lojas"
+              : "todas podem entrar"
           }
         />
         <CartaoFiltro
@@ -130,27 +130,23 @@ async function Links({
 
       <Secao
         titulo={f ? `Lojas · ${FILTROS_PORTAL[f]}` : "Lojas vigentes"}
-        descricao="Cada loja tem um link permanente. Se vazar ou o contrato terminar, cancele: o link para de funcionar na hora."
+        descricao={`Um link só para todas as lojas: cada loja entra com o próprio CNPJ e fica dentro por até ${LIMITES_PORTAL.sessaoDias} dias. Encerrar o acesso tira a loja na hora.`}
       >
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          {r.semLink > 0 && (
-            <FormAcao
-              acao={gerarLinksEmLote}
-              rotulo={`Gerar link das ${r.semLink} lojas sem link`}
-              rotuloEnviando="Gerando…"
-              confirmar={`Gerar o link de ${r.semLink} lojas vigentes? Depois envie a cada uma pelo WhatsApp.`}
-            />
-          )}
+        <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
+          <span className="rounded-full bg-neutral-900/[0.04] px-3 py-1.5 text-xs text-neutral-700 select-all">
+            {url}
+          </span>
+          <CopiarLink url={url} />
           {ctx.pode("os.exportar") && (
             <BotaoExportar
-              titulo="Links do portal"
+              titulo="Lojas no portal"
               filtros={[
                 f ? FILTROS_PORTAL[f] : "Lojas vigentes",
                 q && `Busca: ${q}`,
               ]
                 .filter(Boolean)
                 .join(" · ")}
-              nomeArquivo="links-do-portal"
+              nomeArquivo="lojas-no-portal"
               total={total}
               carregar={exportarLinks.bind(null, busca)}
             />
@@ -183,13 +179,9 @@ async function Links({
 
 function LinhaDaLoja({ l, agora }: { l: LinhaDoPortal; agora: Date }) {
   const detalhes = [
-    l.link?.enviado_em ? `Enviado em ${dia(l.link.enviado_em)}` : null,
-    l.link && !l.link.enviado_em ? "Ainda não enviado" : null,
-    l.link?.ultimo_acesso_em
-      ? `Último acesso ${tempoAtras(l.link.ultimo_acesso_em, agora)}`
-      : l.link
-        ? "Nunca acessado"
-        : null,
+    l.acesso.ultimo
+      ? `Último acesso ${tempoAtras(l.acesso.ultimo, agora)}`
+      : "Nunca entrou",
     l.pedidosNoMes
       ? `${l.pedidosNoMes} pedido${l.pedidosNoMes === 1 ? "" : "s"} no mês`
       : null,
@@ -207,10 +199,10 @@ function LinhaDaLoja({ l, agora }: { l: LinhaDoPortal; agora: Date }) {
               Bloco {l.loja.bloco}
             </span>
           )}
-          {l.link ? (
-            <Situacao tipo="ok">Link ativo</Situacao>
+          {!l.loja.cnpj ? (
+            <Situacao tipo="neutro">Sem CNPJ</Situacao>
           ) : (
-            <Situacao tipo="neutro">Sem link</Situacao>
+            l.acesso.dentro && <Situacao tipo="ok">Dentro do portal</Situacao>
           )}
           {l.loja.exemplo && <SeloExemplo />}
         </p>
@@ -229,18 +221,12 @@ function LinhaDaLoja({ l, agora }: { l: LinhaDoPortal; agora: Date }) {
           </p>
         )}
       </div>
-      <AcoesDoLink
+      <AcoesDaLoja
         lojaId={l.loja.id}
         loja={l.loja.nome}
-        link={
-          l.link
-            ? {
-                url: l.link.url,
-                whatsapp: l.link.whatsapp,
-                temTelefone: !!l.loja.telefone,
-              }
-            : null
-        }
+        whatsapp={l.whatsapp}
+        temTelefone={!!l.loja.telefone}
+        dentro={l.acesso.dentro}
       />
     </div>
   );

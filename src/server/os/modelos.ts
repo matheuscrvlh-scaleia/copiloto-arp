@@ -15,7 +15,7 @@ import { registrarDepois } from "@/server/logs";
 import { configDoSistema } from "./automacao";
 import { os, osAdmin, registrarComoSistema, type Tabela } from "./base";
 import { criarChamadoSistema } from "./criar";
-import { cancelarLinkDaLoja, gerarLinkDaLoja } from "./portal";
+import { encerrarAcessoDaLoja, portalDaLoja } from "./portal";
 import { criarVistoriaDoContrato } from "./vistorias";
 
 // Modelos de entrada e saída de cliente (spec 4.12): o disparo (pela rotina
@@ -212,23 +212,25 @@ async function executarAcao(
           chamadoId,
         });
         return null;
-      case "portal_gerar":
-        await gerarLinkDaLoja(p.loja.id, usuarioId);
+      case "portal_gerar": {
+        const { url, temCnpj } = await portalDaLoja(p.loja.id);
         await registrarComoSistema(chamadoId, {
           tipo: "sistema",
           autorNome: "Sistema",
-          texto:
-            "Link do portal da loja gerado. Envie pelo WhatsApp na tela do Portal.",
+          texto: temCnpj
+            ? `A loja entra no portal (${url}) com o CNPJ. Envie o link pelo WhatsApp na tela do Portal.`
+            : "A loja não tem CNPJ cadastrado e não consegue entrar no portal. Cadastre o CNPJ em Portal › Lojas.",
         });
         return null;
+      }
       case "portal_cancelar": {
-        const cancelou = await cancelarLinkDaLoja(p.loja.id, usuarioId);
+        const encerradas = await encerrarAcessoDaLoja(p.loja.id, usuarioId);
         await registrarComoSistema(chamadoId, {
           tipo: "sistema",
           autorNome: "Sistema",
-          texto: cancelou
-            ? "Link do portal da loja cancelado: parou de funcionar."
-            : "A loja não tinha link do portal ativo.",
+          texto: encerradas
+            ? "Acesso da loja ao portal encerrado."
+            : "A loja não estava dentro do portal; com o contrato encerrado, ela não entra mais.",
         });
         return null;
       }

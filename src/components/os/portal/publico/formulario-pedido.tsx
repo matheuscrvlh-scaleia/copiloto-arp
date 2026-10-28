@@ -22,13 +22,11 @@ import { useEnvioDoPortal } from "./envio";
 // pede. Ao enviar, aparece o número do pedido.
 
 export function FormularioPedido({
-  token,
   base,
   categoria,
   dias,
 }: {
-  token: string;
-  /** /portal/<token> */
+  /** /portal */
   base: string;
   categoria: {
     id: string;
@@ -80,7 +78,6 @@ export function FormularioPedido({
 
   return (
     <form onSubmit={aoEnviar} className="flex flex-col gap-5">
-      <input type="hidden" name="token" value={token} />
       <input type="hidden" name="categoria" value={categoria.id} />
 
       {categoria.orientacao && (

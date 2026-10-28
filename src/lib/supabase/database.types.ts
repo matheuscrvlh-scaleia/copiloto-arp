@@ -2628,6 +2628,65 @@ export type Database = {
           },
         ]
       }
+      portal_sessoes: {
+        Row: {
+          criado_em: string
+          encerrado_em: string | null
+          encerrado_por: string | null
+          expira_em: string
+          id: string
+          loja_id: string
+          token: string
+          ultimo_acesso_em: string | null
+        }
+        Insert: {
+          criado_em?: string
+          encerrado_em?: string | null
+          encerrado_por?: string | null
+          expira_em: string
+          id?: string
+          loja_id: string
+          token: string
+          ultimo_acesso_em?: string | null
+        }
+        Update: {
+          criado_em?: string
+          encerrado_em?: string | null
+          encerrado_por?: string | null
+          expira_em?: string
+          id?: string
+          loja_id?: string
+          token?: string
+          ultimo_acesso_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_sessoes_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_tentativas: {
+        Row: {
+          criado_em: string
+          id: string
+          ip: string
+        }
+        Insert: {
+          criado_em?: string
+          id?: string
+          ip: string
+        }
+        Update: {
+          criado_em?: string
+          id?: string
+          ip?: string
+        }
+        Relationships: []
+      }
       profissionais: {
         Row: {
           ativo: boolean

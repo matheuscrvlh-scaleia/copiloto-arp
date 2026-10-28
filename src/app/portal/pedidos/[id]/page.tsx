@@ -6,6 +6,7 @@ import {
   Star,
 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import {
@@ -16,7 +17,6 @@ import {
 import {
   dataDe,
   Etapas,
-  LinkInativo,
   SeloPedido,
 } from "@/components/os/portal/publico/visual";
 import { formatarData, formatarDataHora, formatarNumero } from "@/lib/formato";
@@ -30,7 +30,7 @@ import {
   podeAvaliar,
   podeResponder,
 } from "@/lib/os/portal";
-import { rotaPortal } from "@/lib/os/rotas";
+import { ROTA_PORTAL } from "@/lib/os/rotas";
 import type { CampoExtra } from "@/lib/os/rotulos";
 import { acessoDaPagina } from "@/server/os/portal-acesso";
 import {
@@ -44,9 +44,7 @@ import {
 // o que a equipe marcou para o lojista), arquivos devolvidos (o laudo do
 // projeto, por exemplo), resposta e avaliação.
 
-export default function Page({
-  params,
-}: PageProps<"/portal/[token]/pedidos/[id]">) {
+export default function Page({ params }: PageProps<"/portal/pedidos/[id]">) {
   return (
     <Suspense
       fallback={
@@ -65,11 +63,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function Detalhe({
   params,
-}: Pick<PageProps<"/portal/[token]/pedidos/[id]">, "params">) {
-  const { token, id } = await params;
-  const acesso = await acessoDaPagina(token);
-  if (!acesso) return <LinkInativo />;
-  const base = rotaPortal(token);
+}: Pick<PageProps<"/portal/pedidos/[id]">, "params">) {
+  const { id } = await params;
+  const acesso = await acessoDaPagina();
+  if (!acesso) redirect(ROTA_PORTAL);
+  const base = ROTA_PORTAL;
   const voltar = (
     <Link
       href={base}
@@ -157,7 +155,6 @@ async function Detalhe({
                       causa do clima). Escolha um novo horário:
                     </p>
                     <FormRemarcar
-                      token={token}
                       pedido={p.id}
                       agendamento={h.id}
                       dias={remarcar.get(h.agendaId) ?? []}
@@ -187,11 +184,7 @@ async function Detalhe({
 
       {podeAvaliar(p) && (
         <Bloco titulo="Seu pedido foi concluído">
-          <FormAvaliacao
-            token={token}
-            pedido={p.id}
-            podeReabrir={p.status === "concluido"}
-          />
+          <FormAvaliacao pedido={p.id} podeReabrir={p.status === "concluido"} />
         </Bloco>
       )}
       {p.avaliacao !== null && (
@@ -219,7 +212,7 @@ async function Detalhe({
         <Conversa d={d} />
         {podeResponder(p.status) ? (
           <div className="mt-2 border-t border-neutral-900/[0.06] pt-5">
-            <FormResposta token={token} pedido={p.id} />
+            <FormResposta pedido={p.id} />
           </div>
         ) : (
           <p className="text-sm text-neutral-500">

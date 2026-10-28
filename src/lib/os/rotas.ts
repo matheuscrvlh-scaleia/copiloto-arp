@@ -37,11 +37,10 @@ export function rotaLaudo(id: string): string {
   return `/os/vistorias/${id}/laudo`;
 }
 
-/** Links públicos (sem login), abertos pelo token. */
-export function rotaPortal(token: string): string {
-  return `/portal/${token}`;
-}
+/** Portal do lojista: um endereço só; a loja entra com o CNPJ. */
+export const ROTA_PORTAL = "/portal";
 
+/** OS do terceirizado (sem login), aberta pelo token. */
 export function rotaTerceirizado(token: string): string {
   return `/ordem/${token}`;
 }

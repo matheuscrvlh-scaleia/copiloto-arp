@@ -1,11 +1,11 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { IconeCatalogo } from "@/components/os/configuracoes/icones";
 import { FormularioPedido } from "@/components/os/portal/publico/formulario-pedido";
-import { LinkInativo } from "@/components/os/portal/publico/visual";
 import { type DiaDaEscolha, paraEscolha } from "@/lib/os/portal";
-import { rotaPortal } from "@/lib/os/rotas";
+import { ROTA_PORTAL } from "@/lib/os/rotas";
 import { acessoDaPagina } from "@/server/os/portal-acesso";
 import {
   categoriasDoPortal,
@@ -17,7 +17,7 @@ import {
 
 export default function Page({
   params,
-}: PageProps<"/portal/[token]/novo/[categoria]">) {
+}: PageProps<"/portal/novo/[categoria]">) {
   return (
     <Suspense
       fallback={
@@ -33,11 +33,11 @@ export default function Page({
 
 async function Novo({
   params,
-}: Pick<PageProps<"/portal/[token]/novo/[categoria]">, "params">) {
-  const { token, categoria: categoriaId } = await params;
-  const acesso = await acessoDaPagina(token);
-  if (!acesso) return <LinkInativo />;
-  const base = rotaPortal(token);
+}: Pick<PageProps<"/portal/novo/[categoria]">, "params">) {
+  const { categoria: categoriaId } = await params;
+  const acesso = await acessoDaPagina();
+  if (!acesso) redirect(ROTA_PORTAL);
+  const base = ROTA_PORTAL;
   const categoria = (await categoriasDoPortal()).find(
     (c) => c.id === categoriaId,
   );
@@ -86,7 +86,6 @@ async function Novo({
           </div>
         </div>
         <FormularioPedido
-          token={token}
           base={base}
           categoria={{
             id: categoria.id,

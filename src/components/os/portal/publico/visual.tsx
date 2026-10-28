@@ -3,7 +3,6 @@ import {
   CircleCheck,
   CircleX,
   Inbox,
-  Link2Off,
   type LucideIcon,
   Wrench,
 } from "lucide-react";
@@ -19,7 +18,7 @@ import {
 import { paraBrasilia } from "@/lib/os/tempo";
 
 // Peças visuais do portal do lojista (servidor): moldura, selo de status
-// em palavras simples, etapas do pedido e a página de link inativo.
+// em palavras simples e etapas do pedido.
 
 /** Timestamp do banco → "24/10/2026" no dia de Brasília. */
 export const dataDe = (iso: string) =>
@@ -59,21 +58,6 @@ export function Logo() {
         </span>
       </span>
     </span>
-  );
-}
-
-export function LinkInativo() {
-  return (
-    <div className="vidro flex flex-col items-center gap-4 rounded-[1.75rem] px-6 py-12 text-center">
-      <span className="grid size-16 place-items-center rounded-full bg-neutral-900 text-white">
-        <Link2Off className="size-7" aria-hidden />
-      </span>
-      <h1 className="text-xl font-semibold">Link inativo</h1>
-      <p className="max-w-sm text-sm text-neutral-600">
-        Este link não está mais ativo. Para fazer ou acompanhar pedidos, peça o
-        link novo da sua loja à administração do Espaço ARP.
-      </p>
-    </div>
   );
 }
 

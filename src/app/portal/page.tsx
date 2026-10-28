@@ -3,14 +3,15 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { IconeCatalogo } from "@/components/os/configuracoes/icones";
+import { Entrada } from "@/components/os/portal/publico/entrada";
 import {
   dataDe,
   ItemPedido,
-  LinkInativo,
   Logo,
 } from "@/components/os/portal/publico/visual";
 import { podeAvaliar } from "@/lib/os/portal";
-import { rotaPortal } from "@/lib/os/rotas";
+import { ROTA_PORTAL } from "@/lib/os/rotas";
+import { sair } from "@/server/os/acoes/portal-publico";
 import { acessoDaPagina } from "@/server/os/portal-acesso";
 import {
   categoriasDoPortal,
@@ -20,14 +21,15 @@ import {
   pedidosDaLoja,
 } from "@/server/os/portal-publico";
 
-// Início do portal: nome da loja, "Fazer um pedido", os tipos de pedido
-// do catálogo, "Meus pedidos" com o status em palavras simples e os
-// documentos da loja (laudos de vistoria liberados).
+// Início do portal: sem sessão, a entrada pelo CNPJ; com sessão, nome da
+// loja, "Fazer um pedido", os tipos de pedido do catálogo, "Meus pedidos"
+// com o status em palavras simples e os documentos da loja (laudos de
+// vistoria liberados).
 
-export default function Page({ params }: PageProps<"/portal/[token]">) {
+export default function Page() {
   return (
     <Suspense fallback={<Esqueleto />}>
-      <Inicio params={params} />
+      <Inicio />
     </Suspense>
   );
 }
@@ -47,19 +49,16 @@ const encerrado = (p: Pedido) =>
   p.status === "fechado" ||
   p.status === "cancelado";
 
-async function Inicio({
-  params,
-}: Pick<PageProps<"/portal/[token]">, "params">) {
-  const { token } = await params;
-  const acesso = await acessoDaPagina(token);
-  if (!acesso) return <LinkInativo />;
+async function Inicio() {
+  const acesso = await acessoDaPagina();
+  if (!acesso) return <Entrada />;
   const [categorias, p, pedidos, documentos] = await Promise.all([
     categoriasDoPortal(),
     parametrosDoPortal(),
     pedidosDaLoja(acesso.loja.id),
     documentosDaLoja(acesso.loja.id),
   ]);
-  const base = rotaPortal(token);
+  const base = ROTA_PORTAL;
   // Concluído sem avaliação fica em cima: falta o lojista avaliar.
   const emCima = (x: Pedido) => !encerrado(x) || podeAvaliar(x);
   const abertos = pedidos.filter(emCima);
@@ -84,7 +83,17 @@ async function Inicio({
   return (
     <>
       <header className="vidro flex flex-col gap-5 rounded-[1.75rem] p-5 sm:p-6">
-        <Logo />
+        <div className="flex items-center justify-between gap-3">
+          <Logo />
+          <form action={sair}>
+            <button
+              type="submit"
+              className="rounded-full px-3 py-1.5 text-sm text-neutral-500 transition hover:bg-white/70 hover:text-neutral-900"
+            >
+              Trocar de loja
+            </button>
+          </form>
+        </div>
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
             {acesso.loja.nome}

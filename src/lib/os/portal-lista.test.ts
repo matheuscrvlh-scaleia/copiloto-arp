@@ -3,8 +3,8 @@ import { buscaDeLojas, lerFiltroLojas, lerFiltroPortal } from "./portal-lista";
 
 describe("filtros das lojas do portal", () => {
   it("lê a URL", () => {
-    expect(lerFiltroPortal({ f: "sem_link", q: " 12 " })).toEqual({
-      f: "sem_link",
+    expect(lerFiltroPortal({ f: "sem_cnpj", q: " 12 " })).toEqual({
+      f: "sem_cnpj",
       q: "12",
     });
     expect(lerFiltroPortal({ f: "constructor" }).f).toBeNull();

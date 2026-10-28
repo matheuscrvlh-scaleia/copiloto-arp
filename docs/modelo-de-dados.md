@@ -222,7 +222,7 @@ feriados e textos do laudo).
 | Ordem de Serviço | `sessoes` + `sessao_tecnicos` (tempo), `materiais`, `material_valores` 🔒, `os_custos` 🔒 (terceirizado, rateio e o cálculo gravado pelo servidor), `tecnicos`, `tecnico_valores` 🔒 (valor por minuto com vigência), `empresas`, `profissionais`, `chamado_profissionais`, `terceirizado_links` (link sem login) |
 | Ativos | `ativo_categorias`, `ativos`, `ativo_situacoes` (períodos, por gatilho), `planos_preventivos` |
 | Vistorias | `vistorias` (código ARP01…), `vistoria_ambientes` |
-| Portal e modelos | `lojas` (contrato do ENET, uma linha por contrato), `portal_links`, `agendamentos`, `modelos`, `modelo_itens`, `disparos` (uma vez por modelo e loja) |
+| Portal e modelos | `lojas` (contrato do ENET, uma linha por contrato), `portal_sessoes` (a loja entra no `/portal` com o CNPJ; `portal_tentativas` limita CNPJ errado por IP; `portal_links`, dos links por loja, ficou só como histórico), `agendamentos`, `modelos`, `modelo_itens`, `disparos` (uma vez por modelo e loja) |
 | Sistema | `notificacoes` (sininho; só o servidor grava), `contatos` (WhatsApp), `importacoes` (importação única do sistema atual, com desfazer) |
 
 ### Regras no banco

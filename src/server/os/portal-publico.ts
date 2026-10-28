@@ -1,5 +1,6 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
+import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import {
   camposDaCategoria,
@@ -7,59 +8,162 @@ import {
   tokenValido,
 } from "@/lib/os/portal";
 import type { Calendario } from "@/lib/os/prazo";
+import { ROTA_PORTAL } from "@/lib/os/rotas";
 import type { CampoExtra } from "@/lib/os/rotulos";
 import { TAG } from "@/server/cache";
 import { diasLivres } from "./agenda";
 import { configDoSistema } from "./automacao";
-import { osAdmin, type Tabela, urlsAssinadas } from "./base";
+import { novoToken, osAdmin, type Tabela, urlsAssinadas } from "./base";
 
-// Leitura do portal do lojista (link público, sem login). Tudo passa pela
-// service role, então TODA função aqui recebe o acesso já conferido
-// (`abrirPortal`) e filtra pela loja do link: o lojista só vê os pedidos
-// que a loja fez pelo portal, e nunca dado interno (responsável, prazo
-// interno, notas internas, custos).
+// Leitura do portal do lojista (endereço único, sem login). A loja entra
+// com o CNPJ e fica numa sessão (cookie). Tudo passa pela service role,
+// então TODA função aqui recebe o acesso já conferido (`abrirPortal`) e
+// filtra pela loja da sessão: o lojista só vê os pedidos que a loja fez
+// pelo portal, e nunca dado interno (responsável, prazo interno, notas
+// internas, custos).
 //
 // O catálogo do portal, os parâmetros e os feriados são iguais para todas
-// as lojas e vêm do cache (sem nada do token na chave nem na tag); a
-// página só chega a eles depois de conferir o token.
+// as lojas e vêm do cache (sem nada da sessão na chave nem na tag); a
+// página só chega a eles depois de conferir a sessão.
+
+const COOKIE = "portal_loja";
 
 export interface AcessoPortal {
-  linkId: string;
+  sessaoId: string;
   ultimoAcesso: string | null;
   loja: { id: string; nome: string; luc: string; bloco: string | null };
 }
 
+export type LojaDaEntrada = AcessoPortal["loja"];
+
 /**
- * Confere o token: link ativo de loja com contrato vigente. Null mostra a
- * página "Link inativo". Uma vez por requisição.
+ * Confere a sessão do cookie: não encerrada, no prazo e de loja com
+ * contrato vigente. Null mostra a entrada pelo CNPJ. Uma vez por
+ * requisição.
  */
-export const abrirPortal = cache(
-  async (token: string): Promise<AcessoPortal | null> => {
-    if (!tokenValido(token)) return null;
-    const { data, error } = await osAdmin()
-      .from("portal_links")
-      .select(
-        "id, ultimo_acesso_em, cancelado_em, loja:lojas!inner(id, nome, luc, bloco, situacao)",
-      )
-      .eq("token", token)
-      .maybeSingle();
-    if (error) throw new Error(`Portal: ${error.message}`);
-    if (!data || data.cancelado_em || data.loja.situacao !== "vigente")
-      return null;
-    const { situacao: _, ...loja } = data.loja;
-    return { linkId: data.id, ultimoAcesso: data.ultimo_acesso_em, loja };
-  },
-);
+export const abrirPortal = cache(async (): Promise<AcessoPortal | null> => {
+  const token = (await cookies()).get(COOKIE)?.value ?? "";
+  if (!tokenValido(token)) return null;
+  const { data, error } = await osAdmin()
+    .from("portal_sessoes")
+    .select(
+      "id, ultimo_acesso_em, encerrado_em, expira_em, loja:lojas!inner(id, nome, luc, bloco, situacao)",
+    )
+    .eq("token", token)
+    .maybeSingle();
+  if (error) throw new Error(`Portal: ${error.message}`);
+  if (
+    !data ||
+    data.encerrado_em ||
+    new Date(data.expira_em) <= new Date() ||
+    data.loja.situacao !== "vigente"
+  )
+    return null;
+  const { situacao: _, ...loja } = data.loja;
+  return { sessaoId: data.id, ultimoAcesso: data.ultimo_acesso_em, loja };
+});
 
 /** Grava o último acesso (no máximo um a cada poucos minutos). */
 export async function marcarAcesso(a: AcessoPortal, agora: Date) {
   const ultimo = a.ultimoAcesso ? new Date(a.ultimoAcesso).getTime() : 0;
   if (agora.getTime() - ultimo < LIMITES_PORTAL.acessoMin * 60_000) return;
   const { error } = await osAdmin()
-    .from("portal_links")
+    .from("portal_sessoes")
     .update({ ultimo_acesso_em: agora.toISOString() })
-    .eq("id", a.linkId);
+    .eq("id", a.sessaoId);
   if (error) console.error("último acesso do portal", error);
+}
+
+// ---------------------------------------------------------------------------
+// Entrada pelo CNPJ (só as ações de src/server/os/acoes/portal-publico.ts)
+// ---------------------------------------------------------------------------
+
+/** IP de quem tenta entrar (o da Vercel vem primeiro). */
+export async function ipDaRequisicao(): Promise<string> {
+  const h = await headers();
+  return (
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    h.get("x-real-ip") ||
+    "desconhecido"
+  );
+}
+
+/** Passou do limite de CNPJs errados na janela? */
+export async function bloqueadoPorTentativas(
+  ip: string,
+  agora: Date,
+): Promise<boolean> {
+  const desde = new Date(
+    agora.getTime() - LIMITES_PORTAL.tentativasMin * 60_000,
+  );
+  const { count, error } = await osAdmin()
+    .from("portal_tentativas")
+    .select("id", { count: "exact", head: true })
+    .eq("ip", ip)
+    .gte("criado_em", desde.toISOString());
+  if (error) throw new Error(`Portal: ${error.message}`);
+  return (count ?? 0) >= LIMITES_PORTAL.tentativas;
+}
+
+/** Guarda a tentativa errada e apaga as de mais de um dia. */
+export async function registrarTentativa(ip: string, agora: Date) {
+  const db = osAdmin();
+  const ontem = new Date(agora.getTime() - 86_400_000).toISOString();
+  const [novo, velhas] = await Promise.all([
+    db.from("portal_tentativas").insert({ ip }),
+    db.from("portal_tentativas").delete().lt("criado_em", ontem),
+  ]);
+  if (novo.error || velhas.error)
+    console.error("tentativa do portal", novo.error ?? velhas.error);
+}
+
+/** Lojas de contrato vigente com o CNPJ (14 dígitos). */
+export async function lojasDoCnpj(cnpj: string): Promise<LojaDaEntrada[]> {
+  const { data, error } = await osAdmin()
+    .from("lojas")
+    .select("id, nome, luc, bloco")
+    .eq("cnpj", cnpj)
+    .eq("situacao", "vigente")
+    .order("luc");
+  if (error) throw new Error(`Portal: ${error.message}`);
+  return data ?? [];
+}
+
+/** Abre a sessão da loja e grava o cookie. */
+export async function abrirSessao(lojaId: string, agora: Date) {
+  const token = novoToken();
+  const expira = new Date(
+    agora.getTime() + LIMITES_PORTAL.sessaoDias * 86_400_000,
+  );
+  const { error } = await osAdmin().from("portal_sessoes").insert({
+    loja_id: lojaId,
+    token,
+    criado_em: agora.toISOString(),
+    expira_em: expira.toISOString(),
+    ultimo_acesso_em: agora.toISOString(),
+  });
+  if (error) throw new Error(`Portal: ${error.message}`);
+  (await cookies()).set(COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: ROTA_PORTAL,
+    expires: expira,
+  });
+}
+
+/** Encerra a sessão do cookie (Trocar de loja) e apaga o cookie. */
+export async function fecharSessao() {
+  const jar = await cookies();
+  const token = jar.get(COOKIE)?.value ?? "";
+  jar.delete({ name: COOKIE, path: ROTA_PORTAL });
+  if (!tokenValido(token)) return;
+  const { error } = await osAdmin()
+    .from("portal_sessoes")
+    .update({ encerrado_em: new Date().toISOString() })
+    .eq("token", token)
+    .is("encerrado_em", null);
+  if (error) console.error("sair do portal", error);
 }
 
 // ---------------------------------------------------------------------------
