@@ -3,8 +3,26 @@ import {
   limparTelefone,
   linkWhatsApp,
   MENSAGENS_PADRAO,
+  mascaraTelefone,
   preencher,
 } from "./whatsapp";
+
+describe("máscara do telefone", () => {
+  it("formata enquanto digita, com 55 quando falta o DDI", () => {
+    expect(mascaraTelefone("")).toBe("");
+    expect(mascaraTelefone("2")).toBe("+55 (2");
+    expect(mascaraTelefone("+55 (22")).toBe("+55 (22");
+    expect(mascaraTelefone("+55 (22) 9")).toBe("+55 (22) 9");
+    expect(mascaraTelefone("+55 (22) 25221")).toBe("+55 (22) 2522-1");
+    expect(mascaraTelefone("+55 (22) 2522-12345")).toBe("+55 (22) 25221-2345");
+    expect(mascaraTelefone("22998765432")).toBe("+55 (22) 99876-5432");
+    expect(mascaraTelefone("+5522998765432999")).toBe("+55 (22) 99876-5432");
+    expect(mascaraTelefone("+55 (22) ")).toBe("+55 (22");
+    expect(limparTelefone(mascaraTelefone("22998765432"))).toBe(
+      "5522998765432",
+    );
+  });
+});
 
 describe("telefone", () => {
   it("regras do sistema atual", () => {

@@ -8,6 +8,7 @@ import {
   type DiaDaEscolha,
   LIMITES_PORTAL,
 } from "@/lib/os/portal";
+import { mascaraTelefone } from "@/lib/os/whatsapp";
 import { lerQuemPede, type QuemPede } from "./envio";
 
 // Peças dos formulários do portal: quem está pedindo (lembrado no
@@ -117,9 +118,12 @@ export function QuemPedeCampos() {
           inputMode="tel"
           required
           autoComplete="tel"
-          placeholder="(22) 99999-0000"
+          placeholder="+55 (22) 99999-0000"
+          maxLength={19}
           value={quem.telefone}
-          onChange={(e) => setQuem({ ...quem, telefone: e.target.value })}
+          onChange={(e) =>
+            setQuem({ ...quem, telefone: mascaraTelefone(e.target.value) })
+          }
           className={CAMPO}
         />
       </div>

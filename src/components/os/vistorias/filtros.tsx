@@ -69,7 +69,7 @@ export function FiltrosVistorias({
 
   return (
     <fieldset
-      className="vidro m-0 flex min-w-0 flex-wrap items-center gap-1 rounded-[1.75rem] p-1.5 md:rounded-full"
+      className="vidro m-0 flex min-w-0 flex-wrap items-center gap-1 rounded-[1.75rem] px-3 py-1.5 md:rounded-full"
       aria-busy={carregando}
     >
       <legend className="sr-only">Filtros das vistorias</legend>
@@ -104,7 +104,7 @@ export function FiltrosVistorias({
           opcoes={f.opcoes}
         />
       ))}
-      <div className="flex items-center gap-0.5 px-1">
+      <div className="flex items-center gap-0.5 px-3">
         <label className="flex items-center gap-1">
           <span className="pl-1 text-xs text-neutral-500">De</span>
           <input

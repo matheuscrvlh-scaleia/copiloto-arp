@@ -216,12 +216,6 @@ export const navigation: NavSection[] = [
         permissao: "os.acessar",
       },
       {
-        href: "/os/ativos",
-        label: "Ativos",
-        icone: "ativos",
-        permissao: ["os.ativos", "os.ativos_gerenciar"],
-      },
-      {
         href: "/os/vistorias",
         label: "Vistorias",
         icone: "vistorias",
@@ -232,6 +226,12 @@ export const navigation: NavSection[] = [
         label: "Portal e agenda",
         icone: "portal",
         permissao: ["os.portal", "os.portal_agenda"],
+      },
+      {
+        href: "/os/ativos",
+        label: "Ativos",
+        icone: "ativos",
+        permissao: ["os.ativos", "os.ativos_gerenciar"],
       },
       {
         href: "/os/configuracoes",

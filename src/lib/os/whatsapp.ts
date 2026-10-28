@@ -13,6 +13,26 @@ export function limparTelefone(t: string): string | null {
   return n.length < 10 ? null : n;
 }
 
+/**
+ * Máscara enquanto digita: +DDI (DDD) número. Sem "+" no começo (campo
+ * vazio ou preenchimento automático), o DDI é o 55 do Brasil.
+ */
+export function mascaraTelefone(t: string): string {
+  let n = t.replace(/\D/g, "");
+  if (!n) return "";
+  // atalho: DDI sempre de 2 dígitos (cobre o Brasil e a maioria dos países).
+  if (!t.trim().startsWith("+")) n = `55${n}`;
+  n = n.slice(0, 13);
+  const ddd = n.slice(2, 4);
+  const numero = n.slice(4);
+  const corte = numero.length > 8 ? 5 : 4;
+  let s = `+${n.slice(0, 2)}`;
+  if (ddd) s += ` (${ddd}`;
+  if (numero)
+    s += `) ${numero.length > 4 ? `${numero.slice(0, corte)}-${numero.slice(corte)}` : numero}`;
+  return s;
+}
+
 /** Link do wa.me; sem número, o WhatsApp pede para escolher o contato. */
 export function linkWhatsApp(
   telefone: string | null,
