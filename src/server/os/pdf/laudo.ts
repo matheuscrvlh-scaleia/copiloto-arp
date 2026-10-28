@@ -43,8 +43,9 @@ import {
 } from "./papel-timbrado";
 
 // Laudo de vistoria homologado (spec 4.16 B). O layout é o do laudo que a
-// ARP já usa: não mude medidas, cores nem a ordem das seções sem a
-// especificação. A quebra de página e o tamanho das fotos são regras puras
+// ARP já usa (com as fotos lado a lado, pedido da ARP): não mude medidas,
+// cores nem a ordem das seções sem pedido. A quebra de página e o tamanho
+// das fotos são regras puras
 // (lib/os/laudo-layout.ts, com testes); aqui só se mede texto e desenha.
 
 const AZUL = cor("#1E7DD2");

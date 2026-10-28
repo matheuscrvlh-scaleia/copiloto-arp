@@ -10,24 +10,25 @@ export const LAUDO = {
   lateral: 14,
   /** Cabeçalho de toda página. */
   cabecalho: 38,
-  /** Onde o conteúdo começa (abaixo do cabeçalho) e termina (34 mm do fim). */
+  /**
+   * Onde o conteúdo começa (abaixo do cabeçalho) e termina: acima do
+   * rodapé do papel timbrado, cuja linha fica a 252 mm (como no PDF da OS).
+   */
   conteudoTopo: 53,
-  conteudoFim: 297 - 34,
+  conteudoFim: 249,
   larguraUtil: 210 - 2 * 14,
   /** Rótulo das linhas de identificação; o valor vem 50 mm adiante. */
   recuoDoValor: 50,
 } as const;
 
+// Folga de arredondamento (frações de mm não abrem página nem linha nova).
+const FOLGA = 0.01;
+
 export const FOTOS = {
-  /** Espaço entre as duas colunas e entre as linhas de fotos. */
+  /** Espaço entre as fotos, na linha e entre as linhas. */
   vao: 3,
-  alturaHorizontal: 34,
-  alturaVertical: 42,
-  /** Foto sozinha na linha: largura fixa conforme a orientação. */
-  sozinhaHorizontal: 90,
-  sozinhaVertical: 60,
-  /** Segurança para fotos muito compridas (ex.: panorama em pé). */
-  sozinhaAlturaMax: 100,
+  /** Altura de toda foto: três horizontais 4:3 enchem a largura útil. */
+  altura: 44,
 } as const;
 
 /** Alturas fixas dos blocos (mm), as mesmas que o gerador desenha. */
@@ -63,8 +64,6 @@ export interface LinhaDeFotos {
   fotos: FotoNaLinha[];
 }
 
-export const ehVertical = (d: Dimensao) => d.altura > d.largura;
-
 /** Maior tamanho que cabe na caixa mantendo a proporção (nunca estica). */
 export function caber(
   d: Dimensao,
@@ -75,57 +74,30 @@ export function caber(
   return { largura: d.largura * escala, altura: d.altura * escala };
 }
 
-/** Foto sozinha: 90 mm de largura se horizontal, 60 mm se vertical. */
-function sozinha(d: Dimensao, larguraUtil: number): Dimensao {
-  const largura = Math.min(
-    ehVertical(d) ? FOTOS.sozinhaVertical : FOTOS.sozinhaHorizontal,
-    larguraUtil,
-  );
-  return caber(d, largura, FOTOS.sozinhaAlturaMax);
-}
-
 /**
- * Par na mesma linha, cada uma na sua coluna: horizontal até 34 mm de
- * altura, vertical até 42 mm; com uma de cada, a vertical desce à altura
- * da horizontal.
+ * Fotos lado a lado, na ordem, todas com 44 mm de altura e a largura da
+ * proporção: entram na linha enquanto couberem (três horizontais ou cinco
+ * verticais) e a que não cabe abre a seguinte. Panorama mais largo que a
+ * página encolhe até caber.
  */
-function par(a: Dimensao, b: Dimensao, coluna: number): [Dimensao, Dimensao] {
-  const limite = (d: Dimensao) =>
-    ehVertical(d) ? FOTOS.alturaVertical : FOTOS.alturaHorizontal;
-  let ta = caber(a, coluna, limite(a));
-  let tb = caber(b, coluna, limite(b));
-  if (ehVertical(a) !== ehVertical(b)) {
-    const alturaHorizontal = ehVertical(a) ? tb.altura : ta.altura;
-    if (ehVertical(a)) ta = caber(a, coluna, alturaHorizontal);
-    else tb = caber(b, coluna, alturaHorizontal);
-  }
-  return [ta, tb];
-}
-
-/** Fotos em duas colunas, na ordem, com 3 mm entre elas. */
 export function linhasDeFotos(
   fotos: Dimensao[],
   larguraUtil: number = LAUDO.larguraUtil,
 ): LinhaDeFotos[] {
-  const coluna = (larguraUtil - FOTOS.vao) / 2;
   const linhas: LinhaDeFotos[] = [];
-  for (let i = 0; i < fotos.length; i += 2) {
-    const a = fotos[i] as Dimensao;
-    const b = fotos[i + 1];
-    if (!b) {
-      const t = sozinha(a, larguraUtil);
-      linhas.push({ altura: t.altura, fotos: [{ indice: i, x: 0, ...t }] });
-      continue;
+  let proximoX = 0;
+  fotos.forEach((d, indice) => {
+    const t = caber(d, larguraUtil, FOTOS.altura);
+    let atual = linhas.at(-1);
+    if (!atual || proximoX + t.largura > larguraUtil + FOLGA) {
+      atual = { altura: 0, fotos: [] };
+      linhas.push(atual);
+      proximoX = 0;
     }
-    const [ta, tb] = par(a, b, coluna);
-    linhas.push({
-      altura: Math.max(ta.altura, tb.altura),
-      fotos: [
-        { indice: i, x: 0, ...ta },
-        { indice: i + 1, x: coluna + FOTOS.vao, ...tb },
-      ],
-    });
-  }
+    atual.fotos.push({ indice, x: proximoX, ...t });
+    atual.altura = Math.max(atual.altura, t.altura);
+    proximoX += t.largura + FOTOS.vao;
+  });
   return linhas;
 }
 
@@ -164,8 +136,6 @@ export interface Area {
 }
 
 const AREA: Area = { topo: LAUDO.conteudoTopo, fim: LAUDO.conteudoFim };
-// Folga de arredondamento (frações de mm não abrem página nova).
-const FOLGA = 0.01;
 
 /**
  * Posição de cada peça (null: peça opcional que não coube). Uma peça que
