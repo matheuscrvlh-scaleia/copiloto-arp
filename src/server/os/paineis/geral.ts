@@ -1,5 +1,9 @@
 import "server-only";
-import type { Bloco, CelulaTabela } from "@/components/os/paineis/tipos";
+import type {
+  Bloco,
+  CelulaTabela,
+  ListaChamados,
+} from "@/components/os/paineis/tipos";
 import { formatarNumero, formatarPct } from "@/lib/formato";
 import { status } from "@/lib/indicadores";
 import {
@@ -29,39 +33,46 @@ function blocoSetores(ctx: Ctx): Bloco {
     const metaPct = metaPara(ctx.metas, "pct_no_prazo", s.id);
     const metaTempo = metaPara(ctx.metas, "tempo_medio_horas", s.id);
     const tempo = colunaDeTempo("Tempo de resolução", n.resolucao.porChamado);
+    // Só quem é do setor abre os chamados dele; os demais veem os números.
+    const meu = ctx.meusSetores.includes(s.id);
+    const abrir = (lista: () => ListaChamados) => (meu ? lista() : undefined);
     const celulas: CelulaTabela[] = [
       { texto: s.nome },
       {
         texto: String(n.abertos.length),
-        origem: listas.lista(`${s.nome}: em aberto ${ctx.quando}`, n.abertos),
+        origem: abrir(() =>
+          listas.lista(`${s.nome}: em aberto ${ctx.quando}`, n.abertos),
+        ),
       },
       {
         texto: String(n.atrasados.length),
-        origem: listas.lista(`${s.nome}: atrasados ${ctx.quando}`, n.atrasados),
+        origem: abrir(() =>
+          listas.lista(`${s.nome}: atrasados ${ctx.quando}`, n.atrasados),
+        ),
       },
       {
         texto: String(n.concluidos.length),
-        origem: listas.lista(
-          `${s.nome}: fechados em ${f.rotulo}`,
-          n.concluidos,
-          {
+        origem: abrir(() =>
+          listas.lista(`${s.nome}: fechados em ${f.rotulo}`, n.concluidos, {
             extra: tempo,
-          },
+          }),
         ),
       },
       {
         texto: formatarPct(n.prazo.pct),
         status: status(n.prazo.pct, metaPct),
         direcao: "maior_melhor",
-        origem: listas.partes(`${s.nome}: fechados no prazo`, [
-          { titulo: "Fora do prazo", itens: n.prazo.fora, extra: tempo },
-          { titulo: "No prazo", itens: n.prazo.noPrazo, extra: tempo },
-          {
-            titulo: "Sem prazo (fora da conta)",
-            itens: n.prazo.semPrazo,
-            extra: tempo,
-          },
-        ]),
+        origem: abrir(() =>
+          listas.partes(`${s.nome}: fechados no prazo`, [
+            { titulo: "Fora do prazo", itens: n.prazo.fora, extra: tempo },
+            { titulo: "No prazo", itens: n.prazo.noPrazo, extra: tempo },
+            {
+              titulo: "Sem prazo (fora da conta)",
+              itens: n.prazo.semPrazo,
+              extra: tempo,
+            },
+          ]),
+        ),
       },
       {
         texto: tempoLegivel(n.resolucao.mediaMin),
@@ -70,9 +81,11 @@ function blocoSetores(ctx: Ctx): Bloco {
           metaTempo,
         ),
         direcao: "menor_melhor",
-        origem: listas.lista(`${s.nome}: tempo de resolução`, n.concluidos, {
-          extra: tempo,
-        }),
+        origem: abrir(() =>
+          listas.lista(`${s.nome}: tempo de resolução`, n.concluidos, {
+            extra: tempo,
+          }),
+        ),
       },
     ];
     return [{ chave: s.id, celulas, atrasados: n.atrasados.length }];

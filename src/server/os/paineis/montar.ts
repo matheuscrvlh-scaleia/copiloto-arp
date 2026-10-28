@@ -81,6 +81,7 @@ export async function montarPainel(
         ? "agora"
         : `em ${formatarData(paraBrasilia(new Date(momento.getTime() - 1)).data)}`,
     pode: eu.pode,
+    meusSetores: eu.setores,
     parametros: p,
     metas: ms,
     setores: sets,

@@ -28,6 +28,8 @@ export interface Ctx {
   /** "agora" ou "em 30/09/2026". */
   quando: string;
   pode: (p: Permissao) => boolean;
+  /** Setores de que o usuário faz parte. */
+  meusSetores: string[];
   parametros: Parametros;
   metas: LinhaMeta[];
   setores: Setor[];
