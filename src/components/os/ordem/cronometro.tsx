@@ -1,24 +1,31 @@
 "use client";
 
-import { CircleCheck, Flag, Pause, Play, TimerReset } from "lucide-react";
+import {
+  CircleCheck,
+  Flag,
+  Pause,
+  Play,
+  Timer,
+  TimerReset,
+} from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 import { relogio } from "@/lib/os/ordem";
 import { concluirOS, iniciarTempo, pausarTempo } from "@/server/os/acoes/ordem";
 import { aviso, botao } from "./estilos";
 import type { EstadoOS } from "./tipos";
 
-// Cronômetro do técnico no celular: Iniciar ao chegar, Pausar ou Finalizar
-// ao sair. O sistema preenche as sessões sozinho; Finalizar ainda propõe
-// concluir a OS quando nada impede.
+// Cronômetro do técnico: uma barra presa no topo do detalhe enquanto rola.
+// Iniciar ao chegar, Pausar ou Finalizar ao sair. O sistema preenche as
+// sessões sozinho; Finalizar ainda propõe concluir a OS quando nada impede.
 
 const INICIAL: EstadoOS = {};
+const TAMANHO = "min-h-11 px-4 text-sm";
 
 export function Cronometro({
   chamadoId,
   desde,
   bloqueio,
   outrosRodando,
-  compacto = false,
 }: {
   chamadoId: string;
   /** Início da minha sessão rodando (ISO); null se parado. */
@@ -27,7 +34,6 @@ export function Cronometro({
   bloqueio: string | null;
   /** Outros técnicos com o cronômetro rodando nesta OS. */
   outrosRodando: number;
-  compacto?: boolean;
 }) {
   const [inicio, iniciar, iniciando] = useActionState(iniciarTempo, INICIAL);
   const [pausa, pausar, pausando] = useActionState(pausarTempo, INICIAL);
@@ -55,78 +61,80 @@ export function Cronometro({
   }, [pausa]);
 
   const ocupado = iniciando || pausando;
-  const tamanho = compacto ? "px-4 py-2.5 text-sm" : "px-5 py-4 text-base";
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       {desde ? (
-        <div
-          className={`flex flex-col gap-3 rounded-[1.5rem] bg-neutral-900 p-4 text-white ${compacto ? "" : "md:flex-row md:items-center md:justify-between md:p-5"}`}
-        >
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[1.5rem] bg-neutral-900 py-2.5 pr-2.5 pl-4 text-white shadow-[0_12px_32px_-16px_rgb(0_0_0/0.6)]">
           <div className="flex items-center gap-3">
             <span className="relative flex size-3" aria-hidden>
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-marca opacity-60 motion-reduce:animate-none" />
               <span className="relative inline-flex size-3 rounded-full bg-marca" />
             </span>
-            <div>
-              <p className="text-xs text-[rgb(255_255_255/0.6)]">
-                Seu tempo nesta OS
-              </p>
-              <p
-                className={`font-semibold tabular-nums tracking-tight ${compacto ? "text-2xl" : "text-4xl"}`}
+            <p className="flex items-baseline gap-2">
+              <span className="text-xs text-[rgb(255_255_255/0.6)]">
+                Seu tempo
+              </span>
+              <span
+                className="text-2xl font-semibold tabular-nums tracking-tight"
                 aria-live="off"
               >
                 {agora ? relogio(new Date(desde), agora) : "--:--:--"}
-              </p>
-            </div>
+              </span>
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 md:flex">
-            <form action={pausar}>
+          <div className="flex gap-2 max-sm:w-full">
+            <form action={pausar} className="max-sm:flex-1">
               <input type="hidden" name="chamado_id" value={chamadoId} />
               <input type="hidden" name="finalizar" value="0" />
               <button
                 type="submit"
                 disabled={ocupado}
-                className={`flex w-full items-center justify-center gap-2 rounded-full bg-[rgb(255_255_255/0.12)] font-semibold text-white transition hover:bg-[rgb(255_255_255/0.2)] disabled:opacity-60 ${tamanho}`}
+                className={`flex w-full items-center justify-center gap-2 rounded-full bg-[rgb(255_255_255/0.12)] font-semibold text-white transition hover:bg-[rgb(255_255_255/0.2)] disabled:opacity-60 ${TAMANHO}`}
               >
-                <Pause className="size-5" aria-hidden />
+                <Pause className="size-4" aria-hidden />
                 {pausando ? "Salvando…" : "Pausar"}
               </button>
             </form>
-            <form action={pausar}>
+            <form action={pausar} className="max-sm:flex-1">
               <input type="hidden" name="chamado_id" value={chamadoId} />
               <input type="hidden" name="finalizar" value="1" />
               <button
                 type="submit"
                 disabled={ocupado}
-                className={`flex w-full items-center justify-center gap-2 rounded-full bg-marca font-semibold text-[#06140a] transition hover:brightness-105 disabled:opacity-60 ${tamanho}`}
+                className={`flex w-full items-center justify-center gap-2 rounded-full bg-marca font-semibold text-[#06140a] transition hover:brightness-105 disabled:opacity-60 ${TAMANHO}`}
               >
-                <Flag className="size-5" aria-hidden />
+                <Flag className="size-4" aria-hidden />
                 Finalizar
               </button>
             </form>
           </div>
         </div>
       ) : (
-        <form action={iniciar} className="flex flex-col gap-2">
+        <form
+          action={iniciar}
+          className="vidro flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[1.5rem] py-2.5 pr-2.5 pl-4"
+        >
           <input type="hidden" name="chamado_id" value={chamadoId} />
+          <p className="flex min-w-0 flex-1 items-center gap-2.5 text-sm text-neutral-600">
+            <Timer className="size-4 shrink-0 text-neutral-500" aria-hidden />
+            <span className="min-w-0">
+              {bloqueio ?? "Inicie ao chegar no local; pause na saída."}
+            </span>
+          </p>
           <button
             type="submit"
             disabled={ocupado || bloqueio !== null}
-            className={`flex w-full items-center justify-center gap-2 rounded-full bg-marca font-semibold text-[#06140a] shadow-[0_8px_24px_-8px_rgb(88_192_105/0.7)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${tamanho}`}
+            className={`flex items-center justify-center gap-2 rounded-full bg-marca font-semibold text-[#06140a] shadow-[0_8px_24px_-8px_rgb(88_192_105/0.7)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none max-sm:w-full ${TAMANHO}`}
           >
-            <Play className="size-5" aria-hidden />
+            <Play className="size-4" aria-hidden />
             {iniciando ? "Iniciando…" : "Iniciar"}
           </button>
-          <p className="text-center text-xs text-neutral-500">
-            {bloqueio ??
-              "Toque ao chegar no local. Pause na saída e finalize ao terminar."}
-          </p>
         </form>
       )}
 
       {outrosRodando > 0 && (
-        <p className="flex items-center gap-2 text-xs text-neutral-600">
+        <p className="flex items-center gap-2 px-2 text-xs text-neutral-600">
           <TimerReset className="size-3.5" aria-hidden />
           {outrosRodando === 1
             ? "Outro técnico está com o cronômetro rodando nesta OS."

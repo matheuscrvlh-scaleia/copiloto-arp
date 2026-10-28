@@ -5,6 +5,7 @@ import {
   Bell,
   BellOff,
   Copy,
+  Ellipsis,
   History,
   Link2,
   MessageCircle,
@@ -13,7 +14,7 @@ import {
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useId, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import { PILULA_OPCAO } from "@/components/os/novo/repetir";
 import { Selecao } from "@/components/selecao";
@@ -21,12 +22,14 @@ import { limparTelefone, linkWhatsApp } from "@/lib/os/whatsapp";
 import { lixeira, seguirChamado } from "@/server/os/acoes/chamados";
 import { BOTAO_PRIMARIO, FormNaJanela, Janela } from "./janela";
 
-// Ferramentas do chamado: WhatsApp, imprimir/PDF, converter em OS,
-// duplicar, criar vinculado, seguir, lixeira e histórico. Cada uma só
-// aparece para quem pode usá-la.
+// Ferramentas do chamado, numa barra no topo: Seguir, WhatsApp e Imprimir
+// à mão; converter em OS, duplicar, criar vinculado, histórico e lixeira
+// no menu "Mais". Cada uma só aparece para quem pode usá-la.
 
+const ICONE =
+  "grid size-10 shrink-0 place-items-center rounded-full text-neutral-600 transition hover:bg-neutral-900/[0.06] hover:text-neutral-900 aria-pressed:bg-neutral-900/[0.06] aria-pressed:text-neutral-900 aria-expanded:bg-neutral-900/[0.06] disabled:opacity-60";
 const ITEM =
-  "flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 text-left text-sm text-neutral-800 transition hover:bg-neutral-900/[0.05] disabled:opacity-60";
+  "flex min-h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-sm font-medium whitespace-nowrap text-neutral-800 transition hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:outline-none";
 
 export interface ContatoWhatsApp {
   rotulo: string;
@@ -53,76 +56,154 @@ export function Ferramentas({
   sigo: boolean;
   naLixeira: boolean;
   pode: { excluir: boolean };
+  /** null: a OS tem o próprio WhatsApp, com a mensagem da OS. */
   whatsapp: {
     mensagem: string;
     sugeridos: ContatoWhatsApp[];
     contatos: ContatoWhatsApp[];
-  };
+  } | null;
 }) {
   const [zap, setZap] = useState(false);
   const [confirmarLixeira, setConfirmarLixeira] = useState(false);
+  const [mais, setMais] = useState(false);
+  const caixa = useRef<HTMLDivElement>(null);
   const [estado, seguir, seguindo] = useActionState(seguirChamado, {});
 
+  useEffect(() => {
+    if (!mais) return;
+    caixa.current
+      ?.querySelector<HTMLElement>("[role=menu] a, [role=menu] button")
+      ?.focus();
+    const fora = (e: PointerEvent) => {
+      if (!caixa.current?.contains(e.target as Node)) setMais(false);
+    };
+    document.addEventListener("pointerdown", fora);
+    return () => document.removeEventListener("pointerdown", fora);
+  }, [mais]);
+
   return (
-    <nav aria-label="Ferramentas do chamado" className="flex flex-col gap-0.5">
-      <button type="button" onClick={() => setZap(true)} className={ITEM}>
-        <MessageCircle className="size-4 text-neutral-500" aria-hidden />
-        Enviar pelo WhatsApp
-      </button>
-      <a href={links.imprimir} target="_blank" rel="noopener" className={ITEM}>
-        <Printer className="size-4 text-neutral-500" aria-hidden />
-        Imprimir ou PDF
-      </a>
-      {links.converter && (
-        <Link href={links.converter} className={ITEM}>
-          <Wrench className="size-4 text-neutral-500" aria-hidden />
-          Converter em Ordem de Serviço
-        </Link>
-      )}
-      <Link href={links.duplicar} className={ITEM}>
-        <Copy className="size-4 text-neutral-500" aria-hidden />
-        Duplicar
-      </Link>
-      <Link href={links.vinculado} className={ITEM}>
-        <Link2 className="size-4 text-neutral-500" aria-hidden />
-        Criar chamado vinculado
-      </Link>
-      <form action={seguir}>
-        <input type="hidden" name="id" value={id} />
-        <input type="hidden" name="ligar" value={sigo ? "0" : "1"} />
-        <button type="submit" disabled={seguindo} className={ITEM}>
-          {sigo ? (
-            <BellOff className="size-4 text-neutral-500" aria-hidden />
-          ) : (
-            <Bell className="size-4 text-neutral-500" aria-hidden />
+    <nav
+      aria-label="Ferramentas do chamado"
+      className="flex flex-col items-end"
+    >
+      <div className="flex items-center gap-0.5">
+        <form action={seguir}>
+          <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="ligar" value={sigo ? "0" : "1"} />
+          <button
+            type="submit"
+            disabled={seguindo}
+            aria-pressed={sigo}
+            aria-label={sigo ? "Deixar de seguir" : "Seguir (receber avisos)"}
+            title={sigo ? "Deixar de seguir" : "Seguir (receber avisos)"}
+            className={ICONE}
+          >
+            {sigo ? (
+              <BellOff className="size-[18px]" aria-hidden />
+            ) : (
+              <Bell className="size-[18px]" aria-hidden />
+            )}
+          </button>
+        </form>
+        {whatsapp && (
+          <button
+            type="button"
+            onClick={() => setZap(true)}
+            aria-label="Enviar pelo WhatsApp"
+            title="Enviar pelo WhatsApp"
+            className={ICONE}
+          >
+            <MessageCircle className="size-[18px]" aria-hidden />
+          </button>
+        )}
+        <a
+          href={links.imprimir}
+          target="_blank"
+          rel="noopener"
+          aria-label="Imprimir ou PDF"
+          title="Imprimir ou PDF"
+          className={ICONE}
+        >
+          <Printer className="size-[18px]" aria-hidden />
+        </a>
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: só segura o Esc do menu para não fechar a janela lateral */}
+        <div
+          ref={caixa}
+          className="relative"
+          onKeyDown={(e) => {
+            if (e.key !== "Escape" || !mais) return;
+            e.stopPropagation();
+            setMais(false);
+            caixa.current?.querySelector<HTMLElement>("button")?.focus();
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setMais((m) => !m)}
+            aria-haspopup="menu"
+            aria-expanded={mais}
+            aria-label="Mais ferramentas"
+            title="Mais ferramentas"
+            className={ICONE}
+          >
+            <Ellipsis className="size-[18px]" aria-hidden />
+          </button>
+          {mais && (
+            <div
+              role="menu"
+              className="absolute top-full right-0 z-30 mt-1.5 flex min-w-56 flex-col rounded-2xl bg-white p-1.5 shadow-lg ring-1 ring-neutral-900/[0.08]"
+            >
+              {links.converter && (
+                <Link role="menuitem" href={links.converter} className={ITEM}>
+                  <Wrench className="size-4 text-neutral-500" aria-hidden />
+                  Converter em Ordem de Serviço
+                </Link>
+              )}
+              <Link role="menuitem" href={links.duplicar} className={ITEM}>
+                <Copy className="size-4 text-neutral-500" aria-hidden />
+                Duplicar
+              </Link>
+              <Link role="menuitem" href={links.vinculado} className={ITEM}>
+                <Link2 className="size-4 text-neutral-500" aria-hidden />
+                Criar chamado vinculado
+              </Link>
+              {links.historico && (
+                <Link role="menuitem" href={links.historico} className={ITEM}>
+                  <History className="size-4 text-neutral-500" aria-hidden />
+                  Histórico de alterações
+                </Link>
+              )}
+              {pode.excluir && (
+                <>
+                  <hr className="my-1 border-neutral-900/[0.06]" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMais(false);
+                      setConfirmarLixeira(true);
+                    }}
+                    className={`${ITEM} ${naLixeira ? "" : "text-red-700 hover:bg-red-50"}`}
+                  >
+                    {naLixeira ? (
+                      <ArchiveRestore className="size-4" aria-hidden />
+                    ) : (
+                      <Trash2 className="size-4" aria-hidden />
+                    )}
+                    {naLixeira
+                      ? "Restaurar da lixeira"
+                      : "Mandar para a lixeira"}
+                  </button>
+                </>
+              )}
+            </div>
           )}
-          {sigo ? "Deixar de seguir" : "Seguir (receber avisos)"}
-        </button>
-      </form>
+        </div>
+      </div>
       {estado.erro && (
         <p role="alert" className="px-3 text-xs text-red-700">
           {estado.erro}
         </p>
-      )}
-      {links.historico && (
-        <Link href={links.historico} className={ITEM}>
-          <History className="size-4 text-neutral-500" aria-hidden />
-          Histórico de alterações
-        </Link>
-      )}
-      {pode.excluir && (
-        <button
-          type="button"
-          onClick={() => setConfirmarLixeira(true)}
-          className={`${ITEM} ${naLixeira ? "" : "text-red-700"}`}
-        >
-          {naLixeira ? (
-            <ArchiveRestore className="size-4" aria-hidden />
-          ) : (
-            <Trash2 className="size-4" aria-hidden />
-          )}
-          {naLixeira ? "Restaurar da lixeira" : "Mandar para a lixeira"}
-        </button>
       )}
 
       <Janela
@@ -147,11 +228,13 @@ export function Ferramentas({
         </FormNaJanela>
       </Janela>
 
-      <JanelaWhatsApp
-        aberta={zap}
-        aoFechar={() => setZap(false)}
-        {...whatsapp}
-      />
+      {whatsapp && (
+        <JanelaWhatsApp
+          aberta={zap}
+          aoFechar={() => setZap(false)}
+          {...whatsapp}
+        />
+      )}
     </nav>
   );
 }

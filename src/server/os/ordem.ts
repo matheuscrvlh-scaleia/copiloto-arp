@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import {
   calcularOS,
   type ResultadoOS,
@@ -178,8 +179,13 @@ export function modeloMensagem(p: Parametros, chave: ChaveMensagem): string {
 
 const ehImagem = (mime: string | null) => !!mime?.startsWith("image/");
 
-/** Tudo o que o bloco da OS mostra; null se a pessoa não vê o chamado. */
-export async function dadosDaOS(chamadoId: string): Promise<DadosOS | null> {
+/**
+ * Tudo o que o bloco da OS mostra; null se a pessoa não vê o chamado. Uma
+ * leitura por requisição: o cronômetro e o bloco usam a mesma.
+ */
+export const dadosDaOS = cache(lerDadosDaOS);
+
+async function lerDadosDaOS(chamadoId: string): Promise<DadosOS | null> {
   const ctx = await contexto();
   const db = await os();
   const { data: chamado, error } = await db

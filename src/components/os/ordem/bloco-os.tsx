@@ -6,7 +6,6 @@ import {
   Coins,
   HardHat,
   Package,
-  Printer,
   Timer,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,7 +19,7 @@ import {
   minutoHomem,
   minutosDaSessao,
 } from "@/lib/os/calculos";
-import { etapaDoTerceirizado, linkAtivo, rotaPdfOS } from "@/lib/os/ordem";
+import { etapaDoTerceirizado, linkAtivo } from "@/lib/os/ordem";
 import { dataHoraBr } from "@/lib/os/relatorios";
 import { rotaChamado, rotaTerceirizado } from "@/lib/os/rotas";
 import { EXECUCOES, PERIODOS, STATUS } from "@/lib/os/rotulos";
@@ -50,9 +49,9 @@ import { WhatsAppOS } from "./whatsapp-os";
 // "os" (ou de qualquer tipo cuja categoria registra tempo: aí só o Tempo).
 //   <BlocoOS chamadoId="<uuid>" compacto={false} />
 // `compacto`: versão resumida para a janela lateral.
-// No celular, o técnico tem Iniciar/Pausar/Finalizar grandes no topo; no
-// computador, o gestor tem as sessões numa tabela, materiais, custos com a
-// memória de cálculo e as pendências em destaque.
+// O cronômetro (Iniciar/Pausar/Finalizar) fica fora, em <CronometroDaOS>,
+// preso no topo do detalhe; aqui o gestor tem as sessões numa tabela,
+// materiais, custos com a memória de cálculo e as pendências em destaque.
 
 export async function BlocoOS({
   chamadoId,
@@ -66,29 +65,8 @@ export async function BlocoOS({
   const agora = new Date();
   const hoje = hojeEmBrasilia(agora);
   const pendencias = pendenciasDa(d, hoje);
-  const cronometro = (
-    <Cronometro
-      chamadoId={d.chamado.id}
-      desde={
-        d.minhaSessaoAberta
-          ? deBrasilia(
-              d.minhaSessaoAberta.data,
-              d.minhaSessaoAberta.inicio,
-            ).toISOString()
-          : null
-      }
-      bloqueio={bloqueioDoCronometro(d)}
-      outrosRodando={
-        d.sessoes.filter(
-          (s) => s.fim === null && s.id !== d.minhaSessaoAberta?.id,
-        ).length
-      }
-      compacto={compacto}
-    />
-  );
 
-  if (compacto)
-    return <Compacto d={d} pendencias={pendencias} cronometro={cronometro} />;
+  if (compacto) return <Compacto d={d} pendencias={pendencias} />;
 
   const terceirizada = d.chamado.execucao === "terceirizada";
   return (
@@ -98,7 +76,6 @@ export async function BlocoOS({
     >
       <div className={`${quadro} flex flex-col gap-4`}>
         <Cabecalho d={d} />
-        {cronometro}
         <Resumo d={d} />
       </div>
 
@@ -321,6 +298,39 @@ export async function BlocoOS({
   );
 }
 
+/**
+ * Cronômetro preso no topo do detalhe enquanto a tela rola (use dentro de
+ * <Suspense>). Some para quem não pode marcar tempo agora, a não ser que a
+ * própria sessão esteja rodando (aí ainda dá para pausar).
+ */
+export async function CronometroDaOS({
+  chamadoId,
+  className,
+}: {
+  chamadoId: string;
+  className: string;
+}) {
+  const d = await dadosDaOS(chamadoId);
+  if (!d || (!d.ehOS && !d.categoria?.registrar_tempo)) return null;
+  const bloqueio = bloqueioDoCronometro(d);
+  const minha = d.minhaSessaoAberta;
+  if (bloqueio && !minha) return null;
+  return (
+    <div className={className}>
+      <Cronometro
+        chamadoId={d.chamado.id}
+        desde={
+          minha ? deBrasilia(minha.data, minha.inicio).toISOString() : null
+        }
+        bloqueio={bloqueio}
+        outrosRodando={
+          d.sessoes.filter((s) => s.fim === null && s.id !== minha?.id).length
+        }
+      />
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Partes
 // ---------------------------------------------------------------------------
@@ -358,18 +368,7 @@ function Cabecalho({ d }: { d: DadosOS }) {
         )}
       </div>
       {d.ehOS && (
-        <div className="flex flex-wrap gap-2">
-          <WhatsAppOS mensagem={d.mensagemOS} contatos={contatosDaOS(d)} />
-          <a
-            href={rotaPdfOS([ch.id])}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 transition hover:border-neutral-400"
-          >
-            <Printer className="size-4" aria-hidden />
-            PDF
-          </a>
-        </div>
+        <WhatsAppOS mensagem={d.mensagemOS} contatos={contatosDaOS(d)} />
       )}
     </div>
   );
@@ -522,19 +521,10 @@ function ExecucaoLeitura({ d }: { d: DadosOS }) {
   );
 }
 
-function Compacto({
-  d,
-  pendencias,
-  cronometro,
-}: {
-  d: DadosOS;
-  pendencias: string[];
-  cronometro: React.ReactNode;
-}) {
+function Compacto({ d, pendencias }: { d: DadosOS; pendencias: string[] }) {
   return (
     <section className={`${quadro} flex flex-col gap-4`}>
       <Cabecalho d={d} />
-      {cronometro}
       <Resumo d={d} />
       {pendencias.length > 0 && <Pendencias itens={pendencias} />}
       <p className="text-xs text-neutral-500">

@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import { Suspense } from "react";
 import { CartaoCarregando } from "@/components/carregando";
-import { BlocoOS } from "@/components/os/ordem/bloco-os";
+import { BlocoOS, CronometroDaOS } from "@/components/os/ordem/bloco-os";
 import {
   SeloExemplo,
   SeloPrazo,
@@ -93,22 +93,89 @@ export async function DetalheChamado({
   const ehOS = ch.tipo === "os";
   const registraTempo = ehOS || Boolean(d.categoria?.registrar_tempo);
 
+  const ferramentas = (
+    <Ferramentas
+      id={ch.id}
+      links={{
+        imprimir: ehOS
+          ? `/os/ordens/pdf?ids=${ch.id}`
+          : `${rotaChamado(ch.id)}/imprimir`,
+        converter: d.pode.converter ? `/os/novo?converter=${ch.id}` : null,
+        duplicar: `/os/novo?duplicar=${ch.id}`,
+        vinculado: `/os/novo?vinculado=${ch.id}`,
+        historico: d.pode.historico
+          ? `/os/configuracoes/historico?registro=${ch.id}`
+          : null,
+      }}
+      sigo={d.sigo}
+      naLixeira={!!ch.lixeira_em}
+      pode={{ excluir: d.pode.excluir }}
+      whatsapp={
+        ehOS
+          ? null
+          : {
+              mensagem: mensagemDoChamado(d.modeloMensagem, {
+                numero: formatarNumeroChamado(ch.numero),
+                titulo: ch.titulo,
+                status: STATUS[ch.status],
+                prazo: ch.prazo ? formatarDataHora(ch.prazo) : "Sem prazo",
+                tipo: TIPOS[ch.tipo],
+                setor: d.setor?.nome ?? "",
+                descricao: ch.descricao ?? "",
+                link: urlDoSistema(rotaChamado(ch.id)),
+              }),
+              sugeridos: [
+                ...(ch.solicitante_telefone
+                  ? [
+                      {
+                        rotulo: ch.solicitante_nome ?? "Solicitante",
+                        telefone: ch.solicitante_telefone,
+                        descricao: "solicitante",
+                      },
+                    ]
+                  : []),
+                ...(d.loja?.telefone
+                  ? [
+                      {
+                        rotulo: d.loja.nome,
+                        telefone: d.loja.telefone,
+                        descricao: "loja",
+                      },
+                    ]
+                  : []),
+              ],
+              contatos: contatos.map((c) => ({
+                rotulo: c.nome,
+                telefone: c.telefone,
+                descricao: c.empresa ?? undefined,
+              })),
+            }
+      }
+    />
+  );
+
   const topo = (
     <header className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-neutral-900 px-2.5 py-1 font-mono text-xs font-semibold text-white">
-          {formatarNumeroChamado(ch.numero)}
-        </span>
-        <SeloTipo tipo={ch.tipo} />
-        <SeloStatusChamado status={ch.status} aguardando={ch.aguardando_tipo} />
-        <SeloPrioridade prioridade={ch.prioridade} />
-        <SeloPrazo
-          prazo={ch.prazo}
-          status={ch.status}
-          agora={agora}
-          avisoHoras={d.avisoHoras}
-        />
-        {ch.exemplo && <SeloExemplo />}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 pt-1.5">
+          <span className="rounded-full bg-neutral-900 px-2.5 py-1 font-mono text-xs font-semibold text-white">
+            {formatarNumeroChamado(ch.numero)}
+          </span>
+          <SeloTipo tipo={ch.tipo} />
+          <SeloStatusChamado
+            status={ch.status}
+            aguardando={ch.aguardando_tipo}
+          />
+          <SeloPrioridade prioridade={ch.prioridade} />
+          <SeloPrazo
+            prazo={ch.prazo}
+            status={ch.status}
+            agora={agora}
+            avisoHoras={d.avisoHoras}
+          />
+          {ch.exemplo && <SeloExemplo />}
+        </div>
+        {ferramentas}
       </div>
       {compacto ? (
         <h2 className="text-2xl font-semibold tracking-tight break-words">
@@ -163,67 +230,19 @@ export async function DetalheChamado({
     </header>
   );
 
-  const informacoes = <Informacoes d={d} agora={agora} />;
-  const ferramentas = (
-    <Ferramentas
-      id={ch.id}
-      links={{
-        imprimir: ehOS
-          ? `/os/ordens/pdf?ids=${ch.id}`
-          : `${rotaChamado(ch.id)}/imprimir`,
-        converter: d.pode.converter ? `/os/novo?converter=${ch.id}` : null,
-        duplicar: `/os/novo?duplicar=${ch.id}`,
-        vinculado: `/os/novo?vinculado=${ch.id}`,
-        historico: d.pode.historico
-          ? `/os/configuracoes/historico?registro=${ch.id}`
-          : null,
-      }}
-      sigo={d.sigo}
-      naLixeira={!!ch.lixeira_em}
-      pode={{ excluir: d.pode.excluir }}
-      whatsapp={{
-        mensagem: mensagemDoChamado(d.modeloMensagem, {
-          numero: formatarNumeroChamado(ch.numero),
-          titulo: ch.titulo,
-          status: STATUS[ch.status],
-          prazo: ch.prazo ? formatarDataHora(ch.prazo) : "Sem prazo",
-          tipo: TIPOS[ch.tipo],
-          setor: d.setor?.nome ?? "",
-          descricao: ch.descricao ?? "",
-          link: urlDoSistema(rotaChamado(ch.id)),
-        }),
-        sugeridos: [
-          ...(ch.solicitante_telefone
-            ? [
-                {
-                  rotulo: ch.solicitante_nome ?? "Solicitante",
-                  telefone: ch.solicitante_telefone,
-                  descricao: "solicitante",
-                },
-              ]
-            : []),
-          ...(d.loja?.telefone
-            ? [
-                {
-                  rotulo: d.loja.nome,
-                  telefone: d.loja.telefone,
-                  descricao: "loja",
-                },
-              ]
-            : []),
-        ],
-        contatos: contatos.map((c) => ({
-          rotulo: c.nome,
-          telefone: c.telefone,
-          descricao: c.empresa ?? undefined,
-        })),
-      }}
-    />
+  const informacoes = <Informacoes d={d} agora={agora} compacto={compacto} />;
+  // Preso no topo enquanto rola: o técnico pausa sem voltar lá em cima.
+  const cronometro = registraTempo && (
+    <Suspense fallback={null}>
+      <CronometroDaOS
+        chamadoId={ch.id}
+        className={`sticky z-20 ${compacto ? "top-0" : "top-3"}`}
+      />
+    </Suspense>
   );
 
   const corpo = (
     <div className="flex min-w-0 flex-col gap-5">
-      <Avisos d={d} />
       {(ch.descricao || d.campos.length > 0) && (
         <section className={CARTAO}>
           <h3 className={TITULO_SECAO}>Descrição</h3>
@@ -325,28 +344,26 @@ export async function DetalheChamado({
     return (
       <article className="flex min-w-0 flex-col gap-5">
         {topo}
+        {cronometro}
+        <Avisos d={d} />
         <section className={CARTAO}>{informacoes}</section>
         {corpo}
-        <section className={CARTAO}>
-          <h3 className={TITULO_SECAO}>Ferramentas</h3>
-          {ferramentas}
-        </section>
       </article>
     );
 
   return (
-    <article className="flex min-w-0 flex-col gap-6">
+    <article className="flex min-w-0 flex-col gap-5">
       {topo}
+      {cronometro}
+      <Avisos d={d} />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         {corpo}
-        <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-5 lg:self-start">
+        <aside
+          className={`flex min-w-0 flex-col gap-5 lg:sticky lg:self-start ${registraTempo ? "lg:top-24" : "lg:top-5"}`}
+        >
           <section className={CARTAO}>
             <h3 className={TITULO_SECAO}>Informações</h3>
             {informacoes}
-          </section>
-          <section className={CARTAO}>
-            <h3 className={TITULO_SECAO}>Ferramentas</h3>
-            {ferramentas}
           </section>
         </aside>
       </div>
@@ -475,11 +492,21 @@ function Linha({
 const LINK =
   "font-medium underline decoration-neutral-900/20 underline-offset-2 hover:decoration-neutral-900";
 
-function Informacoes({ d, agora }: { d: Detalhe; agora: Date }) {
+function Informacoes({
+  d,
+  agora,
+  compacto,
+}: {
+  d: Detalhe;
+  agora: Date;
+  compacto: boolean;
+}) {
   const { ch } = d;
   const recorrencia = ch.recorrencia as Recorrencia | null;
   return (
-    <dl className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-1">
+    <dl
+      className={`grid grid-cols-1 gap-x-6 gap-y-4 min-[420px]:grid-cols-2 ${compacto ? "md:grid-cols-3" : "lg:grid-cols-1"}`}
+    >
       <Linha rotulo="Setor e categoria">
         <span className="flex flex-wrap items-center gap-1.5">
           {d.setor && <SeloSetor nome={d.setor.nome} cor={d.setor.cor} />}
