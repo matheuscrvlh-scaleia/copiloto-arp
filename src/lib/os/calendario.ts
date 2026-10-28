@@ -155,11 +155,18 @@ const partes = (d: string) =>
 /** "outubro de 2026", "19 a 25 de outubro", "sexta, 23 de outubro de 2026". */
 export function tituloDoPeriodo(visao: VisaoFixa, data: string): string {
   const [a, m, d] = partes(data);
-  if (visao === "mes") return `${MESES[m - 1]} de ${a}`;
+  if (visao === "mes") return rotuloDoMes(data);
   if (visao === "dia")
     return `${DIAS_LONGOS[diaDaSemana(data)]}, ${d} de ${MESES[m - 1]} de ${a}`;
   const { de, ate } = intervaloDaVisao("semana", data);
   return tituloDoIntervalo(de, ate);
+}
+
+/** "outubro de 2026"; curto, "out". */
+export function rotuloDoMes(data: string, curto = false): string {
+  const [a, m] = partes(data);
+  const nome = MESES[m - 1] ?? "";
+  return curto ? nome.slice(0, 3) : `${nome} de ${a}`;
 }
 
 /** "19 a 25 de outubro de 2026", "28 de outubro a 3 de novembro de 2026". */

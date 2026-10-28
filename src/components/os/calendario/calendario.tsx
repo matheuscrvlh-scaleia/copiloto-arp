@@ -8,7 +8,7 @@ import type {
 import { Check, GripVertical } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   Ponte,
   PonteDoArraste,
@@ -29,6 +29,7 @@ import {
   itensPorDia,
   prazoNoDia,
   rotuloDoDia,
+  rotuloDoMes,
   TIPOS_ITEM,
   type TipoItem,
 } from "@/lib/os/calendario";
@@ -217,6 +218,7 @@ function Conteudo({
             <Mes
               semanas={gradeDoPeriodo(de, ate)}
               fora={(d) => d < de || d > ate}
+              meses
               {...grade}
             />
           )}
@@ -315,12 +317,22 @@ function Legenda({
   );
 }
 
-/** Grade de semanas: o mês, ou o período escolhido. */
+/**
+ * Grade de semanas: o mês, ou o período escolhido. Com `meses`, uma linha
+ * discreta com o nome do mês antes da semana em que ele começa.
+ */
 function Mes({
   semanas,
   fora,
+  meses = false,
   ...p
-}: PropsGrade & { semanas: string[][]; fora: (d: string) => boolean }) {
+}: PropsGrade & {
+  semanas: string[][];
+  fora: (d: string) => boolean;
+  meses?: boolean;
+}) {
+  const inicioDoMes = (s: string[], primeira: boolean) =>
+    s.find((d) => !fora(d) && (primeira || d.endsWith("-01")));
   return (
     <div className="vidro overflow-hidden rounded-[1.75rem]">
       <div
@@ -333,16 +345,37 @@ function Mes({
           </span>
         ))}
       </div>
-      {semanas.map((s) => (
-        <div
-          key={s[0]}
-          className="grid grid-cols-7 border-b border-neutral-900/[0.06] last:border-0"
-        >
-          {s.map((d) => (
-            <Dia key={d} dia={d} foraDoMes={fora(d)} {...p} />
-          ))}
-        </div>
-      ))}
+      {semanas.map((s, i) => {
+        const novoMes = meses ? inicioDoMes(s, i === 0) : undefined;
+        return (
+          <Fragment key={s[0]}>
+            {novoMes && (
+              <h3 className="flex items-center gap-3 px-3 pt-3 pb-1.5 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">
+                {rotuloDoMes(novoMes)}
+                <span
+                  aria-hidden
+                  className="h-px flex-1 bg-neutral-900/[0.06]"
+                />
+              </h3>
+            )}
+            <div className="grid grid-cols-7 border-b border-neutral-900/[0.06] last:border-0">
+              {s.map((d) => (
+                <Dia
+                  key={d}
+                  dia={d}
+                  foraDoMes={fora(d)}
+                  mesCurto={
+                    meses && d.endsWith("-01") && !fora(d)
+                      ? rotuloDoMes(d, true)
+                      : undefined
+                  }
+                  {...p}
+                />
+              ))}
+            </div>
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -357,7 +390,8 @@ function Dia({
   hrefDia,
   sobre,
   arrastandoId,
-}: PropsGrade & { dia: string; foraDoMes: boolean }) {
+  mesCurto,
+}: PropsGrade & { dia: string; foraDoMes: boolean; mesCurto?: string }) {
   const ponte = usePonte();
   const id = `${prefixo}${dia}`;
   const isOver = sobre === id;
@@ -369,14 +403,21 @@ function Dia({
       ref={ponte.soltavel(id)}
       className={`flex min-h-32 flex-col gap-1 border-r border-neutral-900/[0.06] p-1.5 transition last:border-0 ${foraDoMes ? "bg-neutral-900/[0.02]" : ""} ${isOver ? "bg-marca/15" : ""}`}
     >
-      <Link
-        href={hrefDia(dia)}
-        scroll={false}
-        aria-label={`Ver o dia ${rotuloDoDia(dia)}`}
-        className={`grid size-7 place-items-center self-start rounded-full text-xs tabular-nums transition hover:bg-neutral-900/[0.06] ${ehHoje ? "bg-neutral-900 font-semibold text-white hover:bg-neutral-800" : foraDoMes ? "text-neutral-400" : "text-neutral-700"}`}
-      >
-        {Number(dia.slice(8))}
-      </Link>
+      <span className="flex items-center gap-1">
+        <Link
+          href={hrefDia(dia)}
+          scroll={false}
+          aria-label={`Ver o dia ${rotuloDoDia(dia)}`}
+          className={`grid size-7 place-items-center rounded-full text-xs tabular-nums transition hover:bg-neutral-900/[0.06] ${ehHoje ? "bg-neutral-900 font-semibold text-white hover:bg-neutral-800" : foraDoMes ? "text-neutral-400" : "text-neutral-700"}`}
+        >
+          {Number(dia.slice(8))}
+        </Link>
+        {mesCurto && (
+          <span aria-hidden className="text-xs text-neutral-400">
+            {mesCurto}
+          </span>
+        )}
+      </span>
       {itens.slice(0, MAX_NO_DIA).map((i) => (
         <Chip
           key={i.chave}
