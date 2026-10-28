@@ -82,7 +82,7 @@ export function DependentesDoPlano({
               {!recebe && (
                 <p className="text-xs text-amber-700">
                   {d.titular} não recebe {b.nome} em {formatarMes(mes)}:
-                  adicione a pessoa ou o contrato dela em Quem recebe para o
+                  adicione a pessoa ou o contrato dela em Colaboradores para o
                   dependente entrar.
                 </p>
               )}

@@ -1,7 +1,8 @@
 "use client";
 
-import { Search } from "lucide-react";
-import { useState } from "react";
+import { Copy, Download, Search, Upload } from "lucide-react";
+import { useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { classeCampo } from "@/components/estilos";
 import { type Acao, EnvioDaAcao, FormAcao } from "@/components/form-acao";
 import { notificar } from "@/components/notificacoes";
@@ -93,10 +94,10 @@ function pessoasNoMes(pessoas: PessoaDoBeneficio[], competencia: string) {
 }
 
 const botaoClaro =
-  "rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
- * Aba "Valores do mês" do benefício que varia por mês: competência, modelo,
+ * Aba "Valores por mês" do benefício que varia por mês: competência, modelo,
  * importação e cópia em cima; a lista de quem recebe com o campo de valor; a
  * barra de salvar fica presa embaixo da tela. Cada mês é um lançamento à
  * parte; sem lançamento, o custo repete o último anterior.
@@ -197,6 +198,8 @@ export function ValoresDoMes({
     }
   }
 
+  const faltam = doMes.length - lancadosNoMes;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -210,48 +213,7 @@ export function ValoresDoMes({
             className={`${classeCampo} w-44`}
           />
         </label>
-        <p className="text-sm text-neutral-600">
-          <span className="font-semibold text-neutral-900 tabular-nums">
-            {lancadosNoMes} de {doMes.length}
-          </span>{" "}
-          com valor lançado em {formatarMes(competencia)}
-          {doMes.length - lancadosNoMes > 0 && (
-            <span className="text-amber-700">
-              {" "}
-              · faltam {doMes.length - lancadosNoMes}
-            </span>
-          )}
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900/[0.03] p-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={modelo}
-            disabled={gerando || doMes.length === 0}
-            className={botaoClaro}
-          >
-            {gerando ? "Gerando…" : "Baixar planilha modelo"}
-          </button>
-          <FormAcao
-            acao={importar}
-            rotulo="Importar planilha"
-            rotuloEnviando="Importando…"
-            variante="secundario"
-            className="flex min-w-0 flex-1 flex-wrap items-center gap-3"
-          >
-            <input type="hidden" name="beneficio_id" value={beneficioId} />
-            <input type="hidden" name="competencia" value={mes} />
-            <input
-              type="file"
-              name="arquivo"
-              required
-              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              aria-label={`Planilha com os valores de ${formatarMes(competencia)} (.xlsx)`}
-              className="min-w-0 flex-1 text-xs file:mr-3 file:rounded-full file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-neutral-100"
-            />
-          </FormAcao>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={copiarAnterior}
@@ -259,24 +221,39 @@ export function ValoresDoMes({
             title={
               comAnterior.length === 0
                 ? `Ninguém tem valor lançado antes de ${formatarMes(competencia)}`
-                : undefined
+                : "Preenche com o último valor lançado de cada pessoa"
             }
             className={botaoClaro}
           >
+            <Copy className="size-4" aria-hidden />
             Copiar do mês anterior
           </button>
+          <button
+            type="button"
+            onClick={modelo}
+            disabled={gerando || doMes.length === 0}
+            title={`Planilha com quem recebe em ${formatarMes(competencia)}`}
+            className={botaoClaro}
+          >
+            <Download className="size-4" aria-hidden />
+            {gerando ? "Gerando…" : "Baixar modelo"}
+          </button>
+          <FormAcao acao={importar} botaoNoFim={false} className="flex">
+            <input type="hidden" name="beneficio_id" value={beneficioId} />
+            <input type="hidden" name="competencia" value={mes} />
+            <BotaoImportar competencia={competencia} />
+          </FormAcao>
         </div>
-        <p className="text-xs text-neutral-500">
-          Baixe o modelo com quem recebe em {formatarMes(competencia)}, preencha
-          a coluna Valor e importe. Valor em branco não é lançado. O CPF é
-          opcional e não é gravado: cada linha vale pela pessoa de mesmo nome.
-        </p>
       </div>
+      <p className="-mt-1 text-xs text-neutral-500">
+        Planilha: baixe o modelo, preencha a coluna Valor e importe (.xlsx).
+        Valor em branco não é lançado; o CPF é opcional e não é gravado.
+      </p>
 
       {doMes.length === 0 ? (
         <p className="py-6 text-center text-sm text-neutral-500">
           Ninguém recebe este benefício em {formatarMes(competencia)}. Adicione
-          pessoas ou um tipo de contrato em Quem recebe.
+          pessoas ou um tipo de contrato em Colaboradores.
         </p>
       ) : (
         <FormAcao
@@ -287,20 +264,31 @@ export function ValoresDoMes({
         >
           <input type="hidden" name="beneficio_id" value={beneficioId} />
           <input type="hidden" name="competencia" value={mes} />
-          {doMes.length > 8 && (
-            <label className="flex items-center gap-2 rounded-full border border-neutral-900/10 bg-white/70 py-1.5 pr-4 pl-1.5 text-sm">
-              <span className="grid size-7 place-items-center rounded-full bg-neutral-900 text-white">
-                <Search className="size-3.5" aria-hidden />
-              </span>
-              <span className="sr-only">Buscar pessoa</span>
-              <input
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar pelo nome…"
-                className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-neutral-400"
-              />
-            </label>
-          )}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-900/[0.06] pb-3">
+            <p className="text-sm text-neutral-600">
+              <span className="font-semibold text-neutral-900 tabular-nums">
+                {lancadosNoMes} de {doMes.length}
+              </span>{" "}
+              com valor lançado em {formatarMes(competencia)}
+              {faltam > 0 && (
+                <span className="text-amber-700"> · faltam {faltam}</span>
+              )}
+            </p>
+            {doMes.length > 8 && (
+              <label className="flex w-full items-center gap-2 rounded-full border border-neutral-900/10 bg-white/70 py-1 pr-3 pl-1 text-sm sm:w-72">
+                <span className="grid size-7 place-items-center rounded-full bg-neutral-900 text-white">
+                  <Search className="size-3.5" aria-hidden />
+                </span>
+                <span className="sr-only">Buscar pessoa</span>
+                <input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar pelo nome…"
+                  className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-neutral-400"
+                />
+              </label>
+            )}
+          </div>
           <ul className="flex flex-col divide-y divide-neutral-900/[0.06] text-sm">
             {doMes.map((p) => {
               const anterior = antes(p.colaborador_id);
@@ -366,5 +354,48 @@ export function ValoresDoMes({
         </FormAcao>
       )}
     </div>
+  );
+}
+
+/**
+ * "Importar planilha": abre a escolha do arquivo e envia assim que ele é
+ * escolhido (sem o campo "Escolher arquivo" na tela). Fica dentro do
+ * formulário da importação, de onde lê se está enviando.
+ */
+function BotaoImportar({ competencia }: { competencia: string }) {
+  const { pending } = useFormStatus();
+  const arquivo = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input
+        ref={arquivo}
+        type="file"
+        name="arquivo"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        tabIndex={-1}
+        aria-hidden
+        className="sr-only"
+        onChange={(e) => {
+          if (e.currentTarget.files?.length)
+            e.currentTarget.form?.requestSubmit();
+        }}
+      />
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => {
+          // Limpa antes de abrir: escolher o mesmo arquivo de novo também envia.
+          if (arquivo.current) {
+            arquivo.current.value = "";
+            arquivo.current.click();
+          }
+        }}
+        title={`Planilha .xlsx com os valores de ${formatarMes(competencia)}`}
+        className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:opacity-60"
+      >
+        <Upload className="size-4" aria-hidden />
+        {pending ? "Importando…" : "Importar planilha"}
+      </button>
+    </>
   );
 }

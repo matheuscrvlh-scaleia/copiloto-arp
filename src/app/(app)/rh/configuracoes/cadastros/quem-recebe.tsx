@@ -102,7 +102,7 @@ function ValorDoMes({
   );
 }
 
-/** Aba "Quem recebe": por tipo de contrato e pessoas específicas. */
+/** Aba "Colaboradores": por tipo de contrato e pessoas específicas. */
 export function QuemRecebe({
   beneficio: b,
   info,
@@ -199,7 +199,7 @@ export function QuemRecebe({
         titulo={`Pessoas (${vinculos.length})`}
         descricao={
           porMes
-            ? `Valor de ${formatarMes(d.mesAtual)}, lançado na aba Valores do mês.`
+            ? `Valor de ${formatarMes(d.mesAtual)}, lançado na aba Valores por mês.`
             : `Valor de ${formatarMes(d.mesAtual)}${pelaFaixa ? ", pela idade de cada pessoa na tabela vigente" : ""}. O valor manual vale no lugar dele; apague e salve para voltar ${pelaFaixa ? "à faixa" : "ao padrão"}.`
         }
       >

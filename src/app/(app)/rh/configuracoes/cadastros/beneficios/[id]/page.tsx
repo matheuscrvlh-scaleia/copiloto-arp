@@ -26,7 +26,7 @@ import { ValoresDoMes } from "../../valores-do-mes";
 
 export const metadata: Metadata = { title: "Benefício" };
 
-type Aba = "quem-recebe" | "valores" | "dependentes" | "configuracao";
+type Aba = "colaboradores" | "dependentes" | "valores" | "configuracoes";
 
 export default function Page({
   params,
@@ -69,22 +69,10 @@ async function Detalhe({
   const abas: { id: Aba; rotulo: string; marca?: string; alerta?: boolean }[] =
     [
       {
-        id: "quem-recebe",
-        rotulo: "Quem recebe",
+        id: "colaboradores",
+        rotulo: "Colaboradores",
         marca: String(info.recebemNoMes),
       },
-      ...(info.porMes
-        ? [
-            {
-              id: "valores" as const,
-              rotulo: "Valores do mês",
-              marca: info.semValorNoMes
-                ? `faltam ${info.semValorNoMes}`
-                : undefined,
-              alerta: info.semValorNoMes > 0,
-            },
-          ]
-        : []),
       ...(info.temDependentes
         ? [
             {
@@ -95,31 +83,32 @@ async function Detalhe({
             },
           ]
         : []),
-      { id: "configuracao", rotulo: "Configuração" },
+      ...(info.porMes
+        ? [
+            {
+              id: "valores" as const,
+              rotulo: "Valores por mês",
+              marca: info.semValorNoMes
+                ? `faltam ${info.semValorNoMes}`
+                : undefined,
+              alerta: info.semValorNoMes > 0,
+            },
+          ]
+        : []),
+      { id: "configuracoes", rotulo: "Configurações" },
     ];
   const pedida = typeof busca.aba === "string" ? busca.aba : "";
   const aba: Aba = abas.some((a) => a.id === pedida)
     ? (pedida as Aba)
-    : "quem-recebe";
+    : "colaboradores";
 
   const lancadosNoMes = info.recebemNoMes - info.semValorNoMes;
   const resumo: { rotulo: string; valor: string; detalhe?: string }[] = [
     {
-      rotulo: "Quem recebe",
+      rotulo: "Colaboradores",
       valor: String(info.recebemNoMes),
-      detalhe: `em ${formatarMes(mes)}`,
+      detalhe: `recebem em ${formatarMes(mes)}`,
     },
-    ...(info.porMes
-      ? [
-          {
-            rotulo: `Valores de ${formatarMes(mes)}`,
-            valor: `${lancadosNoMes} de ${info.recebemNoMes}`,
-            detalhe: info.semValorNoMes
-              ? `faltam ${info.semValorNoMes}`
-              : "todos lançados",
-          },
-        ]
-      : []),
     ...(info.temDependentes
       ? [
           {
@@ -129,6 +118,17 @@ async function Detalhe({
               b.dependente_regra === "nao_paga"
                 ? "pagos pelo funcionário"
                 : "parte paga pela empresa",
+          },
+        ]
+      : []),
+    ...(info.porMes
+      ? [
+          {
+            rotulo: `Valores de ${formatarMes(mes)}`,
+            valor: `${lancadosNoMes} de ${info.recebemNoMes}`,
+            detalhe: info.semValorNoMes
+              ? `faltam ${info.semValorNoMes}`
+              : "todos lançados",
           },
         ]
       : []),
@@ -145,7 +145,7 @@ async function Detalhe({
     <div className="flex flex-col gap-5">
       {busca.criado === "1" && (
         <NotificarAoAbrir
-          texto="Benefício cadastrado. Agora diga quem recebe."
+          texto="Benefício cadastrado. Agora adicione os colaboradores."
           parametro="criado"
         />
       )}
@@ -217,13 +217,13 @@ async function Detalhe({
         })}
       </nav>
 
-      {aba === "quem-recebe" && (
+      {aba === "colaboradores" && (
         <QuemRecebe beneficio={b} info={info} dados={d} />
       )}
 
       {aba === "valores" && (
         <Secao
-          titulo="Valores do mês"
+          titulo="Valores por mês"
           descricao="Cada mês é um lançamento à parte: lançar ou alterar um mês não muda os anteriores. Sem lançamento, o custo repete o último valor lançado antes."
         >
           <ValoresDoMes
@@ -258,10 +258,10 @@ async function Detalhe({
         </Secao>
       )}
 
-      {aba === "configuracao" && (
+      {aba === "configuracoes" && (
         <>
           <Secao
-            titulo="Configuração"
+            titulo="Configurações"
             descricao="Mudar o valor, as rubricas ou a regra dos dependentes recalcula o custo das folhas em aberto."
           >
             <FormBeneficio beneficio={b} />
