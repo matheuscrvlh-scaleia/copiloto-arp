@@ -73,6 +73,18 @@ const LAYOUT: Record<string, { span?: string; tom?: keyof typeof TOM }> = {
   direcionadores: { tom: "escuro" },
 };
 
+/** Na plataforma, os pares que dividem a linha (2 + 1) vêm na frente, sem buraco. */
+const PRIMEIROS_NA_PLATAFORMA = [
+  "proposito",
+  "tagline",
+  "atributos",
+  "arquetipo",
+];
+const posicao = (chave: string) => {
+  const i = PRIMEIROS_NA_PLATAFORMA.indexOf(chave);
+  return i < 0 ? PRIMEIROS_NA_PLATAFORMA.length : i;
+};
+
 /** De onde vem o texto que falta, para o aviso de bloco vazio. */
 const fonteDe = (b: BlocoMarca) =>
   b.chave.startsWith("cores_")
@@ -130,7 +142,13 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     );
   };
 
-  const daAba = (a: AbaDeBlocos) => blocos.filter((x) => x.aba === a);
+  const daAba = (a: AbaDeBlocos) => {
+    const lista = blocos.filter((x) => x.aba === a);
+    // sort é estável: o resto mantém a ordem do banco.
+    return a === "plataforma"
+      ? lista.sort((x, y) => posicao(x.chave) - posicao(y.chave))
+      : lista;
+  };
 
   return (
     <div className="flex flex-col gap-6">
