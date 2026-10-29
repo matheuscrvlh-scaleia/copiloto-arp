@@ -15,6 +15,7 @@ export interface RdStationConfig {
 }
 
 const tokenSchema = z.object({ access_token: z.string().min(1) });
+const codigoSchema = tokenSchema.extend({ refresh_token: z.string().min(1) });
 const contaSchema = z.object({ name: z.string() });
 
 export function createRdStationClient(config: RdStationConfig) {
@@ -49,4 +50,28 @@ export function createRdStationClient(config: RdStationConfig) {
       return parseWith(SISTEMA, contaSchema, r);
     },
   };
+}
+
+/**
+ * Troca o code da autorização (vale 1 hora, uma vez só) pelo refresh token.
+ * O code chega na URL de callback do app, depois de a conta autorizar.
+ */
+export async function trocarCodigoRd(config: {
+  clientId: string;
+  clientSecret: string;
+  code: string;
+  fetch?: typeof fetch;
+}): Promise<string> {
+  const r = await requestJson(SISTEMA, `${API_URL}/auth/token`, {
+    method: "POST",
+    query: { token_by: "code" },
+    body: {
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      code: config.code,
+    },
+    retries: 0,
+    fetch: config.fetch,
+  });
+  return parseWith(SISTEMA, codigoSchema, r).refresh_token;
 }

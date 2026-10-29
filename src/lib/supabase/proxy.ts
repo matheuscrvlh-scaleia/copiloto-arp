@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { INICIO } from "@/config/navigation";
 import { AVISO_DE_USO_MS } from "@/config/sessao";
+import { retornoDoRd } from "@/lib/integracoes";
 import { ROTA_TROCAR_SENHA, temSenhaProvisoria } from "@/lib/senha-provisoria";
 import {
   assinarSessao,
@@ -94,9 +95,14 @@ export async function atualizarSessao(request: NextRequest) {
     return r;
   };
 
+  // O RD Station volta da autorização para a raiz (URL de callback do app)
+  // com code e state: segue para a rota de retorno, mesmo passando pelo login.
+  const voltaDoRd = retornoDoRd(request.nextUrl);
+
   if (!logado && !publica) {
     const params: Record<string, string> = {};
-    if (pathname !== "/") params.next = pathname + search;
+    if (voltaDoRd) params.next = voltaDoRd;
+    else if (pathname !== "/") params.next = pathname + search;
     if (expirou) params.motivo = "expirou";
     return redirecionar("/login", params);
   }
@@ -105,6 +111,13 @@ export async function atualizarSessao(request: NextRequest) {
   const trocando = pathname === ROTA_TROCAR_SENHA;
   if (temSenhaProvisoria(data?.claims) !== trocando) {
     return redirecionar(trocando ? INICIO : ROTA_TROCAR_SENHA);
+  }
+  if (voltaDoRd) {
+    const [caminho, query] = voltaDoRd.split("?") as [string, string];
+    return redirecionar(
+      caminho,
+      Object.fromEntries(new URLSearchParams(query)),
+    );
   }
   // Logado: "/" e "/login" levam direto para a primeira tela (Gestão).
   if (pathname === "/login" || pathname === "/") return redirecionar(INICIO);

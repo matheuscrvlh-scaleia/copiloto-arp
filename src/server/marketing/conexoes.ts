@@ -173,6 +173,10 @@ export const TESTES_MARKETING: Record<
 
   async mkt_rd_station(c) {
     const { p, s } = abrir("mkt_rd_station", c);
+    if (!s("refresh_token"))
+      throw new Error(
+        "falta autorizar: clique em Conectar com o RD Station (gera o refresh token)",
+      );
     const conta = await createRdStationClient({
       clientId: p("client_id"),
       clientSecret: s("client_secret"),

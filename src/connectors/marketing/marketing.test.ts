@@ -3,7 +3,7 @@ import { ConnectorError } from "../http";
 import { createAsanaClient } from "./asana";
 import { createGoogleClient } from "./google";
 import { createMetaClient } from "./meta";
-import { createRdStationClient } from "./rd-station";
+import { createRdStationClient, trocarCodigoRd } from "./rd-station";
 import { createSiteClient } from "./site";
 import { createTikTokClient } from "./tiktok";
 
@@ -273,5 +273,45 @@ describe("site (WordPress)", () => {
       fetch: falso([{ code: "rest_no_route" }]),
     });
     await expect(api.eventos()).rejects.toBeInstanceOf(ConnectorError);
+  });
+});
+
+describe("rd station: autorização", () => {
+  it("troca o code pelo refresh token, uma tentativa só", async () => {
+    const chamadas: Chamada[] = [];
+    const refresh = await trocarCodigoRd({
+      clientId: "id",
+      clientSecret: "segredo",
+      code: "c0de",
+      fetch: falso(
+        [{ access_token: "a", expires_in: 86400, refresh_token: "r" }],
+        chamadas,
+      ),
+    });
+    expect(refresh).toBe("r");
+    expect(chamadas[0]?.url).toBe(
+      "https://api.rd.services/auth/token?token_by=code",
+    );
+    expect(JSON.parse(chamadas[0]?.corpo ?? "")).toEqual({
+      client_id: "id",
+      client_secret: "segredo",
+      code: "c0de",
+    });
+  });
+
+  it("code expirado vira erro do conector", async () => {
+    await expect(
+      trocarCodigoRd({
+        clientId: "id",
+        clientSecret: "segredo",
+        code: "velho",
+        fetch: falso([
+          new Response(
+            JSON.stringify({ errors: [{ error_type: "EXPIRED_CODE_GRANT" }] }),
+            { status: 401 },
+          ),
+        ]),
+      }),
+    ).rejects.toBeInstanceOf(ConnectorError);
   });
 });

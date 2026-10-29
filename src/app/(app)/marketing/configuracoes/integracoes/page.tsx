@@ -1,4 +1,4 @@
-import { TriangleAlert } from "lucide-react";
+import { CircleCheck, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -11,7 +11,12 @@ import {
 import { Secao } from "@/components/dashboard/tabela";
 import { Fonte } from "@/components/marketing/tela";
 import { Protegido } from "@/components/protegido";
-import { resultadoDoProduto, type Sistema } from "@/lib/integracoes";
+import {
+  RETORNO_RD,
+  type ResultadoRd,
+  resultadoDoProduto,
+  type Sistema,
+} from "@/lib/integracoes";
 import { conferirAsana, nomesDoAsana } from "@/lib/marketing/parametros";
 import { type IntegracaoNaTela, integracoesNaTela } from "@/server/admin/dados";
 import { parametros } from "@/server/marketing/base";
@@ -118,17 +123,28 @@ function situacaoDaFonte(i: IntegracaoNaTela, produto?: string) {
   return { tipo: "neutro" as const, texto: "Id não preenchido" };
 }
 
-export default function Page() {
+export default function Page({
+  searchParams,
+}: PageProps<"/marketing/configuracoes/integracoes">) {
   return (
     <Suspense fallback={<EsqueletoConfiguracoes />}>
       <Protegido permissao="marketing.parametros">
-        <Tela />
+        <Tela busca={searchParams} />
       </Protegido>
     </Suspense>
   );
 }
 
-async function Tela() {
+async function Tela({
+  busca,
+}: {
+  busca: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { rd } = await busca;
+  const retornoRd =
+    typeof rd === "string" && rd in RETORNO_RD
+      ? RETORNO_RD[rd as ResultadoRd]
+      : null;
   const [p, asana, historico, { cofre, integracoes }] = await Promise.all([
     parametros(),
     dadosAsana(),
@@ -202,6 +218,20 @@ async function Tela() {
           agenda do site já é a real, relida a cada hora.
         </Fonte>
       </Secao>
+
+      {retornoRd && (
+        <p
+          role={retornoRd.ok ? "status" : "alert"}
+          className={`flex items-start gap-3 rounded-[1.75rem] p-5 text-sm ${retornoRd.ok ? "bg-green-50 text-green-800" : "bg-amber-50 text-amber-900"}`}
+        >
+          {retornoRd.ok ? (
+            <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
+          ) : (
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+          )}
+          <span>{retornoRd.texto}</span>
+        </p>
+      )}
 
       {!cofre && (
         <p

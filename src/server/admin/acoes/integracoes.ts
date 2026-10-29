@@ -1,6 +1,7 @@
 "use server";
 
 import { refresh, updateTag } from "next/cache";
+import { redirect } from "next/navigation";
 import { after } from "next/server";
 import type { EstadoAcao } from "@/components/form-acao";
 import {
@@ -23,6 +24,7 @@ import {
   testarConexao,
 } from "@/server/integracoes";
 import { registrarDepois } from "@/server/logs";
+import { iniciarAutorizacaoRd } from "@/server/marketing/autorizacao-rd";
 import { sincronizarCopiloto } from "@/server/sync/copiloto-rh";
 import { sincronizarSecullum } from "@/server/sync/secullum";
 import { sincronizarWps } from "@/server/sync/wps";
@@ -94,6 +96,21 @@ export async function salvarIntegracao(
   const falta = def.segredos.find((s) => !s.opcional && !valores[s.nome]);
   if (falta) return { erro: `${falta.rotulo}: obrigatório` };
   const segredo = juntarSegredos(def, valores);
+
+  // "Conectar com …" (OAuth): salva o que foi digitado sem testar (falta o
+  // segredo que a autorização gera) e segue para a tela da ferramenta.
+  if (def.autorizar && form.get("autorizar") === "1") {
+    const salvo = await (await createClient())
+      .schema("core")
+      .rpc("salvar_integracao", {
+        p_sistema: sistema,
+        p_parametros: p.data as Json,
+        p_segredo_cifrado: (trocou ? cifrar(segredo, sistema) : null) as string,
+        p_ativa: true,
+      });
+    if (salvo.error) return erroDoBanco(salvo.error);
+    redirect(await iniciarAutorizacaoRd(String(p.data.client_id)));
+  }
 
   const ativa = form.get("ativa") === "on";
   const semTeste = form.get("sem_teste") === "on";

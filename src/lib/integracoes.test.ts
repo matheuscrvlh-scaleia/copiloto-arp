@@ -4,6 +4,7 @@ import {
   juntarSegredos,
   linhaDoProduto,
   resultadoDoProduto,
+  retornoDoRd,
   SISTEMAS,
   separarSegredos,
 } from "./integracoes";
@@ -109,5 +110,22 @@ describe("Google e Meta: um acesso, vários produtos", () => {
     expect(resultadoDoProduto(msg, "Google Ads")).toBe(false);
     expect(resultadoDoProduto(msg, "Analytics 4")).toBeNull();
     expect(resultadoDoProduto(null, "YouTube")).toBeNull();
+  });
+});
+
+describe("volta da autorização do RD Station", () => {
+  const url = (s: string) => new URL(s, "https://arp.copiloto.scaleia.ai");
+
+  it("code e state do RD na raiz seguem para a rota de retorno", () => {
+    expect(retornoDoRd(url("/?code=abc&state=rd.xyz"))).toBe(
+      "/api/integracoes/rd-station/retorno?code=abc&state=rd.xyz",
+    );
+  });
+
+  it("sem state do RD, fora da raiz ou sem code, nada muda", () => {
+    expect(retornoDoRd(url("/?code=abc&state=outro"))).toBeNull();
+    expect(retornoDoRd(url("/?code=abc"))).toBeNull();
+    expect(retornoDoRd(url("/gestao?code=abc&state=rd.x"))).toBeNull();
+    expect(retornoDoRd(url("/?state=rd.x"))).toBeNull();
   });
 });

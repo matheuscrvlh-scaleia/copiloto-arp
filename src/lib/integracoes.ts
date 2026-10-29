@@ -45,6 +45,11 @@ export interface DefinicaoIntegracao {
   segredos: Segredo[];
   /** Validação dos campos comuns (os segredos são validados à parte). */
   parametros: z.ZodType<Record<string, string | number>>;
+  /**
+   * Botão que leva à tela de autorização da ferramenta (OAuth): ela volta
+   * para o sistema com um code, que vira o segredo `segredo`.
+   */
+  autorizar?: { rotulo: string; segredo: string };
 }
 
 const texto = z.string().trim().min(1, "obrigatório");
@@ -371,10 +376,16 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       {
         nome: "refresh_token",
         rotulo: "Refresh token",
-        ajuda: "Devolvido quando a conta da ARP autoriza o app",
+        opcional: true,
+        ajuda:
+          "Não precisa preencher: o botão Conectar com o RD Station gera e salva",
       },
     ],
     parametros: z.object({ client_id: texto }),
+    autorizar: {
+      rotulo: "Conectar com o RD Station",
+      segredo: "refresh_token",
+    },
   },
   mkt_asana: {
     nome: "Asana",
@@ -488,6 +499,65 @@ export function separarSegredos(
     return {};
   }
 }
+
+/**
+ * Autorização do RD Station: a URL de callback cadastrada no app é a raiz do
+ * sistema; o proxy manda o code que chega lá (com o state que começa com o
+ * prefixo) para a rota de retorno.
+ */
+export const AUTORIZACAO_RD = {
+  retorno: "/api/integracoes/rd-station/retorno",
+  prefixoState: "rd.",
+} as const;
+
+/** "/?code=…&state=rd.…" → caminho da rota de retorno com os dois; senão null. */
+export function retornoDoRd(url: URL): string | null {
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  if (
+    url.pathname !== "/" ||
+    !code ||
+    !state?.startsWith(AUTORIZACAO_RD.prefixoState)
+  )
+    return null;
+  return `${AUTORIZACAO_RD.retorno}?${new URLSearchParams({ code, state })}`;
+}
+
+/** Resultado da volta da autorização, com o texto que a tela mostra. */
+export const RETORNO_RD = {
+  conectado: {
+    ok: true,
+    texto: "RD Station conectado: o refresh token foi gerado e salvo.",
+  },
+  teste: {
+    ok: false,
+    texto:
+      "Autorizado e salvo, mas o teste da conexão falhou (veja o cartão do RD).",
+  },
+  permissao: {
+    ok: false,
+    texto: "Você não tem permissão para configurar integrações.",
+  },
+  state: {
+    ok: false,
+    texto:
+      "A autorização expirou ou não começou neste navegador. Clique em Conectar com o RD Station de novo.",
+  },
+  credencial: {
+    ok: false,
+    texto: "Salve o Client ID e o Client secret antes de conectar.",
+  },
+  codigo: {
+    ok: false,
+    texto:
+      "O RD recusou o código (expirado, já usado ou de outro app). Clique em Conectar com o RD Station de novo.",
+  },
+  salvar: {
+    ok: false,
+    texto: "Não foi possível salvar o acesso. Tente de novo.",
+  },
+} as const;
+export type ResultadoRd = keyof typeof RETORNO_RD;
 
 export function ehSistema(valor: unknown): valor is Sistema {
   return SISTEMAS.includes(valor as Sistema);
