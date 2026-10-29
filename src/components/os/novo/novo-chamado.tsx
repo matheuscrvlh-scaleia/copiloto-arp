@@ -103,8 +103,12 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
   const naVistoria =
     caminho.startsWith(`${ROTAS_OS.vistorias}/`) &&
     !caminho.slice(ROTAS_OS.vistorias.length + 1).includes("/");
-  const ehOS =
-    caminho === ROTAS_OS.ordens || caminho.startsWith(`${ROTAS_OS.ordens}/`);
+  const naTela = (rota: string) =>
+    caminho === rota || caminho.startsWith(`${rota}/`);
+  // Cada tela cria o seu: OS nas ordens, aviso nos avisos, chamado no resto.
+  const ehOS = naTela(ROTAS_OS.ordens);
+  const ehAviso = naTela(ROTAS_OS.avisos);
+  const nome = ehOS ? "Nova OS" : ehAviso ? "Novo aviso" : "Novo chamado";
   useEffect(() => setMontado(true), []);
 
   function fechar() {
@@ -120,8 +124,8 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
       onPointerEnter={carregarFormulario}
       onFocus={carregarFormulario}
       aria-haspopup="dialog"
-      aria-label={ehOS ? "Abrir nova OS" : "Abrir novo chamado"}
-      title={ehOS ? "Nova OS" : "Novo chamado"}
+      aria-label={`Abrir ${nome.toLowerCase()}`}
+      title={nome}
       style={{ bottom: desvio ? desvio + 12 : undefined }}
       data-escondido={!visivel && !aberta}
       className="group fixed right-4 bottom-4 z-40 flex h-14 items-center gap-2 rounded-full bg-neutral-900 pr-5 pl-4 text-white shadow-[0_18px_36px_-12px_rgb(0_0_0/0.55)] ring-1 ring-white/10 transition-[transform,opacity,bottom] duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca data-[escondido=true]:pointer-events-none data-[escondido=true]:translate-y-24 data-[escondido=true]:opacity-0 md:right-6 md:bottom-6 md:data-[escondido=true]:translate-y-0 md:data-[escondido=true]:opacity-100 md:data-[escondido=true]:pointer-events-auto print:hidden motion-reduce:transition-none"
@@ -129,7 +133,9 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
       <span className="grid size-8 place-items-center rounded-full bg-marca text-[#fff] transition-transform duration-300 group-hover:rotate-90">
         <Plus className="size-5" aria-hidden />
       </span>
-      <span className="text-sm font-semibold">{ehOS ? "Nova OS" : "Novo"}</span>
+      <span className="text-sm font-semibold">
+        {ehOS ? "Nova OS" : ehAviso ? "Novo aviso" : "Novo"}
+      </span>
     </button>
   );
 
@@ -144,14 +150,13 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
         aoFechar={fechar}
         largura={criado ? "lg" : "xl"}
         cheia={!criado}
-        titulo={
-          criado ? "Pronto!" : ehOS ? "Nova Ordem de Serviço" : "Novo chamado"
-        }
+        titulo={criado ? "Pronto!" : ehOS ? "Nova Ordem de Serviço" : nome}
       >
         {criado ? (
           <Sucesso
             criado={criado}
             ehOS={ehOS}
+            ehAviso={ehAviso}
             aoFechar={fechar}
             aoAbrirOutro={() => {
               setCriado(null);
@@ -160,10 +165,16 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
           />
         ) : (
           <FormularioChamado
-            // Trocar de tela (chamado ↔ OS) recomeça o formulário.
-            key={`${rodada}-${ehOS}`}
+            // Trocar de tela (chamado, OS, aviso) recomeça o formulário.
+            key={`${rodada}-${ehOS}-${ehAviso}`}
             dados={dados}
-            inicial={ehOS ? { tipo: "os", contexto: [] } : undefined}
+            inicial={
+              ehOS
+                ? { tipo: "os", contexto: [] }
+                : ehAviso
+                  ? { tipo: "aviso", contexto: [] }
+                  : undefined
+            }
             naJanela
             aoCriar={setCriado}
           />
@@ -176,12 +187,14 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
 export function Sucesso({
   criado,
   ehOS = false,
+  ehAviso = false,
   aoFechar,
   aoAbrirOutro,
 }: {
   criado: Criado;
   /** Abriu uma OS (numeração e página próprias). */
   ehOS?: boolean;
+  ehAviso?: boolean;
   aoFechar?: () => void;
   aoAbrirOutro: () => void;
 }) {
@@ -195,10 +208,14 @@ export function Sucesso({
         <p className="text-xl font-semibold tracking-tight">
           {ehOS
             ? `${formatarNumeroOS(criado.numero)} aberta`
-            : `Chamado ${formatarNumeroChamado(criado.numero)} aberto`}
+            : ehAviso
+              ? `Aviso ${formatarNumeroChamado(criado.numero)} enviado`
+              : `Chamado ${formatarNumeroChamado(criado.numero)} aberto`}
         </p>
         <p className="mt-1 text-sm text-neutral-600">
-          Quem precisa saber já foi avisado.
+          {ehAviso
+            ? "Quem recebe já foi avisado e marca como lido."
+            : "Quem precisa saber já foi avisado."}
         </p>
       </div>
       {criado.aviso && (
@@ -212,7 +229,7 @@ export function Sucesso({
       )}
       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
         <Link href={rotaDo(alvo)} onClick={aoFechar} className={BOTAO_PRIMARIO}>
-          {ehOS ? "Ver OS" : "Ver chamado"}
+          {ehOS ? "Ver OS" : ehAviso ? "Ver aviso" : "Ver chamado"}
           <ArrowUpRight className="size-4" aria-hidden />
         </Link>
         <button

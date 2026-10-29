@@ -55,8 +55,9 @@ import type {
 // título, enviar. O resto fica em "Mais detalhes" (opcional). A mesma tela
 // serve ao botão "+ Novo" (janela) e às páginas /os/novo e /os/ordens/nova
 // (com contexto da URL: ativo, loja, vistoria, chamado vinculado,
-// duplicar). Com `inicial.tipo` = "os" é o formulário da OS (tipo fixo);
-// sem, o do chamado (sem a opção OS: um não cria o outro).
+// duplicar). Com `inicial.tipo` = "os" é o formulário da OS e com "aviso"
+// o do aviso (tipo fixo, aberto da aba Avisos); sem, o do chamado (sem as
+// opções OS e Aviso: cada tela cria o seu).
 
 const sem = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
@@ -103,7 +104,11 @@ export function FormularioChamado({
             : undefined
         }
         contexto={inicial?.contexto ?? []}
-        comPessoal={inicial?.tipo !== "os" && !inicial?.vistoriaId}
+        comPessoal={
+          inicial?.tipo !== "os" &&
+          inicial?.tipo !== "aviso" &&
+          !inicial?.vistoriaId
+        }
         aoEscolher={setEscolha}
         aoCriarCategoria={(c) => {
           setCriadas((l) => [...l, c]);
@@ -441,13 +446,14 @@ function Detalhes({
   const pessoal = escolha.pessoal;
 
   const ehOS = inicial?.tipo === "os";
+  const ehAviso = inicial?.tipo === "aviso";
   const [tipo, setTipo] = useState<TipoChamado>(
     pessoal
       ? "tarefa"
-      : ehOS
-        ? "os"
-        : (inicial?.tipo ??
-          (categoria?.tipo === "os" ? null : categoria?.tipo) ??
+      : (inicial?.tipo ??
+          (categoria?.tipo === "os" || categoria?.tipo === "aviso"
+            ? null
+            : categoria?.tipo) ??
           "solicitacao"),
   );
   const [prioridade, setPrioridade] = useState<Prioridade>(
@@ -717,7 +723,7 @@ function Detalhes({
         >
           <section className="flex flex-col gap-3">
             <h3 className={SECAO}>Essencial</h3>
-            {!pessoal && !ehOS && (
+            {!pessoal && !ehOS && !ehAviso && (
               <Propriedade nome="Tipo" htmlFor={`${id}-tipo`}>
                 <Selecao
                   id={`${id}-tipo`}
@@ -725,7 +731,7 @@ function Detalhes({
                   aoMudar={(v) => setTipo(v as TipoChamado)}
                   icone={<IconeTipo tipo={tipo} className="size-4" />}
                   opcoes={(Object.keys(TIPOS) as TipoChamado[])
-                    .filter((t) => t !== "os")
+                    .filter((t) => t !== "os" && t !== "aviso")
                     .map((t) => ({
                       valor: t,
                       rotulo: TIPOS[t],
@@ -934,7 +940,9 @@ function Detalhes({
             ? "Enviando…"
             : ehOS
               ? "Abrir Ordem de Serviço"
-              : "Abrir chamado"}
+              : ehAviso
+                ? "Enviar aviso"
+                : "Abrir chamado"}
           <kbd className="ml-1 hidden rounded-md border border-current px-1.5 font-sans text-[11px] opacity-60 sm:inline">
             Ctrl ↵
           </kbd>
