@@ -50,7 +50,7 @@ describe("alertas do Painel", () => {
     expect(a[0]?.href).toBe("/marketing/reputacao/x");
   });
 
-  it("limite, nível e ativa vêm de Parâmetros", () => {
+  it("limite, nível e ativa vêm de Configurações", () => {
     const regras = REGRAS.map((r) =>
       r.regra === "tarefa_atrasada"
         ? { ...r, limite: 10, nivel: "urgente" }

@@ -13,7 +13,7 @@ import {
 } from "./reputacao";
 
 // Plano de testes do spec (seção 8, Reputação): uma linha por locatário,
-// situação pelos limites de Parâmetros (mudar o limite muda a situação sem
+// situação pelos limites de Configurações (mudar o limite muda a situação sem
 // mexer no código), estrelas de reclamação do parâmetro e tema só da lista
 // cadastrada.
 

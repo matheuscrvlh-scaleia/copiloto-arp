@@ -1,6 +1,6 @@
 import { formatarData, formatarMes, lerValorBr } from "@/lib/formato";
 
-// Parâmetros e cadastros do Marketing (spec 4.12): nomes na tela, as
+// Configurações e cadastros do Marketing (spec 4.12): nomes na tela, as
 // conferências automáticas (link do Google, nome repetido, faixas da
 // reputação, nomes do Asana, landing pages sem tipo), a leitura da planilha
 // de locatários e o "voltar" de uma alteração do histórico. Funções puras: a
@@ -240,7 +240,7 @@ export function nomesDoAsana(asana: {
 }
 
 /**
- * Cada nome de projeto ou tag dos Parâmetros e se ele existe no Asana
+ * Cada nome de projeto ou tag das Configurações e se ele existe no Asana
  * (projeto arquivado conta como não existe). Resumo também para o topo do
  * Radar: `.filter((c) => !c.existe)`.
  */
@@ -766,7 +766,7 @@ export const TABELAS_MKT: Record<string, TabelaMkt> = {
   },
   "marketing.parametros": {
     bloco: "reputacao",
-    rotulo: "Parâmetros",
+    rotulo: "Configurações",
     chave: "id",
     editaveis: [
       "estrelas_reclamacao",
@@ -919,7 +919,7 @@ export function mudancas(
     }));
 }
 
-/** Bloco da tela de uma linha do histórico (null: não é dos Parâmetros). */
+/** Bloco da tela de uma linha do histórico (null: não é das Configurações). */
 export function blocoDaAuditoria(
   l: Pick<LinhaAuditoria, "tabela" | "acao" | "antes" | "depois">,
 ): Bloco | null {
@@ -980,7 +980,7 @@ export function montarVoltar(l: LinhaAuditoria): Voltar {
   if (!t)
     return {
       tipo: "impossivel",
-      motivo: "Esta alteração não é dos Parâmetros do Marketing.",
+      motivo: "Esta alteração não é das Configurações do Marketing.",
     };
   if (l.tabela === "core.metas" && !ehMetaDoMarketing(l.antes ?? l.depois))
     return { tipo: "impossivel", motivo: "Esta meta não é do Marketing." };

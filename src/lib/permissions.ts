@@ -77,7 +77,7 @@ export const PERMISSOES = {
   "marketing.radar": "Ver tarefas, eventos e sinalizações do Asana",
   "marketing.publico": "Ver o fluxo de carros do estacionamento (sem placas)",
   "marketing.parametros":
-    "Editar locatários monitorados, landing pages, metas, regras de alerta e códigos da ronda",
+    "Editar as configurações do Marketing: locatários, landing pages, metas, regras de alerta, ronda e integrações",
   "marketing.exportar": "Baixar Excel e PDF das telas do Marketing que já vê",
 } as const;
 

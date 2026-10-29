@@ -47,7 +47,7 @@ import {
   type Tema,
 } from "@/server/marketing/base";
 
-// Os blocos de Marketing › Parâmetros (spec 4.12), um por aba. Cada linha é
+// Os blocos de Marketing › Configurações (spec 4.12), um por aba. Cada linha é
 // um formulário próprio: salvar uma não mexe nas outras. A mudança vale nas
 // telas na próxima atualização (a ação invalida o cache do cadastro).
 

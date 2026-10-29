@@ -169,9 +169,9 @@ async function Tela({
 
         {l.semDados ? (
           <p className="vidro rounded-[1.75rem] p-6 text-sm text-neutral-600">
-            Sem dados: o link do Google em Parâmetros está vazio ou inválido, ou
-            o perfil não está acessível. O locatário segue na lista da Reputação
-            com essa marca, sem nota.
+            Sem dados: o link do Google em Configurações está vazio ou inválido,
+            ou o perfil não está acessível. O locatário segue na lista da
+            Reputação com essa marca, sem nota.
           </p>
         ) : (
           <>
@@ -226,8 +226,8 @@ async function Tela({
                 titulo="Situação"
                 valor={SITUACOES[l.situacao].rotulo}
                 detalhe={`${l.janela.reclamacoes} ${l.janela.reclamacoes === 1 ? "reclamação" : "reclamações"} nos últimos ${p.janela_reputacao_dias} dias · nota das novas ${nota(l.janela.notaDasNovas)}`}
-                calculo={`Alerta: ${p.reclamacoes_alerta} ou mais reclamações em ${p.janela_reputacao_dias} dias; Atenção: de ${p.reclamacoes_atencao} a ${p.reclamacoes_alerta - 1}, ou nota das novas abaixo de ${nota(p.nota_atencao)} (Parâmetros).`}
-                fonte={`${GOOGLE} e Parâmetros`}
+                calculo={`Alerta: ${p.reclamacoes_alerta} ou mais reclamações em ${p.janela_reputacao_dias} dias; Atenção: de ${p.reclamacoes_atencao} a ${p.reclamacoes_alerta - 1}, ou nota das novas abaixo de ${nota(p.nota_atencao)} (Configurações).`}
+                fonte={`${GOOGLE} e Configurações`}
               />
             </Cartoes>
 
@@ -239,7 +239,7 @@ async function Tela({
                 <ListaDeAvaliacoes avaliacoes={doPeriodo} mapsUri={l.mapsUri} />
                 <Fonte>
                   {GOOGLE}. Tema: classificação automática na lista de temas de
-                  Parâmetros.
+                  Configurações.
                 </Fonte>
               </Secao>
               <Secao titulo="Estrelas" descricao={`${f.rotulo}, de 5 a 1`}>

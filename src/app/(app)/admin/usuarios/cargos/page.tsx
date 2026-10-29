@@ -20,6 +20,7 @@ const MODULOS = [
   { prefixo: "rh.", nome: "RH" },
   { prefixo: "financeiro.", nome: "Financeiro" },
   { prefixo: "os.", nome: "Tickets" },
+  { prefixo: "marketing.", nome: "Marketing" },
 ];
 
 export default function Page() {

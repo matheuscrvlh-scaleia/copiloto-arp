@@ -119,7 +119,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <SeloStatus status="fora" rotulo="Urgente" />
           <span>
             {abertas} sinalizações do Marketing abertas, acima do limite de{" "}
-            {limite} (regra de alerta em Parâmetros).
+            {limite} (regra de alerta em Configurações).
           </span>
           {aba !== "ronda" && (
             <Link
@@ -191,9 +191,16 @@ function AvisoConferencia({ c }: { c: ReturnType<typeof conferirNomes> }) {
           </>
         )}
         {c.semDefinir.length > 0 && (
-          <>Sem nome em Parâmetros: {c.semDefinir.join(", ")}. </>
+          <>Sem nome em Configurações: {c.semDefinir.join(", ")}. </>
         )}
-        Confira em Parâmetros do Marketing.
+        Confira em{" "}
+        <Link
+          href="/marketing/configuracoes/integracoes"
+          className="font-medium underline underline-offset-2"
+        >
+          Configurações › Integrações
+        </Link>
+        .
       </p>
     </div>
   );

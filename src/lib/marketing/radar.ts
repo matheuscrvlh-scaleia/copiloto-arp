@@ -4,7 +4,7 @@ import { diasEntre, somarDias } from "./periodo";
 // Radar operacional (spec 4.9): o que o Marketing procura à mão no Asana.
 // Tarefas do time, calendário de eventos e as sinalizações da ronda que são
 // do Marketing. Nomes de projeto, tag e código da ronda vêm SEMPRE de
-// Parâmetros (o Asana muda os nomes; aqui nada é fixo). Funções puras: a
+// Configurações (o Asana muda os nomes; aqui nada é fixo). Funções puras: a
 // tela e o Painel chamam com os dados já lidos.
 
 export interface DadosRadar {
@@ -74,15 +74,15 @@ export function limiteDaRegra(
 }
 
 // ---------------------------------------------------------------------------
-// Conferência dos nomes de Parâmetros com o Asana
+// Conferência dos nomes de Configurações com o Asana
 // ---------------------------------------------------------------------------
 
 export interface Conferencia {
-  /** Projetos de Parâmetros que não existem (ou estão arquivados). */
+  /** Projetos de Configurações que não existem (ou estão arquivados). */
   projetos: string[];
-  /** Tags de Parâmetros que não aparecem em nenhuma tarefa. */
+  /** Tags de Configurações que não aparecem em nenhuma tarefa. */
   tags: string[];
-  /** Campos de Parâmetros vazios. */
+  /** Campos de Configurações vazios. */
   semDefinir: string[];
 }
 
@@ -153,7 +153,7 @@ export interface TarefaLinha {
   link: string;
 }
 
-/** Tarefas dos projetos do Marketing (Parâmetros), uma linha por tarefa. */
+/** Tarefas dos projetos do Marketing (Configurações), uma linha por tarefa. */
 export function tarefasDoTime(
   tarefas: AsanaTarefa[],
   projetosMarketing: string[],
@@ -437,7 +437,7 @@ export interface SinalizacaoLinha {
 
 /**
  * Sinalizações da ronda com código do Marketing (área "marketing" em
- * Parâmetros). As de outras áreas (estrutura, de Operações) ficam de fora.
+ * Configurações). As de outras áreas (estrutura, de Operações) ficam de fora.
  */
 export function sinalizacoesDoMarketing(
   tarefas: AsanaTarefa[],

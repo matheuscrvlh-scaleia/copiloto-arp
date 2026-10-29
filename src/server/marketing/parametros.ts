@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { podeAgora } from "@/server/auth";
 
-// Leituras extras de Parâmetros do Marketing: o histórico das alterações
+// Leituras extras de Configurações do Marketing: o histórico das alterações
 // (core.auditoria, com a sessão: o RLS mostra marketing.* e core.metas a
 // quem tem marketing.parametros) e o nome de quem alterou.
 
@@ -27,7 +27,7 @@ const objeto = (v: unknown): Record<string, unknown> | null =>
     : null;
 
 /**
- * Alterações dos Parâmetros do Marketing, da mais nova para a mais antiga:
+ * Alterações das Configurações do Marketing, da mais nova para a mais antiga:
  * os cadastros marketing.* (a marca tem histórico próprio) e as metas
  * marketing.* de core.metas.
  */

@@ -3,7 +3,7 @@ import { diaDaSemana, somarDias } from "@/lib/marketing/periodo";
 import { sorteio } from "./sorteio";
 
 // Asana de exemplo, com os nomes de projeto e tag do ponto de partida de
-// Parâmetros (se alguém trocar o nome lá para um que não existe aqui, o
+// Configurações (se alguém trocar o nome lá para um que não existe aqui, o
 // Radar avisa). 3 projetos do Marketing com ~150 tarefas, o calendário de
 // eventos (passado recente e 40 nos próximos 6 meses) e a ronda, com 35
 // sinalizações "S" e 20 "E" abertas (caso do spec). O código da ronda fica

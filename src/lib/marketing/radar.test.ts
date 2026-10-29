@@ -14,7 +14,7 @@ import {
 } from "./radar";
 
 // Plano de testes do spec (4.9): sinalizações do Marketing com o alerta,
-// % no prazo sem as tarefas sem prazo e nomes de projeto/tag só de Parâmetros.
+// % no prazo sem as tarefas sem prazo e nomes de projeto/tag só de Configurações.
 
 const HOJE = "2026-10-29";
 
@@ -147,8 +147,8 @@ describe("% no prazo", () => {
   });
 });
 
-describe("Nomes de projetos e tags só de Parâmetros", () => {
-  it("trocar os nomes em Parâmetros muda o que entra", () => {
+describe("Nomes de projetos e tags só de Configurações", () => {
+  it("trocar os nomes em Configurações muda o que entra", () => {
     const tarefas = [
       tarefa({ projeto: "Time novo" }),
       tarefa({ projeto: "Mkt" }),

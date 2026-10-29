@@ -319,7 +319,7 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
           meta={
             metaNota
               ? `Meta: ${nota(metaNota.meta)}`
-              : "Defina a meta em Parâmetros"
+              : "Defina a meta em Configurações"
           }
           calculo="Nota que o Google mostra no perfil (averageRating), de todas as avaliações desde sempre."
           fonte={GOOGLE}
@@ -337,7 +337,7 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
           meta={
             metaNovas && ritmo
               ? `Meta: ${formatarNumero(metaNovas.meta)} no mês · no ritmo, ${formatarNumero(Math.round(ritmo.meta))} até hoje`
-              : "Defina a meta em Parâmetros"
+              : "Defina a meta em Configurações"
           }
           calculo="Avaliações criadas do dia 1 até hoje. A situação compara com a meta proporcional aos dias que já passaram."
           fonte={GOOGLE}
@@ -351,7 +351,7 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
             "mesmos dias do mês passado",
             "menor_melhor",
           )}
-          detalhe={`Avaliações de ${estrelasRecl} ${p.estrelas_reclamacao.length === 1 && p.estrelas_reclamacao[0] === 1 ? "estrela" : "estrelas"} (Parâmetros)`}
+          detalhe={`Avaliações de ${estrelasRecl} ${p.estrelas_reclamacao.length === 1 && p.estrelas_reclamacao[0] === 1 ? "estrela" : "estrelas"} (Configurações)`}
           fonte={GOOGLE}
           href={hrefCartao("reclamacoes")}
           ativo={cartao === "reclamacoes"}
@@ -378,7 +378,7 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
           />
           <Fonte>
             {GOOGLE}. Tema: classificação automática na lista de temas de
-            Parâmetros. Tempo para responder: da avaliação até a resposta.
+            Configurações. Tempo para responder: da avaliação até a resposta.
           </Fonte>
         </Secao>
         <div className="flex flex-col gap-4">
@@ -400,8 +400,8 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
               ]}
             />
             <Fonte>
-              Metas em Parâmetros. Avaliações novas: situação pelo ritmo (meta
-              proporcional aos dias passados).
+              Metas em Configurações. Avaliações novas: situação pelo ritmo
+              (meta proporcional aos dias passados).
             </Fonte>
           </Secao>
           <Secao titulo="Estrelas" descricao={`${f.rotulo}, de 5 a 1`}>
@@ -451,7 +451,7 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
                 : undefined
             }
           />
-          <Fonte>{GOOGLE}; meta em Parâmetros</Fonte>
+          <Fonte>{GOOGLE}; meta em Configurações</Fonte>
         </Secao>
         <Secao
           titulo="Reclamações por mês"
@@ -671,8 +671,8 @@ function AbaLocatarios({
           titulo="Locatários monitorados"
           valor={formatarNumero(base.length)}
           detalhe={`${parciais} com dados parciais · ${semDados} sem dados`}
-          calculo="Locatários ativos cadastrados em Parâmetros, nos filtros da barra."
-          fonte="Parâmetros (locatários monitorados)"
+          calculo="Locatários ativos cadastrados em Configurações, nos filtros da barra."
+          fonte="Configurações (locatários monitorados)"
         />
         <CartaoMkt
           titulo="Nota média geral"
@@ -701,8 +701,8 @@ function AbaLocatarios({
           titulo="Lojas em alerta"
           valor={formatarNumero(conta("alerta"))}
           detalhe={`${conta("atencao")} em atenção · últimos ${p.janela_reputacao_dias} dias`}
-          calculo={`${regra} (Parâmetros).`}
-          fonte={`${GOOGLE} e Parâmetros`}
+          calculo={`${regra} (Configurações).`}
+          fonte={`${GOOGLE} e Configurações`}
           href={hrefCom(BASE, f.busca, {
             situacao: situacao === "alerta" ? null : "alerta",
           })}
@@ -756,7 +756,7 @@ function AbaLocatarios({
           ]}
         />
         <Fonte>
-          {GOOGLE} e Parâmetros. Situação: últimos {p.janela_reputacao_dias}{" "}
+          {GOOGLE} e Configurações. Situação: últimos {p.janela_reputacao_dias}{" "}
           dias até hoje, qualquer que seja o período ({regra}; regra inicial, a
           confirmar). Dados parciais: o perfil não é administrado pela ARP, e o
           Google entrega só a nota, o total e até 5 avaliações, sem garantia de
@@ -782,7 +782,7 @@ function AbaLocatarios({
               .filter((i) => i.valor > 0)
               .sort((a, b) => b.valor - a.valor)}
           />
-          <Fonte>{GOOGLE}; temas da lista de Parâmetros</Fonte>
+          <Fonte>{GOOGLE}; temas da lista de Configurações</Fonte>
         </Secao>
         <Secao
           titulo="Locatário × tema"
@@ -811,7 +811,7 @@ function AbaLocatarios({
               Nenhuma reclamação no período.
             </p>
           )}
-          <Fonte>{GOOGLE}; temas da lista de Parâmetros</Fonte>
+          <Fonte>{GOOGLE}; temas da lista de Configurações</Fonte>
         </Secao>
       </div>
     </>

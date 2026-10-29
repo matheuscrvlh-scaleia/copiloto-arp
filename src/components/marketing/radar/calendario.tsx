@@ -43,7 +43,7 @@ import { BASE_RADAR, FONTE_ASANA, type PropsAba, plural, Vazio } from "./comum";
 
 // Aba "Calendário de eventos" (spec 4.9): os eventos dos próximos 6 meses do
 // projeto do calendário no Asana, em lista ou em mês. Tipo e cobrança vêm
-// das tags cujos nomes estão em Parâmetros.
+// das tags cujos nomes estão em Configurações.
 
 const COR_TIPO: Record<TipoEvento | "sem", CorSerie> = {
   locatario: 1,
@@ -210,7 +210,7 @@ export function AbaCalendario({
             em30.filter((e) => e.tipo === "locatario").length,
           )}
           detalhe="Nos próximos 30 dias"
-          fonte={`${FONTE_ASANA} (tag de Parâmetros)`}
+          fonte={`${FONTE_ASANA} (tag de Configurações)`}
           href={hrefCartao("locatario")}
           ativo={cartao === "locatario"}
         />
@@ -220,7 +220,7 @@ export function AbaCalendario({
             em30.filter((e) => e.tipo === "terceiro").length,
           )}
           detalhe="Nos próximos 30 dias"
-          fonte={`${FONTE_ASANA} (tag de Parâmetros)`}
+          fonte={`${FONTE_ASANA} (tag de Configurações)`}
           href={hrefCartao("terceiro")}
           ativo={cartao === "terceiro"}
         />
@@ -230,7 +230,7 @@ export function AbaCalendario({
             em30.filter((e) => e.cobranca === "paga").length,
           )}
           detalhe={`Nos próximos 30 dias · ${em30.filter((e) => e.cobranca === "gratuita").length} gratuitos`}
-          fonte={`${FONTE_ASANA} (tag de Parâmetros)`}
+          fonte={`${FONTE_ASANA} (tag de Configurações)`}
           href={hrefCartao("paga")}
           ativo={cartao === "paga"}
         />
@@ -300,9 +300,9 @@ export function AbaCalendario({
             ]}
           />
           <Fonte>
-            {FONTE_ASANA}: projeto do calendário de Parâmetros. Data: início
+            {FONTE_ASANA}: projeto do calendário de Configurações. Data: início
             (start_on) e fim (due_on). Tipo e gratuita/paga pelas tags de
-            Parâmetros; evento sem a tag aparece sem tipo.
+            Configurações; evento sem a tag aparece sem tipo.
           </Fonte>
         </Secao>
       ) : (
@@ -318,8 +318,8 @@ export function AbaCalendario({
             <Legenda series={legenda} />
           </div>
           <Fonte>
-            {FONTE_ASANA}: projeto do calendário de Parâmetros; cor pela tag de
-            tipo. Clique no evento para abrir no Asana.
+            {FONTE_ASANA}: projeto do calendário de Configurações; cor pela tag
+            de tipo. Clique no evento para abrir no Asana.
           </Fonte>
         </Secao>
       )}

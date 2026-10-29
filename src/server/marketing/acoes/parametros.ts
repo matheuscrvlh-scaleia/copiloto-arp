@@ -40,7 +40,7 @@ import {
 } from "@/server/marketing/base";
 import { alteracaoMkt } from "@/server/marketing/parametros";
 
-// Gravações de Marketing › Parâmetros (spec 4.12). Toda ação: Zod → confere
+// Gravações de Marketing › Configurações (spec 4.12). Toda ação: Zod → confere
 // marketing.parametros no banco (podeAgora) → grava com o cliente da sessão
 // (o RLS confere de novo e core.auditoria registra quem, quando, antes e
 // depois) → invalida a tag do cadastro → refresh() (o histórico é lido na
@@ -683,7 +683,7 @@ export async function removerCodigoRonda(
 // Histórico: voltar uma alteração
 // ---------------------------------------------------------------------------
 
-/** Tag do cache de cada tabela dos Parâmetros. */
+/** Tag do cache de cada tabela das Configurações. */
 const TAG_DA_TABELA: Record<string, string> = {
   "marketing.locatarios": TAG.marketing.locatarios,
   "marketing.landing_pages": TAG.marketing.landingPages,

@@ -11,6 +11,7 @@ const MODULOS = [
   { prefixo: "rh.", titulo: "RH" },
   { prefixo: "financeiro.", titulo: "Financeiro" },
   { prefixo: "os.", titulo: "Tickets" },
+  { prefixo: "marketing.", titulo: "Marketing" },
 ] as const;
 
 const TODAS = Object.keys(PERMISSOES) as Permissao[];

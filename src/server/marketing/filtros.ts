@@ -20,7 +20,7 @@ export type Busca = Record<string, string | string[] | undefined>;
 
 export interface FiltrosLidos {
   ctx: ContextoMkt;
-  /** Parâmetros que valem (URL ou lembrados). */
+  /** Configurações que valem (URL ou lembrados). */
   busca: Busca;
   /** Query lembrada para a barra colocar na URL (ou null). */
   lembrado: string | null;
@@ -79,7 +79,7 @@ export const INTERESSES: Record<Interesse, string> = {
 };
 
 /**
- * Interesse de cada landing page pelo cadastro de Parâmetros. Landing page
+ * Interesse de cada landing page pelo cadastro de Configurações. Landing page
  * do RD que não está no cadastro (ou sem interesse) é "Sem tipo".
  */
 export async function interesseDasLandingPages(): Promise<

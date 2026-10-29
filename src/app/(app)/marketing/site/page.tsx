@@ -314,8 +314,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             titulo="Leads de Locação"
             valor={formatarNumero(c.locacao)}
             variacao={variacaoContra(c.locacao, ca.locacao, f.rotuloAnterior)}
-            calculo="Contatos únicos que converteram numa landing page cadastrada como Locação em Parâmetros."
-            fonte={`${RD} e Parâmetros`}
+            calculo="Contatos únicos que converteram numa landing page cadastrada como Locação em Configurações."
+            fonte={`${RD} e Configurações`}
             href={hrefCartao("locacao")}
             ativo={cartao === "locacao"}
           />
@@ -323,8 +323,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             titulo="Leads de Evento"
             valor={formatarNumero(c.evento)}
             variacao={variacaoContra(c.evento, ca.evento, f.rotuloAnterior)}
-            calculo="Contatos únicos que converteram numa landing page cadastrada como Evento em Parâmetros."
-            fonte={`${RD} e Parâmetros`}
+            calculo="Contatos únicos que converteram numa landing page cadastrada como Evento em Configurações."
+            fonte={`${RD} e Configurações`}
             href={hrefCartao("evento")}
             ativo={cartao === "evento"}
           />
@@ -370,7 +370,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
         <Secao
           titulo="Landing pages do RD"
-          descricao={`${f.rotulo} · o interesse vem do cadastro em Parâmetros; landing page sem cadastro aparece como "Sem tipo".`}
+          descricao={`${f.rotulo} · o interesse vem do cadastro em Configurações; landing page sem cadastro aparece como "Sem tipo".`}
         >
           <TabelaMkt
             colunas={COLUNAS_LP}
@@ -387,7 +387,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                 </span>,
                 l.interesse === "sem_tipo" ? (
                   <span key="i" className="text-amber-800">
-                    Sem tipo · cadastre em Parâmetros
+                    Sem tipo · cadastre em Configurações
                   </span>
                 ) : (
                   rotuloInteresse(l.interesse)
@@ -416,7 +416,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           />
           <Fonte>
             {RD} (visits_count, conversion_count) e cadastro de landing pages em
-            Parâmetros. Linha em amarelo: landing page sem tipo.
+            Configurações. Linha em amarelo: landing page sem tipo.
           </Fonte>
         </Secao>
 
@@ -501,8 +501,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
               descricao="Leads únicos por semana e interesse da landing page, últimas 12 semanas"
             />
             <Fonte>
-              {RD} e Parâmetros. Quem converteu em Evento e em Locação na mesma
-              semana aparece nas duas cores.
+              {RD} e Configurações. Quem converteu em Evento e em Locação na
+              mesma semana aparece nas duas cores.
             </Fonte>
           </Secao>
           <Secao titulo="Sessões por canal" descricao="Últimas 12 semanas">

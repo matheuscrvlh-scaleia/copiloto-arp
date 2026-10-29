@@ -341,7 +341,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             meta={
               metaCpl
                 ? `Meta: até ${formatarMoeda(metaCpl.meta)}`
-                : "Defina a meta em Parâmetros"
+                : "Defina a meta em Configurações"
             }
             calculo="Investimento ÷ leads do RD Station vindos das campanhas (traffic_campaign)."
             fonte="Anúncios e RD Station"
@@ -401,11 +401,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         <Secao
           className="xl:col-span-2"
           titulo="Onde agir"
-          descricao="Do mais grave ao mais leve. As regras e os limites ficam em Parâmetros."
+          descricao="Do mais grave ao mais leve. As regras e os limites ficam em Configurações."
         >
           <ListaDeAlertas alertas={alertas} />
           <Fonte>
-            Regras de alerta de Parâmetros sobre os dados de cada tela
+            Regras de alerta de Configurações sobre os dados de cada tela
           </Fonte>
         </Secao>
       </div>
@@ -442,7 +442,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                 },
               ]}
             />
-            <Fonte>RD Station; tipo da landing page em Parâmetros</Fonte>
+            <Fonte>RD Station; tipo da landing page em Configurações</Fonte>
           </Secao>
         )}
         {pode("marketing.anuncios") && (
@@ -471,7 +471,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                   : undefined
               }
             />
-            <Fonte>Anúncios e RD Station; meta em Parâmetros</Fonte>
+            <Fonte>Anúncios e RD Station; meta em Configurações</Fonte>
           </Secao>
         )}
         {pode("marketing.publico") && (
@@ -493,7 +493,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                     : undefined,
               }))}
             />
-            <Fonte>Estacionamento (cancelas); vagas em Parâmetros</Fonte>
+            <Fonte>Estacionamento (cancelas); vagas em Configurações</Fonte>
           </Secao>
         )}
       </div>

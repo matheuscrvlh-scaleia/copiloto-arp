@@ -78,7 +78,7 @@ export const dadosAsana = cache(
 export const dadosPassagens = cache(async () => passagensDoDia(await hoje()));
 
 /**
- * Google Perfil da Empresa: a ARP e os locatários ativos de Parâmetros, com
+ * Google Perfil da Empresa: a ARP e os locatários ativos de Configurações, com
  * o tema de cada avaliação na lista cadastrada.
  */
 export const dadosReputacao = cache(async (): Promise<DadosReputacao> => {

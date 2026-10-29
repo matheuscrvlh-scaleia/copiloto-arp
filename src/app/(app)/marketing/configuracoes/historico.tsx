@@ -14,7 +14,7 @@ import { voltarAlteracao } from "@/server/marketing/acoes/parametros";
 import { INDICADORES_MKT } from "@/server/marketing/base";
 import type { AlteracaoMkt } from "@/server/marketing/parametros";
 
-// Histórico dos Parâmetros: quem mudou o quê, só os campos alterados (antes
+// Histórico das Configurações: quem mudou o quê, só os campos alterados (antes
 // → depois), com "Voltar" em cada alteração. A volta também entra aqui.
 
 const ACOES: Record<string, string> = {

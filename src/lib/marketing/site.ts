@@ -9,7 +9,7 @@ import { dentro, type PeriodoMkt } from "./periodo";
 
 // Site e leads (spec 4.6): o site e as landing pages estão gerando contato?
 // Separa quem quer Evento de quem quer Locação pelo tipo da landing page
-// cadastrado em Parâmetros (landing page do RD sem cadastro = "Sem tipo").
+// cadastrado em Configurações (landing page do RD sem cadastro = "Sem tipo").
 // Cada conversão é uma linha; os cartões contam contatos únicos. Nome,
 // e-mail e telefone só saem daqui com `comContato` (permissão
 // marketing.site.dados_lead): sem ela, o campo nem existe na linha.
@@ -249,7 +249,7 @@ export function linhasDeLandingPage(
     .sort((a, b) => b.conversoes - a.conversoes);
 }
 
-/** Landing pages do RD (todo o histórico) sem tipo em Parâmetros. */
+/** Landing pages do RD (todo o histórico) sem tipo em Configurações. */
 export function landingPagesSemTipo(
   dias: RdLandingPageDia[],
   interesseDe: InteresseDe,
@@ -583,7 +583,7 @@ export interface ResumoSite {
   conversoes: number;
   leadsEvento: number;
   leadsLocacao: number;
-  /** Landing pages do RD sem tipo em Parâmetros (todo o histórico). */
+  /** Landing pages do RD sem tipo em Configurações (todo o histórico). */
   landingPagesSemTipo: { id: string; nome: string }[];
 }
 

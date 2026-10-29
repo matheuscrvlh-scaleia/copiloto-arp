@@ -3,7 +3,7 @@ import type { Permissao } from "@/lib/permissions";
 
 // Alertas do Painel do Marketing (spec 4.11): a lista "onde agir", do mais
 // grave ao mais leve, cada um levando à tela já filtrada. Regras, limites,
-// nível e se está ativa vêm de Parâmetros (marketing.regras_alerta); nada
+// nível e se está ativa vêm de Configurações (marketing.regras_alerta); nada
 // fixo aqui além do que cada regra compara. Só aparecem os alertas das telas
 // que a pessoa tem liberadas.
 
@@ -96,7 +96,7 @@ const TELA: Record<CodigoRegra, { href: string; permissao: Permissao }> = {
     permissao: "marketing.radar",
   },
   landing_page_sem_tipo: {
-    href: "/marketing/parametros?bloco=landing_pages",
+    href: "/marketing/configuracoes?bloco=landing_pages",
     permissao: "marketing.parametros",
   },
 };

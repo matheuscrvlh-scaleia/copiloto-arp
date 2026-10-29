@@ -62,7 +62,7 @@ export function AbaTarefas({
   p: PropsAba;
   /** Tarefas dos projetos do Marketing (todas as situações). */
   linhas: TarefaLinha[];
-  /** Projetos do Marketing de Parâmetros. */
+  /** Projetos do Marketing de Configurações. */
   projetos: string[];
   /** Limite da regra tarefa_atrasada (dias), se ligada. */
   diasAtrasoAlerta: number | null;
@@ -317,7 +317,7 @@ export function AbaTarefas({
           ]}
         />
         <Fonte>
-          {FONTE_ASANA}: projetos do Marketing cadastrados em Parâmetros.
+          {FONTE_ASANA}: projetos do Marketing cadastrados em Configurações.
           {diasAtrasoAlerta !== null &&
             ` Linha em amarelo: atrasada há mais de ${diasAtrasoAlerta} dias (regra de alerta).`}{" "}
           O módulo só consulta: criar, concluir ou comentar é no Asana.

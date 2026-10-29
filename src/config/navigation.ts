@@ -300,8 +300,8 @@ export const navigation: NavSection[] = [
         permissao: "marketing.publico",
       },
       {
-        href: "/marketing/parametros",
-        label: "Parâmetros",
+        href: "/marketing/configuracoes",
+        label: "Configurações",
         icone: "parametros",
         permissao: "marketing.parametros",
       },

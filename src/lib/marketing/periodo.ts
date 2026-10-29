@@ -151,7 +151,7 @@ export function descreverPeriodoMkt(p: Pick<PeriodoMkt, "de" | "ate">): string {
     : `${formatarData(p.de)} a ${formatarData(p.ate)}`;
 }
 
-/** Parâmetros da URL que reproduzem o período. */
+/** Configurações da URL que reproduzem o período. */
 export function paramsDoPeriodoMkt(p: PeriodoMkt): Record<string, string> {
   return p.atalho ? { periodo: p.atalho } : { de: p.de, ate: p.ate };
 }

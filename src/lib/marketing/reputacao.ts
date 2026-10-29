@@ -9,7 +9,7 @@ import { dentro, diasEntre, mesesAte, somarDias } from "./periodo";
 
 // Reputação (spec 4.8): avaliações do Google da ARP e dos locatários-chave,
 // uma linha por locatário, com a situação (Normal, Atenção, Alerta) pela
-// regra de Parâmetros. Nenhum número da regra fica no código: estrelas que
+// regra de Configurações. Nenhum número da regra fica no código: estrelas que
 // contam como reclamação, janela, limites e nota de atenção vêm todos do
 // cadastro. O tema é o da classificação automática, e só vale se estiver na
 // lista cadastrada (nunca se cria tema novo).
@@ -32,7 +32,7 @@ export interface ParametrosReputacao {
   nota_atencao: number;
 }
 
-/** O cadastro de locatários de Parâmetros (a linha inteira serve). */
+/** O cadastro de locatários de Configurações (a linha inteira serve). */
 export interface LocatarioMonitorado {
   id: string;
   nome: string;
@@ -69,7 +69,7 @@ const chaveTema = (t: string) => t.trim().toLocaleLowerCase("pt-BR");
 
 /**
  * Tema de cada avaliação (por reviewId), só quando está na lista cadastrada
- * em Parâmetros; fora dela a avaliação fica sem tema. O nome sai como está
+ * em Configurações; fora dela a avaliação fica sem tema. O nome sai como está
  * no cadastro.
  */
 export function mapaDeTemas(
@@ -100,7 +100,7 @@ export interface AvaliacaoLinha {
   /** Dias desde a avaliação, enquanto não tem resposta. */
   diasSemResposta: number | null;
   tema: string | null;
-  /** Estrelas entre as de reclamação de Parâmetros. */
+  /** Estrelas entre as de reclamação de Configurações. */
   reclamacao: boolean;
 }
 
@@ -238,7 +238,7 @@ export function janelaDaRegra(
 }
 
 /**
- * Situação pela regra de Parâmetros (a confirmar com o Daniel): Alerta com
+ * Situação pela regra de Configurações (a confirmar com o Daniel): Alerta com
  * `reclamacoes_alerta` ou mais reclamações na janela; Atenção a partir de
  * `reclamacoes_atencao`, ou com a nota das novas abaixo de `nota_atencao`.
  */
@@ -255,7 +255,7 @@ export function situacaoDoLocatario(
 
 export interface LinhaLocatario {
   id: string;
-  /** Nome em Parâmetros. */
+  /** Nome em Configurações. */
   nome: string;
   /** Nome do perfil no Google (null sem dados). */
   titulo: string | null;
@@ -446,7 +446,7 @@ export interface ResumoReputacao {
     temaMaisCitado: string | null;
   }[];
   /**
-   * Reclamações da ARP da janela da regra (últimos N dias de Parâmetros)
+   * Reclamações da ARP da janela da regra (últimos N dias de Configurações)
    * sem resposta há mais de N dias do alerta, as mais antigas primeiro.
    */
   semResposta: {

@@ -25,7 +25,7 @@ import {
 import { BASE_RADAR, FONTE_ASANA, type PropsAba, plural, Vazio } from "./comum";
 
 // Aba "Sinalizações da ronda" (spec 4.9): só as de código do Marketing
-// (área "marketing" em Parâmetros). Abertas acima do limite da regra de
+// (área "marketing" em Configurações). Abertas acima do limite da regra de
 // alerta: Urgente, aqui, na aba e no Painel.
 
 const CARTOES: Record<string, string> = {
@@ -46,7 +46,7 @@ export function AbaRonda({
   linhas: SinalizacaoLinha[];
   /** Códigos do Marketing ("S – Sinalização"). */
   codigos: { codigo: string; descricao: string }[];
-  /** sinalizacao_antiga_dias de Parâmetros. */
+  /** sinalizacao_antiga_dias de Configurações. */
   antigaDias: number;
   /** Limite da regra sinalizacoes_abertas (null: desligada). */
   limite: number | null;
@@ -195,7 +195,7 @@ export function AbaRonda({
           titulo={`Abertas há mais de ${antigaDias} dias`}
           valor={formatarNumero(antigas.length)}
           status={antigas.length ? "atencao" : undefined}
-          detalhe="Prazo em Parâmetros"
+          detalhe="Prazo em Configurações"
           fonte={FONTE_ASANA}
           href={hrefCartao("antigas")}
           ativo={cartao === "antigas"}
@@ -279,10 +279,10 @@ export function AbaRonda({
           ]}
         />
         <Fonte>
-          {FONTE_ASANA}: projeto da ronda de Parâmetros, só os códigos da área
-          Marketing ({rotuloCodigos || "nenhum"}); os de outras áreas ficam para
-          Operações. Linha em amarelo: aberta há mais de {antigaDias} dias. A
-          confirmar: o código vem no início do nome da tarefa (&quot;S -
+          {FONTE_ASANA}: projeto da ronda de Configurações, só os códigos da
+          área Marketing ({rotuloCodigos || "nenhum"}); os de outras áreas ficam
+          para Operações. Linha em amarelo: aberta há mais de {antigaDias} dias.
+          A confirmar: o código vem no início do nome da tarefa (&quot;S -
           …&quot;) e o local no campo &quot;Local&quot; do Asana.
         </Fonte>
       </Secao>
@@ -313,7 +313,9 @@ export function AbaRonda({
                 : undefined
             }
           />
-          <Fonte>{FONTE_ASANA}; limite na regra de alerta de Parâmetros</Fonte>
+          <Fonte>
+            {FONTE_ASANA}; limite na regra de alerta de Configurações
+          </Fonte>
         </Secao>
         <Secao
           titulo="Há quanto tempo estão abertas"

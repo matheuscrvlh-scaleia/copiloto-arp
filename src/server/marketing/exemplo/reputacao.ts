@@ -8,7 +8,7 @@ import { somarDias } from "@/lib/marketing/periodo";
 import { arred, sorteio } from "./sorteio";
 
 // Avaliações de exemplo (Google Perfil da Empresa) da ARP e dos locatários
-// cadastrados em Parâmetros, nos últimos 13 meses. Quem é "gerente" traz
+// cadastrados em Configurações, nos últimos 13 meses. Quem é "gerente" traz
 // todas; "consulta_publica" traz nota, total e até 5 avaliações (dados
 // parciais); "sem_acesso" não traz nada. Casos do spec: em ordem alfabética,
 // o 1º locatário tem 4 reclamações nos últimos 30 dias (Alerta, quase todas

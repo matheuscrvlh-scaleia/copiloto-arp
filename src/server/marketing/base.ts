@@ -12,7 +12,7 @@ import { type Usuario, usuarioAtual } from "@/server/auth";
 import { TAG } from "@/server/cache";
 
 // Base do módulo Marketing: quem está logado, "hoje", os cadastros de
-// Parâmetros (configuração igual para todos do módulo: lida pela service
+// Configurações (configuração igual para todos do módulo: lida pela service
 // role e guardada no cache, depois de conferir o mesmo acesso do RLS) e as
 // metas. Padrão em docs/arquitetura.md.
 
@@ -76,7 +76,7 @@ async function exigirModulo(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Cadastros de Parâmetros (cache "referencia", invalidados pelas ações)
+// Cadastros de Configurações (cache "referencia", invalidados pelas ações)
 // ---------------------------------------------------------------------------
 
 export const parametros = cache(async (): Promise<Parametros> => {

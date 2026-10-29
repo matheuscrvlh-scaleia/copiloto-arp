@@ -311,7 +311,7 @@ export interface GoogleAvaliacao {
 }
 
 /**
- * Tema da avaliação: classificação automática numa lista fixa (Parâmetros).
+ * Tema da avaliação: classificação automática numa lista fixa (Configurações).
  * Não vem do Google; fica guardada junto da avaliação.
  */
 export interface TemaDaAvaliacao {

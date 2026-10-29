@@ -8,8 +8,8 @@ import {
   totaisFluxo,
 } from "./publico";
 
-// Plano de testes do spec (4.10): ocupação máxima pelas vagas de Parâmetros,
-// exportação sem placa e recorrência com a janela de Parâmetros.
+// Plano de testes do spec (4.10): ocupação máxima pelas vagas de Configurações,
+// exportação sem placa e recorrência com a janela de Configurações.
 
 const SEM_FILTRO = { diaSemana: null, soComEvento: false };
 
@@ -67,7 +67,7 @@ describe("Recorrência", () => {
     passagem("NOV0A00", "2026-10-10T16:00", "2026-10-10T17:00"),
   ];
 
-  it("conta a placa que entrou dentro da janela de Parâmetros", () => {
+  it("conta a placa que entrou dentro da janela de Configurações", () => {
     // 30 dias: ABC (20 dias antes) volta; XYZ (39 dias antes) não.
     expect(fluxoPorDia(ps, 30).get("2026-10-10")?.voltaram).toBe(1);
     // 45 dias: as duas voltam.

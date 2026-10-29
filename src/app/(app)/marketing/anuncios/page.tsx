@@ -321,7 +321,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             meta={
               meta !== null
                 ? `Meta: até ${formatarMoeda(meta)}`
-                : "Defina a meta em Parâmetros"
+                : "Defina a meta em Configurações"
             }
             calculo="Investimento ÷ leads do RD Station vindos dessas campanhas. Nunca usa as conversões da plataforma."
             fonte="Anúncios e RD Station"
@@ -440,7 +440,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                   : undefined
               }
             />
-            <Fonte>Anúncios e RD Station; meta em Parâmetros</Fonte>
+            <Fonte>Anúncios e RD Station; meta em Configurações</Fonte>
           </Secao>
           <Secao
             titulo="Onde a verba rende"

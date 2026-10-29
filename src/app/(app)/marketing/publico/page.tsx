@@ -193,7 +193,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
               : undefined
           }
           detalhe={`Ocupação máxima: ${formatarPct(t.ocupacaoPct)} de ${formatarNumero(vagas)} vagas`}
-          fonte="Estacionamento (WPS); vagas em Parâmetros"
+          fonte="Estacionamento (WPS); vagas em Configurações"
         />
         <CartaoMkt
           titulo="Permanência média"
@@ -229,7 +229,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           }
           detalhe={`${formatarNumero(t.voltaram)} entradas de placas já vistas`}
           calculo={`Entradas de placas que já tinham entrado nos ${janela} dias anteriores ÷ entradas. A placa só serve para essa conta e não aparece em lugar nenhum.`}
-          fonte="Estacionamento (WPS); janela em Parâmetros"
+          fonte="Estacionamento (WPS); janela em Configurações"
         />
       </Cartoes>
 
@@ -270,7 +270,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         />
         <Fonte>
           {FONTE}. Ocupação máxima: maior quantidade de carros dentro ao mesmo
-          tempo ÷ {formatarNumero(vagas)} vagas (Parâmetros). Carros que
+          tempo ÷ {formatarNumero(vagas)} vagas (Configurações). Carros que
           voltaram: placas que já tinham entrado nos {janela} dias anteriores.
           Campos do WPS a confirmar; se o WPS não tiver API, a alternativa é
           importar o relatório de passagens que ele já exporta (a confirmar com
@@ -360,7 +360,7 @@ const COLUNAS = [
   {
     titulo: "Carros que voltaram",
     numero: true,
-    dica: "Placas que já tinham entrado na janela de Parâmetros ÷ entradas",
+    dica: "Placas que já tinham entrado na janela de Configurações ÷ entradas",
   },
 ];
 
