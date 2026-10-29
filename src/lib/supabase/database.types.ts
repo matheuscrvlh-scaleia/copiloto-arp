@@ -1022,6 +1022,110 @@ export type Database = {
         }
         Relationships: []
       }
+      rd_contatos: {
+        Row: {
+          atualizado_em: string
+          cidade: string
+          criado_em: string | null
+          email: string
+          etapa: string
+          nome: string
+          tags: string[]
+          telefone: string
+          uf: string
+          ultima_conversao: string | null
+          uuid: string
+        }
+        Insert: {
+          atualizado_em?: string
+          cidade?: string
+          criado_em?: string | null
+          email?: string
+          etapa?: string
+          nome?: string
+          tags?: string[]
+          telefone?: string
+          uf?: string
+          ultima_conversao?: string | null
+          uuid: string
+        }
+        Update: {
+          atualizado_em?: string
+          cidade?: string
+          criado_em?: string | null
+          email?: string
+          etapa?: string
+          nome?: string
+          tags?: string[]
+          telefone?: string
+          uf?: string
+          ultima_conversao?: string | null
+          uuid?: string
+        }
+        Relationships: []
+      }
+      rd_conversoes: {
+        Row: {
+          campanha: string
+          contato_uuid: string
+          convertido_em: string
+          id: string
+          identificador: string
+          meio: string
+          origem: string
+        }
+        Insert: {
+          campanha?: string
+          contato_uuid: string
+          convertido_em: string
+          id: string
+          identificador: string
+          meio?: string
+          origem?: string
+        }
+        Update: {
+          campanha?: string
+          contato_uuid?: string
+          convertido_em?: string
+          id?: string
+          identificador?: string
+          meio?: string
+          origem?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rd_conversoes_contato_uuid_fkey"
+            columns: ["contato_uuid"]
+            isOneToOne: false
+            referencedRelation: "rd_contatos"
+            referencedColumns: ["uuid"]
+          },
+        ]
+      }
+      rd_landing_pages_dia: {
+        Row: {
+          conversoes: number
+          dia: string
+          identificador: string
+          nome: string
+          visitas: number
+        }
+        Insert: {
+          conversoes?: number
+          dia: string
+          identificador: string
+          nome?: string
+          visitas?: number
+        }
+        Update: {
+          conversoes?: number
+          dia?: string
+          identificador?: string
+          nome?: string
+          visitas?: number
+        }
+        Relationships: []
+      }
       regras_alerta: {
         Row: {
           ativa: boolean

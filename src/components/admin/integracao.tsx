@@ -75,7 +75,12 @@ export function Ponto({ cor }: { cor: string }) {
   );
 }
 
-const SINCRONIZA: Sistema[] = ["secullum", "copiloto_rh", "wps"];
+const SINCRONIZA: Sistema[] = [
+  "secullum",
+  "copiloto_rh",
+  "wps",
+  "mkt_rd_station",
+];
 
 export function CartaoIntegracao({
   i,

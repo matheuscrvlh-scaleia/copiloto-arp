@@ -21,11 +21,13 @@ import {
   credencialEmUso,
   credencialSalva,
   podeConfigurar,
+  rdStation,
   testarConexao,
 } from "@/server/integracoes";
 import { registrarDepois } from "@/server/logs";
 import { iniciarAutorizacaoRd } from "@/server/marketing/autorizacao-rd";
 import { sincronizarCopiloto } from "@/server/sync/copiloto-rh";
+import { sincronizarRd } from "@/server/sync/rd-station";
 import { sincronizarSecullum } from "@/server/sync/secullum";
 import { sincronizarWps } from "@/server/sync/wps";
 
@@ -216,6 +218,7 @@ export async function sincronizarAgora(
   });
   if (sistema === "copiloto_rh") return sincronizarCopilotoAgora();
   if (sistema === "wps") return sincronizarWpsAgora();
+  if (sistema === "mkt_rd_station") return sincronizarRdAgora();
   if (sistema !== "secullum")
     return { erro: "A sincronização desta integração ainda não existe." };
   try {
@@ -248,6 +251,29 @@ async function sincronizarCopilotoAgora(): Promise<EstadoAcao> {
   } catch (erro) {
     return { erro: erro instanceof Error ? erro.message : "Falhou." };
   }
+}
+
+/**
+ * RD Station: roda depois de responder (a primeira leitura passa de um
+ * minuto). Se o prazo acabar, a próxima continua de onde parou.
+ */
+async function sincronizarRdAgora(): Promise<EstadoAcao> {
+  try {
+    await rdStation();
+  } catch (erro) {
+    return { erro: erro instanceof Error ? erro.message : "Sem credencial." };
+  }
+  after(async () => {
+    try {
+      await sincronizarRd();
+    } catch (erro) {
+      // O erro fica registrado em integracao.sync_runs.
+      console.error("sync rd station (manual)", erro);
+    }
+  });
+  return {
+    ok: "Leitura do RD iniciada. Leva alguns minutos; as telas do Marketing passam a mostrar os leads reais.",
+  };
 }
 
 /** A semana do estacionamento sai em segundos: roda na hora. */

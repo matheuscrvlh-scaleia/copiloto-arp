@@ -108,6 +108,7 @@ Modelo de dados: [docs/modelo-de-dados.md](docs/modelo-de-dados.md).
 | Sistema | Rota | Quando |
 |---|---|---|
 | Secullum (ponto) | `/api/sync/secullum` | Vercel Cron, todo dia às 06h de Brasília (`vercel.json`) |
+| RD Station Marketing | `/api/sync/rd-station` | Vercel Cron, todo dia às 06h15 de Brasília; "Sincronizar agora" em Marketing › Configurações › Integrações |
 
 | Rotinas de Tickets | `/api/cron/os` | Todo dia às 07h30 de Brasília (de hora em hora no plano Pro da Vercel; "Rodar rotinas agora" em Modelos e lembretes): aceite automático, avisos de prazo, lembretes recorrentes, preventivas, modelos de entrada e saída, cobrança do terceirizado |
 

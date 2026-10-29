@@ -49,7 +49,7 @@ import {
   interesseDasLandingPages,
   lerFiltros,
 } from "@/server/marketing/filtros";
-import { dadosAnuncios, dadosRd } from "@/server/marketing/fontes";
+import { dadosAnuncios, dadosRdDosAnuncios } from "@/server/marketing/fontes";
 
 export const metadata: Metadata = { title: "Detalhe da campanha" };
 
@@ -85,7 +85,7 @@ async function Tela({
   const interesse = f.um("interesse") as Interesse | "";
   const [anuncios, rd, interesseDe] = await Promise.all([
     dadosAnuncios(),
-    dadosRd(),
+    dadosRdDosAnuncios(),
     interesseDasLandingPages(),
   ]);
   const aceita = interesse

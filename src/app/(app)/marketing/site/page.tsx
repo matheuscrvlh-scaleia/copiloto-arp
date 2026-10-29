@@ -271,6 +271,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         <TopoDaTela
           dadosDe={ctx.dadosDe}
           filtros={linhaFiltros}
+          reais={rd.lidoEm ? "leads e landing pages do RD Station" : undefined}
           acoes={
             exportar ? (
               <>

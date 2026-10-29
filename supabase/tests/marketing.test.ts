@@ -34,6 +34,7 @@ const U = {
   parametros: "00000000-0000-0000-0000-0000000000a3",
   painel: "00000000-0000-0000-0000-0000000000a4",
   fora: "00000000-0000-0000-0000-0000000000a5",
+  site: "00000000-0000-0000-0000-0000000000a6",
 };
 
 const PERMISSOES: Record<keyof typeof U, string[]> = {
@@ -42,6 +43,7 @@ const PERMISSOES: Record<keyof typeof U, string[]> = {
   parametros: ["marketing.parametros"],
   painel: ["marketing.painel"],
   fora: ["rh.painel"],
+  site: ["marketing.site"],
 };
 
 let db: PGlite;
@@ -402,5 +404,45 @@ describe("acessos das ferramentas (20261029230000, 20261029235000 e 202610301200
          where tabela = 'integracao.credenciais' and registro_id = 'mkt_meta'`,
       ),
     ).toBe(2);
+  });
+});
+
+describe("RD Station com dados reais (20261030140000)", () => {
+  beforeAll(async () => {
+    await db.exec(`
+      insert into marketing.rd_contatos (uuid, nome, email) values ('c1', 'Ana', 'ana@x.test');
+      insert into marketing.rd_conversoes (id, contato_uuid, identificador, convertido_em)
+        values ('c1|eventos|2026-10-28', 'c1', 'eventos', '2026-10-28T10:00:00-03:00');
+      insert into marketing.rd_landing_pages_dia (identificador, dia, visitas, conversoes)
+        values ('eventos', '2026-10-28', 7, 1);
+    `);
+  });
+  const contar = (t: string) =>
+    valor<number>(`select count(*)::int from marketing.${t}`);
+
+  it("contato (dado pessoal) só para quem vê Site e leads; números para o módulo", async () => {
+    await como(U.site, async () => {
+      expect(await contar("rd_contatos")).toBe(1);
+      expect(await contar("rd_conversoes")).toBe(1);
+    });
+    await como(U.painel, async () => {
+      expect(await contar("rd_contatos")).toBe(0);
+      expect(await contar("rd_conversoes")).toBe(1);
+      expect(await contar("rd_landing_pages_dia")).toBe(1);
+    });
+    await como(U.fora, async () => {
+      expect(await contar("rd_conversoes")).toBe(0);
+      expect(await contar("rd_landing_pages_dia")).toBe(0);
+    });
+  });
+
+  it("só o servidor grava; apagar o contato leva as conversões", async () => {
+    await como(U.site, async () => {
+      expect(
+        await erro("insert into marketing.rd_contatos (uuid) values ('c2')"),
+      ).toMatch(/permission denied/);
+    });
+    await db.query("delete from marketing.rd_contatos where uuid = 'c1'");
+    expect(await contar("rd_conversoes")).toBe(0);
   });
 });

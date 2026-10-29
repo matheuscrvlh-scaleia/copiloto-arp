@@ -1,4 +1,4 @@
-import { Clock, FlaskConical } from "lucide-react";
+import { Clock, FlaskConical, PlugZap } from "lucide-react";
 import Link from "next/link";
 import { Children, cloneElement, isValidElement } from "react";
 import type { ItemGrafico } from "@/components/dashboard/graficos/base";
@@ -24,6 +24,7 @@ export function TopoDaTela({
   filtros,
   acoes,
   exemplo = true,
+  reais,
 }: {
   /** Ex.: "Dados de 29/10/2026 às 06:00" ou "Versão de 12/10/2026, por Ana". */
   dadosDe: string;
@@ -33,6 +34,8 @@ export function TopoDaTela({
   acoes?: React.ReactNode;
   /** Mostra o selo de dados de exemplo (mockup). */
   exemplo?: boolean;
+  /** Fontes já ligadas de verdade (ex.: "RD Station"): selo verde. */
+  reais?: string;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -42,13 +45,22 @@ export function TopoDaTela({
             <Clock className="size-3.5" aria-hidden />
             {dadosDe}
           </span>
+          {reais && (
+            <span
+              title="Lidos da ferramenta pela sincronização diária."
+              className="inline-flex items-center gap-1 rounded-full bg-green-400/20 px-2 py-0.5 font-medium text-green-800"
+            >
+              <PlugZap className="size-3" aria-hidden />
+              Dados reais: {reais}
+            </span>
+          )}
           {exemplo && (
             <span
               title="Mockup: dados fictícios montados nos campos das APIs. A ligação real entra na V3."
               className="inline-flex items-center gap-1 rounded-full bg-violet-400/20 px-2 py-0.5 font-medium text-violet-700"
             >
               <FlaskConical className="size-3" aria-hidden />
-              Dados de exemplo
+              {reais ? "O resto, de exemplo" : "Dados de exemplo"}
             </span>
           )}
         </p>

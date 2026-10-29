@@ -26,6 +26,8 @@ import { BlocoAsana } from "../blocos";
 import { EsqueletoConfiguracoes, TopoConfiguracoes } from "../topo";
 
 export const metadata: Metadata = { title: "Integrações do Marketing" };
+// "Sincronizar agora" do RD roda depois de responder (after), nesta página.
+export const maxDuration = 300;
 
 // Ferramentas que alimentam o módulo (spec 4.1). Só leitura: nada é
 // publicado, pausado ou respondido nelas. São 6 acessos, salvos e testados

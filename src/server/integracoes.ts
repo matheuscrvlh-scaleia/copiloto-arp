@@ -9,13 +9,19 @@ import {
   type DiarioDeObrasConfig,
 } from "@/connectors/diario-de-obras/client";
 import { ConnectorError, mensagemSegura } from "@/connectors/http";
+import { createRdStationClient } from "@/connectors/marketing/rd-station";
 import {
   createSecullumClient,
   type SecullumConfig,
 } from "@/connectors/secullum/client";
 import { createWpsClient, type WpsConfig } from "@/connectors/wps/client";
 import { formatarNumero } from "@/lib/formato";
-import { INTEGRACOES, linhaDoProduto, type Sistema } from "@/lib/integracoes";
+import {
+  INTEGRACOES,
+  linhaDoProduto,
+  type Sistema,
+  separarSegredos,
+} from "@/lib/integracoes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { podeAgora } from "./auth";
 import { decifrar } from "./cofre";
@@ -196,6 +202,24 @@ export async function copilotoRh() {
   return createCopilotoRhClient(
     configCopiloto(await credencialEmUso("copiloto_rh")),
   );
+}
+
+/** RD Station com o acesso salvo em Marketing › Configurações › Integrações. */
+export async function rdStation() {
+  const def = INTEGRACOES.mkt_rd_station;
+  const c = await credencialEmUso("mkt_rd_station");
+  const p = def.parametros.parse(c.parametros);
+  const s = separarSegredos(def, c.segredo);
+  if (!s.client_secret || !s.refresh_token)
+    throw new IntegracaoNaoConfigurada(
+      "mkt_rd_station",
+      "falta clicar em Conectar com o RD Station",
+    );
+  return createRdStationClient({
+    clientId: String(p.client_id),
+    clientSecret: s.client_secret,
+    refreshToken: s.refresh_token,
+  });
 }
 
 // ---------------------------------------------------------------------------

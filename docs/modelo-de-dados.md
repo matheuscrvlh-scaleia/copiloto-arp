@@ -289,6 +289,9 @@ grava em tabelas próprias e `src/server/marketing/fontes.ts` passa a lê-las.
 | `temas` | Lista fechada de temas das avaliações | idem |
 | `ronda_codigos` | Código da ronda e a área (Marketing ou Operações) | idem |
 | `parametros` | Linha única: reputação, Asana (nomes de projeto e tag), estacionamento | idem (só update) |
+| `rd_contatos` | Contatos do RD que converteram nas últimas 18 semanas (nome, e-mail, telefone, etapa do funil, `ultima_conversao`), gravados pela sincronização (`20261030140000`) | lê `marketing.site` (dado pessoal; nome, e-mail e telefone só aparecem com `marketing.site.dados_lead`); só o servidor grava |
+| `rd_conversoes` | Cada conversão: contato, identificador (landing page ou formulário), data e a origem da sessão que converteu (`origem`, `meio`, `campanha` das UTMs) | lê quem tem alguma `marketing.*`; só o servidor grava |
+| `rd_landing_pages_dia` | Foto diária de cada landing page (visitas e conversões); o plano Pro só lê 45 dias para trás, a foto guarda o resto | idem |
 
 - `marketing.desfazer_versao(id)`: volta o bloco ao que era antes daquela
   alteração, numa versão nova (com a sessão: o RLS confere a permissão).

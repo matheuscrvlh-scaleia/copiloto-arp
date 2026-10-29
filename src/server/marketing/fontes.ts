@@ -8,6 +8,7 @@ import { type DadosRedes, gerarRedes } from "./exemplo/redes";
 import { type DadosReputacao, gerarReputacao } from "./exemplo/reputacao";
 import { type DadosSite, gerarSite } from "./exemplo/site";
 import { memo } from "./exemplo/sorteio";
+import { rdReal } from "./rd";
 
 // Dados das ferramentas. Nesta fase (mockup, spec seção 6) são de exemplo,
 // montados nos campos das APIs (lib/marketing/fontes.ts) e iguais para
@@ -41,8 +42,21 @@ export const dadosAnuncios = cache(
   async (): Promise<DadosAnuncios> => anunciosDoDia(await hoje()),
 );
 
-/** RD Station: contatos, conversões e landing pages. */
+/**
+ * RD Station: contatos, conversões e landing pages. Os reais (com lidoEm)
+ * depois da primeira sincronização; antes dela, os de exemplo.
+ */
 export const dadosRd = cache(
+  async (): Promise<DadosRd> => (await rdReal()) ?? rdDoDia(await hoje()),
+);
+
+/**
+ * O RD de exemplo que casa com os anúncios de exemplo (traffic_campaign =
+ * nome da campanha): custo por lead e leads por campanha continuam de
+ * exemplo até os anúncios serem reais. Leads reais com investimento de
+ * exemplo dariam um custo por lead que não existe.
+ */
+export const dadosRdDosAnuncios = cache(
   async (): Promise<DadosRd> => rdDoDia(await hoje()),
 );
 

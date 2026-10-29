@@ -119,6 +119,8 @@ const ORIGEM_PAGA: Record<CampanhaExemplo["plataforma"], [string, string]> = {
 };
 
 export interface DadosRd {
+  /** Só nos dados reais: quando a última sincronização terminou. */
+  lidoEm?: string;
   contatos: RdContato[];
   conversoes: RdConversao[];
   landingPages: RdLandingPageDia[];

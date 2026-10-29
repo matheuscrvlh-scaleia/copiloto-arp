@@ -64,6 +64,7 @@ import {
   dadosAnuncios,
   dadosAsana,
   dadosRd,
+  dadosRdDosAnuncios,
   dadosRedes,
   dadosReputacao,
   dadosSite,
@@ -97,6 +98,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   const [
     anuncios,
     rd,
+    rdAnuncios,
     site,
     redes,
     reputacao,
@@ -113,6 +115,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   ] = await Promise.all([
     dadosAnuncios(),
     dadosRd(),
+    dadosRdDosAnuncios(),
     dadosSite(),
     dadosRedes(),
     dadosReputacao(),
@@ -129,10 +132,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   ]);
 
   // Cada frente, na semana e na anterior.
-  const campanhas = linhasDeCampanha(anuncios, rd.conversoes, periodo);
+  const campanhas = linhasDeCampanha(anuncios, rdAnuncios.conversoes, periodo);
   const ads = somar(campanhas.linhas);
   const adsAnt = somar(
-    linhasDeCampanha(anuncios, rd.conversoes, anterior).linhas,
+    linhasDeCampanha(anuncios, rdAnuncios.conversoes, anterior).linhas,
   );
   const sit = resumoSite(site, rd, periodo, interesseDe);
   const sitAnt = resumoSite(site, rd, anterior, interesseDe);
@@ -237,7 +240,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   const leadsSemana = semanas.map((s) => resumoSite(site, rd, s, interesseDe));
   const cplSemana = semanas.map(
     (s) =>
-      somar(linhasDeCampanha(anuncios, rd.conversoes, s).linhas).custoPorLead,
+      somar(linhasDeCampanha(anuncios, rdAnuncios.conversoes, s).linhas)
+        .custoPorLead,
   );
 
   const linhaFiltros = linhaDeFiltros([{ rotulo: "Semana", valor: f.rotulo }]);
@@ -257,6 +261,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       <TopoDaTela
         dadosDe={ctx.dadosDe}
         filtros={linhaFiltros}
+        reais={rd.lidoEm ? "leads do RD Station" : undefined}
         acoes={
           pode("marketing.exportar") ? (
             <BotaoExportar

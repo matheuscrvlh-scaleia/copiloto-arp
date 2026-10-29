@@ -81,7 +81,17 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     ]);
 
   // Avisos das abas: o que pede atenção em cada bloco.
-  const linhasLp = classificarLandingPages(rd.landingPages, lps);
+  // Landing pages do RD e os formulários que aparecem nas conversões.
+  const linhasLp = classificarLandingPages(
+    [
+      ...rd.landingPages,
+      ...rd.conversoes.map((c) => ({
+        conversion_identifier: c.conversion_identifier,
+        nome: c.conversion_identifier,
+      })),
+    ],
+    lps,
+  );
   const semTipo = landingPagesSemTipo(linhasLp).length;
   const semDados = locs.filter((l) => l.ativo && avisoSemDados(l)).length;
   const avisos: Partial<Record<Cadastro, number>> = {

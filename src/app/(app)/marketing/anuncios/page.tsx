@@ -46,7 +46,7 @@ import {
   interesseDasLandingPages,
   lerFiltros,
 } from "@/server/marketing/filtros";
-import { dadosAnuncios, dadosRd } from "@/server/marketing/fontes";
+import { dadosAnuncios, dadosRdDosAnuncios } from "@/server/marketing/fontes";
 
 export const metadata: Metadata = { title: "Performance de anúncios" };
 
@@ -89,7 +89,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
   const [anuncios, rd, interesseDe, metaCpl] = await Promise.all([
     dadosAnuncios(),
-    dadosRd(),
+    dadosRdDosAnuncios(),
     interesseDasLandingPages(),
     metaMkt("marketing.custo_por_lead", mesesAte(periodo.ate, 1)[0] as string),
   ]);
