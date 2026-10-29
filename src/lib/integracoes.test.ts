@@ -33,7 +33,7 @@ describe("segredos das integrações", () => {
     expect(separarSegredos(def, "não é json")).toEqual({});
   });
 
-  it("o Marketing tem 5 acessos, todos com prefixo mkt_ (o banco libera por ele)", () => {
+  it("o Marketing tem 6 acessos, todos com prefixo mkt_ (o banco libera por ele)", () => {
     const mkt = SISTEMAS.filter((s) => INTEGRACOES[s].modulo === "marketing");
     expect(mkt).toEqual([
       "mkt_google",
@@ -41,6 +41,7 @@ describe("segredos das integrações", () => {
       "mkt_tiktok",
       "mkt_rd_station",
       "mkt_asana",
+      "mkt_site",
     ]);
     for (const s of SISTEMAS)
       expect(INTEGRACOES[s].modulo === "marketing").toBe(s.startsWith("mkt_"));

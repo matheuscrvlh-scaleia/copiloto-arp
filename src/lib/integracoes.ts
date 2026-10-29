@@ -4,7 +4,7 @@ import { z } from "zod";
 // as do Marketing (prefixo mkt_), em Marketing › Configurações › Integrações.
 // Cada uma tem campos comuns (guardados abertos, para mostrar e editar) e um
 // ou mais segredos (senha, token), que o servidor cifra antes de gravar e
-// nunca devolve.
+// nunca devolve. Endereço público (o site) não tem segredo.
 
 export const SISTEMAS = [
   "secullum",
@@ -16,6 +16,7 @@ export const SISTEMAS = [
   "mkt_tiktok",
   "mkt_rd_station",
   "mkt_asana",
+  "mkt_site",
 ] as const;
 export type Sistema = (typeof SISTEMAS)[number];
 
@@ -396,6 +397,27 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       },
     ],
     parametros: z.object({ workspace_gid: id() }),
+  },
+  mkt_site: {
+    nome: "Site (agenda de eventos)",
+    serve:
+      "Eventos publicados no site da ARP (WordPress). Endereço público, sem login; a agenda é relida a cada hora.",
+    modulo: "marketing",
+    campos: [
+      {
+        nome: "endpoint",
+        rotulo: "Endereço da lista de eventos",
+        tipo: "url",
+        exemplo:
+          "https://www.espacoarp.com.br/wp-json/wp/v2/evento?per_page=100&_embed=wp:featuredmedia",
+        ajuda:
+          "API do WordPress do site. O sistema troca só a página (page=); os outros parâmetros ficam como estão",
+      },
+    ],
+    segredos: [],
+    parametros: z.object({
+      endpoint: z.url({ protocol: /^https$/, error: "use um endereço https" }),
+    }),
   },
 };
 

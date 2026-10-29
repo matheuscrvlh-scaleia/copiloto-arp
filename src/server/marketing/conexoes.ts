@@ -3,14 +3,18 @@ import { createAsanaClient } from "@/connectors/marketing/asana";
 import { createGoogleClient } from "@/connectors/marketing/google";
 import { createMetaClient, SITUACAO_CONTA } from "@/connectors/marketing/meta";
 import { createRdStationClient } from "@/connectors/marketing/rd-station";
+import { createSiteClient } from "@/connectors/marketing/site";
 import { createTikTokClient } from "@/connectors/marketing/tiktok";
-import { formatarNumero } from "@/lib/formato";
+import { formatarData, formatarNumero } from "@/lib/formato";
 import {
   INTEGRACOES,
   type PRODUTOS,
   type Sistema,
   separarSegredos,
 } from "@/lib/integracoes";
+import { eventosDoSite } from "@/lib/marketing/eventos";
+import { somarDias } from "@/lib/marketing/periodo";
+import { hojeEmBrasilia } from "@/lib/os/tempo";
 import type { Credencial } from "../integracoes";
 
 // Teste de conexão de cada ferramenta do Marketing: uma ou duas leituras
@@ -190,5 +194,25 @@ export const TESTES_MARKETING: Record<
     }
     const { projetos, temMais } = await api.projetos(ws.gid);
     return `Conectado como ${eu.name} no workspace “${ws.name}” · ${formatarNumero(projetos.length)}${temMais ? "+" : ""} projetos ativos`;
+  },
+
+  async mkt_site(c) {
+    const { p } = abrir("mkt_site", c);
+    const eventos = eventosDoSite(
+      await createSiteClient({ endpoint: p("endpoint") }).eventos(),
+    );
+    if (!eventos.length)
+      throw new Error("o endereço respondeu, mas sem nenhum evento com data");
+    const hoje = hojeEmBrasilia(new Date());
+    const futuros = eventos.filter((e) => e.fim >= hoje);
+    const em30 = futuros.filter((e) => e.inicio <= somarDias(hoje, 29));
+    const [proximo] = futuros;
+    return [
+      `${formatarNumero(eventos.length)} eventos publicados`,
+      `${formatarNumero(em30.length)} nos próximos 30 dias`,
+      proximo
+        ? `próximo: “${proximo.titulo}” em ${formatarData(proximo.inicio)}`
+        : "nenhum evento futuro",
+    ].join(" · ");
   },
 };

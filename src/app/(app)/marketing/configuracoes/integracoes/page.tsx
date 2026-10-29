@@ -23,7 +23,7 @@ import { EsqueletoConfiguracoes, TopoConfiguracoes } from "../topo";
 export const metadata: Metadata = { title: "Integrações do Marketing" };
 
 // Ferramentas que alimentam o módulo (spec 4.1). Só leitura: nada é
-// publicado, pausado ou respondido nelas. São 5 acessos, salvos e testados
+// publicado, pausado ou respondido nelas. São 6 acessos, salvos e testados
 // aqui (cifrados, como em Administração › Integrações): um login do Google e
 // um token da Meta servem a vários produtos, cada um testado à parte. Quem
 // libera cada acesso está em docs/integracoes.md.
@@ -99,6 +99,12 @@ const FERRAMENTAS: {
     detalhe: "Tarefas, calendário de eventos e ronda (nomes logo abaixo)",
     fontes: [{ sistema: "mkt_asana" }],
     telas: [["Radar operacional", "/marketing/radar"]],
+  },
+  {
+    nome: "Site (agenda de eventos)",
+    detalhe: "Eventos publicados no WordPress; endereço público",
+    fontes: [{ sistema: "mkt_site" }],
+    telas: [["Agenda do site", "/marketing/radar?aba=site"]],
   },
 ];
 
@@ -192,7 +198,8 @@ async function Tela() {
         </ul>
         <Fonte>
           Os números das telas continuam de exemplo até a leitura diária de cada
-          ferramenta entrar (V3); ela vai usar os acessos conectados aqui.
+          ferramenta entrar (V3); ela vai usar os acessos conectados aqui. A
+          agenda do site já é a real, relida a cada hora.
         </Fonte>
       </Secao>
 

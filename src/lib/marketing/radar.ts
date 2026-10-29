@@ -389,12 +389,12 @@ export function eventosDoCalendario(
 }
 
 /** Eventos de cada dia do intervalo (evento de vários dias entra em todos). */
-export function eventosPorDia(
-  eventos: EventoLinha[],
+export function eventosPorDia<T extends { inicio: string; fim: string }>(
+  eventos: T[],
   de: string,
   ate: string,
-): Map<string, EventoLinha[]> {
-  const mapa = new Map<string, EventoLinha[]>();
+): Map<string, T[]> {
+  const mapa = new Map<string, T[]>();
   for (const e of eventos) {
     const ini = e.inicio < de ? de : e.inicio;
     const fim = e.fim > ate ? ate : e.fim;

@@ -4,6 +4,7 @@ import { createAsanaClient } from "./asana";
 import { createGoogleClient } from "./google";
 import { createMetaClient } from "./meta";
 import { createRdStationClient } from "./rd-station";
+import { createSiteClient } from "./site";
 import { createTikTokClient } from "./tiktok";
 
 // Respostas montadas com os exemplos da documentação de cada API.
@@ -218,5 +219,59 @@ describe("asana", () => {
       temMais: true,
     });
     expect(chamadas[1]?.url).toContain("archived=false");
+  });
+});
+
+describe("site (WordPress)", () => {
+  const evento = (id: number) => ({
+    id,
+    link: `https://www.espacoarp.com.br/evento/${id}/`,
+    title: { rendered: "Show" },
+    acf: { evento_tipo: "date", evento_data_hora: "2026-11-02 14:00:00" },
+  });
+  /** Página além da última: o WordPress responde 400. */
+  const alem = () =>
+    new Response(JSON.stringify({ code: "rest_post_invalid_page_number" }), {
+      status: 400,
+    });
+
+  it("lê a 1ª página e as outras em lote, até a última, com os parâmetros do endereço", async () => {
+    const chamadas: Chamada[] = [];
+    const api = createSiteClient({
+      endpoint:
+        "https://www.espacoarp.com.br/wp-json/wp/v2/evento?per_page=2&page=1&_embed=wp:featuredmedia",
+      fetch: falso(
+        [
+          [evento(1), evento(2)],
+          [evento(3), { ...evento(4), acf: [] }],
+          [evento(5)],
+          alem(),
+          alem(),
+          alem(),
+        ],
+        chamadas,
+      ),
+    });
+    expect((await api.eventos()).map((e) => e.id)).toEqual([1, 2, 3, 4, 5]);
+    expect(
+      chamadas.map((c) => new URL(c.url).searchParams.get("page")),
+    ).toEqual(["1", "2", "3", "4", "5", "6"]);
+    expect(chamadas[0]?.url).toContain("_embed=wp%3Afeaturedmedia");
+  });
+
+  it("página além da última (400 do WordPress) encerra a leitura", async () => {
+    const api = createSiteClient({
+      endpoint: "https://x.com.br/wp-json/wp/v2/evento?per_page=1",
+      fetch: falso([[evento(1)], alem(), alem(), alem(), alem(), alem()]),
+    });
+    expect(await api.eventos()).toHaveLength(1);
+  });
+
+  it("formato inesperado vira erro do conector", async () => {
+    const api = createSiteClient({
+      endpoint: "https://x.com.br/wp-json/wp/v2/evento",
+      fetch: falso([{ code: "rest_no_route" }]),
+    });
+    await expect(api.eventos()).rejects.toBeInstanceOf(ConnectorError);
   });
 });

@@ -9,6 +9,7 @@ import {
   TelaCarregando,
 } from "@/components/carregando";
 import { SeloStatus } from "@/components/dashboard/indicador";
+import { AbaAgendaSite } from "@/components/marketing/radar/agenda-site";
 import { AbaCalendario } from "@/components/marketing/radar/calendario";
 import { BASE_RADAR, type PropsAba } from "@/components/marketing/radar/comum";
 import { AbaRonda } from "@/components/marketing/radar/ronda";
@@ -31,6 +32,7 @@ import {
   regrasAlerta,
   temasEcodigos,
 } from "@/server/marketing/base";
+import { agendaDoSite } from "@/server/marketing/eventos";
 import { type Busca, lerFiltros } from "@/server/marketing/filtros";
 import { dadosAsana } from "@/server/marketing/fontes";
 
@@ -41,7 +43,7 @@ export default function Page({ searchParams }: PageProps<"/marketing/radar">) {
     <>
       <PageHeader
         title="Radar operacional"
-        description="O que o Marketing procura à mão no Asana: tarefas do time, calendário de eventos e as sinalizações da ronda que são do Marketing."
+        description="O que o Marketing procura à mão no Asana e no site: tarefas do time, calendário de eventos, a agenda publicada no site e as sinalizações da ronda que são do Marketing."
       />
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="marketing.radar">
@@ -55,6 +57,7 @@ export default function Page({ searchParams }: PageProps<"/marketing/radar">) {
 const ABAS = [
   { chave: "tarefas", rotulo: "Tarefas do time" },
   { chave: "calendario", rotulo: "Calendário de eventos" },
+  { chave: "site", rotulo: "Agenda do site" },
   { chave: "ronda", rotulo: "Sinalizações da ronda" },
 ] as const;
 type Aba = (typeof ABAS)[number]["chave"];
@@ -67,11 +70,13 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     ? (f.um("aba") as Aba)
     : "tarefas";
 
-  const [asana, params, { codigos }, regras] = await Promise.all([
+  const [asana, params, { codigos }, regras, agenda] = await Promise.all([
     dadosAsana(),
     parametros(),
     temasEcodigos(),
     regrasAlerta(),
+    // O site só é lido na aba dele.
+    aba === "site" ? agendaDoSite() : null,
   ]);
   const conferencia = conferirNomes(asana, params);
   const sinalizacoes = sinalizacoesDoMarketing(
@@ -132,7 +137,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         </div>
       )}
 
-      <AvisoConferencia c={conferencia} />
+      {aba !== "site" && <AvisoConferencia c={conferencia} />}
 
       {aba === "tarefas" && (
         <AbaTarefas
@@ -157,6 +162,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             fimDoMes(meses.at(-1) as string),
           )}
         />
+      )}
+      {aba === "site" && agenda && (
+        <AbaAgendaSite p={p} agenda={agenda} meses={meses} />
       )}
       {aba === "ronda" && (
         <AbaRonda

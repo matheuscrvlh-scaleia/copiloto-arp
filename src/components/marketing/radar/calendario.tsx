@@ -7,6 +7,7 @@ import {
   Ticket,
 } from "lucide-react";
 import Link from "next/link";
+import { Fragment } from "react";
 import { Legenda } from "@/components/dashboard/graficos/colunas-empilhadas";
 import { type CorSerie, corDa } from "@/components/dashboard/graficos/series";
 import { SeloStatus } from "@/components/dashboard/indicador";
@@ -236,34 +237,7 @@ export function AbaCalendario({
         />
       </Cartoes>
 
-      <nav
-        aria-label="Visão do calendário"
-        className="vidro flex w-fit gap-1 rounded-full p-1"
-      >
-        {(
-          [
-            ["lista", "Lista", <List key="i" className="size-4" aria-hidden />],
-            [
-              "mes",
-              "Mês",
-              <CalendarDays key="i" className="size-4" aria-hidden />,
-            ],
-          ] as const
-        ).map(([v, rotulo, icone]) => (
-          <Link
-            key={v}
-            href={hrefCom(BASE_RADAR, p.busca, {
-              visao: v === "lista" ? null : v,
-            })}
-            scroll={false}
-            aria-current={visao === v ? "page" : undefined}
-            className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium text-neutral-600 transition hover:bg-white/60 aria-[current=page]:bg-neutral-900 aria-[current=page]:text-white"
-          >
-            {icone}
-            {rotulo}
-          </Link>
-        ))}
-      </nav>
+      <TrocaVisao visao={visao} busca={p.busca} />
 
       {visao === "lista" ? (
         <Secao
@@ -313,6 +287,8 @@ export function AbaCalendario({
             hoje={hoje}
             eventos={filtrados}
             busca={p.busca}
+            chave={(e) => e.gid}
+            chip={(e, largo) => <Chip e={e} largo={largo} />}
           />
           <div className="mt-3">
             <Legenda series={legenda} />
@@ -327,18 +303,64 @@ export function AbaCalendario({
   );
 }
 
-function Mes({
+/** Lista ou mês (?visao=mes). */
+export function TrocaVisao({
+  visao,
+  busca,
+}: {
+  visao: "lista" | "mes";
+  busca: PropsAba["busca"];
+}) {
+  return (
+    <nav
+      aria-label="Visão do calendário"
+      className="vidro flex w-fit gap-1 rounded-full p-1"
+    >
+      {(
+        [
+          ["lista", "Lista", <List key="i" className="size-4" aria-hidden />],
+          [
+            "mes",
+            "Mês",
+            <CalendarDays key="i" className="size-4" aria-hidden />,
+          ],
+        ] as const
+      ).map(([v, rotulo, icone]) => (
+        <Link
+          key={v}
+          href={hrefCom(BASE_RADAR, busca, {
+            visao: v === "lista" ? null : v,
+          })}
+          scroll={false}
+          aria-current={visao === v ? "page" : undefined}
+          className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium text-neutral-600 transition hover:bg-white/60 aria-[current=page]:bg-neutral-900 aria-[current=page]:text-white"
+        >
+          {icone}
+          {rotulo}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/** Grade do mês (lista de dias no celular), com setas entre os `meses`. */
+export function Mes<T extends { inicio: string; fim: string }>({
   mes,
   meses,
   hoje,
   eventos,
   busca,
+  chave,
+  chip,
 }: {
   mes: string;
   meses: string[];
   hoje: string;
-  eventos: EventoLinha[];
+  eventos: T[];
   busca: PropsAba["busca"];
+  chave: (e: T) => string;
+  /** O evento no dia; `largo` na lista do celular. */
+  chip: (e: T, largo: boolean) => React.ReactNode;
 }) {
   const fim = fimDoMes(mes);
   const de = segundaDa(mes);
@@ -389,7 +411,10 @@ function Mes({
                 >
                   {Number(d.slice(8, 10))}
                 </span>
-                {!fora && evs.map((e) => <Chip key={e.gid} e={e} />)}
+                {!fora &&
+                  evs.map((e) => (
+                    <Fragment key={chave(e)}>{chip(e, false)}</Fragment>
+                  ))}
               </div>
             );
           })}
@@ -406,7 +431,7 @@ function Mes({
               {SEMANA[(diaDaSemana(d) + 6) % 7]}, {formatarData(d)}
             </h3>
             {(porDia.get(d) ?? []).map((e) => (
-              <Chip key={e.gid} e={e} largo />
+              <Fragment key={chave(e)}>{chip(e, true)}</Fragment>
             ))}
           </div>
         ))}

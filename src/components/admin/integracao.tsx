@@ -1,6 +1,7 @@
 import {
   CalendarClock,
   Car,
+  Globe,
   HardHat,
   KeyRound,
   ListChecks,
@@ -38,6 +39,7 @@ const ICONE: Record<Sistema, LucideIcon> = {
   mkt_tiktok: Music2,
   mkt_rd_station: Send,
   mkt_asana: ListChecks,
+  mkt_site: Globe,
 };
 
 export const COR_SITUACAO = {
@@ -217,39 +219,41 @@ export function CartaoIntegracao({
               ))}
             </div>
           )}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {def.segredos.map((sg) => (
-              <label
-                key={sg.nome}
-                className={`${rotulo} ${def.segredos.length === 1 ? "md:col-span-2" : ""}`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <KeyRound className="size-3.5" aria-hidden />
-                  {sg.rotulo}
-                  {sg.opcional && (
+          {def.segredos.length > 0 && (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {def.segredos.map((sg) => (
+                <label
+                  key={sg.nome}
+                  className={`${rotulo} ${def.segredos.length === 1 ? "md:col-span-2" : ""}`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <KeyRound className="size-3.5" aria-hidden />
+                    {sg.rotulo}
+                    {sg.opcional && (
+                      <span className="font-normal text-neutral-400">
+                        (opcional)
+                      </span>
+                    )}
+                  </span>
+                  <input
+                    name={`segredo.${sg.nome}`}
+                    type="password"
+                    autoComplete="new-password"
+                    required={!salva && !sg.opcional}
+                    placeholder={
+                      salva ? "•••••••• em branco mantém o salvo" : undefined
+                    }
+                    className={`${classeCampo} font-mono`}
+                  />
+                  {sg.ajuda && (
                     <span className="font-normal text-neutral-400">
-                      (opcional)
+                      {sg.ajuda}
                     </span>
                   )}
-                </span>
-                <input
-                  name={`segredo.${sg.nome}`}
-                  type="password"
-                  autoComplete="new-password"
-                  required={!salva && !sg.opcional}
-                  placeholder={
-                    salva ? "•••••••• em branco mantém o salvo" : undefined
-                  }
-                  className={`${classeCampo} font-mono`}
-                />
-                {sg.ajuda && (
-                  <span className="font-normal text-neutral-400">
-                    {sg.ajuda}
-                  </span>
-                )}
-              </label>
-            ))}
-          </div>
+                </label>
+              ))}
+            </div>
+          )}
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-700">
             <label className="flex items-center gap-2">
               <input

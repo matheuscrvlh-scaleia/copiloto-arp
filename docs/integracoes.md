@@ -379,7 +379,7 @@ V3, na ordem dos acessos liberados. Campos usados por fonte:
 alterado nas ferramentas.
 
 **Onde fica o acesso:** Marketing › Configurações › Integrações (quem tem
-`marketing.parametros` ou `admin.integracoes`). São **5 acessos**, salvos em
+`marketing.parametros` ou `admin.integracoes`). São **6 acessos**, salvos em
 `integracao.credenciais` com prefixo `mkt_` (segredos cifrados; quando há
 mais de um, vão juntos num JSON cifrado) e testados ao salvar, só com
 leituras (conectores em `src/connectors/marketing`, testes em
@@ -394,6 +394,7 @@ parte, e o resultado vira uma linha ✓/✗ por produto.
 | TikTok (`mkt_tiktok`) | Anunciante; conta Business opcional | Token de Ads; token da conta (opcional) | `/advertiser/info/`; `/business/get/` se houver conta |
 | RD Station (`mkt_rd_station`) | — | Client ID; client secret e refresh token | `/auth/token` e `/marketing/account_info` |
 | Asana (`mkt_asana`) | Workspace | Token de acesso pessoal | `/users/me` e projetos ativos do workspace |
+| Site (`mkt_site`) | Endereço da lista de eventos do WordPress | — (público; grava um vazio cifrado) | Lê todas as páginas e conta os eventos com data |
 
 A conta Google que gera o refresh token precisa ter acesso a todos os
 produtos preenchidos (o canal do YouTube hoje está em outra conta; adicionar
@@ -401,6 +402,16 @@ essa conta como usuária nos demais, ou transferir o canal). O refresh token
 sai do OAuth Playground usando o Client ID e o secret do app do Google Cloud
 (com as APIs ativadas no projeto). A Google Ads API muda de versão com
 frequência: a usada fica em `src/connectors/marketing/google.ts`.
+
+**Agenda do site (dado real, não de exemplo):** a aba Radar › Agenda do site
+lê ao vivo o endereço salvo (hoje
+`https://www.espacoarp.com.br/wp-json/wp/v2/evento?per_page=100&_embed=wp:featuredmedia`),
+página a página (o sistema troca só o `page=`), e guarda no cache por uma
+hora (tag `marketing:eventos_site`; salvar ou testar a integração relê na
+hora). Campos do ACF usados: `evento_tipo` (`date` ou `array`),
+`evento_data_hora`, `evento_data_hora_fim`, `evento_datas`
+(`início_fim`), `evento_descricao`, `evento_link`; imagem pelo
+`_embed`. Post sem data fica de fora. Regras em `src/lib/marketing/eventos.ts`.
 
 | Fonte | Serve para | Acesso |
 |---|---|---|

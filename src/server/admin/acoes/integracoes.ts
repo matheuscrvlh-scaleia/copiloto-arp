@@ -1,6 +1,6 @@
 "use server";
 
-import { refresh } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { after } from "next/server";
 import type { EstadoAcao } from "@/components/form-acao";
 import {
@@ -14,6 +14,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { erroDoBanco, primeiroErro } from "@/server/acoes";
 import { usuarioAtual } from "@/server/auth";
+import { TAG } from "@/server/cache";
 import { cifrar, cofreConfigurado } from "@/server/cofre";
 import {
   credencialEmUso,
@@ -73,7 +74,9 @@ export async function salvarIntegracao(
       String(form.get(`segredo.${s.nome}`) ?? "").trim(),
     ]),
   );
-  const trocou = Object.values(novos).some(Boolean);
+  // Sem segredo (endereço público) vai um vazio cifrado: o banco exige um.
+  const trocou =
+    def.segredos.length === 0 || Object.values(novos).some(Boolean);
   let salvos: Record<string, string> = {};
   if (def.segredos.some((s) => !novos[s.nome])) {
     try {
@@ -109,6 +112,7 @@ export async function salvarIntegracao(
     p_ativa: ativa,
   });
   if (salvo.error) return erroDoBanco(salvo.error);
+  if (sistema === "mkt_site") updateTag(TAG.marketing.eventosSite);
   if (teste) {
     const r = await core.rpc("registrar_teste_integracao", {
       p_sistema: sistema,
@@ -143,6 +147,8 @@ export async function testarIntegracao(
     usuarioId: (await usuarioAtual()).id,
     detalhes: { sistema, ok: teste.ok, mensagem: teste.mensagem },
   });
+  // Testar a agenda do site também relê os eventos na tela.
+  if (sistema === "mkt_site" && teste.ok) updateTag(TAG.marketing.eventosSite);
   // Só a credencial salva na tela guarda o resultado (a do .env não tem linha).
   if (await credencialSalva(sistema).catch(() => null)) {
     const r = await (await createClient())

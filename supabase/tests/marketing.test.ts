@@ -335,7 +335,7 @@ describe("parâmetros", () => {
   });
 });
 
-describe("acessos das ferramentas (20261029230000 e 20261029235000)", () => {
+describe("acessos das ferramentas (20261029230000, 20261029235000 e 20261030120000)", () => {
   const salvar = (sistema: string) =>
     `select core.salvar_integracao('${sistema}', '{"ad_account_id": "1"}', 'v1.cifrado', true)`;
 
@@ -376,6 +376,13 @@ describe("acessos das ferramentas (20261029230000 e 20261029235000)", () => {
       expect(await erro(salvar("mkt_youtube"))).toMatch(
         /credenciais_sistema_check/,
       );
+      // A agenda do site (20261030120000): só o endereço.
+      expect(
+        await erro(
+          `select core.salvar_integracao('mkt_site', '{"endpoint": "https://x.com.br/wp-json/wp/v2/evento"}', 'v1.cifrado', true)`,
+        ),
+      ).toBeNull();
+      await db.query("select core.remover_integracao('mkt_site')");
       await db.query(
         `select core.registrar_teste_integracao('mkt_meta', false, repeat('x', 3000))`,
       );

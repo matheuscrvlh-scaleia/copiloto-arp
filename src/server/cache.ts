@@ -48,6 +48,8 @@ export const TAG = {
     parametros: "marketing:parametros",
     /** Metas do Marketing (core.metas marketing.*). */
     metas: "marketing:metas",
+    /** Agenda de eventos lida do site (relida a cada hora ou no teste). */
+    eventosSite: "marketing:eventos_site",
   },
 
   rh: {
