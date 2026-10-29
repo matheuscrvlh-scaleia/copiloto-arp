@@ -33,20 +33,28 @@ export function CaixasDePermissao({
   const herdou = new Set(herdadas);
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-4">
+    <div className="flex flex-col gap-4">
       {MODULOS.map((m) => {
         const doModulo = TODAS.filter((p) => p.startsWith(m.prefixo));
         const livres = doModulo.filter((p) => !herdou.has(p));
         const todasMarcadas =
           livres.length > 0 && livres.every((p) => sel.has(p));
+        const nMarcadas = doModulo.filter(
+          (p) => herdou.has(p) || sel.has(p),
+        ).length;
         return (
           <fieldset
             key={m.prefixo}
-            className="rounded-3xl border border-neutral-200 bg-white/60 p-4"
+            className="min-w-0 rounded-3xl border border-neutral-200 bg-white/60 p-4"
           >
             <legend className="sr-only">{m.titulo}</legend>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 px-2">
               <span className="text-sm font-semibold">{m.titulo}</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${nMarcadas > 0 ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-500"}`}
+              >
+                {nMarcadas} de {doModulo.length}
+              </span>
               {livres.length > 0 && (
                 <button
                   type="button"
@@ -58,20 +66,20 @@ export function CaixasDePermissao({
                       return n;
                     })
                   }
-                  className="text-xs text-neutral-500 underline-offset-2 hover:underline"
+                  className="ml-auto rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs text-neutral-600 transition hover:border-neutral-300 hover:text-neutral-900"
                 >
                   {todasMarcadas ? "Desmarcar todas" : "Marcar todas"}
                 </button>
               )}
             </div>
-            <ul className="flex flex-col gap-1">
+            <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 xl:grid-cols-3">
               {doModulo.map((p) => {
                 const travada = herdou.has(p);
                 const marcada = travada || sel.has(p);
                 return (
-                  <li key={p}>
+                  <li key={p} className="min-w-0">
                     <label
-                      className={`flex cursor-pointer items-start gap-3 rounded-2xl px-2 py-1.5 text-sm transition hover:bg-neutral-100 ${travada ? "cursor-default" : ""}`}
+                      className={`flex h-full items-start gap-3 rounded-2xl px-2 py-2 text-sm transition ${travada ? "cursor-default" : "cursor-pointer hover:bg-neutral-100"} ${marcada ? "bg-neutral-100/60" : ""}`}
                     >
                       <input
                         type="checkbox"
@@ -102,7 +110,7 @@ export function CaixasDePermissao({
                         <span className="block text-neutral-800">
                           {PERMISSOES[p]}
                         </span>
-                        <span className="block text-[11px] text-neutral-400">
+                        <span className="block break-all text-[11px] text-neutral-400">
                           {p}
                           {travada && ` · ${rotuloHerdada}`}
                         </span>

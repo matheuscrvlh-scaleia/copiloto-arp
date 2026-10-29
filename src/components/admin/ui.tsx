@@ -80,13 +80,18 @@ export function Secao({
   titulo,
   descricao,
   children,
+  larga = false,
 }: {
   titulo: string;
   descricao?: React.ReactNode;
   children: React.ReactNode;
+  /** Título em cima e conteúdo na largura toda, em vez de lado a lado. */
+  larga?: boolean;
 }) {
   return (
-    <section className="grid grid-cols-1 gap-4 border-neutral-200/70 py-6 not-first-of-type:border-t first-of-type:pt-0 md:grid-cols-[15rem_minmax(0,1fr)] md:gap-8">
+    <section
+      className={`grid grid-cols-1 gap-4 border-neutral-200/70 py-6 not-first-of-type:border-t first-of-type:pt-0 ${larga ? "" : "md:grid-cols-[15rem_minmax(0,1fr)] md:gap-8"}`}
+    >
       <div>
         <h2 className="text-sm font-semibold text-neutral-900">{titulo}</h2>
         {descricao && (

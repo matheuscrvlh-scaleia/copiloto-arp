@@ -44,6 +44,7 @@ export function FormCargo({ cargo }: { cargo?: Cargo }) {
       </Secao>
       <Secao
         titulo="Permissões"
+        larga
         descricao="O que quem tiver este cargo pode ver e fazer. Vale na hora para todos os usuários dele."
       >
         <CaixasDePermissao marcadas={cargo?.permissoes ?? []} />
