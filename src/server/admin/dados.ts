@@ -1,7 +1,12 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { cache } from "react";
-import { SISTEMAS, type Sistema } from "@/lib/integracoes";
+import {
+  type DefinicaoIntegracao,
+  INTEGRACOES,
+  SISTEMAS,
+  type Sistema,
+} from "@/lib/integracoes";
 import { PERMISSOES, type Permissao } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -223,7 +228,10 @@ export interface Execucao {
   avisos: string[];
 }
 
-export async function integracoesNaTela(): Promise<{
+/** Integrações de um módulo (Administração ou Marketing), com a situação. */
+export async function integracoesNaTela(
+  modulo: DefinicaoIntegracao["modulo"] = "admin",
+): Promise<{
   cofre: boolean;
   integracoes: IntegracaoNaTela[];
   historico: Execucao[];
@@ -236,7 +244,8 @@ export async function integracoesNaTela(): Promise<{
   if (conf.error) throw conf.error;
   if (hist.error) throw hist.error;
 
-  const integracoes = SISTEMAS.map((sistema): IntegracaoNaTela => {
+  const doModulo = SISTEMAS.filter((s) => INTEGRACOES[s].modulo === modulo);
+  const integracoes = doModulo.map((sistema): IntegracaoNaTela => {
     const c = (conf.data ?? []).find((r) => r.sistema === sistema);
     if (c) {
       return {
@@ -274,5 +283,31 @@ export async function integracoesNaTela(): Promise<{
         ? h.avisos.filter((a): a is string => typeof a === "string")
         : [],
     })),
+  };
+}
+
+/**
+ * Só a situação de uma integração (ativa e último teste), para quem não
+ * configura: o Marketing mostra assim o WPS, que fica na Administração.
+ */
+export async function situacaoDaIntegracao(
+  sistema: Sistema,
+): Promise<IntegracaoNaTela> {
+  const { data, error } = await (await createClient())
+    .schema("core")
+    .rpc("estado_integracoes");
+  if (error) throw error;
+  const c = (data ?? []).find((r) => r.sistema === sistema);
+  const ambiente = !c && temNoAmbiente(sistema);
+  return {
+    sistema,
+    origem: c ? "tela" : ambiente ? "ambiente" : null,
+    parametros: {},
+    ativa: c ? c.ativa : ambiente,
+    configuradoPor: null,
+    configuradoEm: null,
+    testadoEm: c?.testado_em ?? null,
+    testeOk: c?.teste_ok ?? null,
+    testeMensagem: null,
   };
 }

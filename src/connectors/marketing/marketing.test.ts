@@ -1,0 +1,222 @@
+import { describe, expect, it } from "vitest";
+import { ConnectorError } from "../http";
+import { createAsanaClient } from "./asana";
+import { createGoogleClient } from "./google";
+import { createMetaClient } from "./meta";
+import { createRdStationClient } from "./rd-station";
+import { createTikTokClient } from "./tiktok";
+
+// Respostas montadas com os exemplos da documentação de cada API.
+
+interface Chamada {
+  url: string;
+  metodo: string;
+  headers: Headers;
+  corpo: string;
+}
+
+/** fetch falso: devolve as respostas na ordem e guarda as chamadas. */
+function falso(respostas: unknown[], chamadas: Chamada[] = []) {
+  return (async (url: string | URL | Request, init?: RequestInit) => {
+    chamadas.push({
+      url: String(url),
+      metodo: init?.method ?? "GET",
+      headers: new Headers(init?.headers),
+      corpo: String(init?.body ?? ""),
+    });
+    const r = respostas.shift();
+    if (r instanceof Response) return r;
+    return new Response(JSON.stringify(r), { status: 200 });
+  }) as typeof fetch;
+}
+
+const TOKEN = { access_token: "acesso", expires_in: 3599 };
+
+describe("google", () => {
+  it("troca o refresh token uma vez e lê a conta do Google Ads", async () => {
+    const chamadas: Chamada[] = [];
+    const api = createGoogleClient({
+      sistema: "mkt_google_ads",
+      clientId: "id",
+      clientSecret: "segredo",
+      refreshToken: "refresh",
+      fetch: falso(
+        [
+          TOKEN,
+          {
+            results: [
+              { customer: { descriptiveName: "ARP", currencyCode: "BRL" } },
+            ],
+          },
+        ],
+        chamadas,
+      ),
+    });
+    expect(await api.adsCliente("123", "dev", "999")).toEqual({
+      nome: "ARP",
+      moeda: "BRL",
+    });
+    expect(chamadas[0]?.url).toBe("https://oauth2.googleapis.com/token");
+    expect(chamadas[0]?.corpo).toContain("grant_type=refresh_token");
+    expect(chamadas[1]?.url).toMatch(
+      /googleads\.googleapis\.com\/v\d+\/customers\/123\/googleAds:search$/,
+    );
+    expect(chamadas[1]?.headers.get("authorization")).toBe("Bearer acesso");
+    expect(chamadas[1]?.headers.get("developer-token")).toBe("dev");
+    expect(chamadas[1]?.headers.get("login-customer-id")).toBe("999");
+  });
+
+  it("GA4 soma vazio como zero e Search Console codifica a propriedade", async () => {
+    const chamadas: Chamada[] = [];
+    const api = createGoogleClient({
+      sistema: "mkt_ga4",
+      clientId: "id",
+      clientSecret: "s",
+      refreshToken: "r",
+      fetch: falso(
+        [
+          TOKEN,
+          { rows: [{ metricValues: [{ value: "1234" }] }] },
+          { siteUrl: "sc-domain:arp.com.br", permissionLevel: "siteOwner" },
+          {},
+        ],
+        chamadas,
+      ),
+    });
+    expect(await api.ga4Sessoes("42")).toBe(1234);
+    expect((await api.searchConsole("sc-domain:arp.com.br")).siteUrl).toBe(
+      "sc-domain:arp.com.br",
+    );
+    expect(chamadas[2]?.url).toContain("/sites/sc-domain%3Aarp.com.br");
+    expect(chamadas.filter((c) => c.url.includes("oauth2"))).toHaveLength(1);
+  });
+
+  it("token recusado vira erro 400 com a mensagem do Google", async () => {
+    const api = createGoogleClient({
+      sistema: "mkt_youtube",
+      clientId: "id",
+      clientSecret: "s",
+      refreshToken: "r",
+      fetch: falso([
+        new Response(
+          JSON.stringify({
+            error: "invalid_grant",
+            error_description: "Token has been expired or revoked.",
+          }),
+          { status: 400 },
+        ),
+      ]),
+    });
+    const e = await api.meusCanais().catch((x) => x);
+    expect(e).toBeInstanceOf(ConnectorError);
+    expect(e.status).toBe(400);
+    expect(e.detalhe).toContain("expired or revoked");
+  });
+});
+
+describe("meta", () => {
+  it("manda o token no header e lê conta, página e Instagram", async () => {
+    const chamadas: Chamada[] = [];
+    const api = createMetaClient({
+      sistema: "mkt_meta_ads",
+      token: "tk",
+      fetch: falso(
+        [
+          { name: "ARP", account_status: 1, currency: "BRL", id: "act_1" },
+          { name: "ARP", followers_count: 1500, id: "9" },
+        ],
+        chamadas,
+      ),
+    });
+    expect((await api.contaDeAnuncios("1")).name).toBe("ARP");
+    expect((await api.pagina("9")).followers_count).toBe(1500);
+    expect(chamadas[0]?.url).toMatch(/graph\.facebook\.com\/v[\d.]+\/act_1\?/);
+    expect(chamadas[0]?.url).not.toContain("tk");
+    expect(chamadas[0]?.headers.get("authorization")).toBe("Bearer tk");
+  });
+});
+
+describe("tiktok", () => {
+  it("lê o anunciante e trata code diferente de 0 como erro", async () => {
+    const chamadas: Chamada[] = [];
+    const ok = createTikTokClient({
+      token: "tk",
+      fetch: falso(
+        [
+          {
+            code: 0,
+            message: "OK",
+            data: { list: [{ name: "ARP", currency: "BRL" }] },
+          },
+        ],
+        chamadas,
+      ),
+    });
+    expect((await ok.anunciante("7")).name).toBe("ARP");
+    expect(chamadas[0]?.headers.get("access-token")).toBe("tk");
+    expect(decodeURIComponent(chamadas[0]?.url ?? "")).toContain(
+      'advertiser_ids=["7"]',
+    );
+
+    const recusado = createTikTokClient({
+      token: "x",
+      fetch: falso([
+        { code: 40105, message: "Access token is incorrect", data: {} },
+      ]),
+    });
+    const e = await recusado.anunciante("7").catch((x) => x);
+    expect(e).toBeInstanceOf(ConnectorError);
+    expect(e.status).toBe(401);
+    expect(e.detalhe).toContain("Access token is incorrect");
+  });
+});
+
+describe("rd station", () => {
+  it("troca o refresh token e lê a conta", async () => {
+    const chamadas: Chamada[] = [];
+    const api = createRdStationClient({
+      clientId: "c",
+      clientSecret: "s",
+      refreshToken: "r",
+      fetch: falso([TOKEN, { name: "ARP Shopping" }], chamadas),
+    });
+    expect((await api.conta()).name).toBe("ARP Shopping");
+    expect(JSON.parse(chamadas[0]?.corpo ?? "")).toEqual({
+      client_id: "c",
+      client_secret: "s",
+      refresh_token: "r",
+    });
+    expect(chamadas[1]?.headers.get("authorization")).toBe("Bearer acesso");
+  });
+});
+
+describe("asana", () => {
+  it("lê o usuário, os workspaces e os projetos ativos", async () => {
+    const chamadas: Chamada[] = [];
+    const api = createAsanaClient({
+      token: "pat",
+      fetch: falso(
+        [
+          {
+            data: {
+              gid: "1",
+              name: "Daniel",
+              workspaces: [{ gid: "10", name: "ARP" }],
+            },
+          },
+          {
+            data: [{ gid: "p1", name: "Marketing" }],
+            next_page: { offset: "x", path: "/projects", uri: "u" },
+          },
+        ],
+        chamadas,
+      ),
+    });
+    expect((await api.eu()).workspaces[0]?.gid).toBe("10");
+    expect(await api.projetos("10")).toEqual({
+      projetos: [{ gid: "p1", name: "Marketing" }],
+      temMais: true,
+    });
+    expect(chamadas[1]?.url).toContain("archived=false");
+  });
+});

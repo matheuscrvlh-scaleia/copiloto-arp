@@ -17,11 +17,26 @@ import { createWpsClient, type WpsConfig } from "@/connectors/wps/client";
 import { formatarNumero } from "@/lib/formato";
 import { INTEGRACOES, type Sistema } from "@/lib/integracoes";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { podeAgora } from "./auth";
 import { decifrar } from "./cofre";
 import { env } from "./env";
+import { TESTES_MARKETING } from "./marketing/conexoes";
 
-// Credenciais das integrações. Valem as salvas em Administração ›
-// Integrações; sem elas, as variáveis de ambiente (.env / Vercel).
+// Credenciais das integrações. Valem as salvas na tela (Administração ›
+// Integrações ou, as do Marketing, Marketing › Configurações › Integrações);
+// sem elas, as variáveis de ambiente (.env / Vercel).
+
+/**
+ * Quem pode configurar: admin.integracoes em todas; marketing.parametros nas
+ * do Marketing. O banco confere a mesma regra (core.pode_integracao).
+ */
+export async function podeConfigurar(sistema: Sistema): Promise<boolean> {
+  if (await podeAgora("admin.integracoes")) return true;
+  return (
+    INTEGRACOES[sistema].modulo === "marketing" &&
+    podeAgora("marketing.parametros")
+  );
+}
 
 export interface Credencial {
   parametros: Record<string, unknown>;
@@ -62,7 +77,7 @@ export async function credencialEmUso(sistema: Sistema): Promise<Credencial> {
       throw new IntegracaoNaoConfigurada(sistema, "integração desativada");
     return salva;
   }
-  const doAmbiente = DO_AMBIENTE[sistema]();
+  const doAmbiente = DO_AMBIENTE[sistema]?.() ?? null;
   if (!doAmbiente)
     throw new IntegracaoNaoConfigurada(
       sistema,
@@ -71,7 +86,7 @@ export async function credencialEmUso(sistema: Sistema): Promise<Credencial> {
   return doAmbiente;
 }
 
-const DO_AMBIENTE: Record<Sistema, () => Credencial | null> = {
+const DO_AMBIENTE: Partial<Record<Sistema, () => Credencial | null>> = {
   secullum() {
     const e = env();
     if (!e.SECULLUM_USUARIO || !e.SECULLUM_SENHA || !e.SECULLUM_BANCO_ID)
@@ -102,7 +117,6 @@ const DO_AMBIENTE: Record<Sistema, () => Credencial | null> = {
       segredo: e.WPS_SENHA,
     };
   },
-  diario_de_obras: () => null,
   copiloto_rh() {
     const e = env();
     if (
@@ -123,7 +137,7 @@ const DO_AMBIENTE: Record<Sistema, () => Credencial | null> = {
 
 /** Há credencial completa nas variáveis de ambiente? (Nunca devolve valores.) */
 export function temNoAmbiente(sistema: Sistema): boolean {
-  return DO_AMBIENTE[sistema]() !== null;
+  return (DO_AMBIENTE[sistema]?.() ?? null) !== null;
 }
 
 // ---------------------------------------------------------------------------
@@ -232,16 +246,31 @@ const TESTES: Record<Sistema, (c: Credencial) => Promise<string>> = {
     });
     return `Conectado à empresa “${me.organization.name}” · ${formatarNumero(ativos)} colaboradores ativos`;
   },
+  ...TESTES_MARKETING,
 };
+
+/**
+ * O "message" que as APIs de marketing devolvem no erro (ex.: "API não
+ * ativada", "token expirado"), sem sequências de dígitos.
+ */
+function daApi(erro: ConnectorError): string {
+  const m = /"(?:message|error_description)"\s*:\s*"([^"]{1,200})"/.exec(
+    erro.detalhe ?? "",
+  );
+  return m?.[1] ? ` (${m[1].replace(/\d[\d.\-/]{7,}\d/g, "…")})` : "";
+}
 
 function explicar(erro: unknown): string {
   if (erro instanceof ConnectorError) {
     if (erro.status === 401 || erro.status === 403)
-      return `acesso recusado (HTTP ${erro.status}): confira usuário, senha ou token`;
+      return `acesso recusado (HTTP ${erro.status}): confira usuário, senha ou token${daApi(erro)}`;
     if (erro.status === 404)
-      return "endereço não encontrado (HTTP 404): confira a URL e os ids";
+      return `endereço não encontrado (HTTP 404): confira a URL e os ids${daApi(erro)}`;
     if (erro.status === undefined && /formato/.test(erro.message))
       return "a API respondeu num formato inesperado";
+    const msg = daApi(erro);
+    if (msg)
+      return `a API recusou: ${erro.message.replace(/^\[[a-z_]+\] /, "")}${msg}`;
   }
   if (erro instanceof Error && erro.name === "ZodError")
     return "campos incompletos ou inválidos";

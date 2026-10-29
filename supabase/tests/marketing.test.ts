@@ -336,3 +336,54 @@ describe("parâmetros", () => {
     ).toBe(0);
   });
 });
+
+describe("acessos das ferramentas (20261029230000_integracoes_marketing)", () => {
+  const salvar = (sistema: string) =>
+    `select core.salvar_integracao('${sistema}', '{"ad_account_id": "1"}', 'v1.cifrado', true)`;
+
+  it("Parâmetros configura só as do Marketing; outro módulo, nenhuma", async () => {
+    await como(U.parametros, async () => {
+      expect(await erro(salvar("mkt_meta_ads"))).toBeNull();
+      expect(
+        await erro(
+          "select core.registrar_teste_integracao('mkt_meta_ads', true, 'ok')",
+        ),
+      ).toBeNull();
+      expect(await erro(salvar("secullum"))).toMatch(/sem permissão/);
+      expect(
+        await valor<string>(
+          "select string_agg(sistema, ',') from core.integracoes_configuradas()",
+        ),
+      ).toBe("mkt_meta_ads");
+    });
+    await como(U.fora, async () => {
+      expect(await erro(salvar("mkt_asana"))).toMatch(/sem permissão/);
+      expect(
+        await valor<number>(
+          "select count(*)::int from core.integracoes_configuradas()",
+        ),
+      ).toBe(0);
+      expect(
+        await erro("select core.remover_integracao('mkt_meta_ads')"),
+      ).toMatch(/sem permissão/);
+    });
+  });
+
+  it("só aceita as ferramentas conhecidas e remove com auditoria", async () => {
+    await como(U.parametros, async () => {
+      expect(await erro(salvar("mkt_outra"))).toMatch(
+        /credenciais_sistema_check/,
+      );
+      await db.query("select core.remover_integracao('mkt_meta_ads')");
+    });
+    expect(
+      await valor<number>("select count(*)::int from integracao.credenciais"),
+    ).toBe(0);
+    expect(
+      await valor<number>(
+        `select count(*)::int from core.auditoria
+         where tabela = 'integracao.credenciais' and registro_id = 'mkt_meta_ads'`,
+      ),
+    ).toBe(2);
+  });
+});

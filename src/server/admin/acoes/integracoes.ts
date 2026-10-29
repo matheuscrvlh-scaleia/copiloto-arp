@@ -3,15 +3,22 @@
 import { refresh } from "next/cache";
 import { after } from "next/server";
 import type { EstadoAcao } from "@/components/form-acao";
-import { ehSistema, INTEGRACOES, type Sistema } from "@/lib/integracoes";
+import {
+  ehSistema,
+  INTEGRACOES,
+  juntarSegredos,
+  type Sistema,
+  separarSegredos,
+} from "@/lib/integracoes";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { erroDoBanco, primeiroErro } from "@/server/acoes";
-import { podeAgora, usuarioAtual } from "@/server/auth";
+import { usuarioAtual } from "@/server/auth";
 import { cifrar, cofreConfigurado } from "@/server/cofre";
 import {
   credencialEmUso,
   credencialSalva,
+  podeConfigurar,
   testarConexao,
 } from "@/server/integracoes";
 import { registrarDepois } from "@/server/logs";
@@ -22,16 +29,17 @@ import { sincronizarWps } from "@/server/sync/wps";
 // Credenciais das integrações. O segredo é cifrado aqui, antes de ir para o
 // banco; as funções do banco conferem admin.integracoes e registram na
 // auditoria sem o segredo. Ler a credencial salva e sincronizar usam a
-// service role: a permissão é conferida direto no banco (podeAgora).
+// service role: a permissão é conferida direto no banco (podeConfigurar:
+// admin.integracoes, ou marketing.parametros nas do Marketing).
 
 const SEM_PERMISSAO: EstadoAcao = {
   erro: "Você não tem permissão para configurar integrações.",
 };
 
 async function sistemaDoForm(form: FormData): Promise<Sistema | EstadoAcao> {
-  if (!(await podeAgora("admin.integracoes"))) return SEM_PERMISSAO;
   const s = form.get("sistema");
-  return ehSistema(s) ? s : { erro: "Integração desconhecida." };
+  if (!ehSistema(s)) return { erro: "Integração desconhecida." };
+  return (await podeConfigurar(s)) ? s : SEM_PERMISSAO;
 }
 
 const ehErro = (v: unknown): v is EstadoAcao =>
@@ -58,18 +66,31 @@ export async function salvarIntegracao(
       Object.fromEntries(def.campos.map((c) => [c.nome, c.rotulo])),
     );
 
-  const novo = String(form.get("segredo") ?? "").trim() || null;
-  let segredo = novo;
-  if (!segredo) {
+  // Segredo em branco mantém o salvo; com vários, cada um à parte.
+  const novos = Object.fromEntries(
+    def.segredos.map((s) => [
+      s.nome,
+      String(form.get(`segredo.${s.nome}`) ?? "").trim(),
+    ]),
+  );
+  const trocou = Object.values(novos).some(Boolean);
+  let salvos: Record<string, string> = {};
+  if (def.segredos.some((s) => !novos[s.nome])) {
     try {
-      segredo = (await credencialSalva(sistema))?.segredo ?? null;
+      const c = await credencialSalva(sistema);
+      if (c) salvos = separarSegredos(def, c.segredo);
     } catch {
       return {
-        erro: `Não foi possível abrir a ${def.segredo.rotulo.toLowerCase()} salva. Digite de novo.`,
+        erro: "Não foi possível abrir os segredos salvos. Digite todos de novo.",
       };
     }
-    if (!segredo) return { erro: `${def.segredo.rotulo}: obrigatório` };
   }
+  const valores = Object.fromEntries(
+    def.segredos.map((s) => [s.nome, novos[s.nome] || salvos[s.nome] || ""]),
+  );
+  const falta = def.segredos.find((s) => !s.opcional && !valores[s.nome]);
+  if (falta) return { erro: `${falta.rotulo}: obrigatório` };
+  const segredo = juntarSegredos(def, valores);
 
   const ativa = form.get("ativa") === "on";
   const semTeste = form.get("sem_teste") === "on";
@@ -84,7 +105,7 @@ export async function salvarIntegracao(
     p_sistema: sistema,
     p_parametros: p.data as Json,
     // Sem segredo novo, o banco mantém o atual.
-    p_segredo_cifrado: (novo ? cifrar(novo, sistema) : null) as string,
+    p_segredo_cifrado: (trocou ? cifrar(segredo, sistema) : null) as string,
     p_ativa: ativa,
   });
   if (salvo.error) return erroDoBanco(salvo.error);

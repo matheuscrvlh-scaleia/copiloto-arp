@@ -68,7 +68,7 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 | `sync_runs` | Cada execução: sistema, recurso, status, cursor antes/depois, registros, erro. Índice único impede duas execuções do mesmo recurso ao mesmo tempo |
 | `cursores` | Até onde cada recurso foi sincronizado; só avança em sucesso |
 | `registros_brutos` | Payload já validado pelo conector, com hash. Serve para reprocessar sem chamar a API e para provar de onde veio um número |
-| `credenciais` | Acesso de cada integração: parâmetros abertos (usuário, banco, URL) e o segredo cifrado no servidor (AES-256-GCM, chave `INTEGRACOES_CHAVE`). A tela usa `core.integracoes_configuradas()`, `core.salvar_integracao()` e afins, que conferem `admin.integracoes`, nunca devolvem o segredo e gravam na auditoria sem ele |
+| `credenciais` | Acesso de cada integração: parâmetros abertos (usuário, banco, URL) e o segredo cifrado no servidor (AES-256-GCM, chave `INTEGRACOES_CHAVE`). A tela usa `core.integracoes_configuradas()`, `core.salvar_integracao()` e afins, que conferem `core.pode_integracao()` (`admin.integracoes` em todas; `marketing.parametros` nas `mkt_` do Marketing), nunca devolvem o segredo e gravam na auditoria sem ele |
 
 ## rh
 
