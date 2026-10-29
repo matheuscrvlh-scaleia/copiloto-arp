@@ -1,10 +1,12 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
 import {
   ARQUIVO_MAX_BYTES,
+  conteudoDosItens,
   conteudoDoTexto,
   lerConteudo,
   mesmoConteudo,
@@ -71,7 +73,12 @@ export async function salvarBloco(
   if (!atual.data) return { erro: "Bloco não encontrado." };
   const tipo = atual.data.tipo as TipoBloco;
 
-  const lido = conteudoDoTexto(tipo, texto);
+  // Lista editada item a item chega em JSON; o resto, no texto.
+  const itens = form.get("itens");
+  const lido =
+    tipo === "lista" && typeof itens === "string"
+      ? conteudoDosItens(itens)
+      : conteudoDoTexto(tipo, texto);
   if (!lido.ok) return { erro: lido.erro };
   if (mesmoConteudo(lido.conteudo, lerConteudo(tipo, atual.data.conteudo)))
     return { ok: "Nada mudou neste bloco." };
@@ -124,6 +131,50 @@ export async function voltarVersao(
     return { erro: "Não foi possível voltar a versão. Tente de novo." };
   }
   return concluir("Alteração desfeita. O bloco voltou ao texto anterior.");
+}
+
+// ---------------------------------------------------------------------------
+// Arquivo novo (título e descrição); o envio segue pelo fluxo da versão
+// ---------------------------------------------------------------------------
+
+export type ArquivoCriado =
+  | { ok: true; grupo: string }
+  | { ok: false; erro: string };
+
+/** Cria o arquivo esperado; o navegador envia em seguida pelo prepararEnvio. */
+export async function novoArquivo(entrada: {
+  titulo: string;
+  descricao: string;
+}): Promise<ArquivoCriado> {
+  const e = z
+    .object({
+      titulo: z.string().trim().min(1).max(120),
+      descricao: z.string().trim().max(300),
+    })
+    .safeParse(entrada);
+  if (!e.success)
+    return { ok: false, erro: "Dê um título de até 120 caracteres." };
+  if (!(await podeAgora("marketing.marca.editar")))
+    return { ok: false, erro: SEM_PERMISSAO.erro as string };
+  const { titulo, descricao } = e.data;
+  // Grupo legível e sem colisão: título sem acento + sufixo aleatório.
+  const base = nomeSeguro(titulo)
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+  const grupo = `${base || "arquivo"}_${randomBytes(3).toString("hex")}`;
+  const { error } = await mktAdmin()
+    .from("marca_arquivos")
+    .insert({ grupo, titulo, descricao: descricao || null });
+  if (error) {
+    console.error("novo arquivo da marca", error);
+    return {
+      ok: false,
+      erro: "Não foi possível criar o arquivo. Tente de novo.",
+    };
+  }
+  updateTag(TAG.marketing.marca);
+  return { ok: true, grupo };
 }
 
 // ---------------------------------------------------------------------------

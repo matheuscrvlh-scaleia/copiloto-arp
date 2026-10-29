@@ -145,32 +145,13 @@ export function conteudoDoTexto(tipo: TipoBloco, texto: string): Leitura {
     // Marcador de lista colado ("- item", "• item") não faz parte do item.
     .map((l, i) => ({ n: i + 1, l: l.trim().replace(/^[-•*—–]\s+/, "") }))
     .filter((x) => x.l);
-  if (tipo === "lista") {
-    const itens: ItemLista[] = [];
-    for (const { n, l } of linhas) {
-      const [titulo = "", ...resto] = partes(l);
-      const r = itemLista.safeParse({
-        titulo,
-        texto: resto.join(" — ") || undefined,
-      });
-      if (!titulo)
-        return {
-          ok: false,
-          erro: `Linha ${n}: falta o item antes do travessão.`,
-        };
-      if (!r.success)
-        return {
-          ok: false,
-          erro: `Linha ${n}: título ou explicação longa demais.`,
-        };
-      // Repetido confunde o revisor e a lista: um item uma vez só.
-      if (itens.some((i) => i.titulo.toLowerCase() === titulo.toLowerCase()))
-        return { ok: false, erro: `Linha ${n}: "${titulo}" já está na lista.` };
-      itens.push(r.data);
-    }
-    if (itens.length > 100) return { ok: false, erro: "No máximo 100 itens." };
-    return { ok: true, conteudo: { tipo, itens } };
-  }
+  if (tipo === "lista")
+    return lerItens(
+      linhas.map(({ n, l }) => {
+        const [titulo = "", ...resto] = partes(l);
+        return { onde: `Linha ${n}`, titulo, texto: resto.join(" — ") };
+      }),
+    );
   const itens: Cor[] = [];
   for (const { n, l } of linhas) {
     const [nome = "", hexBruto = "", ...uso] = partes(l);
@@ -195,6 +176,49 @@ export function conteudoDoTexto(tipo: TipoBloco, texto: string): Leitura {
   }
   if (itens.length > 40) return { ok: false, erro: "No máximo 40 cores." };
   return { ok: true, conteudo: { tipo, itens } };
+}
+
+/** Itens do editor item a item (JSON do formulário) → conteúdo validado. */
+export function conteudoDosItens(json: string): Leitura {
+  let bruto: unknown;
+  try {
+    bruto = JSON.parse(json);
+  } catch {
+    return { ok: false, erro: "Formulário inválido. Recarregue a tela." };
+  }
+  const r = z
+    .array(z.object({ titulo: z.string(), texto: z.string().optional() }))
+    .max(100)
+    .safeParse(bruto);
+  if (!r.success) return { ok: false, erro: "No máximo 100 itens." };
+  return lerItens(
+    r.data
+      .map((i, k) => ({
+        onde: `Item ${k + 1}`,
+        titulo: i.titulo.trim(),
+        texto: i.texto?.trim() ?? "",
+      }))
+      // Item deixado em branco no editor não conta.
+      .filter((i) => i.titulo || i.texto),
+  );
+}
+
+function lerItens(
+  entradas: { onde: string; titulo: string; texto: string }[],
+): Leitura {
+  const itens: ItemLista[] = [];
+  for (const { onde, titulo, texto } of entradas) {
+    if (!titulo) return { ok: false, erro: `${onde}: falta o nome do item.` };
+    const r = itemLista.safeParse({ titulo, texto: texto || undefined });
+    if (!r.success)
+      return { ok: false, erro: `${onde}: nome ou significado longo demais.` };
+    // Repetido confunde o revisor e a lista: um item uma vez só.
+    if (itens.some((i) => i.titulo.toLowerCase() === titulo.toLowerCase()))
+      return { ok: false, erro: `${onde}: "${titulo}" já está na lista.` };
+    itens.push(r.data);
+  }
+  if (itens.length > 100) return { ok: false, erro: "No máximo 100 itens." };
+  return { ok: true, conteudo: { tipo: "lista", itens } };
 }
 
 /** Mesmo conteúdo (para não gravar uma versão que não muda nada). */

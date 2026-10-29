@@ -8,10 +8,12 @@ import {
 import { formatarDataHora } from "@/lib/formato";
 import { formatarTamanho } from "@/lib/marketing/marca";
 import type { ArquivoMarca } from "@/server/marketing/marca";
+import { NovoArquivo } from "./novo-arquivo";
 import { SubirArquivo } from "./subir-arquivo";
 
 // Arquivos de marca para baixar: a versão atual de cada um e, recolhidas,
-// as anteriores. Quem edita sobe uma versão nova (a anterior fica aqui).
+// as anteriores. Quem edita sobe uma versão nova (a anterior fica aqui) ou
+// cadastra um arquivo novo no último cartão.
 
 /** Ordem de leitura (o resto vem depois, por título). */
 const ORDEM = ["rebranding", "guia_rapido", "ebook_108_anos", "logos"];
@@ -88,6 +90,15 @@ export function Arquivos({
             key={g}
             className="vidro flex flex-col gap-4 rounded-[1.75rem] p-5 md:p-6"
           >
+            {enviado && atual.tipo_mime?.startsWith("image/") && (
+              // biome-ignore lint/performance/noImgElement: bucket privado, link assinado pela rota de download
+              <img
+                src={`/marketing/marca/arquivo/${atual.id}`}
+                alt={`Prévia de ${atual.titulo}`}
+                loading="lazy"
+                className="h-40 w-full rounded-2xl bg-neutral-900/[0.04] object-contain p-2"
+              />
+            )}
             <div className="flex items-start gap-4">
               <span
                 className={`grid size-12 shrink-0 place-items-center rounded-2xl ${enviado ? "bg-marca/20 text-marca-escuro" : "bg-neutral-900/[0.05] text-neutral-400"}`}
@@ -145,6 +156,7 @@ export function Arquivos({
           </li>
         );
       })}
+      {podeEditar && <NovoArquivo />}
     </ul>
   );
 }

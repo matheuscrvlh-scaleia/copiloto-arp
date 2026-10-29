@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleAlert, CircleCheck, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useDeferredValue, useId, useMemo, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import { revisar } from "@/lib/marketing/revisor";
@@ -53,7 +54,7 @@ export function Revisor({
         />
         <div aria-live="polite">
           <p className="mb-2 text-xs font-medium text-neutral-500">
-            Texto revisado
+            Texto com destaques
           </p>
           <div className="min-h-24 whitespace-pre-wrap rounded-2xl border border-neutral-900/10 bg-white/60 p-4 text-sm leading-7 text-neutral-800">
             {vazio ? (
@@ -124,10 +125,41 @@ export function Revisor({
               </ul>
             </>
           ) : (
-            <p className="flex items-center gap-2 text-sm font-medium text-green-800">
-              <CircleCheck className="size-4" aria-hidden />
-              Nenhuma palavra proibida.
-            </p>
+            <>
+              <p className="flex items-center gap-2 text-sm font-medium text-green-800">
+                <CircleCheck className="size-4" aria-hidden />
+                Nenhuma palavra proibida.
+              </p>
+              {/* Mostra contra o que conferiu: "melhor lugar" não casa
+                  "Melhor da Cidade", e sem isso parece que não funcionou. */}
+              <p className="mt-3 text-xs text-neutral-500">
+                {proibidas.length
+                  ? `Conferido contra ${proibidas.length} ${proibidas.length === 1 ? "expressão" : "expressões"}, só inteiras:`
+                  : "Nenhuma palavra proibida cadastrada."}
+              </p>
+              {proibidas.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {proibidas.map((p) => (
+                    <li
+                      key={p}
+                      className="rounded-full border border-neutral-900/10 bg-white/60 px-3 py-1 text-xs text-neutral-600"
+                    >
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-3 text-xs text-neutral-500">
+                Faltou alguma? Cadastre em{" "}
+                <Link
+                  href="/marketing/marca?aba=tom_de_voz#bloco-palavras_proibidas"
+                  className="font-medium text-neutral-800 underline underline-offset-4"
+                >
+                  Palavras proibidas
+                </Link>
+                .
+              </p>
+            </>
           )}
         </section>
 

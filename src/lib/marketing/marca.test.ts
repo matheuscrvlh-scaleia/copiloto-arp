@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  conteudoDosItens,
   conteudoDoTexto,
   diferenca,
   lerConteudo,
@@ -155,5 +156,37 @@ describe("itens repetidos", () => {
         itens: [{ titulo: "Shopping" }, { titulo: "Tem de tudo" }],
       },
     });
+  });
+});
+
+describe("lista editada item a item", () => {
+  it("guarda nome e significado sem depender do travessão", () => {
+    const json = JSON.stringify([
+      { titulo: " Vivemos a rua ", texto: "Somos da rua — e ela é nossa." },
+      { titulo: "", texto: "" },
+      { titulo: "Herdamos coragem", texto: "" },
+    ]);
+    expect(conteudoDosItens(json)).toEqual({
+      ok: true,
+      conteudo: {
+        tipo: "lista",
+        itens: [
+          { titulo: "Vivemos a rua", texto: "Somos da rua — e ela é nossa." },
+          { titulo: "Herdamos coragem" },
+        ],
+      },
+    });
+  });
+
+  it("aponta o item sem nome e o repetido", () => {
+    const semNome = conteudoDosItens(
+      JSON.stringify([{ titulo: "A" }, { titulo: "", texto: "só texto" }]),
+    );
+    expect(!semNome.ok && semNome.erro).toMatch(/^Item 2: falta o nome/);
+    const repetido = conteudoDosItens(
+      JSON.stringify([{ titulo: "Tom" }, { titulo: "tom" }]),
+    );
+    expect(!repetido.ok && repetido.erro).toMatch(/^Item 2/);
+    expect(conteudoDosItens("{").ok).toBe(false);
   });
 });

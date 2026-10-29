@@ -71,6 +71,8 @@ const LAYOUT: Record<string, { span?: string; tom?: keyof typeof TOM }> = {
   palavras_proibidas: { span: "lg:col-span-1" },
   frases_de_apoio: { span: "lg:col-span-2" },
   direcionadores: { tom: "escuro" },
+  logo: { tom: "escuro" },
+  grafismos: { tom: "verde" },
 };
 
 /** Na plataforma, os pares que dividem a linha (2 + 1) vêm na frente, sem buraco. */
@@ -130,6 +132,12 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         texto={textoDoConteudo(x.conteudo)}
         podeEditar={podeEditar}
         palavras={x.chave.startsWith("palavras_")}
+        // Palavras do revisor não têm significado: seguem no texto.
+        itens={
+          x.conteudo.tipo === "lista" && !x.chave.startsWith("palavras_")
+            ? x.conteudo.itens
+            : undefined
+        }
         classeTom={TOM[l?.tom ?? "claro"]}
         className={l?.span ?? "lg:col-span-3"}
       >

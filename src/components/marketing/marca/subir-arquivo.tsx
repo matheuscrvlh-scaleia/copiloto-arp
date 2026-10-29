@@ -18,9 +18,66 @@ import {
 // servidor só gera para quem tem marketing.marca.editar; depois o servidor
 // confere o arquivo e registra a versão (a anterior fica no histórico).
 
-const ACEITA = Object.keys(TIPOS_ARQUIVO)
+export const ACEITA = Object.keys(TIPOS_ARQUIVO)
   .map((e) => `.${e}`)
   .join(",");
+
+/** Erro do arquivo antes de enviar (tipo ou tamanho), ou null. */
+export function erroDoArquivo(arquivo: File): string | null {
+  if (!tipoDoArquivo(arquivo.name)) return "Envie PDF, PNG, JPG, SVG ou ZIP.";
+  if (arquivo.size > ARQUIVO_MAX_BYTES) return "Arquivo maior que 25 MB.";
+  return null;
+}
+
+/** Envia o arquivo para o grupo e avisa o resultado. Devolve se deu certo. */
+export async function enviarArquivo(
+  grupo: string,
+  arquivo: File,
+): Promise<boolean> {
+  const erro = erroDoArquivo(arquivo);
+  if (erro) {
+    notificar("erro", erro);
+    return false;
+  }
+  try {
+    const preparo = await prepararEnvio({
+      grupo,
+      nome: arquivo.name,
+      tamanho: arquivo.size,
+    });
+    if (!preparo.ok) {
+      notificar("erro", preparo.erro);
+      return false;
+    }
+    // Mesmo formato do uploadToSignedUrl do supabase-js.
+    const corpo = new FormData();
+    corpo.append("cacheControl", "3600");
+    corpo.append("", arquivo);
+    const envio = await fetch(preparo.url, {
+      method: "PUT",
+      body: corpo,
+      headers: { "x-upsert": "false" },
+    });
+    if (!envio.ok) {
+      notificar("erro", "O envio não terminou. Tente de novo.");
+      return false;
+    }
+    const r = await registrarArquivo({
+      grupo,
+      path: preparo.path,
+      nome: arquivo.name,
+    });
+    if (r.erro) notificar("erro", r.erro);
+    else if (r.ok) notificar("ok", r.ok);
+    return !r.erro;
+  } catch {
+    notificar(
+      "erro",
+      "O envio não terminou. Confira a conexão e tente de novo.",
+    );
+    return false;
+  }
+}
 
 export function SubirArquivo({
   grupo,
@@ -34,45 +91,10 @@ export function SubirArquivo({
   const [enviando, setEnviando] = useState(false);
 
   async function enviar(arquivo: File) {
-    if (!tipoDoArquivo(arquivo.name))
-      return notificar("erro", "Envie PDF, PNG, JPG, SVG ou ZIP.");
-    if (arquivo.size > ARQUIVO_MAX_BYTES)
-      return notificar("erro", "Arquivo maior que 25 MB.");
     setEnviando(true);
-    try {
-      const preparo = await prepararEnvio({
-        grupo,
-        nome: arquivo.name,
-        tamanho: arquivo.size,
-      });
-      if (!preparo.ok) return notificar("erro", preparo.erro);
-      // Mesmo formato do uploadToSignedUrl do supabase-js.
-      const corpo = new FormData();
-      corpo.append("cacheControl", "3600");
-      corpo.append("", arquivo);
-      const envio = await fetch(preparo.url, {
-        method: "PUT",
-        body: corpo,
-        headers: { "x-upsert": "false" },
-      });
-      if (!envio.ok)
-        return notificar("erro", "O envio não terminou. Tente de novo.");
-      const r = await registrarArquivo({
-        grupo,
-        path: preparo.path,
-        nome: arquivo.name,
-      });
-      if (r.erro) notificar("erro", r.erro);
-      else if (r.ok) notificar("ok", r.ok);
-    } catch {
-      notificar(
-        "erro",
-        "O envio não terminou. Confira a conexão e tente de novo.",
-      );
-    } finally {
-      setEnviando(false);
-      if (entrada.current) entrada.current.value = "";
-    }
+    await enviarArquivo(grupo, arquivo);
+    setEnviando(false);
+    if (entrada.current) entrada.current.value = "";
   }
 
   return (

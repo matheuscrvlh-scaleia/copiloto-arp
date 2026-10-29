@@ -11,8 +11,9 @@ import {
 } from "react";
 import { classeCampo } from "@/components/estilos";
 import { useNotificarEstado } from "@/components/notificacoes";
-import type { TipoBloco } from "@/lib/marketing/marca";
+import type { ItemLista, TipoBloco } from "@/lib/marketing/marca";
 import { salvarBloco } from "@/server/marketing/acoes/marca";
+import { EditorItens } from "./editor-itens";
 
 // Cartão de um bloco da marca. Quem tem marketing.marca.editar vê o botão
 // "Editar", que troca o conteúdo pelo formulário ali mesmo; o conteúdo
@@ -38,6 +39,7 @@ export function BlocoEditavel({
   texto,
   podeEditar,
   palavras = false,
+  itens,
   className = "",
   classeTom = "vidro",
   children,
@@ -52,6 +54,8 @@ export function BlocoEditavel({
   podeEditar: boolean;
   /** Lista de palavras do revisor (dica própria). */
   palavras?: boolean;
+  /** Lista editada item a item (nome e significado) em vez do texto. */
+  itens?: ItemLista[];
   className?: string;
   classeTom?: string;
   children: React.ReactNode;
@@ -105,18 +109,24 @@ export function BlocoEditavel({
         >
           <input type="hidden" name="chave" value={chave} />
           <input type="hidden" name="versao" value={versao} />
-          <label htmlFor={campo} className="text-xs text-neutral-500">
-            {palavras ? DICA_PALAVRAS : DICA[tipo]}
-          </label>
-          <textarea
-            id={campo}
-            name="texto"
-            defaultValue={texto}
-            rows={linhas}
-            // biome-ignore lint/a11y/noAutofocus: abriu por clique em "Editar"
-            autoFocus
-            className={`${classeCampo} min-h-24 font-[inherit] leading-relaxed`}
-          />
+          {itens ? (
+            <EditorItens chave={chave} itens={itens} />
+          ) : (
+            <>
+              <label htmlFor={campo} className="text-xs text-neutral-500">
+                {palavras ? DICA_PALAVRAS : DICA[tipo]}
+              </label>
+              <textarea
+                id={campo}
+                name="texto"
+                defaultValue={texto}
+                rows={linhas}
+                // biome-ignore lint/a11y/noAutofocus: abriu por clique em "Editar"
+                autoFocus
+                className={`${classeCampo} min-h-24 font-[inherit] leading-relaxed`}
+              />
+            </>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="submit"
