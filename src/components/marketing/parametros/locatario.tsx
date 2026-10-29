@@ -33,6 +33,7 @@ export function FormLocatario({
   outros,
   categorias,
   hoje,
+  aoConcluir,
 }: {
   acao: Acao;
   /** Sem ele, é inclusão. */
@@ -43,6 +44,8 @@ export function FormLocatario({
   categorias: string[];
   /** "aaaa-mm-dd": entrada padrão da inclusão. */
   hoje: string;
+  /** Chamada quando salva (fecha a janela). */
+  aoConcluir?: () => void;
 }) {
   const l = locatario;
   const [nome, setNome] = useState(l?.nome ?? "");
@@ -58,9 +61,10 @@ export function FormLocatario({
       rotulo={l ? "Salvar" : "Incluir"}
       rotuloEnviando={l ? "Salvando…" : "Incluindo…"}
       className="flex flex-col gap-3"
+      aoConcluir={aoConcluir}
     >
       {l && <input type="hidden" name="id" value={l.id} />}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className={rotulo}>
           Nome
           <input

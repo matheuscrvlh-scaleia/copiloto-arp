@@ -83,6 +83,7 @@ export function FormAcao({
   confirmar,
   botaoNoFim = true,
   className = "",
+  aoConcluir,
 }: {
   acao: Acao;
   children?: React.ReactNode;
@@ -94,9 +95,16 @@ export function FormAcao({
   /** false: o botão vai onde estiver o <EnvioDaAcao /> dentro de children. */
   botaoNoFim?: boolean;
   className?: string;
+  /** Chamada quando a ação dá certo (ex.: fechar a janela do formulário). */
+  aoConcluir?: () => void;
 }) {
   const [estado, executar, enviando] = useActionState(acao, {});
   const confirmacao = useConfirmacao({ confirmar, estado });
+  const concluir = useRef(aoConcluir);
+  concluir.current = aoConcluir;
+  useEffect(() => {
+    if (estado.ok) concluir.current?.();
+  }, [estado]);
   useNotificarEstado(estado, { erro: !confirmar });
   const enviar = useEnvioSemLimpar(executar, estado, confirmacao.form);
   return (

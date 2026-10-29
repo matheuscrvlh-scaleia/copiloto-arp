@@ -1,10 +1,15 @@
+import Link from "next/link";
 import { Secao } from "@/components/dashboard/tabela";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { FormAsana } from "@/components/marketing/parametros/asana";
 import { CargaLocatarios } from "@/components/marketing/parametros/carga";
-import { FormLocatario } from "@/components/marketing/parametros/locatario";
+import {
+  IncluirLocatario,
+  MenuLocatario,
+} from "@/components/marketing/parametros/menu-locatario";
 import { FormReputacao } from "@/components/marketing/parametros/reputacao";
+import { Paginacao } from "@/components/os/paginacao";
 import { Selecao } from "@/components/selecao";
 import { formatarData, formatarMes } from "@/lib/formato";
 import { metaVigente } from "@/lib/indicadores";
@@ -19,6 +24,7 @@ import {
   NIVEIS,
   REGRAS,
 } from "@/lib/marketing/parametros";
+import { totalDePaginas } from "@/lib/os/paginacao";
 import {
   alterarMeta,
   confirmarCargaLocatarios,
@@ -59,8 +65,6 @@ const SELO = {
   ok: `${selo} bg-green-400/20 text-green-700`,
 };
 const lista = "flex flex-col divide-y divide-neutral-900/[0.06]";
-const resumo =
-  "flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 py-3 marker:hidden [&::-webkit-details-marker]:hidden";
 
 const opcoes = (o: Record<string, string>) =>
   Object.entries(o).map(([valor, r]) => ({ valor, rotulo: r }));
@@ -89,38 +93,43 @@ function Marcar({
 
 // ---------------------------------------------------------------------------
 
+const POR_PAGINA_LOCATARIOS = 25;
+
 export function BlocoLocatarios({
   locatarios,
   hoje,
   semDados,
+  pagina,
+  hrefPagina,
 }: {
   locatarios: Locatario[];
   hoje: string;
   semDados: number;
+  pagina: number;
+  hrefPagina: (p: number) => string;
 }) {
   const outros = locatarios.map((l) => ({ id: l.id, nome: l.nome }));
   const categorias = [...new Set(locatarios.map((l) => l.categoria))].sort();
   const ativos = locatarios.filter((l) => l.ativo).length;
+  const cadastro = { acao: salvarLocatario, outros, categorias, hoje };
+  // Página fora do fim (ex.: depois de remover) mostra a última.
+  const atual = Math.min(
+    pagina,
+    totalDePaginas(locatarios.length, POR_PAGINA_LOCATARIOS),
+  );
+  const daPagina = locatarios.slice(
+    (atual - 1) * POR_PAGINA_LOCATARIOS,
+    atual * POR_PAGINA_LOCATARIOS,
+  );
   return (
     <>
       <Secao
         titulo="Locatários monitorados"
         descricao={`${ativos} ativos de ${locatarios.length}${semDados ? `; ${semDados} ativo(s) com “sem dados” na Reputação` : ""}. Link inválido ou sem acesso salva com aviso; nome repetido não salva.`}
       >
-        <details className="mb-4 rounded-2xl bg-white/60 px-4 ring-1 ring-neutral-900/[0.06]">
-          <summary className={`${resumo} text-sm font-medium`}>
-            + Incluir locatário
-          </summary>
-          <div className="pb-4">
-            <FormLocatario
-              key={locatarios.length}
-              acao={salvarLocatario}
-              outros={outros}
-              categorias={categorias}
-              hoje={hoje}
-            />
-          </div>
-        </details>
+        <div className="mb-4">
+          <IncluirLocatario {...cadastro} />
+        </div>
         {locatarios.length === 0 && (
           <p className="py-4 text-sm text-neutral-500">
             Nenhum locatário cadastrado. Inclua um a um ou carregue a planilha
@@ -128,11 +137,15 @@ export function BlocoLocatarios({
           </p>
         )}
         <div className={lista}>
-          {locatarios.map((l) => {
+          {daPagina.map((l) => {
             const aviso = avisoSemDados(l);
+            const perfil = `/marketing/reputacao/${l.id}`;
             return (
-              <details key={l.id} className="group">
-                <summary className={resumo}>
+              <div key={l.id} className="flex items-center gap-2">
+                <Link
+                  href={perfil}
+                  className="-mx-2 flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-2 py-3 transition hover:bg-neutral-900/[0.03]"
+                >
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium">{l.nome}</span>
                     <span className="block text-xs text-neutral-500">
@@ -151,33 +164,28 @@ export function BlocoLocatarios({
                   <span className={l.ativo ? SELO.ok : SELO.neutro}>
                     {l.ativo ? "Ativo" : "Inativo"}
                   </span>
-                  <span className="text-xs text-neutral-400 group-open:hidden">
-                    Editar
-                  </span>
-                </summary>
-                <div className="flex flex-col gap-3 pb-4">
-                  {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
-                  <FormLocatario
-                    acao={salvarLocatario}
-                    locatario={l}
-                    outros={outros}
-                    categorias={categorias}
-                    hoje={hoje}
-                  />
-                  <FormAcao
-                    acao={removerLocatario}
-                    rotulo="Remover"
-                    rotuloEnviando="Removendo…"
-                    variante="perigo"
-                    confirmar={`Remover “${l.nome}” da lista? Para tirar da Reputação sem apagar, desmarque “Ativo” e informe a saída.`}
-                  >
-                    <input type="hidden" name="id" value={l.id} />
-                  </FormAcao>
-                </div>
-              </details>
+                </Link>
+                <MenuLocatario
+                  {...cadastro}
+                  locatario={l}
+                  aviso={aviso}
+                  perfil={perfil}
+                  remover={removerLocatario}
+                />
+              </div>
             );
           })}
         </div>
+        {locatarios.length > POR_PAGINA_LOCATARIOS && (
+          <div className="mt-4">
+            <Paginacao
+              pagina={atual}
+              total={locatarios.length}
+              porPagina={POR_PAGINA_LOCATARIOS}
+              href={hrefPagina}
+            />
+          </div>
+        )}
       </Secao>
       <Secao
         tom="verde"

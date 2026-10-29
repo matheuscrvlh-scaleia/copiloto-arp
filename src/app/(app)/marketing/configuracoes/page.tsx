@@ -9,6 +9,7 @@ import {
   classificarLandingPages,
   landingPagesSemTipo,
 } from "@/lib/marketing/parametros";
+import { paginaDaUrl } from "@/lib/os/paginacao";
 import {
   contextoMkt,
   landingPages,
@@ -98,7 +99,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         abas={CADASTROS.map((k) => ({
           chave: k,
           rotulo: BLOCOS[k],
-          href: hrefCom(BASE, b, { bloco: k === "locatarios" ? null : k }),
+          href: hrefCom(BASE, b, {
+            bloco: k === "locatarios" ? null : k,
+            pagina: null,
+          }),
           aviso: avisos[k] ? String(avisos[k]) : undefined,
         }))}
       />
@@ -107,6 +111,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           locatarios={locs}
           hoje={ctx.hoje}
           semDados={semDados}
+          pagina={paginaDaUrl(b.pagina)}
+          hrefPagina={(p) =>
+            hrefCom(BASE, b, { pagina: p > 1 ? String(p) : null })
+          }
         />
       )}
       {bloco === "landing_pages" && <BlocoLandingPages linhas={linhasLp} />}
