@@ -31,6 +31,7 @@ import {
   SquareKanban,
   Star,
   Store,
+  Ticket,
   TrendingUp,
   Upload,
   UserCog,
@@ -80,4 +81,5 @@ export const ICONES: Record<Icone, LucideIcon> = {
   redes: Share2,
   reputacao: Star,
   radar: Radar,
+  eventos: Ticket,
 };

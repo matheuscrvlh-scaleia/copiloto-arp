@@ -31,8 +31,8 @@ async function lerAgenda(
 
 export const agendaDoSite = cache(async (): Promise<AgendaDoSite> => {
   // O endereço sai da credencial pela service role: só depois da permissão.
-  if (!(await podeAgora("marketing.radar")))
-    throw new Error("Sem acesso ao Radar operacional.");
+  if (!(await podeAgora("marketing.eventos")))
+    throw new Error("Sem acesso aos eventos do site.");
   const salva = await credencialSalva("mkt_site");
   if (!salva) return { situacao: "sem_endereco" };
   if (!salva.ativa) return { situacao: "desativada" };

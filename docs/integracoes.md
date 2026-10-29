@@ -403,7 +403,7 @@ sai do OAuth Playground usando o Client ID e o secret do app do Google Cloud
 (com as APIs ativadas no projeto). A Google Ads API muda de versão com
 frequência: a usada fica em `src/connectors/marketing/google.ts`.
 
-**Agenda do site (dado real, não de exemplo):** a aba Radar › Agenda do site
+**Agenda do site (dado real, não de exemplo):** a tela Marketing › Eventos do site
 lê ao vivo o endereço salvo (hoje
 `https://www.espacoarp.com.br/wp-json/wp/v2/evento?per_page=100&_embed=wp:featuredmedia`),
 página a página (o sistema troca só o `page=`), e guarda no cache por uma

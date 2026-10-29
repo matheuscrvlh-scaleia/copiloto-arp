@@ -109,7 +109,7 @@ const FERRAMENTAS: {
     nome: "Site (agenda de eventos)",
     detalhe: "Eventos publicados no WordPress; endereço público",
     fontes: [{ sistema: "mkt_site" }],
-    telas: [["Agenda do site", "/marketing/radar?aba=site"]],
+    telas: [["Eventos do site", "/marketing/eventos"]],
   },
 ];
 

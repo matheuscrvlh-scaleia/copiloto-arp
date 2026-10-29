@@ -307,9 +307,12 @@ export function AbaCalendario({
 export function TrocaVisao({
   visao,
   busca,
+  base = BASE_RADAR,
 }: {
   visao: "lista" | "mes";
   busca: PropsAba["busca"];
+  /** Tela dos links: o Radar ou Eventos do site. */
+  base?: string;
 }) {
   return (
     <nav
@@ -328,7 +331,7 @@ export function TrocaVisao({
       ).map(([v, rotulo, icone]) => (
         <Link
           key={v}
-          href={hrefCom(BASE_RADAR, busca, {
+          href={hrefCom(base, busca, {
             visao: v === "lista" ? null : v,
           })}
           scroll={false}
@@ -350,6 +353,7 @@ export function Mes<T extends { inicio: string; fim: string }>({
   hoje,
   eventos,
   busca,
+  base = BASE_RADAR,
   chave,
   chip,
 }: {
@@ -358,6 +362,8 @@ export function Mes<T extends { inicio: string; fim: string }>({
   hoje: string;
   eventos: T[];
   busca: PropsAba["busca"];
+  /** Tela dos links: o Radar ou Eventos do site. */
+  base?: string;
   chave: (e: T) => string;
   /** O evento no dia; `largo` na lista do celular. */
   chip: (e: T, largo: boolean) => React.ReactNode;
@@ -370,7 +376,7 @@ export function Mes<T extends { inicio: string; fim: string }>({
   const i = meses.indexOf(mes);
   const ir = (k: number) => {
     const m = meses[k];
-    return m ? hrefCom(BASE_RADAR, busca, { mes: m.slice(0, 7) }) : null;
+    return m ? hrefCom(base, busca, { mes: m.slice(0, 7) }) : null;
   };
   const doMes = dias.filter((d) => d >= mes && d <= fim && porDia.has(d));
 

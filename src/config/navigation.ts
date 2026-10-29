@@ -39,7 +39,8 @@ export type Icone =
   | "site"
   | "redes"
   | "reputacao"
-  | "radar";
+  | "radar"
+  | "eventos";
 
 export interface NavItem {
   href: string;
@@ -285,6 +286,12 @@ export const navigation: NavSection[] = [
         label: "Reputação",
         icone: "reputacao",
         permissao: "marketing.reputacao",
+      },
+      {
+        href: "/marketing/eventos",
+        label: "Eventos do site",
+        icone: "eventos",
+        permissao: "marketing.eventos",
       },
       {
         href: "/marketing/radar",

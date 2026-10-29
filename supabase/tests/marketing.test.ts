@@ -95,19 +95,19 @@ beforeAll(async () => {
 }, 60_000);
 
 describe("permissões e ponto de partida", () => {
-  it("cadastra as 11 permissões da seção 3 (sem Público e visitação) e dá todas ao Administrador", async () => {
+  it("cadastra as 12 permissões (sem Público e visitação, com Eventos do site) e dá todas ao Administrador", async () => {
     expect(
       await valor<number>(
         "select count(*)::int from core.permissoes where codigo like 'marketing.%'",
       ),
-    ).toBe(11);
+    ).toBe(12);
     expect(
       await valor<number>(
         `select count(*)::int from core.cargo_permissoes cp
          join core.cargos c on c.id = cp.cargo_id
          where c.nome = 'Administrador' and cp.permissao like 'marketing.%'`,
       ),
-    ).toBe(11);
+    ).toBe(12);
   });
 
   it("deixa os parâmetros preenchidos com os valores iniciais da 4.12", async () => {

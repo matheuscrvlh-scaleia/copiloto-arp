@@ -25,13 +25,14 @@ import {
 } from "@/lib/marketing/periodo";
 import { fimDoMes, mesesAFrente } from "@/lib/marketing/radar";
 import type { AgendaDoSite } from "@/server/marketing/eventos";
-import { Mes, TrocaVisao } from "./calendario";
-import { BASE_RADAR, type PropsAba, plural } from "./comum";
+import { Mes, TrocaVisao } from "./radar/calendario";
+import { type PropsAba, plural } from "./radar/comum";
 
-// Aba "Agenda do site": os eventos publicados no site da ARP (WordPress),
+// Tela "Eventos do site": os eventos publicados no site da ARP (WordPress),
 // lidos ao vivo pela integração de Configurações › Integrações. Mostra os
 // próximos 6 meses em cartões ou em mês, e quantos eventos houve por mês.
 
+export const BASE_EVENTOS = "/marketing/eventos";
 const FONTE_SITE = "Site da ARP (agenda de eventos)";
 const CARTOES: Record<string, string> = {
   semana: "Próximos 7 dias",
@@ -41,7 +42,7 @@ const CARTOES: Record<string, string> = {
 const SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const INTEGRACAO = "/marketing/configuracoes/integracoes#mkt_site";
 
-export function AbaAgendaSite({
+export function AgendaDeEventos({
   p,
   agenda,
   meses,
@@ -89,7 +90,7 @@ export function AbaAgendaSite({
     ...(q ? [{ rotulo: "Busca", valor: p.um("q") }] : []),
   ]);
   const hrefCartao = (k: string) =>
-    hrefCom(BASE_RADAR, p.busca, { cartao: cartao === k ? null : k });
+    hrefCom(BASE_EVENTOS, p.busca, { cartao: cartao === k ? null : k });
 
   // 6 meses para trás, o atual e 5 para frente. Do dia 1, −180 dias cai
   // sempre no 6º mês anterior (6 meses têm de 181 a 184 dias).
@@ -101,7 +102,7 @@ export function AbaAgendaSite({
   return (
     <>
       <BarraDeFiltros
-        tela="radar"
+        tela="eventos"
         hoje={hoje}
         lembrado={p.lembrado}
         busca={{
@@ -168,7 +169,7 @@ export function AbaAgendaSite({
         />
       </Cartoes>
 
-      <TrocaVisao visao={visao} busca={p.busca} />
+      <TrocaVisao visao={visao} busca={p.busca} base={BASE_EVENTOS} />
 
       {visao === "lista" ? (
         <Secao
@@ -212,6 +213,7 @@ export function AbaAgendaSite({
             hoje={hoje}
             eventos={todos}
             busca={p.busca}
+            base={BASE_EVENTOS}
             chave={(e) => String(e.id)}
             chip={(e, largo) => <Chip e={e} largo={largo} />}
           />
@@ -262,7 +264,7 @@ function SemAgenda({
         : "Falta o endereço da agenda de eventos do site.";
   return (
     <Secao
-      titulo="Agenda do site"
+      titulo="Eventos do site"
       descricao="Os eventos publicados no site da ARP aparecem aqui."
     >
       <p
