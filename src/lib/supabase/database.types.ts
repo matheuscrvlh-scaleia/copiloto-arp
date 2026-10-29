@@ -1854,6 +1854,32 @@ export type Database = {
         }
         Relationships: []
       }
+      leituras: {
+        Row: {
+          chamado_id: string
+          lido_em: string
+          usuario_id: string
+        }
+        Insert: {
+          chamado_id: string
+          lido_em?: string
+          usuario_id?: string
+        }
+        Update: {
+          chamado_id?: string
+          lido_em?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leituras_chamado_id_fkey"
+            columns: ["chamado_id"]
+            isOneToOne: false
+            referencedRelation: "chamados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lojas: {
         Row: {
           atualizado_em: string
@@ -3426,6 +3452,17 @@ export type Database = {
         Args: { p_ordem: string; p_resultado: Json }
         Returns: undefined
       }
+      leitores_dos_avisos: {
+        Args: { p_chamados: string[] }
+        Returns: {
+          chamado_id: string
+          usuario_id: string
+        }[]
+      }
+      lido_por_mim: {
+        Args: { c: Database["os"]["Tables"]["chamados"]["Row"] }
+        Returns: boolean
+      }
       meus_chamados_envolvidos: { Args: never; Returns: string[] }
       meus_setores: { Args: never; Returns: string[] }
       minhas_ordens_envolvidas: { Args: never; Returns: string[] }
@@ -3452,6 +3489,10 @@ export type Database = {
           p_observacao?: string
         }
         Returns: string
+      }
+      todos_leram: {
+        Args: { c: Database["os"]["Tables"]["chamados"]["Row"] }
+        Returns: boolean
       }
       resumo_ativos: {
         Args: { p_desde: string }

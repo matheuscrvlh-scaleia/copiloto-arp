@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BarraFiltros } from "@/components/os/filtros/barra-filtros";
-import {
-  campoPrioridade,
-  campoSetor,
-  campoStatus,
-} from "@/components/os/filtros/opcoes";
+import { campoPrioridade, campoSetor } from "@/components/os/filtros/opcoes";
 import {
   Atualizado,
   EsqueletoVisao,
@@ -20,6 +16,7 @@ import {
   type ChaveCartao,
   COLUNAS_DA_TELA,
   descreverFiltros,
+  ORDEM_DOS_AVISOS,
 } from "@/lib/os/lista";
 import { ROTAS_OS } from "@/lib/os/rotas";
 import {
@@ -34,23 +31,20 @@ import {
 
 export const metadata: Metadata = { title: "Avisos" };
 
-// A Minha caixa só dos avisos: os que chegaram para você ou para o seu
-// setor e, em Mostrar, os que você mandou (com quem já concluiu e quem falta).
+// Aviso é para ser lido: os que chegaram para você ou para o seu setor (não
+// lidos primeiro) e, em Mostrar, os que você mandou (quem já leu e quem falta).
 
 const DETALHES: Record<
-  "caixa" | "abertos",
+  "avisos" | "avisos_mandados",
   Partial<Record<ChaveCartao, string>>
 > = {
-  caixa: {
-    atrasados: "passaram do prazo",
-    vence_hoje: "até o fim do dia",
-    aguardando_confirmacao: "avisos seus já concluídos",
+  avisos: {
+    nao_lidos: "esperam a sua leitura",
+    lidos: "você já marcou como lido",
   },
-  abertos: {
-    aguardando_confirmacao: "concluídos, confirme ou reabra",
-    em_andamento: "alguém está cuidando",
-    atrasados: "passaram do prazo",
-    fechados_mes: "resolvidos neste mês",
+  avisos_mandados: {
+    faltam_ler: "alguém ainda não leu",
+    todos_leram: "todos já marcaram como lido",
   },
 };
 
@@ -61,7 +55,7 @@ export default function Page({
 }) {
   return (
     <>
-      <CabecalhoOperacoes descricao="Os avisos que chegaram para você e para o seu setor, pelo prazo. Em Mostrar, veja os que você mandou e quem ainda falta concluir." />
+      <CabecalhoOperacoes descricao="Os avisos que chegaram para você e para o seu setor, os não lidos primeiro. Em Mostrar, veja os que você mandou e quem ainda não leu." />
       <Suspense fallback={<EsqueletoVisao />}>
         <Protegido permissao="os.acessar">
           <Avisos busca={searchParams} />
@@ -83,8 +77,8 @@ async function Avisos({ busca }: { busca: Promise<Busca> }) {
     contarCartoes(e),
   ]);
   const setores = a.setores.filter((s) => s.ativo);
-  // "Abertos por mim" é filtro: troca a lista (estadoDaLista).
-  const lista = e.tela === "abertos" ? "abertos" : "caixa";
+  // "Mandados por mim" é filtro: troca a lista (estadoDaLista).
+  const lista = e.tela === "avisos_mandados" ? "avisos_mandados" : "avisos";
 
   return (
     <div className="flex flex-col gap-5">
@@ -105,9 +99,6 @@ async function Avisos({ busca }: { busca: Promise<Busca> }) {
                 largura: "w-48",
               },
               { ...campoSetor(setores), largura: "w-48" },
-              ...(lista === "abertos"
-                ? [{ ...campoStatus, largura: "w-40" }]
-                : []),
             ]}
             extras={[
               {
@@ -134,6 +125,7 @@ async function Avisos({ busca }: { busca: Promise<Busca> }) {
         }))}
         cartao={e.cartao}
         ordem={e.ordem}
+        ordemPadrao={ORDEM_DOS_AVISOS}
         busca={e.q}
         agrupamento={e.modo}
         colunas={COLUNAS_DA_TELA[lista]}
@@ -149,20 +141,24 @@ async function Avisos({ busca }: { busca: Promise<Busca> }) {
             ? {
                 tela: "avisos",
                 titulo:
-                  lista === "abertos" ? "Avisos mandados por mim" : "Avisos",
+                  lista === "avisos_mandados"
+                    ? "Avisos mandados por mim"
+                    : "Avisos",
                 filtros: descreverFiltros(
                   "avisos",
                   filtros,
                   nomesDosFiltros(filtros, a),
                 ),
                 nomeArquivo:
-                  lista === "abertos" ? "avisos-mandados-por-mim" : "avisos",
+                  lista === "avisos_mandados"
+                    ? "avisos-mandados-por-mim"
+                    : "avisos",
               }
             : null
         }
         vazio={
-          lista === "abertos"
-            ? "Você não mandou avisos em aberto. Use o botão + Novo e escolha Aviso."
+          lista === "avisos_mandados"
+            ? "Você ainda não mandou avisos. Use o botão + Novo e escolha Aviso."
             : "Nenhum aviso com você agora. Quando um aviso chegar para você ou para o seu setor, ele aparece aqui."
         }
       />

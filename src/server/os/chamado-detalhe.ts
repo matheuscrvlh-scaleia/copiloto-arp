@@ -31,6 +31,7 @@ import {
   motivoDoBloqueio,
   papelNoChamado,
 } from "./chamados";
+import { type LeitorDoAviso, leitoresDosAvisos } from "./leituras";
 
 // Tudo o que o detalhe do chamado ou da OS mostra (página e janela
 // lateral), lido com a sessão: o que a pessoa não pode ver o RLS já tira.
@@ -65,6 +66,12 @@ export interface DetalheChamado {
   checklist: ItemChecklist[];
   destinos: DestinoDetalhe[];
   andamento: ReturnType<typeof andamentoDosDestinos> | null;
+  /** Aviso: quem recebe e quando leu; `euRecebo` e `liEm` são os meus. */
+  leitura: {
+    leitores: (LeitorDoAviso & { nome: string })[];
+    euRecebo: boolean;
+    liEm: string | null;
+  } | null;
   eventos: Tabela<"eventos">[];
   anexos: AnexoDetalhe[];
   /** Nome de cada pessoa (id → nome) para a tela. */
@@ -227,16 +234,28 @@ export const carregarDetalhe = cache(
     const acoes = acoesDisponiveis({ ...ch, multiplos }, papel);
     const arquivos = anexos.data ?? [];
 
-    const [urls, loja, ativo, vistoria, vinculado, bloqueio, ordensLigadas] =
-      await Promise.all([
-        urlsAssinadas(arquivos.map((a) => a.path)),
-        lerLoja(ch.loja_id),
-        lerAtivo(ch.ativo_id),
-        lerVistoria(ch.vistoria_id, ctx.pode("os.vistorias")),
-        chamadoCurto(ch.vinculado_a_id),
-        acoes.includes("concluir") ? motivoDoBloqueio(ch) : null,
-        ch.tipo === "os" ? [] : ordensDoChamado(ch.id),
-      ]);
+    const aviso = ch.tipo === "aviso";
+    const [
+      urls,
+      loja,
+      ativo,
+      vistoria,
+      vinculado,
+      bloqueio,
+      ordensLigadas,
+      leitores,
+    ] = await Promise.all([
+      urlsAssinadas(arquivos.map((a) => a.path)),
+      lerLoja(ch.loja_id),
+      lerAtivo(ch.ativo_id),
+      lerVistoria(ch.vistoria_id, ctx.pode("os.vistorias")),
+      chamadoCurto(ch.vinculado_a_id),
+      acoes.includes("concluir") ? motivoDoBloqueio(ch) : null,
+      ch.tipo === "os" ? [] : ordensDoChamado(ch.id),
+      aviso ? leitoresDosAvisos([ch.id]) : null,
+    ]);
+    const doAviso = leitores?.get(ch.id) ?? [];
+    const meu = doAviso.find((l) => l.id === eu);
 
     const seguidores = (participantes.data ?? []).map((x) => x.usuario_id);
     const mensagens = (p.mensagens ?? {}) as Record<string, unknown>;
@@ -251,7 +270,16 @@ export const carregarDetalhe = cache(
       campos: lerCamposExtras(categoria?.campos),
       checklist: lerChecklist(ch.checklist),
       destinos: lista,
-      andamento: multiplos ? andamentoDosDestinos(lista) : null,
+      andamento: multiplos && !aviso ? andamentoDosDestinos(lista) : null,
+      leitura: aviso
+        ? {
+            leitores: doAviso
+              .map((l) => ({ ...l, nome: mapaNomes.get(l.id) ?? "Pessoa" }))
+              .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+            euRecebo: !!meu,
+            liEm: meu?.lidoEm ?? null,
+          }
+        : null,
       eventos: eventos.data ?? [],
       anexos: arquivos.map((a) => ({ ...a, url: urls.get(a.path) ?? null })),
       nomes: Object.fromEntries(mapaNomes),

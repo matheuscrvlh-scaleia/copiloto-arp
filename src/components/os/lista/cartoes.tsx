@@ -2,10 +2,12 @@
 
 import {
   AlertTriangle,
+  CheckCheck,
   CircleCheck,
   Clock,
   Hourglass,
   Inbox,
+  Mail,
   UserX,
 } from "lucide-react";
 import { TOM } from "@/components/estilos";
@@ -26,6 +28,10 @@ const ICONE: Record<ChaveCartao, typeof Inbox> = {
   abertos: Inbox,
   concluidos_mes: CircleCheck,
   fechados_mes: CircleCheck,
+  nao_lidos: Mail,
+  lidos: CheckCheck,
+  faltam_ler: Hourglass,
+  todos_leram: CheckCheck,
 };
 
 /** Número que pede atenção quando passa de zero. */
@@ -34,6 +40,7 @@ const ALERTA: Partial<Record<ChaveCartao, "red" | "amber" | "violet">> = {
   vence_hoje: "amber",
   aguardando_confirmacao: "violet",
   sem_responsavel: "amber",
+  nao_lidos: "amber",
 };
 
 const COR_ALERTA = {

@@ -530,6 +530,11 @@ function filtrar(
   if (c?.prazoAntes) q = q.lt("prazo", c.prazoAntes);
   if (c?.encerradoDesde)
     q = q.gte(c.encerradoDesde.campo, c.encerradoDesde.iso);
+  // Campos calculados (os.lido_por_mim, os.todos_leram): o PostgREST filtra
+  // como coluna; o tipo gerado não os lista entre as colunas.
+  if (c?.lido !== undefined) q = q.filter("lido_por_mim", "is", c.lido);
+  if (c?.todosLeram !== undefined)
+    q = q.filter("todos_leram", "is", c.todosLeram);
   // Um .or() por palavra: o PostgREST junta todos com "e".
   for (const ou of filtrosDaBusca(f.busca ?? "")) q = q.or(ou);
 

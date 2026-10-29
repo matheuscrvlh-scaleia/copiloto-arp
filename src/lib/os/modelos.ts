@@ -162,7 +162,7 @@ export function montarAviso(
     modelo.gatilho === "saida"
       ? `Saída em ${formatarData(base)}.`
       : `Início em ${formatarData(base)}.`,
-    "Cada setor conclui a sua parte; o aviso fecha quando todos concluírem.",
+    "Cada pessoa que recebe marca como lido.",
   ].filter(Boolean);
   return {
     titulo: tituloDoAviso(modelo, c),

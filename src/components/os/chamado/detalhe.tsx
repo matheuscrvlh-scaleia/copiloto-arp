@@ -1,7 +1,9 @@
 import {
+  CheckCheck,
   CircleAlert,
   CirclePause,
   Lightbulb,
+  Mail,
   RotateCcw,
   Star,
   XCircle,
@@ -38,6 +40,7 @@ import { Comentario } from "./comentario";
 import { Destinos } from "./destinos";
 import { Ferramentas } from "./ferramentas";
 import { Gestao } from "./gestao";
+import { BotaoLido, Leitura } from "./leitura";
 import { LinhaDoTempo } from "./linha-do-tempo";
 
 // Detalhe do chamado: uma tela com tudo o que aconteceu. Serve à página
@@ -75,10 +78,13 @@ export async function DetalheChamado({
   const { ch } = d;
   const agora = new Date();
   const emAberto = ["aberto", "em_andamento", "aguardando"].includes(ch.status);
+  const aviso = ch.tipo === "aviso";
+  // Aviso não tem prazo: é para ler.
+  const podeLer = !!d.leitura?.euRecebo && !d.leitura.liEm && emAberto;
   const podeGestao = {
     responsavel:
       d.pode.gerenciar || (d.papel.solicitante && ch.status === "aberto"),
-    prazo: d.pode.editarPrazo && emAberto,
+    prazo: d.pode.editarPrazo && emAberto && !aviso,
     setor: d.pode.gerenciar || (d.papel.solicitante && ch.status === "aberto"),
   };
   const comGestao =
@@ -163,17 +169,28 @@ export async function DetalheChamado({
             {numeroDo(ch)}
           </span>
           <SeloTipo tipo={ch.tipo} />
-          <SeloStatusChamado
-            status={ch.status}
-            aguardando={ch.aguardando_tipo}
-          />
-          <SeloPrioridade prioridade={ch.prioridade} />
-          <SeloPrazo
-            prazo={ch.prazo}
-            status={ch.status}
-            agora={agora}
-            avisoHoras={d.avisoHoras}
-          />
+          {aviso ? (
+            <>
+              {!emAberto && (
+                <SeloStatusChamado status={ch.status} aguardando={null} />
+              )}
+              {d.leitura?.euRecebo && <SeloLido lido={!!d.leitura.liEm} />}
+            </>
+          ) : (
+            <>
+              <SeloStatusChamado
+                status={ch.status}
+                aguardando={ch.aguardando_tipo}
+              />
+              <SeloPrioridade prioridade={ch.prioridade} />
+              <SeloPrazo
+                prazo={ch.prazo}
+                status={ch.status}
+                agora={agora}
+                avisoHoras={d.avisoHoras}
+              />
+            </>
+          )}
         </div>
         {ferramentas}
       </div>
@@ -187,13 +204,18 @@ export async function DetalheChamado({
         </h1>
       )}
       <p className="text-sm text-neutral-500">
-        {quemPediu(d)} · {tempoAtras(ch.criado_em, agora)} · Responsável:{" "}
+        {quemPediu(d)} · {tempoAtras(ch.criado_em, agora)} ·{" "}
+        {aviso ? "Para:" : "Responsável:"}{" "}
         <span className="font-medium text-neutral-800">
-          {nome(ch.responsavel_id) ?? `Fila de ${d.setor?.nome ?? "setor"}`}
+          {aviso
+            ? paraQuem(d)
+            : (nome(ch.responsavel_id) ??
+              `Fila de ${d.setor?.nome ?? "setor"}`)}
         </span>
       </p>
-      {(d.acoes.length > 0 || comGestao) && (
+      {(d.acoes.length > 0 || comGestao || podeLer) && (
         <div className="flex flex-wrap items-start gap-2">
+          {podeLer && <BotaoLido id={ch.id} />}
           <AcoesDoChamado
             id={ch.id}
             acoes={d.acoes}
@@ -284,6 +306,20 @@ export async function DetalheChamado({
               d.checklist.map((i) => i.por),
             )}
             editavel={d.pode.editar && emAberto}
+          />
+        </section>
+      )}
+      {d.leitura && (
+        <section className={CARTAO}>
+          <h3 className={TITULO_SECAO}>Leitura</h3>
+          <Leitura
+            para={d.destinos.map((x) => ({
+              id: x.id,
+              nome: x.nome,
+              pessoa: !!x.usuario_id,
+              titulo: x.titulo,
+            }))}
+            leitores={d.leitura.leitores}
           />
         </section>
       )}
@@ -384,6 +420,28 @@ function quemPediu(d: Detalhe): string {
     return `Portal – ${d.loja?.nome ?? ch.solicitante_nome ?? "lojista"}`;
   const nome = ch.aberto_por ? d.nomes[ch.aberto_por] : null;
   return `Aberto por ${nome ?? ch.solicitante_nome ?? ORIGENS[ch.origem]}`;
+}
+
+/** Aviso: os destinos (setores e pessoas) ou, sem eles, o responsável ou o setor. */
+function paraQuem(d: Detalhe): string {
+  if (d.destinos.length) return d.destinos.map((x) => x.nome).join(", ");
+  const nome = d.ch.responsavel_id ? d.nomes[d.ch.responsavel_id] : null;
+  return nome ?? d.setor?.nome ?? "setor";
+}
+
+function SeloLido({ lido }: { lido: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${lido ? "bg-green-50 text-green-700" : "bg-sky-50 text-sky-800"}`}
+    >
+      {lido ? (
+        <CheckCheck className="size-3.5" aria-hidden />
+      ) : (
+        <Mail className="size-3.5" aria-hidden />
+      )}
+      {lido ? "Lido" : "Não lido"}
+    </span>
+  );
 }
 
 /** Faixas do momento: aguardando, concluído, cancelado, reaberto. */
@@ -510,14 +568,16 @@ function Informacoes({
           </span>
         )}
       </Linha>
-      <Linha rotulo="Prazo">
-        {ch.prazo ? formatarDataHora(ch.prazo) : "Sem prazo"}
-        {ch.aguardando_min > 0 && (
-          <span className="block text-xs text-neutral-500">
-            Já empurrado pelo tempo em Aguardando.
-          </span>
-        )}
-      </Linha>
+      {ch.tipo !== "aviso" && (
+        <Linha rotulo="Prazo">
+          {ch.prazo ? formatarDataHora(ch.prazo) : "Sem prazo"}
+          {ch.aguardando_min > 0 && (
+            <span className="block text-xs text-neutral-500">
+              Já empurrado pelo tempo em Aguardando.
+            </span>
+          )}
+        </Linha>
+      )}
       <Linha rotulo="Aberto em">
         {formatarDataHora(ch.criado_em)}
         {ch.primeira_resposta_em && (

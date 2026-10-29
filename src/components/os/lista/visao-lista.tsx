@@ -4,9 +4,11 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  CheckCheck,
   ChevronDown,
   CircleCheck,
   Clock,
+  Mail,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -16,6 +18,7 @@ import { BotaoExportar } from "@/components/os/exportar";
 import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import { IconeTipo, SeloStatusChamado } from "@/components/os/selos";
 import { Selecao } from "@/components/selecao";
+import { formatarDataHora } from "@/lib/formato";
 import {
   agrupar,
   CARTOES,
@@ -74,6 +77,8 @@ export function VisaoLista(props: {
   cartao: ChaveCartao | null;
   /** Ordem escolhida (null: a padrão, pelo prazo). */
   ordem: Ordem | null;
+  /** Ordem quando não há escolha (avisos: o mais novo em cima). */
+  ordemPadrao?: Ordem;
   /** Busca em vigor (?q=), para a mensagem de vazio e a exportação. */
   busca: string;
   agrupamento: ModoGrupo;
@@ -109,6 +114,7 @@ function Conteudo({
   cartoes,
   cartao,
   ordem: ordemEscolhida,
+  ordemPadrao = ORDEM_PADRAO,
   busca,
   agrupamento,
   colunas,
@@ -127,7 +133,7 @@ function Conteudo({
   const [carregando, iniciar] = useTransition();
   const agora = useMemo(() => new Date(agoraIso), [agoraIso]);
   const ctx: ContextoLista = { agora, eu, avisoHoras };
-  const ordem = ordemEscolhida ?? ORDEM_PADRAO;
+  const ordem = ordemEscolhida ?? ordemPadrao;
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [fechados, setFechados] = useState<Set<string>>(new Set());
 
@@ -152,7 +158,7 @@ function Conteudo({
   function ordenarPor(o: Ordem) {
     navegar((p) => {
       const padrao =
-        o.coluna === ORDEM_PADRAO.coluna && o.sentido === ORDEM_PADRAO.sentido;
+        o.coluna === ordemPadrao.coluna && o.sentido === ordemPadrao.sentido;
       if (padrao) p.delete("ordem");
       else p.set("ordem", ordemNaUrl(o));
     });
@@ -220,17 +226,25 @@ function Conteudo({
       {barra}
 
       <section
-        aria-label="Chamados"
+        aria-label={colunas.aviso ? "Avisos" : "Chamados"}
         aria-busy={carregando}
         className="vidro flex flex-col gap-4 rounded-[1.75rem] p-3 md:p-5"
       >
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="pl-2 text-sm font-semibold">
-            {cartao ? CARTOES[cartao].titulo : "Chamados"}
+            {cartao
+              ? CARTOES[cartao].titulo
+              : colunas.aviso
+                ? "Avisos"
+                : "Chamados"}
           </h2>
           {acoesDoTitulo}
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <OrdemNoCelular ordem={ordem} aoMudar={ordenarPor} />
+            <OrdemNoCelular
+              ordem={ordem}
+              aoMudar={ordenarPor}
+              aviso={!!colunas.aviso}
+            />
             {exportar && (
               <BotaoExportar
                 titulo={
@@ -288,7 +302,7 @@ function Conteudo({
           <Paginacao pagina={pagina} total={total} href={hrefPagina} />
         </div>
 
-        {selecionadas.length > 0 && (
+        {selecionadas.length > 0 && !colunas.aviso && (
           <BarraDoLote
             selecionadas={selecionadas}
             pessoasPorSetor={pessoasPorSetor}
@@ -320,6 +334,8 @@ const ICONE_GRUPO = {
     Icone: CircleCheck,
     classe: "bg-violet-400/20 text-violet-700",
   },
+  nao_lido: { Icone: Mail, classe: "bg-sky-50 text-sky-800" },
+  lido: { Icone: CheckCheck, classe: "bg-green-50 text-green-700" },
 } as const;
 
 function TituloGrupo({
@@ -454,8 +470,11 @@ function Tabela({
 }) {
   const { colunas } = linha;
   const extra = colunaExtra(colunas);
-  const comResponsavel = colunas.responsavel !== false;
-  const nColunas = 6 + (extra ? 1 : 0) + (comResponsavel ? 1 : 0);
+  const aviso = !!colunas.aviso;
+  const comResponsavel = colunas.responsavel !== false && !aviso;
+  const nColunas = aviso
+    ? 5 + (extra ? 1 : 0)
+    : 6 + (extra ? 1 : 0) + (comResponsavel ? 1 : 0);
   const cab = { ordem, ordenarPor };
   return (
     <div className="-mx-1 hidden overflow-x-auto xl:block">
@@ -463,19 +482,21 @@ function Tabela({
         <thead className="sticky top-0 z-10 bg-white/90 backdrop-blur">
           <tr className="border-b border-neutral-200 text-xs text-neutral-500">
             <th scope="col" className="w-8 px-2 py-2">
-              <input
-                type="checkbox"
-                aria-label="Marcar todos desta página"
-                checked={todosMarcados}
-                onChange={(e) => marcarTodos(e.target.checked)}
-                className="size-4 accent-neutral-900"
-              />
+              {!aviso && (
+                <input
+                  type="checkbox"
+                  aria-label="Marcar todos desta página"
+                  checked={todosMarcados}
+                  onChange={(e) => marcarTodos(e.target.checked)}
+                  className="size-4 accent-neutral-900"
+                />
+              )}
             </th>
             <Cabecalho coluna="numero" titulo={COLUNAS_ORDEM.numero} {...cab} />
             {/* O título fica com a largura que sobra e quebra linha. */}
             <Cabecalho
               coluna="titulo"
-              titulo="Chamado"
+              titulo={aviso ? "Aviso" : "Chamado"}
               className="w-full"
               {...cab}
             />
@@ -494,13 +515,30 @@ function Tabela({
                 {...cab}
               />
             )}
-            <Cabecalho
-              coluna="prioridade"
-              titulo={COLUNAS_ORDEM.prioridade}
-              {...cab}
-            />
-            <Cabecalho coluna="prazo" titulo={COLUNAS_ORDEM.prazo} {...cab} />
-            <Cabecalho coluna="status" titulo={COLUNAS_ORDEM.status} {...cab} />
+            {aviso ? (
+              <>
+                <Cabecalho titulo="Leitura" {...cab} />
+                <Cabecalho coluna="criado" titulo="Recebido em" {...cab} />
+              </>
+            ) : (
+              <>
+                <Cabecalho
+                  coluna="prioridade"
+                  titulo={COLUNAS_ORDEM.prioridade}
+                  {...cab}
+                />
+                <Cabecalho
+                  coluna="prazo"
+                  titulo={COLUNAS_ORDEM.prazo}
+                  {...cab}
+                />
+                <Cabecalho
+                  coluna="status"
+                  titulo={COLUNAS_ORDEM.status}
+                  {...cab}
+                />
+              </>
+            )}
           </tr>
         </thead>
         {grupos.map((g) => (
@@ -567,7 +605,7 @@ function Resumo({
       <Link
         href={href}
         scroll={false}
-        className="flex min-w-0 items-start gap-2 font-medium text-neutral-900 underline-offset-2 hover:underline"
+        className={`flex min-w-0 items-start gap-2 text-neutral-900 underline-offset-2 hover:underline ${l.lido === false ? "font-semibold" : "font-medium"}`}
       >
         <span
           className="mt-0.5 shrink-0 text-neutral-400"
@@ -599,7 +637,7 @@ function Resumo({
             #{e}
           </span>
         ))}
-        {l.destinos && (
+        {l.destinos && !p.colunas.aviso && (
           <span
             className={l.destinos.todos ? "text-green-700" : "text-neutral-700"}
             title={
@@ -618,7 +656,42 @@ function Resumo({
   );
 }
 
+/** Aviso: "Lido" / "Não lido" (recebi) ou "3 de 5 leram" e quem falta (mandei). */
+function SeloLeitura({ l }: { l: LinhaChamado }) {
+  if (l.lido !== undefined)
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${l.lido ? "bg-green-50 text-green-700" : "bg-sky-50 text-sky-800"}`}
+      >
+        {l.lido ? (
+          <CheckCheck className="size-3.5" aria-hidden />
+        ) : (
+          <Mail className="size-3.5" aria-hidden />
+        )}
+        {l.lido ? "Lido" : "Não lido"}
+      </span>
+    );
+  if (!l.destinos) return null;
+  const { faltam } = l.destinos;
+  return (
+    <span
+      className={`flex flex-col text-xs ${l.destinos.todos ? "text-green-700" : "text-neutral-700"}`}
+      title={faltam.length ? `Faltam: ${faltam.join(", ")}` : undefined}
+    >
+      <span className="font-medium whitespace-nowrap">{l.destinos.texto}</span>
+      {faltam.length > 0 && (
+        <span className="text-neutral-500">
+          faltam {faltam.slice(0, 3).join(", ")}
+          {faltam.length > 3 ? ` e mais ${faltam.length - 3}` : ""}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function Marcar({ l, p }: { l: LinhaChamado; p: PropsLinha }) {
+  // Aviso: o lote (responsável, prioridade) não vale.
+  if (p.colunas.aviso) return null;
   return (
     <input
       type="checkbox"
@@ -683,28 +756,41 @@ function LinhaTabela({
           </div>
         </td>
       )}
-      {p.colunas.responsavel !== false && (
-        <td className="px-2 py-1.5 whitespace-nowrap">
-          <SeletorResponsavel
-            linha={l}
-            pessoas={p.pessoasPorSetor[l.setorId] ?? []}
-            compacto
-          />
-        </td>
+      {p.colunas.aviso ? (
+        <>
+          <td className="px-2 py-2.5">
+            <SeloLeitura l={l} />
+          </td>
+          <td className="px-2 py-2.5 whitespace-nowrap text-neutral-600 tabular-nums">
+            {formatarDataHora(l.criadoEm)}
+          </td>
+        </>
+      ) : (
+        <>
+          {p.colunas.responsavel !== false && (
+            <td className="px-2 py-1.5 whitespace-nowrap">
+              <SeletorResponsavel
+                linha={l}
+                pessoas={p.pessoasPorSetor[l.setorId] ?? []}
+                compacto
+              />
+            </td>
+          )}
+          <td className="px-2 py-1.5 whitespace-nowrap">
+            <SeletorPrioridade linha={l} compacto />
+          </td>
+          <td className="px-2 py-2.5 whitespace-nowrap">
+            <EditorPrazo
+              linha={l}
+              agora={p.ctx.agora}
+              avisoHoras={p.ctx.avisoHoras}
+            />
+          </td>
+          <td className="px-2 py-2.5 whitespace-nowrap">
+            <SeloStatusChamado status={l.status} aguardando={l.aguardando} />
+          </td>
+        </>
       )}
-      <td className="px-2 py-1.5 whitespace-nowrap">
-        <SeletorPrioridade linha={l} compacto />
-      </td>
-      <td className="px-2 py-2.5 whitespace-nowrap">
-        <EditorPrazo
-          linha={l}
-          agora={p.ctx.agora}
-          avisoHoras={p.ctx.avisoHoras}
-        />
-      </td>
-      <td className="px-2 py-2.5 whitespace-nowrap">
-        <SeloStatusChamado status={l.status} aguardando={l.aguardando} />
-      </td>
     </tr>
   );
 }
@@ -727,15 +813,17 @@ function Empilhados({
 }) {
   return (
     <div className="flex flex-col gap-4 xl:hidden">
-      <label className="flex w-fit items-center gap-2 px-1 text-xs text-neutral-600">
-        <input
-          type="checkbox"
-          checked={todosMarcados}
-          onChange={(e) => marcarTodos(e.target.checked)}
-          className="size-4 accent-neutral-900"
-        />
-        Marcar todos desta página
-      </label>
+      {!p.colunas.aviso && (
+        <label className="flex w-fit items-center gap-2 px-1 text-xs text-neutral-600">
+          <input
+            type="checkbox"
+            checked={todosMarcados}
+            onChange={(e) => marcarTodos(e.target.checked)}
+            className="size-4 accent-neutral-900"
+          />
+          Marcar todos desta página
+        </label>
+      )}
       {grupos.map((g) => (
         <section key={g.chave} className="flex flex-col gap-2">
           {g.titulo && (
@@ -761,21 +849,28 @@ function Empilhados({
                     <div className="flex min-w-0 flex-1 flex-col gap-2">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
                         <span className="tabular-nums">#{l.numero}</span>
-                        <SeloStatusChamado
-                          status={l.status}
-                          aguardando={l.aguardando}
-                        />
+                        {p.colunas.aviso ? (
+                          <span>{formatarDataHora(l.criadoEm)}</span>
+                        ) : (
+                          <SeloStatusChamado
+                            status={l.status}
+                            aguardando={l.aguardando}
+                          />
+                        )}
                       </div>
                       <Resumo l={l} href={p.hrefPainel(l.id)} p={p} />
-                      <div className="flex flex-wrap items-center gap-2">
-                        <EditorPrazo
-                          linha={l}
-                          agora={p.ctx.agora}
-                          avisoHoras={p.ctx.avisoHoras}
-                        />
-                        <SeletorPrioridade linha={l} />
-                      </div>
-                      {p.colunas.responsavel !== false && (
+                      {p.colunas.aviso && <SeloLeitura l={l} />}
+                      {!p.colunas.aviso && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <EditorPrazo
+                            linha={l}
+                            agora={p.ctx.agora}
+                            avisoHoras={p.ctx.avisoHoras}
+                          />
+                          <SeletorPrioridade linha={l} />
+                        </div>
+                      )}
+                      {p.colunas.responsavel !== false && !p.colunas.aviso && (
                         <div className="flex min-w-0 items-center gap-2 text-sm">
                           <span className="shrink-0 text-xs text-neutral-500">
                             Responsável
@@ -810,12 +905,20 @@ const ORDENS_CELULAR: { coluna: ColunaOrdem; rotulos: [string, string] }[] = [
   { coluna: "status", rotulos: ["Status (do ciclo)", "Status (ao contrário)"] },
 ];
 
+/** Avisos não têm prazo nem prioridade. */
+const ORDENS_AVISOS: typeof ORDENS_CELULAR = [
+  { coluna: "criado", rotulos: ["Mais antigos", "Mais novos"] },
+  { coluna: "titulo", rotulos: ["Título (A–Z)", "Título (Z–A)"] },
+];
+
 function OrdemNoCelular({
   ordem,
   aoMudar,
+  aviso,
 }: {
   ordem: Ordem;
   aoMudar: (o: Ordem) => void;
+  aviso: boolean;
 }) {
   return (
     <Selecao
@@ -830,7 +933,7 @@ function OrdemNoCelular({
           sentido: sentido === "-1" ? -1 : 1,
         });
       }}
-      opcoes={ORDENS_CELULAR.flatMap((o) => [
+      opcoes={(aviso ? ORDENS_AVISOS : ORDENS_CELULAR).flatMap((o) => [
         { valor: `${o.coluna}:1`, rotulo: o.rotulos[0] },
         { valor: `${o.coluna}:-1`, rotulo: o.rotulos[1] },
       ])}

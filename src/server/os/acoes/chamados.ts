@@ -873,6 +873,30 @@ export async function seguirChamado(
 }
 
 // ---------------------------------------------------------------------------
+// Aviso: cada pessoa que recebe marca que leu (não se desfaz)
+// ---------------------------------------------------------------------------
+
+const leitura = z.object({ id: uuid });
+
+export async function marcarLido(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const d = leitura.safeParse(Object.fromEntries(form));
+  if (!d.success) return primeiroErro(d.error);
+  const ctx = await contexto();
+  const { error } = await (await os())
+    .from("leituras")
+    .upsert(
+      { chamado_id: d.data.id, usuario_id: ctx.usuario.id },
+      { onConflict: "chamado_id,usuario_id", ignoreDuplicates: true },
+    );
+  if (error) return erroDoBanco(error);
+  refresh();
+  return { ok: "Marcado como lido." };
+}
+
+// ---------------------------------------------------------------------------
 // Opções do formulário (carregadas só quando a pessoa abre "Mais detalhes")
 // ---------------------------------------------------------------------------
 

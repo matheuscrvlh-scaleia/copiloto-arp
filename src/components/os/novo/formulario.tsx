@@ -760,22 +760,24 @@ function Detalhes({
                 />
               </Propriedade>
             )}
-            <Propriedade
-              nome="Prazo"
-              htmlFor={`${id}-prazo`}
-              dica={
-                categoria?.prazo && !pessoal
-                  ? `Vazio: ${categoria.prazo} a partir de agora.`
-                  : "Vazio: sem prazo."
-              }
-            >
-              <input
-                id={`${id}-prazo`}
-                type="datetime-local"
-                name="prazo"
-                className={`${classeCampo} min-w-0`}
-              />
-            </Propriedade>
+            {tipo !== "aviso" && (
+              <Propriedade
+                nome="Prazo"
+                htmlFor={`${id}-prazo`}
+                dica={
+                  categoria?.prazo && !pessoal
+                    ? `Vazio: ${categoria.prazo} a partir de agora.`
+                    : "Vazio: sem prazo."
+                }
+              >
+                <input
+                  id={`${id}-prazo`}
+                  type="datetime-local"
+                  name="prazo"
+                  className={`${classeCampo} min-w-0`}
+                />
+              </Propriedade>
+            )}
           </section>
 
           {!pessoal && (
@@ -987,7 +989,7 @@ function SetoresExtras({
           : "Também para os setores"}
       </legend>
       <p className="mb-2 text-xs text-neutral-500">
-        Cada setor confirma que leu e conclui a sua parte.
+        Cada pessoa do setor marca como lido.
       </p>
       <div className="flex flex-wrap gap-1.5">
         {outros.map((s) => (

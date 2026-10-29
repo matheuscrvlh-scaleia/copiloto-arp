@@ -67,6 +67,8 @@ export interface LinhaChamado {
   podePrazo: boolean;
   /** Aviso com vários destinos: "3 de 5 concluídos" e quem falta. */
   destinos?: { texto: string; faltam: string[]; todos: boolean } | null;
+  /** Aviso que chegou para mim: já marquei como lido? */
+  lido?: boolean;
   contagens?: Contagens;
 }
 
@@ -143,6 +145,27 @@ export const CARTOES = {
     titulo: "Fechados no mês",
     testa: (l: LinhaChamado, c: ContextoLista) =>
       l.status === "fechado" && noMesAtual(l.fechadoEm, c.agora),
+  },
+  // Avisos: quem recebe lê; quem mandou vê se todos leram.
+  nao_lidos: {
+    titulo: "Não lidos",
+    testa: (l: LinhaChamado, _c: ContextoLista) =>
+      EM_ABERTO.includes(l.status) && l.lido === false,
+  },
+  lidos: {
+    titulo: "Lidos",
+    testa: (l: LinhaChamado, _c: ContextoLista) =>
+      EM_ABERTO.includes(l.status) && l.lido === true,
+  },
+  faltam_ler: {
+    titulo: "Faltam ler",
+    testa: (l: LinhaChamado, _c: ContextoLista) =>
+      EM_ABERTO.includes(l.status) && l.destinos?.todos === false,
+  },
+  todos_leram: {
+    titulo: "Todos leram",
+    testa: (l: LinhaChamado, _c: ContextoLista) =>
+      EM_ABERTO.includes(l.status) && l.destinos?.todos === true,
   },
 } as const;
 export type ChaveCartao = keyof typeof CARTOES;
@@ -232,6 +255,13 @@ export interface Ordem {
 
 /** Padrão: o que vence primeiro em cima. */
 export const ORDEM_PADRAO: Ordem = { coluna: "prazo", sentido: 1 };
+/** Avisos não têm prazo: o mais novo em cima. */
+export const ORDEM_DOS_AVISOS: Ordem = { coluna: "criado", sentido: -1 };
+
+export const ordemPadraoDa = (tela: TelaLista): Ordem =>
+  tela === "avisos" || tela === "avisos_mandados"
+    ? ORDEM_DOS_AVISOS
+    : ORDEM_PADRAO;
 
 const ORDEM_STATUS = Object.keys(STATUS) as StatusChamado[];
 const ORDEM_TIPO = Object.keys(TIPOS) as TipoChamado[];
@@ -301,13 +331,14 @@ export const AGRUPAMENTOS = {
 } as const;
 export type Agrupamento = keyof typeof AGRUPAMENTOS;
 
-export type ModoGrupo = "caixa" | Agrupamento | "nenhum";
+/** "lido": avisos que recebi (não lidos primeiro); "leram": os que mandei. */
+export type ModoGrupo = "caixa" | Agrupamento | "lido" | "leram" | "nenhum";
 
 export interface Grupo {
   chave: string;
   titulo: string;
   /** Destaque do título (atrasado em vermelho, hoje em amarelo). */
-  tom?: "atrasado" | "hoje" | "confirmar";
+  tom?: "atrasado" | "hoje" | "confirmar" | "nao_lido" | "lido";
   linhas: LinhaChamado[];
 }
 
@@ -397,6 +428,21 @@ export function agrupar(
                 ? "confirmar"
                 : undefined,
       }));
+    case "lido":
+    case "leram": {
+      const titulos =
+        modo === "lido"
+          ? { nao: "Não lidos", sim: "Lidos" }
+          : { nao: "Faltam ler", sim: "Todos leram" };
+      return agruparPor(
+        linhas,
+        (l) =>
+          (modo === "lido" ? l.lido : l.destinos?.todos)
+            ? { chave: "sim", titulo: titulos.sim }
+            : { chave: "nao", titulo: titulos.nao },
+        (a, b) => (a.chave === "nao" ? -1 : b.chave === "nao" ? 1 : 0),
+      ).map((g) => ({ ...g, tom: g.chave === "nao" ? "nao_lido" : "lido" }));
+    }
     case "responsavel":
       // A fila (sem responsável) primeiro: é o que o gestor precisa distribuir.
       return agruparPor(
@@ -605,15 +651,8 @@ export const TELAS = {
   ],
   quadro: ["recorte", "setor", "tipo", "categoria", "prioridade", "fechados"],
   calendario: ["recorte", "setor", "tipo", "visao", "de", "ate"],
-  /** A Minha caixa só dos avisos (que não aparecem nas outras abas). */
-  avisos: [
-    "aberto_por",
-    "setor",
-    "categoria",
-    "status",
-    "prioridade",
-    "etiqueta",
-  ],
+  /** Os avisos (que não aparecem nas outras abas): sem status, só leitura. */
+  avisos: ["aberto_por", "setor", "categoria", "prioridade", "etiqueta"],
 } as const satisfies Record<string, readonly CampoFiltro[]>;
 export type Tela = keyof typeof TELAS;
 
@@ -725,7 +764,7 @@ export function descreverFiltros(
         break;
       case "status":
         // A Minha caixa só tem status na lista dos abertos por mim.
-        if ((tela === "caixa" || tela === "avisos") && !f.aberto_por) break;
+        if (tela === "caixa" && !f.aberto_por) break;
         partes.push(
           `Status: ${!f.status ? "Em aberto" : f.status === "todos" ? "Todos" : STATUS[f.status]}`,
         );
@@ -761,8 +800,16 @@ const dataBr = (iso: string) => iso.split("-").reverse().join("/");
 // Lista paginada no servidor: cartões, busca e ordem viram filtro do banco
 // ---------------------------------------------------------------------------
 
-/** Listas com cartões, busca e paginação (o Quadro pagina por coluna). */
-export type TelaLista = "caixa" | "setor" | "abertos";
+/**
+ * Listas com cartões, busca e paginação (o Quadro pagina por coluna). A aba
+ * Avisos tem as duas dela: os que recebi e os que mandei.
+ */
+export type TelaLista =
+  | "caixa"
+  | "setor"
+  | "abertos"
+  | "avisos"
+  | "avisos_mandados";
 
 /** Cartões de cada lista (no máximo 4), na ordem da tela. */
 export const CARTOES_DA_TELA: Record<TelaLista, readonly ChaveCartao[]> = {
@@ -774,12 +821,16 @@ export const CARTOES_DA_TELA: Record<TelaLista, readonly ChaveCartao[]> = {
     "atrasados",
     "fechados_mes",
   ],
+  avisos: ["nao_lidos", "lidos"],
+  avisos_mandados: ["faltam_ler", "todos_leram"],
 };
 
 export interface ColunasVisiveis {
   setor?: boolean;
   solicitante?: boolean;
   responsavel?: boolean;
+  /** Avisos: a leitura no lugar de responsável, prioridade, prazo e status. */
+  aviso?: boolean;
 }
 
 /** Colunas de cada lista (a tela e a exportação usam as mesmas). */
@@ -787,6 +838,8 @@ export const COLUNAS_DA_TELA: Record<TelaLista, ColunasVisiveis> = {
   caixa: { setor: true, solicitante: true },
   setor: { solicitante: true },
   abertos: { setor: true },
+  avisos: { setor: true, solicitante: true, aviso: true },
+  avisos_mandados: { setor: true, aviso: true },
 };
 
 /** Cartão da URL, se for um dos cartões da tela. */
@@ -810,6 +863,9 @@ export interface CriterioCartao {
   prazoAntes?: string;
   /** Encerrado a partir de (ISO), no campo indicado. */
   encerradoDesde?: { campo: "concluido_em" | "fechado_em"; iso: string };
+  /** Avisos: lidos por mim (os.lido_por_mim) / todos leram (os.todos_leram). */
+  lido?: boolean;
+  todosLeram?: boolean;
 }
 
 /** Começo do mês corrente em Brasília (ISO). */
@@ -854,6 +910,14 @@ export function criterioDoCartao(
         foraDaBarra: true,
         encerradoDesde: { campo: "fechado_em", iso: inicioDoMes(c.agora) },
       };
+    case "nao_lidos":
+      return { status: EM_ABERTO, lido: false };
+    case "lidos":
+      return { status: EM_ABERTO, lido: true };
+    case "faltam_ler":
+      return { status: EM_ABERTO, todosLeram: false };
+    case "todos_leram":
+      return { status: EM_ABERTO, todosLeram: true };
   }
 }
 
@@ -948,6 +1012,8 @@ export function modoDaLista(
       ? "caixa"
       : "nenhum";
   if (tela === "setor") return agrupar ?? "responsavel";
+  if (tela === "avisos") return "lido";
+  if (tela === "avisos_mandados") return "leram";
   return "status";
 }
 
@@ -959,6 +1025,7 @@ export function modoDaLista(
 export function ordemDaConsulta(
   modo: ModoGrupo,
   ordem: Ordem | null,
+  padrao: Ordem = ORDEM_PADRAO,
 ): PassoOrdem[] {
   const passos: PassoOrdem[] = [];
   if (modo === "responsavel")
@@ -967,7 +1034,12 @@ export function ordemDaConsulta(
     passos.push({ coluna: "categoria_id", asc: true, nullsFirst: false });
   else if (modo === "status")
     passos.push({ coluna: "status", asc: true, nullsFirst: false });
-  const o = ordem && ordenavelNoBanco(ordem.coluna) ? ordem : ORDEM_PADRAO;
+  // Campos calculados do banco (os.lido_por_mim, os.todos_leram): falso antes.
+  else if (modo === "lido")
+    passos.push({ coluna: "lido_por_mim", asc: true, nullsFirst: false });
+  else if (modo === "leram")
+    passos.push({ coluna: "todos_leram", asc: true, nullsFirst: false });
+  const o = ordem && ordenavelNoBanco(ordem.coluna) ? ordem : padrao;
   const coluna = COLUNAS_NO_BANCO[o.coluna as ColunaOrdemBanco];
   passos.push({ coluna, asc: o.sentido === 1, nullsFirst: false });
   if (coluna !== "prioridade")
@@ -1034,6 +1106,12 @@ export function descreverPeriodo(
 // Exportação: o resultado filtrado inteiro, agrupado como na tela
 // ---------------------------------------------------------------------------
 
+/** Aviso: "Lido" / "Não lido" (recebi) ou "3 de 5 leram" (mandei). */
+export function textoDaLeitura(l: LinhaChamado): string {
+  if (l.lido !== undefined) return l.lido ? "Lido" : "Não lido";
+  return l.destinos?.texto ?? "";
+}
+
 export function paraExportar(
   grupos: Grupo[],
   modo: ModoGrupo,
@@ -1049,11 +1127,15 @@ export function paraExportar(
     ...(colunas.setor ? [{ titulo: "Setor" }] : []),
     { titulo: "Categoria" },
     ...(colunas.solicitante ? [{ titulo: "Pedido por" }] : []),
-    ...(colunas.responsavel !== false ? [{ titulo: "Responsável" }] : []),
-    { titulo: "Prioridade" },
-    { titulo: "Prazo" },
-    { titulo: "Situação do prazo" },
-    { titulo: "Status" },
+    ...(colunas.aviso
+      ? [{ titulo: "Leitura" }]
+      : [
+          ...(colunas.responsavel !== false ? [{ titulo: "Responsável" }] : []),
+          { titulo: "Prioridade" },
+          { titulo: "Prazo" },
+          { titulo: "Situação do prazo" },
+          { titulo: "Status" },
+        ]),
     { titulo: "Aberto em" },
   ];
   const linhas = grupos.flatMap((g) =>
@@ -1065,11 +1147,17 @@ export function paraExportar(
       ...(colunas.setor ? [l.setor] : []),
       l.categoria ?? "",
       ...(colunas.solicitante ? [l.solicitante ?? ""] : []),
-      ...(colunas.responsavel !== false ? [l.responsavel ?? "Na fila"] : []),
-      PRIORIDADES[l.prioridade],
-      l.prazo ? formatarDataHora(l.prazo) : "",
-      SITUACOES_PRAZO[situacaoDoPrazo(l, ctx.agora, ctx.avisoHoras)],
-      `${STATUS[l.status]}${l.aguardando ? ` (${MOTIVOS_AGUARDANDO[l.aguardando]})` : ""}${l.destinos ? ` · ${l.destinos.texto}` : ""}`,
+      ...(colunas.aviso
+        ? [textoDaLeitura(l)]
+        : [
+            ...(colunas.responsavel !== false
+              ? [l.responsavel ?? "Na fila"]
+              : []),
+            PRIORIDADES[l.prioridade],
+            l.prazo ? formatarDataHora(l.prazo) : "",
+            SITUACOES_PRAZO[situacaoDoPrazo(l, ctx.agora, ctx.avisoHoras)],
+            `${STATUS[l.status]}${l.aguardando ? ` (${MOTIVOS_AGUARDANDO[l.aguardando]})` : ""}${l.destinos ? ` · ${l.destinos.texto}` : ""}`,
+          ]),
       formatarDataHora(l.criadoEm),
     ]),
   );

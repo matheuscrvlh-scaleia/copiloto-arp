@@ -22,8 +22,10 @@ import {
   lerOrdem,
   modoDaLista,
   noMesAtual,
+  ORDEM_DOS_AVISOS,
   ordemDaConsulta,
   ordemNaUrl,
+  ordemPadraoDa,
   ordenarCarga,
   ordenarLinhas,
   paraExportar,
@@ -32,6 +34,7 @@ import {
   statusComCartao,
   statusDoFiltro,
   temFiltrosNaUrl,
+  textoDaLeitura,
 } from "./lista";
 import { STATUS_ABERTOS, type StatusChamado } from "./rotulos";
 
@@ -389,6 +392,10 @@ function passaNoBanco(
       c.encerradoDesde.campo === "concluido_em" ? l.concluidoEm : l.fechadoEm;
     if (!v || Date.parse(v) < Date.parse(c.encerradoDesde.iso)) return false;
   }
+  // Campos calculados do banco: a linha já traz o resultado.
+  if (c.lido !== undefined && l.lido !== c.lido) return false;
+  if (c.todosLeram !== undefined && l.destinos?.todos !== c.todosLeram)
+    return false;
   return true;
 }
 
@@ -417,6 +424,17 @@ describe("cartões no banco", () => {
     }),
     linha({ status: "cancelado", prazo: "2026-10-01T10:00:00Z" }),
     linha({ responsavelId: ANA }),
+    linha({ tipo: "aviso", lido: false }),
+    linha({ tipo: "aviso", lido: true }),
+    linha({ tipo: "aviso", lido: false, status: "cancelado" }),
+    linha({
+      tipo: "aviso",
+      destinos: { texto: "1 de 2 leram", faltam: ["Ana"], todos: false },
+    }),
+    linha({
+      tipo: "aviso",
+      destinos: { texto: "2 de 2 leram", faltam: [], todos: true },
+    }),
   ];
 
   it("cada critério conta o mesmo que o cartão na tela", () => {
@@ -660,5 +678,70 @@ describe("exportação da lista", () => {
       "Lâmpada",
       "Operações",
     ]);
+  });
+});
+
+describe("avisos: lidos e não lidos", () => {
+  const recebido = (lido: boolean) => linha({ tipo: "aviso", lido });
+  const mandado = (todos: boolean) =>
+    linha({
+      tipo: "aviso",
+      destinos: {
+        texto: todos ? "2 de 2 leram" : "1 de 2 leram",
+        faltam: todos ? [] : ["Ana"],
+        todos,
+      },
+    });
+
+  it("cartões: não lidos e lidos de quem recebe; faltam ler e todos leram de quem mandou", () => {
+    const linhas = [recebido(false), recebido(false), recebido(true)];
+    expect(contarCartao(linhas, "nao_lidos", ctx)).toBe(2);
+    expect(contarCartao(linhas, "lidos", ctx)).toBe(1);
+    const mandados = [mandado(false), mandado(true)];
+    expect(contarCartao(mandados, "faltam_ler", ctx)).toBe(1);
+    expect(contarCartao(mandados, "todos_leram", ctx)).toBe(1);
+    expect(criterioDoCartao("nao_lidos", ctx)).toMatchObject({ lido: false });
+    expect(criterioDoCartao("todos_leram", ctx)).toMatchObject({
+      todosLeram: true,
+    });
+    expect(lerCartao("avisos", "lidos")).toBe("lidos");
+    expect(lerCartao("avisos", "atrasados")).toBeNull();
+    expect(lerCartao("avisos_mandados", "faltam_ler")).toBe("faltam_ler");
+  });
+
+  it("não lidos primeiro, pelo campo calculado do banco; o mais novo em cima", () => {
+    expect(modoDaLista("avisos", undefined, null)).toBe("lido");
+    expect(modoDaLista("avisos_mandados", undefined, null)).toBe("leram");
+    expect(ordemPadraoDa("avisos")).toEqual(ORDEM_DOS_AVISOS);
+    expect(
+      ordemDaConsulta("lido", null, ORDEM_DOS_AVISOS).map((p) => p.coluna),
+    ).toEqual(["lido_por_mim", "criado_em", "prioridade", "numero"]);
+    expect(ordemDaConsulta("leram", null, ORDEM_DOS_AVISOS)[0]).toEqual({
+      coluna: "todos_leram",
+      asc: true,
+      nullsFirst: false,
+    });
+    expect(
+      agrupar([recebido(true), recebido(false)], "lido", ctx).map(
+        (g) => g.titulo,
+      ),
+    ).toEqual(["Não lidos", "Lidos"]);
+    expect(
+      agrupar([mandado(true), mandado(false)], "leram", ctx).map(
+        (g) => g.titulo,
+      ),
+    ).toEqual(["Faltam ler", "Todos leram"]);
+  });
+
+  it("exportação: a leitura no lugar de prazo e status", () => {
+    const r = paraExportar(
+      agrupar([recebido(false)], "lido", ctx),
+      "lido",
+      { setor: true, aviso: true },
+      ctx,
+    );
+    expect(r.colunas.map((c) => c.titulo)).not.toContain("Prazo");
+    expect(r.linhas[0]).toContain("Não lido");
+    expect(textoDaLeitura(mandado(false))).toBe("1 de 2 leram");
   });
 });

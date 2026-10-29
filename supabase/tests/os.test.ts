@@ -796,6 +796,86 @@ describe("vários destinatários (os.sincronizar_destinos)", () => {
   });
 });
 
+describe("leitura dos avisos (os.leituras)", () => {
+  const ler = (id: string, usuario = "auth.uid()") =>
+    `insert into os.leituras (chamado_id, usuario_id) values ('${id}', ${usuario})`;
+  const leitores = async (usuario: string, id: string) =>
+    (
+      await como(usuario, () =>
+        db.query<{ u: string }>(
+          `select usuario_id as u from os.leitores_dos_avisos(array['${id}'::uuid]) order by 1`,
+        ),
+      )
+    ).rows.map((r) => r.u);
+  const calculado = (usuario: string, id: string, campo: string) =>
+    como(usuario, () =>
+      valor<boolean>(
+        `select os.${campo}(c) from os.chamados c where id = '${id}'`,
+      ),
+    );
+
+  it("quem recebe: o setor do aviso, sem quem mandou nem inativo", async () => {
+    const id = await chamado("L aviso setor", { tipo: "aviso" });
+    const r = await leitores(U.solicitante, id);
+    expect(r).toEqual(expect.arrayContaining([U.tecnico, U.colega]));
+    expect(r).not.toContain(U.solicitante);
+    expect(r).not.toContain(U.inativo);
+    // Quem não vê o aviso não descobre quem recebe.
+    expect(await leitores(U.marketing, id)).toEqual([]);
+  });
+
+  it("com destinos: as pessoas de cada setor e as pessoas citadas", async () => {
+    const id = await chamado("L aviso destinos", {
+      tipo: "aviso",
+      setor_id: SETOR.marketing,
+    });
+    await inserir("os.destinatarios", {
+      chamado_id: id,
+      setor_id: SETOR.marketing,
+    });
+    await inserir("os.destinatarios", {
+      chamado_id: id,
+      usuario_id: U.citado,
+      ordem: 1,
+    });
+    expect(await leitores(U.solicitante, id)).toEqual(
+      [U.marketing, U.citado].sort(),
+    );
+  });
+
+  it("cada um marca a própria leitura; todos leram quando o último lê", async () => {
+    const id = await chamado("L aviso leitura", {
+      tipo: "aviso",
+      responsavel_id: U.tecnico,
+    });
+    expect(await calculado(U.solicitante, id, "todos_leram")).toBe(false);
+    await como(U.tecnico, async () => {
+      expect(await erro(ler(id, `'${U.colega}'`))).toMatch(/row-level/);
+      expect(await erro(ler(id))).toBeNull();
+    });
+    expect(await calculado(U.tecnico, id, "lido_por_mim")).toBe(true);
+    expect(await calculado(U.solicitante, id, "lido_por_mim")).toBe(false);
+    expect(await calculado(U.solicitante, id, "todos_leram")).toBe(true);
+    // Leitura não se desfaz.
+    await como(U.tecnico, async () => {
+      expect(
+        await erro(`delete from os.leituras where chamado_id = '${id}'`),
+      ).toMatch(/permission denied/);
+    });
+  });
+
+  it("só aviso que a pessoa vê", async () => {
+    const aviso = await chamado("L aviso alheio", { tipo: "aviso" });
+    const tarefa = await chamado("L tarefa");
+    await como(U.marketing, async () => {
+      expect(await erro(ler(aviso))).toMatch(/row-level/);
+    });
+    await como(U.tecnico, async () => {
+      expect(await erro(ler(tarefa))).toMatch(/row-level/);
+    });
+  });
+});
+
 describe("dinheiro só com os.custos", () => {
   let id = "";
   const MATERIAIS = "select * from os.materiais where ordem_id = ";

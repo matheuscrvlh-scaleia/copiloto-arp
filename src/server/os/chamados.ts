@@ -329,18 +329,21 @@ export async function criarChamado(
     categoria = data;
   }
 
+  // Aviso não tem prazo: é para ler.
   const prazo =
-    n.prazo ??
-    (categoria?.prazo_valor && !n.pessoal
-      ? calcularPrazo(
-          {
-            abertura: agora,
-            valor: categoria.prazo_valor,
-            unidade: categoria.prazo_unidade,
-          },
-          await calendario(),
-        )
-      : null);
+    n.tipo === "aviso"
+      ? null
+      : (n.prazo ??
+        (categoria?.prazo_valor && !n.pessoal
+          ? calcularPrazo(
+              {
+                abertura: agora,
+                valor: categoria.prazo_valor,
+                unidade: categoria.prazo_unidade,
+              },
+              await calendario(),
+            )
+          : null));
   const responsavel = n.pessoal
     ? eu
     : n.responsavelId !== undefined

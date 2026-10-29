@@ -81,16 +81,19 @@ describe("ações disponíveis", () => {
     ]);
   });
 
-  it("aviso com vários destinos não conclui inteiro", () => {
+  it("aviso é lido, não executado: só quem mandou ou gerencia cancela", () => {
     const ch = chamado({
       tipo: "aviso",
       status: "em_andamento",
-      multiplos: true,
       responsavel_id: "ana",
     });
-    expect(acoesDisponiveis(ch, papel({ gestor: true }))).not.toContain(
-      "concluir",
-    );
+    expect(acoesDisponiveis(ch, papel({ gestor: true }))).toEqual(["cancelar"]);
+    expect(acoesDisponiveis(ch, papel({ solicitante: true }))).toEqual([
+      "cancelar",
+    ]);
+    expect(
+      acoesDisponiveis(ch, papel({ responsavel: true, doSetor: true })),
+    ).toEqual([]);
   });
 
   it("aguardando retoma", () => {

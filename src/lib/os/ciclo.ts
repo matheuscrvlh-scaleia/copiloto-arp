@@ -68,6 +68,12 @@ export function acoesDisponiveis(
   const acoes: AcaoChamado[] = [];
   const executa = papel.responsavel || papel.gestor;
   const { status } = ch;
+  const cancela =
+    podeIr(status, "cancelado") && (papel.solicitante || papel.gestor);
+
+  // Aviso é para ser lido (os.leituras), não executado: só quem mandou ou
+  // gerencia o retira.
+  if (ch.tipo === "aviso") return cancela ? ["cancelar"] : [];
 
   if (status === "aberto") {
     // Sem dono: qualquer um do setor pega. Com dono: só o gestor toma para si.
@@ -90,8 +96,7 @@ export function acoesDisponiveis(
     if (papel.solicitante) acoes.push("reabrir");
   }
   // Concluído não cancela (só confirma ou reabre), como na tabela acima.
-  if (podeIr(status, "cancelado") && (papel.solicitante || papel.gestor))
-    acoes.push("cancelar");
+  if (cancela) acoes.push("cancelar");
   if (status === "em_andamento" && papel.responsavel) acoes.push("devolver");
   return acoes;
 }

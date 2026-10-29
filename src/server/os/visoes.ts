@@ -30,6 +30,7 @@ import {
   modoDaLista,
   type Ordem,
   ordemDaConsulta,
+  ordemPadraoDa,
   type PassoOrdem,
   PREFERENCIA_FILTROS,
   paraExportar,
@@ -71,6 +72,7 @@ import {
   setores,
   todosOsChamados,
 } from "./base";
+import { type LeitorDoAviso, leitoresDosAvisos, lidosPorMim } from "./leituras";
 import { lerPreferencia } from "./preferencias";
 
 // Dados das visões do dia a dia (Minha caixa, Meu setor, Abertos por mim,
@@ -265,6 +267,8 @@ const RECORTE_DA_TELA: Record<TelaLista, Recorte> = {
   caixa: "minha_caixa",
   setor: "meu_setor",
   abertos: "abertos_por_mim",
+  avisos: "minha_caixa",
+  avisos_mandados: "abertos_por_mim",
 };
 
 const umTexto = (v: unknown): string | undefined =>
@@ -304,11 +308,20 @@ export async function estadoDaLista(
   const [a, lidos] = await Promise.all([apoio(), filtrosDaTela(tela, busca)]);
   let filtros = lidos.filtros;
   const porMim = filtros.aberto_por === "eu";
-  // Avisos: a mesma lista da Minha caixa, só com os avisos.
+  // Avisos: os que recebi (como a Minha caixa) e, em Mostrar, os que mandei.
   const lista: TelaLista =
-    tela === "setor" ? "setor" : porMim ? "abertos" : "caixa";
-  // O status só aparece na barra dos abertos por mim.
-  if (lista === "caixa") filtros = { ...filtros, status: undefined };
+    tela === "setor"
+      ? "setor"
+      : tela === "avisos"
+        ? porMim
+          ? "avisos_mandados"
+          : "avisos"
+        : porMim
+          ? "abertos"
+          : "caixa";
+  // O status só aparece na barra dos abertos por mim (aviso não tem).
+  if (lista !== "abertos" && lista !== "setor")
+    filtros = { ...filtros, status: undefined };
   let disponiveis: Setor[] = [];
   let setores: string[] = [];
   if (tela === "setor") {
@@ -377,6 +390,21 @@ async function paraLinhasDaLista(
   e: EstadoDaLista,
   chamados: ChamadoResumo[],
 ): Promise<LinhaChamado[]> {
+  const ids = chamados.map((c) => c.id);
+  if (e.tela === "avisos") {
+    const lidos = await lidosPorMim(ids, e.a.ctx.usuario.id);
+    return chamados.map((c) => ({
+      ...paraLinha(c, e.a),
+      lido: lidos.has(c.id),
+    }));
+  }
+  if (e.tela === "avisos_mandados") {
+    const leitores = await leitoresDosAvisos(ids);
+    return chamados.map((c) => ({
+      ...paraLinha(c, e.a),
+      destinos: leituraDoAviso(leitores.get(c.id) ?? [], e.a),
+    }));
+  }
   const destinos =
     e.tela === "abertos"
       ? await andamentoDosAvisos(
@@ -396,7 +424,7 @@ export async function paginaDaLista(
 ): Promise<{ linhas: LinhaChamado[]; total: number; pagina: number }> {
   const r = await buscarPaginaDeChamados(consultaDaLista(e), {
     pagina: e.pagina,
-    ordem: ordemDaConsulta(e.modo, e.ordem),
+    ordem: ordemDaConsulta(e.modo, e.ordem, ordemPadraoDa(e.tela)),
   });
   return { ...r, linhas: await paraLinhasDaLista(e, r.linhas) };
 }
@@ -437,7 +465,7 @@ export async function cargaDoSetor(
 export async function exportacaoDaLista(e: EstadoDaLista) {
   const chamados = await todosOsChamados(
     consultaDaLista(e),
-    ordemDaConsulta(e.modo, e.ordem),
+    ordemDaConsulta(e.modo, e.ordem, ordemPadraoDa(e.tela)),
   );
   const linhas = await paraLinhasDaLista(e, chamados);
   const ctx = contextoDaLista(e.a);
@@ -647,6 +675,19 @@ export async function contagens(
     }),
   );
   return mapa;
+}
+
+/** Quem mandou o aviso: "3 de 5 leram" e quem ainda não leu. */
+function leituraDoAviso(
+  leitores: LeitorDoAviso[],
+  a: Apoio,
+): NonNullable<LinhaChamado["destinos"]> {
+  const faltam = leitores.filter((l) => !l.lidoEm);
+  return {
+    texto: `${leitores.length - faltam.length} de ${leitores.length} leram`,
+    todos: !faltam.length,
+    faltam: faltam.map((l) => a.nomes.get(l.id) ?? "Pessoa"),
+  };
 }
 
 /**

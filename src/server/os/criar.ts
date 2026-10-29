@@ -96,7 +96,11 @@ export async function criarChamadoSistema(
   const padrao =
     categoria?.tipo_padrao === "os" ? null : categoria?.tipo_padrao;
   const tipo = n.tipo ?? padrao ?? "solicitacao";
-  const prazo = n.prazo ?? (await prazoDaCategoria(categoria, agora));
+  // Aviso não tem prazo: é para ler.
+  const prazo =
+    tipo === "aviso"
+      ? null
+      : (n.prazo ?? (await prazoDaCategoria(categoria, agora)));
   const precisaConfirmacao =
     tipo === "aviso" ? false : (categoria?.precisa_confirmacao ?? true);
   const checklist =
@@ -166,7 +170,7 @@ export async function criarChamadoSistema(
         setor_id: d.setorId ?? null,
         usuario_id: d.usuarioId ?? null,
         titulo: d.titulo ?? null,
-        prazo: d.prazo?.toISOString() ?? null,
+        prazo: tipo === "aviso" ? null : (d.prazo?.toISOString() ?? null),
         responsavel_id: d.responsavelId ?? null,
         ordem: i,
       })),
