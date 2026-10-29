@@ -7,12 +7,13 @@ import {
   CirclePause,
   CirclePlay,
   Eye,
+  Pencil,
   UserRound,
 } from "lucide-react";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { formatarDataHora } from "@/lib/formato";
 import type { StatusDestino } from "@/lib/os/ciclo";
-import { andarDestino } from "@/server/os/acoes/chamados";
+import { andarDestino, definirTarefaDestino } from "@/server/os/acoes/chamados";
 
 // Andamento de cada destinatário (Aviso para vários setores, pessoas
 // extras): cada um confirma que leu e conclui a própria parte; o chamado
@@ -68,6 +69,7 @@ export function Destinos({
   andamento,
   nomes,
   encerrado,
+  definirTarefas = false,
 }: {
   linhas: LinhaDestino[];
   /** Um depois do outro: cada um espera o anterior concluir. */
@@ -76,6 +78,8 @@ export function Destinos({
   nomes: Record<string, string>;
   /** Fechado ou cancelado: só leitura. */
   encerrado: boolean;
+  /** Quem coordena (pediu, responde, é do setor, gerencia) define as tarefas. */
+  definirTarefas?: boolean;
 }) {
   const [estado, executar, enviando] = useActionState(andarDestino, {});
   const faltam = linhas.filter((l) => l.status !== "concluido");
@@ -146,13 +150,13 @@ export function Destinos({
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">
                     {l.nome}
-                    {l.titulo && (
-                      <span className="font-normal text-neutral-500">
-                        {" "}
-                        · {l.titulo}
-                      </span>
-                    )}
                   </span>
+                  <Tarefa
+                    id={l.id}
+                    nome={l.nome}
+                    titulo={l.titulo}
+                    editavel={definirTarefas && !encerrado}
+                  />
                   <span className="block text-xs text-neutral-500">
                     {l.concluidoEm
                       ? `Concluído ${l.concluidoPor ? `por ${nomes[l.concluidoPor] ?? "alguém"} ` : ""}em ${formatarDataHora(l.concluidoEm)}`
@@ -203,5 +207,83 @@ export function Destinos({
         </p>
       )}
     </div>
+  );
+}
+
+/** O que cabe a este destino ("Enviar logo"), com edição no lugar. */
+function Tarefa({
+  id,
+  nome,
+  titulo,
+  editavel,
+}: {
+  id: string;
+  nome: string;
+  titulo: string | null;
+  editavel: boolean;
+}) {
+  const [editando, setEditando] = useState(false);
+  const [estado, executar, enviando] = useActionState(
+    async (anterior: { erro?: string }, form: FormData) => {
+      const r = await definirTarefaDestino(anterior, form);
+      if (!r.erro) setEditando(false);
+      return r;
+    },
+    {},
+  );
+
+  if (editando)
+    return (
+      <form action={executar} className="mt-1 flex flex-col gap-1.5">
+        <input type="hidden" name="id" value={id} />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            name="tarefa"
+            defaultValue={titulo ?? ""}
+            maxLength={200}
+            // biome-ignore lint/a11y/noAutofocus: abriu agora para escrever
+            autoFocus
+            placeholder="O que fazer (ex.: enviar a logo)"
+            aria-label={`O que cabe a ${nome}`}
+            onKeyDown={(e) => e.key === "Escape" && setEditando(false)}
+            className="min-h-9 min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-sm focus:border-neutral-400 focus:outline-none"
+          />
+          <button type="submit" disabled={enviando} className={BOTAO}>
+            Salvar
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditando(false)}
+            className="min-h-10 px-2 text-sm text-neutral-600 hover:text-neutral-900"
+          >
+            Cancelar
+          </button>
+        </div>
+        {estado.erro && (
+          <p role="alert" className="text-xs text-red-700">
+            {estado.erro}
+          </p>
+        )}
+      </form>
+    );
+
+  if (!titulo && !editavel) return null;
+  return (
+    <span className="flex items-center gap-1">
+      {titulo ? (
+        <span className="text-sm break-words text-neutral-800">{titulo}</span>
+      ) : null}
+      {editavel && (
+        <button
+          type="button"
+          onClick={() => setEditando(true)}
+          aria-label={titulo ? `Trocar a tarefa de ${nome}` : undefined}
+          className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs text-neutral-500 transition hover:bg-neutral-900/[0.06] hover:text-neutral-800"
+        >
+          <Pencil className="size-3" aria-hidden />
+          {!titulo && "Definir tarefa"}
+        </button>
+      )}
+    </span>
   );
 }

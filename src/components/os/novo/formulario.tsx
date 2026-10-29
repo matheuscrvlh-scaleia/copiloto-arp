@@ -839,6 +839,10 @@ function Detalhes({
                 dica={`Começa em ${setor?.nome ?? "este setor"}; cada um só anda depois que o anterior concluir a sua parte.`}
                 nome="setores_extras"
                 inicio={2}
+                primeiro={{
+                  id: escolha.setorId,
+                  nome: setor?.nome ?? "Este setor",
+                }}
                 adicionar="Adicionar setor"
                 placeholder="Escolher setor…"
                 opcoes={dados.setores
@@ -999,15 +1003,20 @@ function SetoresExtras({
   );
 }
 
+const CAMPO_TAREFA =
+  "min-h-9 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none";
+
 /**
  * Destinos extras em ordem: um select por vez e "Adicionar" para o próximo.
- * Grava os escolhidos, na ordem, em campos ocultos `nome`.
+ * Grava os escolhidos, na ordem, em campos ocultos `nome`, e o que cabe a
+ * cada um em `tarefa:<id>`.
  */
 function ListaEmOrdem({
   titulo,
   dica,
   nome,
   inicio,
+  primeiro,
   adicionar,
   placeholder,
   opcoes,
@@ -1019,6 +1028,8 @@ function ListaEmOrdem({
   nome: string;
   /** Número do primeiro da lista; sem ele, a lista não é numerada. */
   inicio?: number;
+  /** O destino principal, antes da lista (só a tarefa dele é editável). */
+  primeiro?: { id: string; nome: string };
   adicionar: string;
   placeholder: string;
   opcoes: Opcao[];
@@ -1026,7 +1037,20 @@ function ListaEmOrdem({
   aoMudar: (valores: string[]) => void;
 }) {
   const id = useId();
+  // Pela id: tirar um do meio não troca a tarefa de lugar.
+  const [tarefas, setTarefas] = useState<Record<string, string>>({});
   if (!opcoes.length) return null;
+  const campoTarefa = (v: string, rotulo: string) => (
+    <input
+      name={`tarefa:${v}`}
+      value={tarefas[v] ?? ""}
+      onChange={(e) => setTarefas({ ...tarefas, [v]: e.target.value })}
+      maxLength={200}
+      placeholder="O que fazer (opcional)"
+      aria-label={`O que cabe a ${rotulo}`}
+      className={CAMPO_TAREFA}
+    />
+  );
   const trocar = (i: number, v: string) =>
     aoMudar(valores.map((x, j) => (j === i ? v : x)));
   const escolhidos = valores.filter(Boolean);
@@ -1042,28 +1066,52 @@ function ListaEmOrdem({
         <input key={v} type="hidden" name={nome} value={v} />
       ))}
       <ol className="flex flex-col gap-2">
+        {primeiro && (
+          <li className="flex items-start gap-2">
+            <span
+              aria-hidden
+              className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-neutral-900/[0.06] text-xs font-semibold text-neutral-600"
+            >
+              {(inicio ?? 2) - 1}
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <span className="pt-1.5 text-sm font-medium text-neutral-800">
+                {primeiro.nome}
+              </span>
+              {campoTarefa(primeiro.id, primeiro.nome)}
+            </div>
+            <span aria-hidden className="size-9 shrink-0" />
+          </li>
+        )}
         {valores.map((v, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: a posição é a ordem
-          <li key={i} className="flex items-center gap-2">
+          <li key={i} className="flex items-start gap-2">
             {inicio !== undefined && (
               <span
                 aria-hidden
-                className="grid size-7 shrink-0 place-items-center rounded-full bg-neutral-900/[0.06] text-xs font-semibold text-neutral-600"
+                className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-neutral-900/[0.06] text-xs font-semibold text-neutral-600"
               >
                 {inicio + i}
               </span>
             )}
-            <Selecao
-              id={`${id}-${i}`}
-              rotulo={`${titulo}: ${i + 1}º`}
-              valor={v}
-              placeholder={placeholder}
-              aoMudar={(x) => trocar(i, x)}
-              opcoes={opcoes.filter(
-                (o) => o.valor === v || !valores.includes(o.valor),
-              )}
-              className="min-w-0 flex-1"
-            />
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <Selecao
+                id={`${id}-${i}`}
+                rotulo={`${titulo}: ${i + 1}º`}
+                valor={v}
+                placeholder={placeholder}
+                aoMudar={(x) => trocar(i, x)}
+                opcoes={opcoes.filter(
+                  (o) => o.valor === v || !valores.includes(o.valor),
+                )}
+                className="min-w-0"
+              />
+              {v &&
+                campoTarefa(
+                  v,
+                  opcoes.find((o) => o.valor === v)?.rotulo ?? "este destino",
+                )}
+            </div>
             {(v || valores.length > 1) && (
               <button
                 type="button"

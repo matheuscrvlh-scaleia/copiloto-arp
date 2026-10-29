@@ -250,6 +250,8 @@ export interface NovoChamado {
   pessoal: boolean;
   setoresExtras: string[];
   pessoasExtras: string[];
+  /** O que cabe a cada destino, pelo id do setor ou da pessoa. */
+  tarefas: Record<string, string>;
   etiquetas: string[];
   lojaId: string | null;
   ativoId: string | null;
@@ -496,9 +498,14 @@ async function gravarDestinos(
       responsavel_id: null,
     })),
   ];
-  const { error } = await (await os())
-    .from("destinatarios")
-    .insert(lista.map((d, ordem) => ({ ...d, chamado_id: chamadoId, ordem })));
+  const { error } = await (await os()).from("destinatarios").insert(
+    lista.map((d, ordem) => ({
+      ...d,
+      chamado_id: chamadoId,
+      ordem,
+      titulo: n.tarefas[d.usuario_id ?? d.setor_id ?? ""] || null,
+    })),
+  );
   if (error) {
     console.error("destinatários", chamadoId, error);
     return { lista: [], erro: "Os destinatários extras não foram gravados." };

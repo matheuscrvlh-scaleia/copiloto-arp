@@ -87,6 +87,7 @@ export interface DetalheChamado {
     verAtivo: boolean;
     verVistoria: boolean;
     editar: boolean;
+    definirTarefas: boolean;
     converter: boolean;
   };
   avisoHoras: number;
@@ -275,6 +276,9 @@ export const carregarDetalhe = cache(
           papel.doSetor ||
           ehGestor ||
           lista.some((d) => d.meu),
+        // A mesma regra de definirTarefaDestino.
+        definirTarefas:
+          papel.solicitante || papel.responsavel || papel.doSetor || ehGestor,
         converter:
           aberto && ch.tipo !== "os" && ch.tipo !== "aviso" && !ch.pessoal,
       },

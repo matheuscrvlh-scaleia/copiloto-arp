@@ -310,6 +310,7 @@ export async function DetalheChamado({
               d.destinos.map((x) => x.concluido_por),
             )}
             encerrado={!emAberto && ch.status !== "concluido"}
+            definirTarefas={d.pode.definirTarefas && emAberto}
           />
         </section>
       )}

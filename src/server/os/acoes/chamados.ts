@@ -50,6 +50,7 @@ import {
   gerencia,
   lerChamado,
   manterAcesso,
+  papelNoChamado,
 } from "@/server/os/chamados";
 
 // Ações do chamado: abrir, andar no ciclo, gerenciar, checklist, conversa,
@@ -163,6 +164,18 @@ function lerRecorrencia(form: FormData): Recorrencia | null | false {
   }
 }
 
+/** Campos `tarefa:<id do setor ou da pessoa>` dos destinos extras. */
+function lerTarefas(form: FormData): Record<string, string> | false {
+  const tarefas: Record<string, string> = {};
+  for (const [k, v] of form.entries()) {
+    if (!k.startsWith("tarefa:") || typeof v !== "string" || !v.trim())
+      continue;
+    if (v.trim().length > 200) return false;
+    tarefas[k.slice("tarefa:".length)] = v.trim();
+  }
+  return tarefas;
+}
+
 export async function abrirChamado(
   _: EstadoCriacao,
   form: FormData,
@@ -206,6 +219,9 @@ export async function abrirChamado(
 
   const rec = lerRecorrencia(form);
   if (rec === false) return { erro: "Repetir: regra inválida." };
+  const tarefas = lerTarefas(form);
+  if (tarefas === false)
+    return { erro: "Tarefa de cada destino: máximo de 200 caracteres." };
   const prazo = v.prazo ? lerDataHoraLocal(v.prazo) : null;
   if (v.prazo && !prazo) return { erro: "Prazo: data inválida." };
 
@@ -238,6 +254,7 @@ export async function abrirChamado(
     pessoal: v.pessoal === "1",
     setoresExtras: valores(form, "setores_extras").filter(Boolean),
     pessoasExtras: valores(form, "pessoas_extras").filter(Boolean),
+    tarefas,
     etiquetas: lerEtiquetas(v.etiquetas),
     lojaId: v.loja_id,
     ativoId: v.ativo_id,
@@ -777,6 +794,40 @@ export async function andarDestino(
           eu,
         );
     });
+  refresh();
+  return {};
+}
+
+const tarefaDestino = z.object({ id: uuid, tarefa: textoOpcional(200) });
+
+/** O que cabe a este setor/pessoa ("Enviar logo"); quem coordena define. */
+export async function definirTarefaDestino(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const d = tarefaDestino.safeParse(Object.fromEntries(form));
+  if (!d.success) return primeiroErro(d.error);
+  const ctx = await contexto();
+  const db = await os();
+  const { data: linha } = await db
+    .from("destinatarios")
+    .select("id, chamado_id, titulo")
+    .eq("id", d.data.id)
+    .maybeSingle();
+  if (!linha) return { erro: "Destino não encontrado." };
+  const ch = await lerChamado(linha.chamado_id);
+  if (!ch) return { erro: "Chamado não encontrado." };
+  const p = papelNoChamado(ch, ctx);
+  if (!p.solicitante && !p.responsavel && !p.doSetor && !p.gestor)
+    return { erro: "Só quem coordena o chamado define as tarefas." };
+  if (!STATUS_ABERTOS.includes(ch.status))
+    return { erro: "O chamado já foi encerrado." };
+  if (linha.titulo === d.data.tarefa) return {};
+  const { error } = await db
+    .from("destinatarios")
+    .update({ titulo: d.data.tarefa })
+    .eq("id", linha.id);
+  if (error) return erroDoBanco(error);
   refresh();
   return {};
 }
