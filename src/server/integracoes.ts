@@ -15,7 +15,7 @@ import {
 } from "@/connectors/secullum/client";
 import { createWpsClient, type WpsConfig } from "@/connectors/wps/client";
 import { formatarNumero } from "@/lib/formato";
-import { INTEGRACOES, type Sistema } from "@/lib/integracoes";
+import { INTEGRACOES, linhaDoProduto, type Sistema } from "@/lib/integracoes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { podeAgora } from "./auth";
 import { decifrar } from "./cofre";
@@ -207,7 +207,12 @@ export interface ResultadoTeste {
   mensagem: string;
 }
 
-const TESTES: Record<Sistema, (c: Credencial) => Promise<string>> = {
+/** Um teste só, ou um por produto (Google e Meta: um login, vários produtos). */
+type Teste = (
+  c: Credencial,
+) => Promise<string | { produto: string; testar: () => Promise<string> }[]>;
+
+const TESTES: Record<Sistema, Teste> = {
   async secullum(c) {
     const config = configSecullum(c);
     const api = createSecullumClient(config);
@@ -281,9 +286,23 @@ export async function testarConexao(
   sistema: Sistema,
   c: Credencial,
 ): Promise<ResultadoTeste> {
+  let r: Awaited<ReturnType<Teste>>;
   try {
-    return { ok: true, mensagem: await TESTES[sistema](c) };
+    r = await TESTES[sistema](c);
   } catch (erro) {
     return { ok: false, mensagem: `Falhou: ${explicar(erro)}` };
   }
+  if (typeof r === "string") return { ok: true, mensagem: r };
+  // Cada produto à parte: um que falha não esconde os que funcionam.
+  const feitos = await Promise.allSettled(r.map((t) => t.testar()));
+  const linhas = r.map((t, i) => {
+    const f = feitos[i];
+    return f?.status === "fulfilled"
+      ? linhaDoProduto(t.produto, true, f.value)
+      : linhaDoProduto(t.produto, false, explicar(f?.reason));
+  });
+  return {
+    ok: feitos.every((f) => f.status === "fulfilled"),
+    mensagem: linhas.join("\n"),
+  };
 }

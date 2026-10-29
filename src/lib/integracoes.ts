@@ -11,14 +11,10 @@ export const SISTEMAS = [
   "wps",
   "diario_de_obras",
   "copiloto_rh",
-  "mkt_meta_ads",
-  "mkt_google_ads",
+  "mkt_google",
+  "mkt_meta",
   "mkt_tiktok",
-  "mkt_ga4",
   "mkt_rd_station",
-  "mkt_redes_meta",
-  "mkt_youtube",
-  "mkt_google_perfil",
   "mkt_asana",
 ] as const;
 export type Sistema = (typeof SISTEMAS)[number];
@@ -52,43 +48,17 @@ export interface DefinicaoIntegracao {
 
 const texto = z.string().trim().min(1, "obrigatório");
 
-/** Id numérico; tira traços, espaços e prefixos como "act_" e "accounts/". */
-const id = (prefixo?: RegExp) =>
+/** Id numérico sem traços, espaços e prefixos como "act_" e "accounts/". */
+const limparId = (prefixo?: RegExp) =>
   z
     .string()
     .trim()
     .transform((v) => (prefixo ? v.replace(prefixo, "") : v))
-    .transform((v) => v.replace(/[-\s]/g, ""))
-    .pipe(z.string().regex(/^\d+$/, "só números"));
-const idOpcional = z
-  .string()
-  .trim()
-  .transform((v) => v.replace(/[-\s]/g, ""))
-  .pipe(z.string().regex(/^\d*$/, "só números"));
-
-// OAuth do Google: o mesmo cliente (Google Cloud) pode servir a todas; o
-// token de atualização sai do OAuth Playground com o escopo de cada uma.
-const clienteGoogle: Campo = {
-  nome: "client_id",
-  rotulo: "Client ID (OAuth)",
-  tipo: "text",
-  exemplo: "…apps.googleusercontent.com",
-  ajuda: "Google Cloud › APIs e serviços › Credenciais (app da Web)",
-};
-const segredosGoogle = (escopo: string): Segredo[] => [
-  { nome: "client_secret", rotulo: "Client secret (OAuth)" },
-  {
-    nome: "refresh_token",
-    rotulo: "Refresh token",
-    ajuda: `Gerado no OAuth Playground com o Client ID acima e o escopo ${escopo}`,
-  },
-];
-const tokenMeta: Segredo = {
-  nome: "segredo",
-  rotulo: "Token de acesso",
-  ajuda:
-    "Token de usuário do sistema (Business Manager › Usuários do sistema), sem validade",
-};
+    .transform((v) => v.replace(/[-\s]/g, ""));
+const id = (prefixo?: RegExp) =>
+  limparId(prefixo).pipe(z.string().regex(/^\d+$/, "só números"));
+const idOpcional = (prefixo?: RegExp) =>
+  limparId(prefixo).pipe(z.string().regex(/^\d*$/, "só números"));
 
 export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
   secullum: {
@@ -188,57 +158,162 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       usuario: texto,
     }),
   },
-  mkt_meta_ads: {
-    nome: "Meta Ads",
-    serve: "Facebook e Instagram: campanhas, gasto e resultados por dia.",
+  mkt_google: {
+    nome: "Google",
+    serve:
+      "Google Ads, Analytics 4, Search Console, YouTube e Perfil da Empresa com um login só. Preencha o id dos produtos que a ARP usa; cada um é testado à parte.",
     modulo: "marketing",
     campos: [
       {
-        nome: "ad_account_id",
-        rotulo: "Id da conta de anúncios",
+        nome: "client_id",
+        rotulo: "Client ID (OAuth)",
         tipo: "text",
-        exemplo: "act_1234567890",
-        ajuda: "Gerenciador de Anúncios › Configurações da conta",
+        exemplo: "…apps.googleusercontent.com",
+        ajuda: "Google Cloud › APIs e serviços › Credenciais (app da Web)",
       },
-    ],
-    segredos: [{ ...tokenMeta, ajuda: `${tokenMeta.ajuda}, com ads_read` }],
-    parametros: z.object({ ad_account_id: id(/^act_/i) }),
-  },
-  mkt_google_ads: {
-    nome: "Google Ads",
-    serve: "Campanhas (inclui YouTube) e termos de pesquisa.",
-    modulo: "marketing",
-    campos: [
       {
         nome: "customer_id",
-        rotulo: "Id do cliente",
+        rotulo: "Google Ads: id do cliente",
         tipo: "text",
         exemplo: "123-456-7890",
+        opcional: true,
         ajuda: "Número no topo do Google Ads, da conta que anuncia",
       },
       {
         nome: "login_customer_id",
-        rotulo: "Id da conta de administrador (MCC)",
+        rotulo: "Google Ads: id da conta de administrador (MCC)",
         tipo: "text",
         opcional: true,
         ajuda: "Só se o acesso vier por uma conta de administrador",
       },
-      clienteGoogle,
+      {
+        nome: "property_id",
+        rotulo: "Analytics 4: id da propriedade",
+        tipo: "text",
+        exemplo: "123456789",
+        opcional: true,
+        ajuda: "GA4 › Administrador › Detalhes da propriedade",
+      },
+      {
+        nome: "site_url",
+        rotulo: "Search Console: propriedade",
+        tipo: "text",
+        exemplo: "sc-domain:espacoarp.com.br",
+        opcional: true,
+        ajuda: "Como aparece no Search Console (domínio ou endereço com https)",
+      },
+      {
+        nome: "channel_id",
+        rotulo: "YouTube: id do canal",
+        tipo: "text",
+        exemplo: "UC…",
+        opcional: true,
+        ajuda:
+          "YouTube Studio › Configurações › Canal › Configurações avançadas",
+      },
+      {
+        nome: "account_id",
+        rotulo: "Perfil da Empresa: id da conta",
+        tipo: "text",
+        exemplo: "accounts/123456789",
+        opcional: true,
+        ajuda: "Conta (grupo de locais) em que a ARP é proprietária ou gerente",
+      },
+    ],
+    segredos: [
+      { nome: "client_secret", rotulo: "Client secret (OAuth)" },
+      {
+        nome: "refresh_token",
+        rotulo: "Refresh token",
+        ajuda:
+          "OAuth Playground com o Client ID acima, os escopos adwords, analytics.readonly, webmasters.readonly, youtube.readonly, yt-analytics.readonly e business.manage, e uma conta Google com acesso a todos os produtos",
+      },
+      {
+        nome: "developer_token",
+        rotulo: "Google Ads: token de desenvolvedor",
+        opcional: true,
+        ajuda:
+          "Só para o Google Ads: Ferramentas › Central de API (acesso básico ou acima)",
+      },
+    ],
+    parametros: z
+      .object({
+        client_id: texto,
+        customer_id: idOpcional(),
+        login_customer_id: idOpcional(),
+        property_id: idOpcional(/^properties\//),
+        site_url: z
+          .string()
+          .trim()
+          .regex(
+            /^(|sc-domain:\S+|https?:\/\/\S+)$/,
+            "use sc-domain:… ou https://…",
+          ),
+        channel_id: z
+          .string()
+          .trim()
+          .regex(/^(|UC[\w-]{22})$/, "começa com UC e tem 24 caracteres"),
+        account_id: idOpcional(/^accounts\//),
+      })
+      .refine(
+        (p) =>
+          [
+            p.customer_id,
+            p.property_id,
+            p.site_url,
+            p.channel_id,
+            p.account_id,
+          ].some(Boolean),
+        "preencha o id de pelo menos um produto",
+      ),
+  },
+  mkt_meta: {
+    nome: "Meta",
+    serve:
+      "Meta Ads, Instagram e Facebook com um token só. Preencha o id do que a ARP usa; cada um é testado à parte.",
+    modulo: "marketing",
+    campos: [
+      {
+        nome: "ad_account_id",
+        rotulo: "Meta Ads: id da conta de anúncios",
+        tipo: "text",
+        exemplo: "act_1234567890",
+        opcional: true,
+        ajuda: "Gerenciador de Anúncios › Configurações da conta",
+      },
+      {
+        nome: "page_id",
+        rotulo: "Facebook: id da página",
+        tipo: "text",
+        opcional: true,
+        ajuda: "Página › Sobre › Transparência da página",
+      },
+      {
+        nome: "instagram_id",
+        rotulo: "Instagram: id da conta profissional",
+        tipo: "text",
+        opcional: true,
+        ajuda: "Conta ligada à página (instagram_business_account)",
+      },
     ],
     segredos: [
       {
-        nome: "developer_token",
-        rotulo: "Token de desenvolvedor",
+        nome: "segredo",
+        rotulo: "Token de acesso",
         ajuda:
-          "Google Ads › Ferramentas › Central de API (acesso básico ou acima)",
+          "Token de usuário do sistema (Business Manager › Usuários do sistema), sem validade, com ads_read, pages_read_engagement, read_insights, instagram_basic e instagram_manage_insights",
       },
-      ...segredosGoogle("https://www.googleapis.com/auth/adwords"),
     ],
-    parametros: z.object({
-      customer_id: id(),
-      login_customer_id: idOpcional,
-      client_id: texto,
-    }),
+    parametros: z
+      .object({
+        ad_account_id: idOpcional(/^act_/i),
+        page_id: idOpcional(),
+        instagram_id: idOpcional(),
+      })
+      .refine(
+        (p) => [p.ad_account_id, p.page_id, p.instagram_id].some(Boolean),
+        "preencha o id de pelo menos um produto",
+      ),
   },
   mkt_tiktok: {
     nome: "TikTok",
@@ -278,42 +353,6 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       business_id: z.string().trim(),
     }),
   },
-  mkt_ga4: {
-    nome: "Google Analytics 4 e Search Console",
-    serve: "Tráfego do site e buscas no Google.",
-    modulo: "marketing",
-    campos: [
-      {
-        nome: "property_id",
-        rotulo: "Id da propriedade do GA4",
-        tipo: "text",
-        exemplo: "123456789",
-        ajuda: "GA4 › Administrador › Detalhes da propriedade",
-      },
-      {
-        nome: "site_url",
-        rotulo: "Propriedade do Search Console",
-        tipo: "text",
-        exemplo: "sc-domain:arp.com.br",
-        ajuda: "Como aparece no Search Console (domínio ou endereço com https)",
-      },
-      clienteGoogle,
-    ],
-    segredos: segredosGoogle(
-      "analytics.readonly e webmasters.readonly (os dois juntos)",
-    ),
-    parametros: z.object({
-      property_id: id(/^properties\//),
-      site_url: z
-        .string()
-        .trim()
-        .regex(
-          /^(sc-domain:\S+|https?:\/\/\S+)$/,
-          "use sc-domain:… ou https://…",
-        ),
-      client_id: texto,
-    }),
-  },
   mkt_rd_station: {
     nome: "RD Station Marketing",
     serve: "Leads, conversões e landing pages; base do custo por lead.",
@@ -335,76 +374,6 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       },
     ],
     parametros: z.object({ client_id: texto }),
-  },
-  mkt_redes_meta: {
-    nome: "Instagram e Facebook",
-    serve: "Foto diária de seguidores, alcance e posts das contas da ARP.",
-    modulo: "marketing",
-    campos: [
-      {
-        nome: "page_id",
-        rotulo: "Id da página do Facebook",
-        tipo: "text",
-        ajuda: "Página › Sobre › Transparência da página",
-      },
-      {
-        nome: "instagram_id",
-        rotulo: "Id da conta do Instagram",
-        tipo: "text",
-        ajuda:
-          "Conta profissional ligada à página (instagram_business_account)",
-      },
-    ],
-    segredos: [
-      {
-        ...tokenMeta,
-        ajuda: `${tokenMeta.ajuda}, com pages_read_engagement, read_insights e instagram_manage_insights`,
-      },
-    ],
-    parametros: z.object({ page_id: id(), instagram_id: id() }),
-  },
-  mkt_youtube: {
-    nome: "YouTube",
-    serve: "Inscritos, visualizações e vídeos do canal da ARP.",
-    modulo: "marketing",
-    campos: [
-      {
-        nome: "channel_id",
-        rotulo: "Id do canal",
-        tipo: "text",
-        exemplo: "UC…",
-        ajuda:
-          "YouTube Studio › Configurações › Canal › Configurações avançadas",
-      },
-      clienteGoogle,
-    ],
-    segredos: segredosGoogle(
-      "youtube.readonly e yt-analytics.readonly, com a conta dona do canal",
-    ),
-    parametros: z.object({
-      channel_id: z
-        .string()
-        .trim()
-        .regex(/^UC[\w-]{22}$/, "começa com UC e tem 24 caracteres"),
-      client_id: texto,
-    }),
-  },
-  mkt_google_perfil: {
-    nome: "Google Perfil da Empresa",
-    serve: "Avaliações da ARP e dos locatários que têm a ARP como gerente.",
-    modulo: "marketing",
-    campos: [
-      {
-        nome: "account_id",
-        rotulo: "Id da conta do Perfil da Empresa",
-        tipo: "text",
-        exemplo: "accounts/123456789",
-        ajuda: "Conta (grupo de locais) em que a ARP é proprietária ou gerente",
-      },
-      clienteGoogle,
-    ],
-    segredos: segredosGoogle("business.manage"),
-    parametros: z.object({ account_id: id(/^accounts\//), client_id: texto }),
   },
   mkt_asana: {
     nome: "Asana",
@@ -429,6 +398,41 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
     parametros: z.object({ workspace_gid: id() }),
   },
 };
+
+/**
+ * Produtos de uma conexão que serve a vários (um login do Google, um token da
+ * Meta). Cada um é testado à parte e vira uma linha da mensagem do teste.
+ */
+export const PRODUTOS = {
+  mkt_google: [
+    "Google Ads",
+    "Analytics 4",
+    "Search Console",
+    "YouTube",
+    "Perfil da Empresa",
+  ],
+  mkt_meta: ["Meta Ads", "Facebook", "Instagram"],
+} as const;
+
+export function linhaDoProduto(
+  produto: string,
+  ok: boolean,
+  texto: string,
+): string {
+  return `${ok ? "✓" : "✗"} ${produto}: ${texto}`;
+}
+
+/** O produto no último teste: true, false ou null (não testado/sem id). */
+export function resultadoDoProduto(
+  mensagem: string | null,
+  produto: string,
+): boolean | null {
+  for (const l of (mensagem ?? "").split("\n")) {
+    if (l.startsWith(linhaDoProduto(produto, true, ""))) return true;
+    if (l.startsWith(linhaDoProduto(produto, false, ""))) return false;
+  }
+  return null;
+}
 
 /**
  * Junta os segredos para cifrar: um só vai como texto (como sempre foi);

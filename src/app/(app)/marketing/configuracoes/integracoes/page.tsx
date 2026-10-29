@@ -11,7 +11,7 @@ import {
 import { Secao } from "@/components/dashboard/tabela";
 import { Fonte } from "@/components/marketing/tela";
 import { Protegido } from "@/components/protegido";
-import type { Sistema } from "@/lib/integracoes";
+import { resultadoDoProduto, type Sistema } from "@/lib/integracoes";
 import { conferirAsana, nomesDoAsana } from "@/lib/marketing/parametros";
 import { type IntegracaoNaTela, integracoesNaTela } from "@/server/admin/dados";
 import { parametros } from "@/server/marketing/base";
@@ -23,31 +23,38 @@ import { EsqueletoConfiguracoes, TopoConfiguracoes } from "../topo";
 export const metadata: Metadata = { title: "Integrações do Marketing" };
 
 // Ferramentas que alimentam o módulo (spec 4.1). Só leitura: nada é
-// publicado, pausado ou respondido nelas. O acesso de cada uma é salvo e
-// testado aqui (cifrado, como em Administração › Integrações). Quem libera
-// cada acesso está em docs/integracoes.md.
+// publicado, pausado ou respondido nelas. São 5 acessos, salvos e testados
+// aqui (cifrados, como em Administração › Integrações): um login do Google e
+// um token da Meta servem a vários produtos, cada um testado à parte. Quem
+// libera cada acesso está em docs/integracoes.md.
+interface Origem {
+  sistema: Sistema;
+  /** Produto de uma conexão que serve a vários (PRODUTOS). */
+  produto?: string;
+}
+
 const FERRAMENTAS: {
   nome: string;
   detalhe: string;
-  sistemas: Sistema[];
+  fontes: Origem[];
   telas: [string, string][];
 }[] = [
   {
     nome: "Meta Ads",
     detalhe: "Facebook e Instagram",
-    sistemas: ["mkt_meta_ads"],
+    fontes: [{ sistema: "mkt_meta", produto: "Meta Ads" }],
     telas: [["Performance de anúncios", "/marketing/anuncios"]],
   },
   {
     nome: "Google Ads",
     detalhe: "Inclui YouTube e termos de pesquisa",
-    sistemas: ["mkt_google_ads"],
+    fontes: [{ sistema: "mkt_google", produto: "Google Ads" }],
     telas: [["Performance de anúncios", "/marketing/anuncios"]],
   },
   {
     nome: "TikTok",
     detalhe: "Ads e conta Business",
-    sistemas: ["mkt_tiktok"],
+    fontes: [{ sistema: "mkt_tiktok" }],
     telas: [
       ["Performance de anúncios", "/marketing/anuncios"],
       ["Redes sociais", "/marketing/redes"],
@@ -56,13 +63,16 @@ const FERRAMENTAS: {
   {
     nome: "Google Analytics 4 e Search Console",
     detalhe: "Tráfego do site e buscas no Google",
-    sistemas: ["mkt_ga4"],
+    fontes: [
+      { sistema: "mkt_google", produto: "Analytics 4" },
+      { sistema: "mkt_google", produto: "Search Console" },
+    ],
     telas: [["Site e leads", "/marketing/site"]],
   },
   {
     nome: "RD Station Marketing",
     detalhe: "Leads e landing pages; base do custo por lead",
-    sistemas: ["mkt_rd_station"],
+    fontes: [{ sistema: "mkt_rd_station" }],
     telas: [
       ["Site e leads", "/marketing/site"],
       ["Performance de anúncios", "/marketing/anuncios"],
@@ -71,22 +81,36 @@ const FERRAMENTAS: {
   {
     nome: "Instagram, Facebook e YouTube",
     detalhe: "Foto diária de seguidores, alcance e posts",
-    sistemas: ["mkt_redes_meta", "mkt_youtube"],
+    fontes: [
+      { sistema: "mkt_meta", produto: "Instagram" },
+      { sistema: "mkt_meta", produto: "Facebook" },
+      { sistema: "mkt_google", produto: "YouTube" },
+    ],
     telas: [["Redes sociais", "/marketing/redes"]],
   },
   {
     nome: "Google Perfil da Empresa",
     detalhe: "Avaliações da ARP e dos locatários monitorados",
-    sistemas: ["mkt_google_perfil"],
+    fontes: [{ sistema: "mkt_google", produto: "Perfil da Empresa" }],
     telas: [["Reputação", "/marketing/reputacao"]],
   },
   {
     nome: "Asana",
     detalhe: "Tarefas, calendário de eventos e ronda (nomes logo abaixo)",
-    sistemas: ["mkt_asana"],
+    fontes: [{ sistema: "mkt_asana" }],
     telas: [["Radar operacional", "/marketing/radar"]],
   },
 ];
+
+/** Situação de um produto: a da conexão, refinada pelo último teste. */
+function situacaoDaFonte(i: IntegracaoNaTela, produto?: string) {
+  const s = situacao(i);
+  if (!produto || i.origem === null || !i.ativa || i.testeOk === null) return s;
+  const r = resultadoDoProduto(i.testeMensagem, produto);
+  if (r === true) return { tipo: "ok" as const, texto: "Conectado" };
+  if (r === false) return { tipo: "erro" as const, texto: "Falhou no teste" };
+  return { tipo: "neutro" as const, texto: "Id não preenchido" };
+}
 
 export default function Page() {
   return (
@@ -135,19 +159,18 @@ async function Tela() {
                 </span>
               </span>
               <span className="flex flex-col gap-1">
-                {f.sistemas.map((sistema) => {
+                {f.fontes.map(({ sistema, produto }) => {
                   const i = porSistema.get(sistema);
                   if (!i) return null;
-                  const s = situacao(i);
+                  const s = situacaoDaFonte(i, produto);
                   return (
                     <a
-                      key={sistema}
+                      key={`${sistema}-${produto}`}
                       href={`#${sistema}`}
                       className="flex items-center gap-2 text-xs font-medium hover:underline"
                     >
                       <Ponto cor={COR_SITUACAO[s.tipo]} />
-                      {f.sistemas.length > 1 &&
-                        `${sistema === "mkt_youtube" ? "YouTube" : "Instagram e Facebook"}: `}
+                      {f.fontes.length > 1 && `${produto}: `}
                       {s.texto}
                     </a>
                   );

@@ -1,18 +1,14 @@
 import {
   CalendarClock,
   Car,
-  ChartLine,
   HardHat,
   KeyRound,
   ListChecks,
   type LucideIcon,
   Megaphone,
-  MonitorPlay,
   Music2,
   Search,
   Send,
-  Share2,
-  Star,
   Users,
 } from "lucide-react";
 import { Situacao } from "@/components/admin/ui";
@@ -37,14 +33,10 @@ const ICONE: Record<Sistema, LucideIcon> = {
   wps: Car,
   diario_de_obras: HardHat,
   copiloto_rh: Users,
-  mkt_meta_ads: Megaphone,
-  mkt_google_ads: Search,
+  mkt_google: Search,
+  mkt_meta: Megaphone,
   mkt_tiktok: Music2,
-  mkt_ga4: ChartLine,
   mkt_rd_station: Send,
-  mkt_redes_meta: Share2,
-  mkt_youtube: MonitorPlay,
-  mkt_google_perfil: Star,
   mkt_asana: ListChecks,
 };
 
@@ -117,7 +109,7 @@ export function CartaoIntegracao({
           {i.testeMensagem && (
             <div>
               <dt className="sr-only">Último teste</dt>
-              <dd className="text-sm break-words text-neutral-700">
+              <dd className="text-sm break-words whitespace-pre-line text-neutral-700">
                 {i.testeMensagem}
               </dd>
             </div>

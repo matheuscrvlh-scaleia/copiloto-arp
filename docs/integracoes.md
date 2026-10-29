@@ -379,28 +379,28 @@ V3, na ordem dos acessos liberados. Campos usados por fonte:
 alterado nas ferramentas.
 
 **Onde fica o acesso:** Marketing › Configurações › Integrações (quem tem
-`marketing.parametros` ou `admin.integracoes`). Cada ferramenta é salva em
+`marketing.parametros` ou `admin.integracoes`). São **5 acessos**, salvos em
 `integracao.credenciais` com prefixo `mkt_` (segredos cifrados; quando há
-mais de um, vão juntos num JSON cifrado) e testada ao salvar, só com leituras
-(conectores em `src/connectors/marketing`, testes em
-`src/server/marketing/conexoes.ts`):
+mais de um, vão juntos num JSON cifrado) e testados ao salvar, só com
+leituras (conectores em `src/connectors/marketing`, testes em
+`src/server/marketing/conexoes.ts`). Google e Meta servem a vários produtos
+com um login só: só os produtos com id preenchido são testados, cada um à
+parte, e o resultado vira uma linha ✓/✗ por produto.
 
-| Ferramenta | O que se cadastra | Teste |
-|---|---|---|
-| Meta Ads | Id da conta de anúncios; token de usuário do sistema (`ads_read`) | `GET /act_{id}` (nome, moeda, situação) |
-| Google Ads | Id do cliente, MCC (opcional), Client ID; token de desenvolvedor, client secret e refresh token (`adwords`) | `googleAds:search` no recurso `customer` |
-| TikTok | Id do anunciante; token de Ads. Conta Business opcional (id e token) | `/advertiser/info/`; `/business/get/` se houver conta |
-| GA4 e Search Console | Id da propriedade, propriedade do Search Console, Client ID; client secret e refresh token (`analytics.readonly` + `webmasters.readonly`) | `runReport` de sessões em 7 dias; `sites.get` |
-| RD Station | Client ID; client secret e refresh token | `/auth/token` e `/marketing/account_info` |
-| Instagram e Facebook | Id da página e da conta do Instagram; token de usuário do sistema | `GET /{página}` e `GET /{instagram}` (seguidores) |
-| YouTube | Id do canal, Client ID; client secret e refresh token (`youtube.readonly` + `yt-analytics.readonly`) | `channels.list?mine=true` confere que o canal é da conta |
-| Google Perfil da Empresa | Id da conta, Client ID; client secret e refresh token (`business.manage`) | Lista os locais da conta |
-| Asana | Id do workspace; token de acesso pessoal | `/users/me` e projetos ativos do workspace |
+| Acesso | Produtos (id de cada um, opcional) | Segredos | Teste |
+|---|---|---|---|
+| Google (`mkt_google`) | Google Ads (id do cliente, MCC), Analytics 4 (propriedade), Search Console (propriedade), YouTube (canal), Perfil da Empresa (conta) | Client ID; client secret e refresh token com os escopos `adwords`, `analytics.readonly`, `webmasters.readonly`, `youtube.readonly`, `yt-analytics.readonly` e `business.manage`; token de desenvolvedor (só Ads) | Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; YouTube: `channels.list?mine=true` confere que o canal é da conta; Perfil: lista os locais |
+| Meta (`mkt_meta`) | Meta Ads (conta de anúncios), Facebook (página), Instagram (conta profissional) | Token de usuário do sistema | `GET /act_{id}`, `GET /{página}`, `GET /{instagram}` |
+| TikTok (`mkt_tiktok`) | Anunciante; conta Business opcional | Token de Ads; token da conta (opcional) | `/advertiser/info/`; `/business/get/` se houver conta |
+| RD Station (`mkt_rd_station`) | — | Client ID; client secret e refresh token | `/auth/token` e `/marketing/account_info` |
+| Asana (`mkt_asana`) | Workspace | Token de acesso pessoal | `/users/me` e projetos ativos do workspace |
 
-Os refresh tokens do Google saem do OAuth Playground usando o Client ID e o
-secret do app do Google Cloud (com as APIs ativadas no projeto). A Google Ads
-API muda de versão com frequência: a usada fica em
-`src/connectors/marketing/google.ts`.
+A conta Google que gera o refresh token precisa ter acesso a todos os
+produtos preenchidos (o canal do YouTube hoje está em outra conta; adicionar
+essa conta como usuária nos demais, ou transferir o canal). O refresh token
+sai do OAuth Playground usando o Client ID e o secret do app do Google Cloud
+(com as APIs ativadas no projeto). A Google Ads API muda de versão com
+frequência: a usada fica em `src/connectors/marketing/google.ts`.
 
 | Fonte | Serve para | Acesso |
 |---|---|---|

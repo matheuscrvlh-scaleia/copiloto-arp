@@ -335,16 +335,16 @@ describe("parâmetros", () => {
   });
 });
 
-describe("acessos das ferramentas (20261029230000_integracoes_marketing)", () => {
+describe("acessos das ferramentas (20261029230000 e 20261029235000)", () => {
   const salvar = (sistema: string) =>
     `select core.salvar_integracao('${sistema}', '{"ad_account_id": "1"}', 'v1.cifrado', true)`;
 
   it("Parâmetros configura só as do Marketing; outro módulo, nenhuma", async () => {
     await como(U.parametros, async () => {
-      expect(await erro(salvar("mkt_meta_ads"))).toBeNull();
+      expect(await erro(salvar("mkt_meta"))).toBeNull();
       expect(
         await erro(
-          "select core.registrar_teste_integracao('mkt_meta_ads', true, 'ok')",
+          "select core.registrar_teste_integracao('mkt_meta', true, 'ok')",
         ),
       ).toBeNull();
       expect(await erro(salvar("secullum"))).toMatch(/sem permissão/);
@@ -352,7 +352,7 @@ describe("acessos das ferramentas (20261029230000_integracoes_marketing)", () =>
         await valor<string>(
           "select string_agg(sistema, ',') from core.integracoes_configuradas()",
         ),
-      ).toBe("mkt_meta_ads");
+      ).toBe("mkt_meta");
     });
     await como(U.fora, async () => {
       expect(await erro(salvar("mkt_asana"))).toMatch(/sem permissão/);
@@ -361,9 +361,9 @@ describe("acessos das ferramentas (20261029230000_integracoes_marketing)", () =>
           "select count(*)::int from core.integracoes_configuradas()",
         ),
       ).toBe(0);
-      expect(
-        await erro("select core.remover_integracao('mkt_meta_ads')"),
-      ).toMatch(/sem permissão/);
+      expect(await erro("select core.remover_integracao('mkt_meta')")).toMatch(
+        /sem permissão/,
+      );
     });
   });
 
@@ -372,7 +372,19 @@ describe("acessos das ferramentas (20261029230000_integracoes_marketing)", () =>
       expect(await erro(salvar("mkt_outra"))).toMatch(
         /credenciais_sistema_check/,
       );
-      await db.query("select core.remover_integracao('mkt_meta_ads')");
+      // Os 9 nomes antigos viraram 5 (20261029235000).
+      expect(await erro(salvar("mkt_youtube"))).toMatch(
+        /credenciais_sistema_check/,
+      );
+      await db.query(
+        `select core.registrar_teste_integracao('mkt_meta', false, repeat('x', 3000))`,
+      );
+      expect(
+        await valor<number>(
+          "select length(teste_mensagem) from core.integracoes_configuradas()",
+        ),
+      ).toBe(2000);
+      await db.query("select core.remover_integracao('mkt_meta')");
     });
     expect(
       await valor<number>("select count(*)::int from integracao.credenciais"),
@@ -380,7 +392,7 @@ describe("acessos das ferramentas (20261029230000_integracoes_marketing)", () =>
     expect(
       await valor<number>(
         `select count(*)::int from core.auditoria
-         where tabela = 'integracao.credenciais' and registro_id = 'mkt_meta_ads'`,
+         where tabela = 'integracao.credenciais' and registro_id = 'mkt_meta'`,
       ),
     ).toBe(2);
   });
