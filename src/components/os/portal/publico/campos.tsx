@@ -1,7 +1,15 @@
 "use client";
 
-import { Camera, Paperclip, Pencil, Star, UserRound } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import {
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  Paperclip,
+  Pencil,
+  Star,
+  UserRound,
+} from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import {
   ACEITA_ARQUIVOS,
@@ -207,6 +215,13 @@ export function EscolhaHorario({
   const [dia, setDia] = useState(dias[0]?.data ?? "");
   const [horario, setHorario] = useState("");
   const id = useId();
+  const fileira = useRef<HTMLDivElement>(null);
+  /** Setas do computador: anda quase uma largura da fileira. */
+  const rolar = (lado: 1 | -1) =>
+    fileira.current?.scrollBy({
+      left: lado * fileira.current.clientWidth * 0.8,
+      behavior: "smooth",
+    });
   if (!dias.length)
     return (
       <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -226,30 +241,36 @@ export function EscolhaHorario({
           *
         </span>
       </legend>
-      <div
-        role="radiogroup"
-        aria-label="Dia"
-        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 sm:flex-wrap sm:overflow-visible"
-      >
-        {dias.map((d) => (
-          <label
-            key={d.data}
-            className="shrink-0 cursor-pointer rounded-2xl border border-neutral-200 bg-white/70 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 has-checked:border-neutral-900 has-checked:bg-neutral-900 has-checked:text-white has-focus-visible:ring-4 has-focus-visible:ring-neutral-900/10"
-          >
-            <input
-              type="radio"
-              name={`${id}-d`}
-              value={d.data}
-              checked={d.data === doDia?.data}
-              onChange={() => {
-                setDia(d.data);
-                setHorario("");
-              }}
-              className="sr-only"
-            />
-            {d.rotulo}
-          </label>
-        ))}
+      {/* Uma linha só, rolando de lado (dedo, trackpad ou as setas). */}
+      <div className="flex items-center gap-1.5">
+        <SetaDosDias lado={-1} aoClicar={rolar} />
+        <div
+          ref={fileira}
+          role="radiogroup"
+          aria-label="Dia"
+          className="-mx-1 flex min-w-0 flex-1 snap-x gap-2 overflow-x-auto scroll-smooth px-1 pb-2 [scrollbar-width:thin]"
+        >
+          {dias.map((d) => (
+            <label
+              key={d.data}
+              className="shrink-0 snap-start cursor-pointer rounded-2xl border border-neutral-200 bg-white/70 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 has-checked:border-neutral-900 has-checked:bg-neutral-900 has-checked:text-white has-focus-visible:ring-4 has-focus-visible:ring-neutral-900/10"
+            >
+              <input
+                type="radio"
+                name={`${id}-d`}
+                value={d.data}
+                checked={d.data === doDia?.data}
+                onChange={() => {
+                  setDia(d.data);
+                  setHorario("");
+                }}
+                className="sr-only"
+              />
+              {d.rotulo}
+            </label>
+          ))}
+        </div>
+        <SetaDosDias lado={1} aoClicar={rolar} />
       </div>
       <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
         {doDia?.horarios.map((h) => (
@@ -280,6 +301,26 @@ export function EscolhaHorario({
         className="pointer-events-none h-0 w-full opacity-0"
       />
     </fieldset>
+  );
+}
+
+function SetaDosDias({
+  lado,
+  aoClicar,
+}: {
+  lado: 1 | -1;
+  aoClicar: (lado: 1 | -1) => void;
+}) {
+  const Icone = lado === 1 ? ChevronRight : ChevronLeft;
+  return (
+    <button
+      type="button"
+      onClick={() => aoClicar(lado)}
+      aria-label={lado === 1 ? "Próximos dias" : "Dias anteriores"}
+      className="mb-2 hidden size-10 shrink-0 place-items-center rounded-full border border-neutral-200 bg-white/70 text-neutral-700 transition hover:border-neutral-400 sm:grid"
+    >
+      <Icone className="size-4" aria-hidden />
+    </button>
   );
 }
 
