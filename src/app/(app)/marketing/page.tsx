@@ -373,6 +373,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <TabelaMkt
             colunas={COLUNAS}
             semBusca
+            caber
+            alturaMax="max-h-[600px]"
             vazio="Nenhuma tela do Marketing liberada para você além do Painel."
             linhas={resumo.map((l) => ({
               chave: l.chave,
@@ -514,7 +516,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
 const COLUNAS = [
   { titulo: "Frente" },
-  { titulo: "Indicador", classe: "min-w-52 whitespace-normal" },
+  { titulo: "Indicador", classe: "whitespace-normal" },
   { titulo: "Semana", numero: true },
   { titulo: "Anterior", numero: true },
   { titulo: "Variação", numero: true },
@@ -558,7 +560,10 @@ function celulas(l: LinhaResumo): React.ReactNode[] {
       </span>
     ),
     l.meta ? (
-      <span key="m" className="inline-flex items-center justify-end gap-2">
+      <span
+        key="m"
+        className="inline-flex flex-wrap items-center justify-end gap-x-2 gap-y-1"
+      >
         <span className="text-neutral-500">{l.meta.texto}</span>
         {l.status && l.status !== "sem_dado" && l.status !== "sem_meta" && (
           <SeloStatus
@@ -587,7 +592,7 @@ function ListaDeAlertas({ alertas }: { alertas: Alerta[] }) {
       </p>
     );
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="-mx-2 flex max-h-[600px] flex-col gap-2 overflow-y-auto px-2">
       {alertas.map((a) => {
         const { icone: Icone, classe } = ICONE_NIVEL[a.nivel];
         return (

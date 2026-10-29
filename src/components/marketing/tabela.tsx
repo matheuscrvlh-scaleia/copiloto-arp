@@ -51,6 +51,7 @@ export function TabelaMkt({
   placeholder = "Buscar na lista…",
   semBusca = false,
   alturaMax,
+  caber = false,
 }: {
   colunas: ColunaMkt[];
   linhas: LinhaMkt[];
@@ -66,6 +67,8 @@ export function TabelaMkt({
   semBusca?: boolean;
   /** Altura máxima com rolagem vertical (ex.: "max-h-[32rem]"). */
   alturaMax?: string;
+  /** Cabe na largura do quadro (sem rolagem lateral): os textos quebram. */
+  caber?: boolean;
 }) {
   const [texto, setTexto] = useState("");
   const [ordem, setOrdem] = useState(ordemInicial ?? null);
@@ -199,7 +202,9 @@ export function TabelaMkt({
             {texto ? "Nada encontrado na busca." : vazio}
           </p>
         ) : (
-          <table className="relative w-full min-w-max border-collapse text-sm">
+          <table
+            className={`relative w-full border-collapse text-sm ${caber ? "" : "min-w-max"}`}
+          >
             <thead className="sticky top-0 z-10 bg-white/85 backdrop-blur">
               <tr className="border-b border-neutral-200 text-xs text-neutral-500">
                 {colunas.map((c, i) => (
