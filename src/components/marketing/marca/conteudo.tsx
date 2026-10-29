@@ -75,13 +75,18 @@ function Cartoes({
   itens,
   colunas = "sm:grid-cols-2 xl:grid-cols-3",
   numerar = false,
+  colorir = true,
 }: {
   itens: ItemLista[];
   colunas?: string;
   numerar?: boolean;
+  /** Falso dentro de bloco já colorido: os cartões ficam neutros. */
+  colorir?: boolean;
 }) {
   // Mesmo ritmo de cores dos cartões das outras telas, fixo por bloco.
-  const tons = tonsDaTela(`marca:${itens[0]?.titulo ?? ""}`, itens.length);
+  const tons = colorir
+    ? tonsDaTela(`marca:${itens[0]?.titulo ?? ""}`, itens.length)
+    : itens.map(() => "claro" as const);
   return (
     <ul className={`grid grid-cols-1 gap-3 ${colunas}`}>
       {itens.map((i, n) => (
@@ -277,7 +282,7 @@ export function ConteudoBloco({
     case "personas":
       return <Cartoes itens={itens} />;
     case "direcionadores":
-      return <Cartoes itens={itens} numerar />;
+      return <Cartoes itens={itens} numerar colorir={false} />;
     case "jornada":
       return <Etapas itens={itens} />;
     case "tipografia":

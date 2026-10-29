@@ -70,6 +70,7 @@ const LAYOUT: Record<string, { span?: string; tom?: keyof typeof TOM }> = {
   palavras_proprietarias: { span: "lg:col-span-1" },
   palavras_proibidas: { span: "lg:col-span-1" },
   frases_de_apoio: { span: "lg:col-span-2" },
+  direcionadores: { tom: "escuro" },
 };
 
 /** De onde vem o texto que falta, para o aviso de bloco vazio. */

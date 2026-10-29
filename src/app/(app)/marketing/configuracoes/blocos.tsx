@@ -180,6 +180,7 @@ export function BlocoLocatarios({
         </div>
       </Secao>
       <Secao
+        tom="verde"
         titulo="Carga da planilha de locatários"
         descricao="Para a carga inicial (a planilha com os links). Mostra a prévia com as linhas com problema e só grava quando você confirma. Nome já cadastrado é atualizado, nunca duplicado."
       >

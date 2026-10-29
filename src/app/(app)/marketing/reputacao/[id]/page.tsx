@@ -242,7 +242,11 @@ async function Tela({
                   Configurações.
                 </Fonte>
               </Secao>
-              <Secao titulo="Estrelas" descricao={`${f.rotulo}, de 5 a 1`}>
+              <Secao
+                tom="verde"
+                titulo="Estrelas"
+                descricao={`${f.rotulo}, de 5 a 1`}
+              >
                 <div className="mb-4">
                   <SeloSituacao situacao={l.situacao} />
                 </div>

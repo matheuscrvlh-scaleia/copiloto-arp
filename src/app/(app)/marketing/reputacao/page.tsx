@@ -382,7 +382,11 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
           </Fonte>
         </Secao>
         <div className="flex flex-col gap-4">
-          <Secao titulo="Metas do mês" descricao={formatarMes(mesAtual)}>
+          <Secao
+            tom="escuro"
+            titulo="Metas do mês"
+            descricao={formatarMes(mesAtual)}
+          >
             <MetasDoMes
               linhas={[
                 {
@@ -404,7 +408,11 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
               (meta proporcional aos dias passados).
             </Fonte>
           </Secao>
-          <Secao titulo="Estrelas" descricao={`${f.rotulo}, de 5 a 1`}>
+          <Secao
+            tom="verde"
+            titulo="Estrelas"
+            descricao={`${f.rotulo}, de 5 a 1`}
+          >
             <BarrasHorizontais
               descricao="Avaliações da ARP por número de estrelas"
               itens={noPeriodo.distribuicao.map((n, i) => ({
@@ -454,6 +462,7 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
           <Fonte>{GOOGLE}; meta em Configurações</Fonte>
         </Secao>
         <Secao
+          tom="escuro"
           titulo="Reclamações por mês"
           descricao={`Últimos 12 meses: avaliações de ${estrelasRecl} estrelas`}
         >

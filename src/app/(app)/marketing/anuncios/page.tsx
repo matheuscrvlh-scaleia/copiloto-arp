@@ -396,6 +396,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <Secao
+            tom="escuro"
             titulo="Investimento por semana"
             descricao="Últimas 12 semanas, por plataforma"
           >
@@ -408,6 +409,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             <Fonte>Meta Ads, Google Ads e TikTok Ads</Fonte>
           </Secao>
           <Secao
+            tom="verde"
             titulo="Leads no RD por semana"
             descricao="Últimas 12 semanas, pela plataforma da campanha de origem"
           >
@@ -419,6 +421,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             <Fonte>RD Station (traffic_campaign)</Fonte>
           </Secao>
           <Secao
+            tom="verde"
             titulo="Custo por lead por semana"
             descricao="Investimento ÷ leads do RD, com a linha da meta"
           >

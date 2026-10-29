@@ -325,6 +325,7 @@ export function AbaTarefas({
       </Secao>
 
       <Secao
+        tom="escuro"
         titulo="Quadro por pessoa"
         descricao={`Abertas hoje e o prazo das concluídas em ${formatarMes(mes)}. ${rotuloSemPrazo(doMes.semPrazo)}.`}
       >

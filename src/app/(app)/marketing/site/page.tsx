@@ -369,6 +369,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         </Secao>
 
         <Secao
+          tom="escuro"
           titulo="Landing pages do RD"
           descricao={`${f.rotulo} · o interesse vem do cadastro em Configurações; landing page sem cadastro aparece como "Sem tipo".`}
         >
@@ -386,7 +387,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                   {l.nome}
                 </span>,
                 l.interesse === "sem_tipo" ? (
-                  <span key="i" className="text-amber-800">
+                  <span key="i" className="text-amber-900">
                     Sem tipo · cadastre em Configurações
                   </span>
                 ) : (
@@ -492,6 +493,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <Secao
+            tom="escuro"
             titulo="Leads por semana, por interesse"
             descricao="Últimas 12 semanas, contatos únicos em cada semana"
           >
@@ -505,7 +507,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
               mesma semana aparece nas duas cores.
             </Fonte>
           </Secao>
-          <Secao titulo="Sessões por canal" descricao="Últimas 12 semanas">
+          <Secao
+            tom="verde"
+            titulo="Sessões por canal"
+            descricao="Últimas 12 semanas"
+          >
             <ColunasEmpilhadas
               pontos={pontos}
               series={seriesCanais}
@@ -695,7 +701,7 @@ function celulasDoLead(l: LeadLinha, comContato: boolean): React.ReactNode[] {
     l.cidade ? `${l.cidade}/${l.uf}` : "",
     l.nomeLandingPage,
     l.interesse === "sem_tipo" ? (
-      <span key="i" className="text-amber-800">
+      <span key="i" className="text-amber-900">
         Sem tipo
       </span>
     ) : (

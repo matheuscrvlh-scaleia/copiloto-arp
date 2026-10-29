@@ -218,7 +218,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         />
       </Cartoes>
 
-      <Secao titulo="Por rede" descricao={`${f.rotulo} · uma linha por rede`}>
+      <Secao
+        tom="escuro"
+        titulo="Por rede"
+        descricao={`${f.rotulo} · uma linha por rede`}
+      >
         <TabelaMkt
           colunas={COLUNAS_REDE}
           semBusca
@@ -348,6 +352,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           </Fonte>
         </Secao>
         <Secao
+          tom="escuro"
           titulo="O que engaja no Instagram"
           descricao={`${f.rotulo} · interações ÷ alcance por tipo de conteúdo`}
         >

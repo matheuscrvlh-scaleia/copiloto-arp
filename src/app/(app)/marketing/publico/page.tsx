@@ -327,6 +327,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Fonte>Estacionamento (WPS), hora da entrada</Fonte>
         </Secao>
         <Secao
+          tom="verde"
           titulo="Quanto tempo ficam"
           descricao={`Carros por tempo de permanência${t.permanenciaMediana === null ? "" : ` · mediana ${formatarHoras(t.permanenciaMediana)}`}`}
         >

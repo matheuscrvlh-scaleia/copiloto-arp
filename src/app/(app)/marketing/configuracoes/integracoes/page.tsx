@@ -94,6 +94,7 @@ async function Tela() {
     <div className="flex flex-col gap-6">
       <TopoConfiguracoes ultima={historico[0]} />
       <Secao
+        tom="escuro"
         titulo="Ferramentas ligadas"
         descricao="De onde vem cada número do Marketing. O módulo só lê: nada é publicado, pausado ou respondido nas ferramentas."
       >

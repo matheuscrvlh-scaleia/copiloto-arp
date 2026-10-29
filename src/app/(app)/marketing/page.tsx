@@ -399,6 +399,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         </Secao>
 
         <Secao
+          tom="escuro"
           className="xl:col-span-2"
           titulo="Onde agir"
           descricao="Do mais grave ao mais leve. As regras e os limites ficam em Configurações."
@@ -413,6 +414,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         {cartaoLeads && (
           <Secao
+            tom="verde"
             titulo="Leads no RD por semana"
             descricao="Contatos únicos, pelo tipo da landing page"
           >
@@ -447,6 +449,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         )}
         {pode("marketing.anuncios") && (
           <Secao
+            tom="verde"
             titulo="Custo por lead por semana"
             descricao="Investimento ÷ leads do RD, com a linha da meta"
           >
@@ -572,7 +575,7 @@ function celulas(l: LinhaResumo): React.ReactNode[] {
 
 const ICONE_NIVEL = {
   urgente: { icone: AlertTriangle, classe: "bg-red-600/10 text-red-700" },
-  atencao: { icone: Bell, classe: "bg-amber-500/15 text-amber-800" },
+  atencao: { icone: Bell, classe: "bg-amber-500/15 text-amber-900" },
   aviso: { icone: Info, classe: "bg-neutral-900/[0.06] text-neutral-600" },
 } as const;
 
