@@ -1,11 +1,14 @@
 import { Clock, FlaskConical } from "lucide-react";
 import Link from "next/link";
+import { Children, cloneElement, isValidElement } from "react";
 import type { ItemGrafico } from "@/components/dashboard/graficos/base";
 import {
   CartaoIndicador,
   type Variacao,
 } from "@/components/dashboard/indicador";
+import type { Tom } from "@/components/estilos";
 import type { Detalhe } from "@/components/modal-detalhe";
+import { tonsDaTela } from "@/components/os/tons";
 import { formatarNumero } from "@/lib/formato";
 import type { Direcao, Status } from "@/lib/indicadores";
 import { variacaoPct } from "@/lib/marketing/periodo";
@@ -101,7 +104,8 @@ export function variacaoContra(
 /**
  * Cartão do Marketing: o cartão de indicador do sistema com a fonte em letra
  * pequena. Com `href`, clicar filtra a lista da tela (spec 4.3); `ativo`
- * marca o filtro em uso.
+ * marca o filtro em uso com um contorno (a cor do cartão é a do ritmo da
+ * linha, como nos outros módulos).
  */
 export function CartaoMkt({
   titulo,
@@ -132,7 +136,7 @@ export function CartaoMkt({
   serie?: ItemGrafico[];
   calculo?: string;
   origem?: Detalhe;
-  tom?: "claro" | "escuro" | "verde";
+  tom?: Tom;
 }) {
   const cartao = (
     <CartaoIndicador
@@ -146,7 +150,7 @@ export function CartaoMkt({
       serie={serie}
       calculo={calculo}
       origem={href ? undefined : origem}
-      tom={ativo ? "escuro" : tom}
+      tom={tom}
     >
       <p className="mt-auto text-[11px] leading-snug text-neutral-400">
         Fonte: {fonte}
@@ -164,18 +168,32 @@ export function CartaoMkt({
       href={href}
       scroll={false}
       aria-current={ativo ? "true" : undefined}
-      className="flex rounded-[1.75rem] outline-none *:flex-1 focus-visible:ring-2 focus-visible:ring-neutral-900/25"
+      className={`flex rounded-[1.75rem] outline-none *:flex-1 focus-visible:ring-2 focus-visible:ring-neutral-900/25 ${ativo ? "ring-2 ring-neutral-900 ring-offset-2 ring-offset-transparent" : ""}`}
     >
       {cartao}
     </Link>
   );
 }
 
-/** Grade dos cartões do topo (no máximo 4 por tela ou aba). */
+/**
+ * Grade dos cartões do topo (no máximo 4 por tela ou aba). Como no RH e nos
+ * Tickets, a linha mistura vidro claro, preto e verde da marca; o ritmo é
+ * sorteado pelo título do primeiro cartão, então é fixo em cada tela e muda
+ * de uma tela para outra. Cartão com `tom` próprio fica como está.
+ */
 export function Cartoes({ children }: { children: React.ReactNode }) {
+  const itens = Children.toArray(children).filter((c) =>
+    isValidElement<{ titulo?: string; tom?: Tom }>(c),
+  ) as React.ReactElement<{ titulo?: string; tom?: Tom }>[];
+  const tons = tonsDaTela(
+    `marketing:${itens[0]?.props.titulo ?? ""}`,
+    itens.length,
+  );
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {children}
+      {itens.map((c, i) =>
+        c.props.tom === undefined ? cloneElement(c, { tom: tons[i] }) : c,
+      )}
     </div>
   );
 }

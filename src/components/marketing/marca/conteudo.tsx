@@ -1,5 +1,7 @@
 import { Ban, Check, FileQuestion } from "lucide-react";
 import { Poppins } from "next/font/google";
+import { TOM } from "@/components/estilos";
+import { tonsDaTela } from "@/components/os/tons";
 import {
   type Conteudo,
   estaVazio,
@@ -78,16 +80,20 @@ function Cartoes({
   colunas?: string;
   numerar?: boolean;
 }) {
+  // Mesmo ritmo de cores dos cartões das outras telas, fixo por bloco.
+  const tons = tonsDaTela(`marca:${itens[0]?.titulo ?? ""}`, itens.length);
   return (
     <ul className={`grid grid-cols-1 gap-3 ${colunas}`}>
       {itens.map((i, n) => (
         <li
           key={i.titulo}
-          className="flex flex-col gap-1.5 rounded-2xl border border-neutral-900/10 bg-white/60 p-4"
+          className={`${TOM[tons[n] ?? "claro"]} flex flex-col gap-1.5 rounded-2xl p-4`}
         >
           <p className="flex items-baseline gap-2 font-semibold tracking-tight">
             {numerar && (
-              <span className="text-xs tabular-nums text-marca-escuro">
+              <span
+                className={`text-xs tabular-nums ${tons[n] === "claro" ? "text-marca-escuro" : "text-neutral-500"}`}
+              >
                 {String(n + 1).padStart(2, "0")}
               </span>
             )}
@@ -107,14 +113,17 @@ function Cartoes({
 }
 
 function Etapas({ itens }: { itens: ItemLista[] }) {
+  const tons = tonsDaTela(`marca:${itens[0]?.titulo ?? ""}`, itens.length);
   return (
     <ol className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {itens.map((i, n) => (
         <li
           key={i.titulo}
-          className="relative flex flex-col gap-1.5 rounded-2xl border border-neutral-900/10 bg-white/60 p-4 pt-3"
+          className={`${TOM[tons[n] ?? "claro"]} relative flex flex-col gap-1.5 rounded-2xl p-4 pt-3`}
         >
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-marca-escuro">
+          <span
+            className={`text-[11px] font-semibold uppercase tracking-wider ${tons[n] === "claro" ? "text-marca-escuro" : "text-neutral-500"}`}
+          >
             Etapa {n + 1}
           </span>
           <p className="font-semibold tracking-tight">{i.titulo}</p>
