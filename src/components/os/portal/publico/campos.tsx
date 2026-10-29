@@ -216,7 +216,9 @@ export function EscolhaHorario({
     );
   const doDia = dias.find((d) => d.data === dia) ?? dias[0];
   return (
-    <fieldset>
+    // min-w-0: o fieldset cresce até o conteúdo e a fileira de dias o
+    // empurrava para fora do cartão.
+    <fieldset className="min-w-0">
       <legend className="mb-2 text-sm font-medium text-neutral-800">
         Escolha o dia e o horário
         <span className="text-red-700" aria-hidden>
@@ -227,7 +229,7 @@ export function EscolhaHorario({
       <div
         role="radiogroup"
         aria-label="Dia"
-        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2"
+        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 sm:flex-wrap sm:overflow-visible"
       >
         {dias.map((d) => (
           <label
