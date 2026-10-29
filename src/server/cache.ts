@@ -35,6 +35,21 @@ export const TAG = {
     agendas: "os:agendas",
   },
 
+  marketing: {
+    /** Base da marca (blocos) e arquivos de marca. */
+    marca: "marketing:marca",
+    /** Locatários monitorados (nome, categoria, perfil, forma de acesso). */
+    locatarios: "marketing:locatarios",
+    /** Landing pages do RD e o interesse de cada uma. */
+    landingPages: "marketing:landing_pages",
+    /** Regras de alerta do Painel (limite, nível, ativa). */
+    regras: "marketing:regras",
+    /** Reputação, Asana, estacionamento, temas e códigos da ronda. */
+    parametros: "marketing:parametros",
+    /** Metas do Marketing (core.metas marketing.*). */
+    metas: "marketing:metas",
+  },
+
   rh: {
     /** Departamentos (nome, código da folha, id no ponto, ativo). */
     departamentos: "rh:departamentos",

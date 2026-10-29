@@ -268,6 +268,35 @@ feriados e textos do laudo).
 - Auditoria (`core.auditar`) em cadastros, parâmetros, chamados e OS;
   `core.auditoria` de `os.*` é visível com `os.historico`.
 
+## marketing — Marca e parâmetros do Marketing
+
+Migration `20261029200000_marketing.sql` (escrita e testada no PGlite; aplicar
+no Supabase e expor o schema `marketing` na API). Os números das ferramentas
+(Meta, Google Ads, TikTok, GA4, Search Console, RD Station, redes, Google
+Perfil da Empresa, Asana e WPS) **não** moram no banco nesta fase: o mockup usa
+dados de exemplo gerados no servidor (`src/server/marketing/exemplo`) nos
+campos das APIs (`src/lib/marketing/fontes.ts`). Na V3 a sincronização diária
+grava em tabelas próprias e `src/server/marketing/fontes.ts` passa a lê-las.
+
+| Tabela | O quê | RLS |
+|---|---|---|
+| `marca_blocos` | Um bloco por item da base da marca (`texto`, `lista` ou `cores`); as listas `palavras_proprietarias` e `palavras_proibidas` alimentam o revisor | lê `marketing.marca`; edita só `conteudo` com `marketing.marca.editar` |
+| `marca_versoes` | Cada alteração (trigger): versão, antes, depois, quem, quando; `desfaz` aponta a versão desfeita | lê `marketing.marca` |
+| `marca_arquivos` | Arquivos de marca no bucket privado `marketing` (só o servidor grava/lê); versão nova marca a anterior como `atual = false` | lê `marketing.marca` |
+| `locatarios` | Locatários monitorados: nome (único sem maiúscula/espaço), categoria, perfil no Google, forma de acesso, ativo, entrada e saída | lê quem tem alguma `marketing.*`; grava `marketing.parametros` |
+| `landing_pages` | Interesse de cada landing page do RD (`null` = Sem tipo) | idem |
+| `regras_alerta` | As 8 regras fixas do Painel com limite, nível e ativa | idem (só update) |
+| `temas` | Lista fechada de temas das avaliações | idem |
+| `ronda_codigos` | Código da ronda e a área (Marketing ou Operações) | idem |
+| `parametros` | Linha única: reputação, Asana (nomes de projeto e tag), estacionamento | idem (só update) |
+
+- `marketing.desfazer_versao(id)`: volta o bloco ao que era antes daquela
+  alteração, numa versão nova (com a sessão: o RLS confere a permissão).
+- Metas: `core.metas` com indicador `marketing.*` (avaliações novas e nota da
+  ARP, leads do mês, custo por lead), editadas com `marketing.parametros`.
+- Histórico dos parâmetros: `core.auditoria` (`marketing.*`), visível para
+  `marketing.parametros` e `admin.historico`.
+
 ## Fase 2: financeiro (proposta, não criada)
 
 As tabelas do ENET seguem os campos da especificação do Financeiro (seção

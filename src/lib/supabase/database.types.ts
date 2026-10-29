@@ -789,6 +789,328 @@ export type Database = {
       [_ in never]: never
     }
   }
+  marketing: {
+    Tables: {
+      landing_pages: {
+        Row: {
+          atualizado_em: string
+          identificador: string
+          interesse: string | null
+          nome: string
+        }
+        Insert: {
+          atualizado_em?: string
+          identificador: string
+          interesse?: string | null
+          nome: string
+        }
+        Update: {
+          atualizado_em?: string
+          identificador?: string
+          interesse?: string | null
+          nome?: string
+        }
+        Relationships: []
+      }
+      locatarios: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          categoria: string
+          criado_em: string
+          entrada_em: string
+          forma_acesso: string
+          id: string
+          nome: string
+          perfil_url: string | null
+          saida_em: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          categoria: string
+          criado_em?: string
+          entrada_em?: string
+          forma_acesso?: string
+          id?: string
+          nome: string
+          perfil_url?: string | null
+          saida_em?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          categoria?: string
+          criado_em?: string
+          entrada_em?: string
+          forma_acesso?: string
+          id?: string
+          nome?: string
+          perfil_url?: string | null
+          saida_em?: string | null
+        }
+        Relationships: []
+      }
+      marca_arquivos: {
+        Row: {
+          arquivo_nome: string | null
+          arquivo_path: string | null
+          atual: boolean
+          descricao: string | null
+          enviado_em: string
+          enviado_por: string | null
+          grupo: string
+          id: string
+          tamanho: number | null
+          tipo_mime: string | null
+          titulo: string
+          versao: number
+        }
+        Insert: {
+          arquivo_nome?: string | null
+          arquivo_path?: string | null
+          atual?: boolean
+          descricao?: string | null
+          enviado_em?: string
+          enviado_por?: string | null
+          grupo: string
+          id?: string
+          tamanho?: number | null
+          tipo_mime?: string | null
+          titulo: string
+          versao?: number
+        }
+        Update: {
+          arquivo_nome?: string | null
+          arquivo_path?: string | null
+          atual?: boolean
+          descricao?: string | null
+          enviado_em?: string
+          enviado_por?: string | null
+          grupo?: string
+          id?: string
+          tamanho?: number | null
+          tipo_mime?: string | null
+          titulo?: string
+          versao?: number
+        }
+        Relationships: []
+      }
+      marca_blocos: {
+        Row: {
+          aba: string
+          atualizado_em: string
+          atualizado_por: string | null
+          chave: string
+          conteudo: Json
+          descricao: string | null
+          ordem: number
+          tipo: string
+          titulo: string
+          versao: number
+        }
+        Insert: {
+          aba: string
+          atualizado_em?: string
+          atualizado_por?: string | null
+          chave: string
+          conteudo: Json
+          descricao?: string | null
+          ordem: number
+          tipo: string
+          titulo: string
+          versao?: number
+        }
+        Update: {
+          aba?: string
+          atualizado_em?: string
+          atualizado_por?: string | null
+          chave?: string
+          conteudo?: Json
+          descricao?: string | null
+          ordem?: number
+          tipo?: string
+          titulo?: string
+          versao?: number
+        }
+        Relationships: []
+      }
+      marca_versoes: {
+        Row: {
+          antes: Json | null
+          bloco: string
+          depois: Json
+          desfaz: number | null
+          em: string
+          id: number
+          por: string | null
+          versao: number
+        }
+        Insert: {
+          antes?: Json | null
+          bloco: string
+          depois: Json
+          desfaz?: number | null
+          em?: string
+          id?: number
+          por?: string | null
+          versao: number
+        }
+        Update: {
+          antes?: Json | null
+          bloco?: string
+          depois?: Json
+          desfaz?: number | null
+          em?: string
+          id?: number
+          por?: string | null
+          versao?: number
+        }
+        Relationships: []
+      }
+      parametros: {
+        Row: {
+          asana_projeto_calendario: string | null
+          asana_projeto_ronda: string | null
+          asana_projetos_marketing: string[]
+          asana_tag_gratuita: string | null
+          asana_tag_locatario: string | null
+          asana_tag_paga: string | null
+          asana_tag_terceiro: string | null
+          atualizado_em: string
+          estrelas_reclamacao: number[]
+          id: boolean
+          janela_recorrencia_dias: number
+          janela_reputacao_dias: number
+          nota_atencao: number
+          reclamacoes_alerta: number
+          reclamacoes_atencao: number
+          sinalizacao_antiga_dias: number
+          vagas: number
+        }
+        Insert: {
+          asana_projeto_calendario?: string | null
+          asana_projeto_ronda?: string | null
+          asana_projetos_marketing?: string[]
+          asana_tag_gratuita?: string | null
+          asana_tag_locatario?: string | null
+          asana_tag_paga?: string | null
+          asana_tag_terceiro?: string | null
+          atualizado_em?: string
+          estrelas_reclamacao?: number[]
+          id?: boolean
+          janela_recorrencia_dias?: number
+          janela_reputacao_dias?: number
+          nota_atencao?: number
+          reclamacoes_alerta?: number
+          reclamacoes_atencao?: number
+          sinalizacao_antiga_dias?: number
+          vagas?: number
+        }
+        Update: {
+          asana_projeto_calendario?: string | null
+          asana_projeto_ronda?: string | null
+          asana_projetos_marketing?: string[]
+          asana_tag_gratuita?: string | null
+          asana_tag_locatario?: string | null
+          asana_tag_paga?: string | null
+          asana_tag_terceiro?: string | null
+          atualizado_em?: string
+          estrelas_reclamacao?: number[]
+          id?: boolean
+          janela_recorrencia_dias?: number
+          janela_reputacao_dias?: number
+          nota_atencao?: number
+          reclamacoes_alerta?: number
+          reclamacoes_atencao?: number
+          sinalizacao_antiga_dias?: number
+          vagas?: number
+        }
+        Relationships: []
+      }
+      regras_alerta: {
+        Row: {
+          ativa: boolean
+          atualizado_em: string
+          limite: number | null
+          nivel: string
+          regra: string
+        }
+        Insert: {
+          ativa?: boolean
+          atualizado_em?: string
+          limite?: number | null
+          nivel: string
+          regra: string
+        }
+        Update: {
+          ativa?: boolean
+          atualizado_em?: string
+          limite?: number | null
+          nivel?: string
+          regra?: string
+        }
+        Relationships: []
+      }
+      ronda_codigos: {
+        Row: {
+          area: string
+          atualizado_em: string
+          codigo: string
+          descricao: string
+        }
+        Insert: {
+          area: string
+          atualizado_em?: string
+          codigo: string
+          descricao: string
+        }
+        Update: {
+          area?: string
+          atualizado_em?: string
+          codigo?: string
+          descricao?: string
+        }
+        Relationships: []
+      }
+      temas: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          id: string
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          id?: string
+          nome: string
+          ordem?: number
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          id?: string
+          nome?: string
+          ordem?: number
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      desfazer_versao: { Args: { p_versao: number }; Returns: number }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   os: {
     Tables: {
       agenda_bloqueios: {
@@ -5119,6 +5441,9 @@ export const Constants = {
     Enums: {
       status_sync: ["rodando", "sucesso", "erro"],
     },
+  },
+  marketing: {
+    Enums: {},
   },
   os: {
     Enums: {

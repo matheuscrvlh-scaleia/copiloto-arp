@@ -21,6 +21,12 @@ monta à mão.
   laudo em PDF, portal do lojista com agenda do telhado e painéis por setor.
   Substitui o sistema de OS atual (O.S Arp 4.42). Quem valida: Operações
   (Fernando e Alexandre), cada responsável de setor e Paulo.
+- **Marketing** (mockup): base da marca viva com versões e revisor de
+  palavras, performance de anúncios (Meta, Google, TikTok) com custo por lead
+  pelos leads do RD Station, site e leads, redes sociais, reputação da ARP e
+  dos locatários-chave, radar do Asana, fluxo do estacionamento e um painel
+  semanal com alertas. Só consulta as ferramentas; dados de exemplo nos campos
+  das APIs até a ligação real. Quem valida: Daniel.
 
 As especificações completas estão na pasta do projeto ARP (fora do repo).
 Integrações: [docs/integracoes.md](docs/integracoes.md).
@@ -143,8 +149,8 @@ Aplicar migrations no banco: `npx supabase db push --db-url "$SUPABASE_DB_URL"`.
    `CRON_SECRET`, que o Vercel Cron envia automaticamente, e
    `INTEGRACOES_CHAVE`, que cifra as credenciais das integrações; trocar
    essa chave obriga a cadastrar as credenciais de novo).
-2. No Supabase (Project Settings › API › Exposed schemas), incluir `os`
-   junto de `core`, `rh`, `financeiro` e `integracao`.
+2. No Supabase (Project Settings › API › Exposed schemas), incluir `os` e
+   `marketing` junto de `core`, `rh`, `financeiro` e `integracao`.
 3. Cadastrar `NEXT_PUBLIC_SITE_URL` com o domínio de produção (links do
    WhatsApp para o portal e o terceirizado).
 4. No Supabase (Authentication › URL Configuration), trocar o Site URL de

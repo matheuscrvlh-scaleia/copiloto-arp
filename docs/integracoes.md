@@ -371,6 +371,29 @@ rescisória sem dividir por 12).
 
 ---
 
+## Módulo Marketing (só consulta)
+
+Mockup (V1) com dados de exemplo nos campos das APIs; a ligação real é a V3,
+na ordem dos acessos liberados. Campos usados por fonte:
+`src/lib/marketing/fontes.ts`. Nada é publicado, pausado, respondido ou
+alterado nas ferramentas.
+
+| Fonte | Serve para | Acesso |
+|---|---|---|
+| Meta Ads (Facebook e Instagram) | Performance de anúncios | Com o Pablo (falta confirmar); app com leitura de anúncios, pode exigir verificação da empresa |
+| Google Ads (inclui YouTube) | Performance de anúncios, termos de pesquisa | Com o Pablo; token de desenvolvedor aprovado para a conta |
+| TikTok Ads e conta Business | Anúncios e Redes | Com o Daniel; confirmar se anunciam e se a conta é Business |
+| Google Analytics 4 e Search Console | Site e leads | Confirmar se estão instalados no site (WordPress) e quais eventos-chave |
+| RD Station Marketing | Leads, landing pages, custo por lead | Com o Daniel; confirmar se o plano libera a API (histórico por exportação única) |
+| Instagram, Facebook e YouTube | Redes sociais (foto diária de seguidores) | Com o Daniel; YouTube na mesma conta Google que autoriza |
+| Google Perfil da Empresa | Reputação | API aprovada pelo Google; cada locatário adiciona a ARP como gerente (opção A) |
+| Asana | Radar operacional | Usuário que veja todos os projetos |
+| WPS | Público e visitação (passagens por hora, placa só para recorrência) | Hoje a API BI entrega só entradas por dia; passagens a confirmar com o WPS |
+
+Os anúncios precisam de UTM com o nome da campanha (`traffic_campaign` no
+RD): sem isso o custo por lead por campanha não fecha, e o lead aparece como
+"origem não identificada".
+
 ## Uploads de arquivo
 
 | Arquivo | Módulo | Frequência | Observações |

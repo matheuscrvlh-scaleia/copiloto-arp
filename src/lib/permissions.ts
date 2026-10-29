@@ -61,6 +61,24 @@ export const PERMISSOES = {
   "os.parametros":
     "Editar técnicos e valor por minuto, rateio, faixas do sinal, prazos e metas",
   "os.historico": "Ver quem alterou o quê e quando nos chamados e parâmetros",
+
+  "marketing.painel": "Ver o resumo semanal e os alertas do Marketing",
+  "marketing.marca":
+    "Ver a base da marca, baixar os arquivos e usar o revisor de texto",
+  "marketing.marca.editar":
+    "Alterar a base da marca e subir nova versão de arquivo",
+  "marketing.anuncios":
+    "Ver campanhas, investimento e custo por lead de Meta, Google e TikTok",
+  "marketing.site": "Ver tráfego do site, buscas e quantidade de leads",
+  "marketing.site.dados_lead":
+    "Ver nome, e-mail e telefone de cada lead (dado pessoal)",
+  "marketing.redes": "Ver seguidores, alcance e interações das redes",
+  "marketing.reputacao": "Ver avaliações da ARP e dos locatários-chave",
+  "marketing.radar": "Ver tarefas, eventos e sinalizações do Asana",
+  "marketing.publico": "Ver o fluxo de carros do estacionamento (sem placas)",
+  "marketing.parametros":
+    "Editar locatários monitorados, landing pages, metas, regras de alerta e códigos da ronda",
+  "marketing.exportar": "Baixar Excel e PDF das telas do Marketing que já vê",
 } as const;
 
 export type Permissao = keyof typeof PERMISSOES;

@@ -33,7 +33,14 @@ export type Icone =
   | "ativos"
   | "vistorias"
   | "portal"
-  | "paineis";
+  | "paineis"
+  | "marca"
+  | "anuncios"
+  | "site"
+  | "redes"
+  | "reputacao"
+  | "radar"
+  | "publico";
 
 export interface NavItem {
   href: string;
@@ -237,6 +244,66 @@ export const navigation: NavSection[] = [
           "os.parametros",
           "os.historico",
         ],
+      },
+    ],
+  },
+  {
+    titulo: "Marketing",
+    // Painel no topo; depois as consultas e, por último, os parâmetros.
+    itens: [
+      {
+        href: "/marketing",
+        label: "Painel",
+        icone: "painel",
+        permissao: "marketing.painel",
+      },
+      {
+        href: "/marketing/marca",
+        label: "Marca",
+        icone: "marca",
+        permissao: "marketing.marca",
+      },
+      {
+        href: "/marketing/anuncios",
+        label: "Performance de anúncios",
+        icone: "anuncios",
+        permissao: "marketing.anuncios",
+      },
+      {
+        href: "/marketing/site",
+        label: "Site e leads",
+        icone: "site",
+        permissao: "marketing.site",
+      },
+      {
+        href: "/marketing/redes",
+        label: "Redes sociais",
+        icone: "redes",
+        permissao: "marketing.redes",
+      },
+      {
+        href: "/marketing/reputacao",
+        label: "Reputação",
+        icone: "reputacao",
+        permissao: "marketing.reputacao",
+      },
+      {
+        href: "/marketing/radar",
+        label: "Radar operacional",
+        icone: "radar",
+        permissao: "marketing.radar",
+      },
+      {
+        href: "/marketing/publico",
+        label: "Público e visitação",
+        icone: "publico",
+        permissao: "marketing.publico",
+      },
+      {
+        href: "/marketing/parametros",
+        label: "Parâmetros",
+        icone: "parametros",
+        permissao: "marketing.parametros",
       },
     ],
   },
