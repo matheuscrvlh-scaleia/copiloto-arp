@@ -7,7 +7,7 @@ import type { EstadoOS } from "@/components/os/ordem/tipos";
 import { formatarMoeda } from "@/lib/formato";
 import { prazoRetornoDias } from "@/lib/os/ordem";
 import { calcularPrazo } from "@/lib/os/prazo";
-import { rotaChamado } from "@/lib/os/rotas";
+import { rotaOrdem } from "@/lib/os/rotas";
 import { limparTelefone, linkWhatsApp } from "@/lib/os/whatsapp";
 import { erroDoBanco } from "@/server/acoes";
 import {
@@ -15,6 +15,7 @@ import {
   categorias,
   notificar,
   novoToken,
+  ordem,
   os,
   osAdmin,
   parametros,
@@ -32,7 +33,7 @@ const SEM_PERMISSAO: EstadoOS = {
 };
 
 const envio = z.object({
-  chamado_id: z.uuid(),
+  ordem_id: z.uuid(),
   telefone: z.string().trim().max(40).optional(),
   nome: z.string().trim().max(120).optional(),
 });
@@ -47,7 +48,7 @@ export async function enviarAoTerceirizado(
 ): Promise<EstadoOS> {
   const d = envio.safeParse(Object.fromEntries(form));
   if (!d.success) return { erro: "Envio inválido." };
-  const alvo = await chamadoParaEditar(d.data.chamado_id);
+  const alvo = await chamadoParaEditar(d.data.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx, ch } = alvo;
   if (!ctx.pode("os.terceirizados")) return SEM_PERMISSAO;
@@ -63,7 +64,7 @@ export async function enviarAoTerceirizado(
   const { data: ativo } = await db
     .from("terceirizado_links")
     .select("id, token, recusado_em, empresa_id")
-    .eq("chamado_id", ch.id)
+    .eq("ordem_id", ch.id)
     .is("cancelado_em", null)
     .maybeSingle();
   let token = ativo?.token ?? null;
@@ -81,7 +82,7 @@ export async function enviarAoTerceirizado(
   if (novo) {
     token = novoToken();
     const { error } = await db.from("terceirizado_links").insert({
-      chamado_id: ch.id,
+      ordem_id: ch.id,
       token,
       empresa_id: ch.empresa_id,
       criado_por: ctx.usuario.id,
@@ -117,7 +118,7 @@ export async function enviarAoTerceirizado(
     muda.cobranca_avisada_em = null;
   }
   if (Object.keys(muda).length) {
-    const { error } = await db.from("chamados").update(muda).eq("id", ch.id);
+    const { error } = await db.from("ordens").update(muda).eq("id", ch.id);
     if (error) return erroDoBanco(error);
   }
 
@@ -133,7 +134,7 @@ export async function enviarAoTerceirizado(
     visitaPeriodo: ch.visita_periodo,
     token: token as string,
   });
-  await registrar(ch.id, {
+  await registrar(ordem(ch.id), {
     tipo: "terceirizado",
     texto: `${novo ? "Enviou" : "Reenviou"} a OS ao terceirizado${empresa ? ` (${empresa.nome})` : ""}.`,
     dados: { empresa_id: ch.empresa_id },
@@ -149,20 +150,20 @@ export async function cancelarLinkTerceirizado(
   _: EstadoOS,
   form: FormData,
 ): Promise<EstadoOS> {
-  const chamadoId = z.uuid().safeParse(form.get("chamado_id"));
-  if (!chamadoId.success) return { erro: "Chamado inválido." };
-  const alvo = await chamadoParaEditar(chamadoId.data);
+  const ordemId = z.uuid().safeParse(form.get("ordem_id"));
+  if (!ordemId.success) return { erro: "Chamado inválido." };
+  const alvo = await chamadoParaEditar(ordemId.data);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   if (!alvo.ctx.pode("os.terceirizados")) return SEM_PERMISSAO;
   const { data, error } = await (await os())
     .from("terceirizado_links")
     .update({ cancelado_em: new Date().toISOString() })
-    .eq("chamado_id", chamadoId.data)
+    .eq("ordem_id", ordemId.data)
     .is("cancelado_em", null)
     .select("id");
   if (error) return erroDoBanco(error);
   if (!data?.length) return { erro: "Não há link ativo." };
-  await registrar(chamadoId.data, {
+  await registrar(ordem(ordemId.data), {
     tipo: "terceirizado",
     texto: "Cancelou o link do terceirizado.",
   });
@@ -171,7 +172,7 @@ export async function cancelarLinkTerceirizado(
 }
 
 const usar = z.object({
-  chamado_id: z.uuid(),
+  ordem_id: z.uuid(),
   campo: z.enum(["solucao", "valor"]),
 });
 
@@ -182,14 +183,14 @@ export async function usarDoTerceirizado(
 ): Promise<EstadoOS> {
   const d = usar.safeParse(Object.fromEntries(form));
   if (!d.success) return { erro: "Pedido inválido." };
-  const alvo = await chamadoParaEditar(d.data.chamado_id);
+  const alvo = await chamadoParaEditar(d.data.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx, ch } = alvo;
   const db = await os();
   const { data: link } = await db
     .from("terceirizado_links")
     .select("solucao, valor_informado, orcamento_numero")
-    .eq("chamado_id", ch.id)
+    .eq("ordem_id", ch.id)
     .is("cancelado_em", null)
     .maybeSingle();
   if (!link) return { erro: "Não há link ativo." };
@@ -198,11 +199,11 @@ export async function usarDoTerceirizado(
     if (!link.solucao)
       return { erro: "O terceirizado não informou a solução." };
     const { error } = await db
-      .from("chamados")
+      .from("ordens")
       .update({ solucao: link.solucao })
       .eq("id", ch.id);
     if (error) return erroDoBanco(error);
-    await registrar(ch.id, {
+    await registrar(ordem(ch.id), {
       tipo: "alteracao",
       texto: "Usou a solução informada pelo terceirizado.",
       dados: { campo: "solucao" },
@@ -213,7 +214,7 @@ export async function usarDoTerceirizado(
     if (link.valor_informado === null)
       return { erro: "O terceirizado não informou o valor." };
     const { error } = await db.from("os_custos").upsert({
-      chamado_id: ch.id,
+      ordem_id: ch.id,
       valor_terceirizado: link.valor_informado,
       orcamento_numero: link.orcamento_numero,
       orcamento_aprovado_em: null,
@@ -221,7 +222,7 @@ export async function usarDoTerceirizado(
     });
     if (error) return erroDoBanco(error);
     await recalcularOS(ch.id);
-    await registrar(ch.id, {
+    await registrar(ordem(ch.id), {
       tipo: "alteracao",
       texto: "Usou o valor informado pelo terceirizado.",
       dados: { campo: "custo_terceirizado" },
@@ -240,9 +241,9 @@ export async function aprovarOrcamento(
   _: EstadoOS,
   form: FormData,
 ): Promise<EstadoOS> {
-  const chamadoId = z.uuid().safeParse(form.get("chamado_id"));
-  if (!chamadoId.success) return { erro: "Chamado inválido." };
-  const alvo = await chamadoParaEditar(chamadoId.data);
+  const ordemId = z.uuid().safeParse(form.get("ordem_id"));
+  if (!ordemId.success) return { erro: "Chamado inválido." };
+  const alvo = await chamadoParaEditar(ordemId.data);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx, ch, gerencia } = alvo;
   if (!gerencia)
@@ -254,12 +255,12 @@ export async function aprovarOrcamento(
       orcamento_aprovado_em: new Date().toISOString(),
       orcamento_aprovado_por: ctx.usuario.id,
     })
-    .eq("chamado_id", ch.id)
+    .eq("ordem_id", ch.id)
     .not("valor_terceirizado", "is", null)
     .select("valor_terceirizado");
   if (error) return erroDoBanco(error);
   if (!data?.length) return { erro: "Não há orçamento para aprovar." };
-  await registrar(ch.id, {
+  await registrar(ordem(ch.id), {
     tipo: "alteracao",
     texto: ctx.pode("os.custos")
       ? `Aprovou o orçamento do terceirizado (${formatarMoeda(data[0]?.valor_terceirizado ?? null)}).`
@@ -273,8 +274,8 @@ export async function aprovarOrcamento(
         tipo: "orcamento",
         titulo: `#${ch.numero} ${ch.titulo}`,
         texto: "O orçamento do terceirizado foi aprovado.",
-        href: rotaChamado(ch.id),
-        chamadoId: ch.id,
+        href: rotaOrdem(ch.id),
+        alvo: ordem(ch.id),
       },
       ctx.usuario.id,
     ),

@@ -25,14 +25,14 @@ export interface ArquivoDaOS extends ArquivoDaGaleria {
 }
 
 export function Fotos({
-  chamadoId,
+  ordemId,
   categoria,
   titulo,
   arquivos,
   podeEditar,
   documento = false,
 }: {
-  chamadoId: string;
+  ordemId: string;
   categoria: "antes" | "depois" | "orcamento" | "laudo";
   titulo: string;
   arquivos: ArquivoDaOS[];
@@ -61,7 +61,7 @@ export function Fotos({
       setGrande(passou);
       if (passou) return;
       const form = new FormData();
-      form.set("chamado_id", chamadoId);
+      form.set("ordem_id", ordemId);
       form.set("categoria", categoria);
       for (const a of prontos) form.append("arquivos", a);
       // Depois do await, a ação precisa de uma transição nova.
@@ -154,7 +154,7 @@ export function Fotos({
                   confirmar={`Remover ${a.nome}? O arquivo é apagado.`}
                   botaoNoFim
                 >
-                  <input type="hidden" name="chamado_id" value={chamadoId} />
+                  <input type="hidden" name="ordem_id" value={ordemId} />
                   <input type="hidden" name="id" value={a.id} />
                 </FormAcao>
               </li>

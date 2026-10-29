@@ -940,6 +940,7 @@ export type Database = {
       }
       anexos: {
         Row: {
+          ordem_id: string | null
           ambiente_id: string | null
           ativo_id: string | null
           categoria: string
@@ -957,6 +958,7 @@ export type Database = {
           vistoria_id: string | null
         }
         Insert: {
+          ordem_id?: string | null
           ambiente_id?: string | null
           ativo_id?: string | null
           categoria?: string
@@ -974,6 +976,7 @@ export type Database = {
           vistoria_id?: string | null
         }
         Update: {
+          ordem_id?: string | null
           ambiente_id?: string | null
           ativo_id?: string | null
           categoria?: string
@@ -991,6 +994,13 @@ export type Database = {
           vistoria_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "anexos_ordem_id_fkey"
+            columns: ["ordem_id"]
+            isOneToOne: false
+            referencedRelation: "ordens"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "anexos_ambiente_id_fkey"
             columns: ["ambiente_id"]
@@ -1315,29 +1325,29 @@ export type Database = {
           },
         ]
       }
-      chamado_profissionais: {
+      ordem_profissionais: {
         Row: {
-          chamado_id: string
+          ordem_id: string
           profissional_id: string
         }
         Insert: {
-          chamado_id: string
+          ordem_id: string
           profissional_id: string
         }
         Update: {
-          chamado_id?: string
+          ordem_id?: string
           profissional_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "chamado_profissionais_chamado_id_fkey"
-            columns: ["chamado_id"]
+            foreignKeyName: "ordem_profissionais_ordem_id_fkey"
+            columns: ["ordem_id"]
             isOneToOne: false
-            referencedRelation: "chamados"
+            referencedRelation: "ordens"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "chamado_profissionais_profissional_id_fkey"
+            foreignKeyName: "ordem_profissionais_profissional_id_fkey"
             columns: ["profissional_id"]
             isOneToOne: false
             referencedRelation: "profissionais"
@@ -1353,33 +1363,23 @@ export type Database = {
           aguardando_motivo: string | null
           aguardando_tipo: Database["os"]["Enums"]["motivo_aguardando"] | null
           ambiente_id: string | null
-          assinado_em: string | null
-          assinatura_nome: string | null
-          assinatura_path: string | null
           ativo_id: string | null
-          ativo_parado: boolean
           atualizado_em: string
           avaliacao: number | null
           avaliacao_comentario: string | null
           avaliado_em: string | null
-          bloco: string | null
           campos: Json
           cancelado_em: string | null
           cancelado_por: string | null
           categoria_id: string | null
           causa_falha: string | null
           checklist: Json
-          cobranca_avisada_em: string | null
           concluido_em: string | null
           concluido_por: string | null
-          convertido_de_id: string | null
-          convertido_em_id: string | null
           criado_em: string
           descricao: string | null
           destinos_em_ordem: boolean
-          empresa_id: string | null
           etiquetas: string[]
-          execucao: Database["os"]["Enums"]["execucao"] | null
           fechado_automatico: boolean
           fechado_em: string | null
           fechado_por: string | null
@@ -1387,20 +1387,15 @@ export type Database = {
           iniciado_em: string | null
           legado_id: string | null
           legado_origem: string | null
-          local: string | null
           loja_id: string | null
           motivo_cancelamento: string | null
           numero: number
           origem: Database["os"]["Enums"]["origem_chamado"]
           pessoal: boolean
-          plano_data: string | null
-          plano_id: string | null
           prazo: string | null
-          prazo_terceirizado: string | null
           precisa_confirmacao: boolean
           primeira_resposta_em: string | null
           prioridade: Database["os"]["Enums"]["prioridade"]
-          rateio: boolean
           reaberto_vezes: number
           recorrencia: Json | null
           responsavel_id: string | null
@@ -1415,8 +1410,6 @@ export type Database = {
           titulo: string
           ultimo_motivo_reabertura: string | null
           vinculado_a_id: string | null
-          visita_data: string | null
-          visita_periodo: Database["os"]["Enums"]["periodo_visita"] | null
           vistoria_id: string | null
         }
         Insert: {
@@ -1426,33 +1419,23 @@ export type Database = {
           aguardando_motivo?: string | null
           aguardando_tipo?: Database["os"]["Enums"]["motivo_aguardando"] | null
           ambiente_id?: string | null
-          assinado_em?: string | null
-          assinatura_nome?: string | null
-          assinatura_path?: string | null
           ativo_id?: string | null
-          ativo_parado?: boolean
           atualizado_em?: string
           avaliacao?: number | null
           avaliacao_comentario?: string | null
           avaliado_em?: string | null
-          bloco?: string | null
           campos?: Json
           cancelado_em?: string | null
           cancelado_por?: string | null
           categoria_id?: string | null
           causa_falha?: string | null
           checklist?: Json
-          cobranca_avisada_em?: string | null
           concluido_em?: string | null
           concluido_por?: string | null
-          convertido_de_id?: string | null
-          convertido_em_id?: string | null
           criado_em?: string
           descricao?: string | null
           destinos_em_ordem?: boolean
-          empresa_id?: string | null
           etiquetas?: string[]
-          execucao?: Database["os"]["Enums"]["execucao"] | null
           fechado_automatico?: boolean
           fechado_em?: string | null
           fechado_por?: string | null
@@ -1460,20 +1443,15 @@ export type Database = {
           iniciado_em?: string | null
           legado_id?: string | null
           legado_origem?: string | null
-          local?: string | null
           loja_id?: string | null
           motivo_cancelamento?: string | null
           numero?: number
           origem?: Database["os"]["Enums"]["origem_chamado"]
           pessoal?: boolean
-          plano_data?: string | null
-          plano_id?: string | null
           prazo?: string | null
-          prazo_terceirizado?: string | null
           precisa_confirmacao?: boolean
           primeira_resposta_em?: string | null
           prioridade?: Database["os"]["Enums"]["prioridade"]
-          rateio?: boolean
           reaberto_vezes?: number
           recorrencia?: Json | null
           responsavel_id?: string | null
@@ -1488,8 +1466,6 @@ export type Database = {
           titulo: string
           ultimo_motivo_reabertura?: string | null
           vinculado_a_id?: string | null
-          visita_data?: string | null
-          visita_periodo?: Database["os"]["Enums"]["periodo_visita"] | null
           vistoria_id?: string | null
         }
         Update: {
@@ -1499,33 +1475,23 @@ export type Database = {
           aguardando_motivo?: string | null
           aguardando_tipo?: Database["os"]["Enums"]["motivo_aguardando"] | null
           ambiente_id?: string | null
-          assinado_em?: string | null
-          assinatura_nome?: string | null
-          assinatura_path?: string | null
           ativo_id?: string | null
-          ativo_parado?: boolean
           atualizado_em?: string
           avaliacao?: number | null
           avaliacao_comentario?: string | null
           avaliado_em?: string | null
-          bloco?: string | null
           campos?: Json
           cancelado_em?: string | null
           cancelado_por?: string | null
           categoria_id?: string | null
           causa_falha?: string | null
           checklist?: Json
-          cobranca_avisada_em?: string | null
           concluido_em?: string | null
           concluido_por?: string | null
-          convertido_de_id?: string | null
-          convertido_em_id?: string | null
           criado_em?: string
           descricao?: string | null
           destinos_em_ordem?: boolean
-          empresa_id?: string | null
           etiquetas?: string[]
-          execucao?: Database["os"]["Enums"]["execucao"] | null
           fechado_automatico?: boolean
           fechado_em?: string | null
           fechado_por?: string | null
@@ -1533,20 +1499,15 @@ export type Database = {
           iniciado_em?: string | null
           legado_id?: string | null
           legado_origem?: string | null
-          local?: string | null
           loja_id?: string | null
           motivo_cancelamento?: string | null
           numero?: number
           origem?: Database["os"]["Enums"]["origem_chamado"]
           pessoal?: boolean
-          plano_data?: string | null
-          plano_id?: string | null
           prazo?: string | null
-          prazo_terceirizado?: string | null
           precisa_confirmacao?: boolean
           primeira_resposta_em?: string | null
           prioridade?: Database["os"]["Enums"]["prioridade"]
-          rateio?: boolean
           reaberto_vezes?: number
           recorrencia?: Json | null
           responsavel_id?: string | null
@@ -1561,8 +1522,6 @@ export type Database = {
           titulo?: string
           ultimo_motivo_reabertura?: string | null
           vinculado_a_id?: string | null
-          visita_data?: string | null
-          visita_periodo?: Database["os"]["Enums"]["periodo_visita"] | null
           vistoria_id?: string | null
         }
         Relationships: [
@@ -1588,38 +1547,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "chamados_convertido_de_id_fkey"
-            columns: ["convertido_de_id"]
-            isOneToOne: false
-            referencedRelation: "chamados"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chamados_convertido_em_id_fkey"
-            columns: ["convertido_em_id"]
-            isOneToOne: false
-            referencedRelation: "chamados"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chamados_empresa_id_fkey"
-            columns: ["empresa_id"]
-            isOneToOne: false
-            referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "chamados_loja_id_fkey"
             columns: ["loja_id"]
             isOneToOne: false
             referencedRelation: "lojas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chamados_plano_id_fkey"
-            columns: ["plano_id"]
-            isOneToOne: false
-            referencedRelation: "planos_preventivos"
             referencedColumns: ["id"]
           },
           {
@@ -1680,8 +1611,9 @@ export type Database = {
       }
       destinatarios: {
         Row: {
+          ordem_id: string | null
           atualizado_em: string
-          chamado_id: string
+          chamado_id: string | null
           concluido_em: string | null
           concluido_por: string | null
           criado_em: string
@@ -1697,8 +1629,9 @@ export type Database = {
           usuario_id: string | null
         }
         Insert: {
+          ordem_id?: string | null
           atualizado_em?: string
-          chamado_id: string
+          chamado_id?: string | null
           concluido_em?: string | null
           concluido_por?: string | null
           criado_em?: string
@@ -1714,8 +1647,9 @@ export type Database = {
           usuario_id?: string | null
         }
         Update: {
+          ordem_id?: string | null
           atualizado_em?: string
-          chamado_id?: string
+          chamado_id?: string | null
           concluido_em?: string | null
           concluido_por?: string | null
           criado_em?: string
@@ -1731,6 +1665,13 @@ export type Database = {
           usuario_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "destinatarios_ordem_id_fkey"
+            columns: ["ordem_id"]
+            isOneToOne: false
+            referencedRelation: "ordens"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "destinatarios_chamado_id_fkey"
             columns: ["chamado_id"]
@@ -1846,9 +1787,10 @@ export type Database = {
       }
       eventos: {
         Row: {
+          ordem_id: string | null
           autor_id: string | null
           autor_nome: string | null
-          chamado_id: string
+          chamado_id: string | null
           dados: Json
           em: string
           id: number
@@ -1857,9 +1799,10 @@ export type Database = {
           visivel_lojista: boolean
         }
         Insert: {
+          ordem_id?: string | null
           autor_id?: string | null
           autor_nome?: string | null
-          chamado_id: string
+          chamado_id?: string | null
           dados?: Json
           em?: string
           id?: never
@@ -1868,9 +1811,10 @@ export type Database = {
           visivel_lojista?: boolean
         }
         Update: {
+          ordem_id?: string | null
           autor_id?: string | null
           autor_nome?: string | null
-          chamado_id?: string
+          chamado_id?: string | null
           dados?: Json
           em?: string
           id?: never
@@ -1879,6 +1823,13 @@ export type Database = {
           visivel_lojista?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "eventos_ordem_id_fkey"
+            columns: ["ordem_id"]
+            isOneToOne: false
+            referencedRelation: "ordens"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "eventos_chamado_id_fkey"
             columns: ["chamado_id"]
@@ -1959,7 +1910,7 @@ export type Database = {
       }
       materiais: {
         Row: {
-          chamado_id: string
+          ordem_id: string
           criado_em: string
           criado_por: string | null
           descricao: string
@@ -1968,7 +1919,7 @@ export type Database = {
           unidade: string | null
         }
         Insert: {
-          chamado_id: string
+          ordem_id: string
           criado_em?: string
           criado_por?: string | null
           descricao: string
@@ -1977,7 +1928,7 @@ export type Database = {
           unidade?: string | null
         }
         Update: {
-          chamado_id?: string
+          ordem_id?: string
           criado_em?: string
           criado_por?: string | null
           descricao?: string
@@ -1987,10 +1938,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "materiais_chamado_id_fkey"
-            columns: ["chamado_id"]
+            foreignKeyName: "materiais_ordem_id_fkey"
+            columns: ["ordem_id"]
             isOneToOne: false
-            referencedRelation: "chamados"
+            referencedRelation: "ordens"
             referencedColumns: ["id"]
           },
         ]
@@ -2168,6 +2119,7 @@ export type Database = {
       }
       notificacoes: {
         Row: {
+          ordem_id: string | null
           chamado_id: string | null
           chave: string | null
           criado_em: string
@@ -2180,6 +2132,7 @@ export type Database = {
           usuario_id: string
         }
         Insert: {
+          ordem_id?: string | null
           chamado_id?: string | null
           chave?: string | null
           criado_em?: string
@@ -2192,6 +2145,7 @@ export type Database = {
           usuario_id: string
         }
         Update: {
+          ordem_id?: string | null
           chamado_id?: string | null
           chave?: string | null
           criado_em?: string
@@ -2205,6 +2159,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "notificacoes_ordem_id_fkey"
+            columns: ["ordem_id"]
+            isOneToOne: false
+            referencedRelation: "ordens"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "notificacoes_chamado_id_fkey"
             columns: ["chamado_id"]
             isOneToOne: false
@@ -2213,11 +2174,291 @@ export type Database = {
           },
         ]
       }
+      ordens: {
+        Row: {
+          aberto_por: string | null
+          aguardando_desde: string | null
+          aguardando_min: number
+          aguardando_motivo: string | null
+          aguardando_tipo: Database["os"]["Enums"]["motivo_aguardando"] | null
+          ambiente_id: string | null
+          assinado_em: string | null
+          assinatura_nome: string | null
+          assinatura_path: string | null
+          ativo_id: string | null
+          ativo_parado: boolean
+          atualizado_em: string
+          avaliacao: number | null
+          avaliacao_comentario: string | null
+          avaliado_em: string | null
+          bloco: string | null
+          campos: Json
+          cancelado_em: string | null
+          cancelado_por: string | null
+          categoria_id: string | null
+          causa_falha: string | null
+          checklist: Json
+          cobranca_avisada_em: string | null
+          concluido_em: string | null
+          concluido_por: string | null
+          criado_em: string
+          descricao: string | null
+          destinos_em_ordem: boolean
+          empresa_id: string | null
+          etiquetas: string[]
+          execucao: Database["os"]["Enums"]["execucao"]
+          fechado_automatico: boolean
+          fechado_em: string | null
+          fechado_por: string | null
+          id: string
+          iniciado_em: string | null
+          legado_id: string | null
+          legado_origem: string | null
+          local: string | null
+          loja_id: string | null
+          motivo_cancelamento: string | null
+          numero: number
+          origem: Database["os"]["Enums"]["origem_chamado"]
+          pessoal: boolean
+          plano_data: string | null
+          plano_id: string | null
+          prazo: string | null
+          prazo_terceirizado: string | null
+          precisa_confirmacao: boolean
+          primeira_resposta_em: string | null
+          prioridade: Database["os"]["Enums"]["prioridade"]
+          rateio: boolean
+          reaberto_vezes: number
+          recorrencia: Json | null
+          responsavel_id: string | null
+          serie_data: string | null
+          serie_id: string | null
+          setor_id: string
+          solicitante_nome: string | null
+          solicitante_telefone: string | null
+          solucao: string | null
+          status: Database["os"]["Enums"]["status_chamado"]
+          tipo: Database["os"]["Enums"]["tipo_chamado"]
+          titulo: string
+          ultimo_motivo_reabertura: string | null
+          vinculado_a_id: string | null
+          visita_data: string | null
+          visita_periodo: Database["os"]["Enums"]["periodo_visita"] | null
+          vistoria_id: string | null
+        }
+        Insert: {
+          aberto_por?: string | null
+          aguardando_desde?: string | null
+          aguardando_min?: number
+          aguardando_motivo?: string | null
+          aguardando_tipo?: Database["os"]["Enums"]["motivo_aguardando"] | null
+          ambiente_id?: string | null
+          assinado_em?: string | null
+          assinatura_nome?: string | null
+          assinatura_path?: string | null
+          ativo_id?: string | null
+          ativo_parado?: boolean
+          atualizado_em?: string
+          avaliacao?: number | null
+          avaliacao_comentario?: string | null
+          avaliado_em?: string | null
+          bloco?: string | null
+          campos?: Json
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          categoria_id?: string | null
+          causa_falha?: string | null
+          checklist?: Json
+          cobranca_avisada_em?: string | null
+          concluido_em?: string | null
+          concluido_por?: string | null
+          criado_em?: string
+          descricao?: string | null
+          destinos_em_ordem?: boolean
+          empresa_id?: string | null
+          etiquetas?: string[]
+          execucao?: Database["os"]["Enums"]["execucao"]
+          fechado_automatico?: boolean
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          iniciado_em?: string | null
+          legado_id?: string | null
+          legado_origem?: string | null
+          local?: string | null
+          loja_id?: string | null
+          motivo_cancelamento?: string | null
+          numero?: number
+          origem?: Database["os"]["Enums"]["origem_chamado"]
+          pessoal?: boolean
+          plano_data?: string | null
+          plano_id?: string | null
+          prazo?: string | null
+          prazo_terceirizado?: string | null
+          precisa_confirmacao?: boolean
+          primeira_resposta_em?: string | null
+          prioridade?: Database["os"]["Enums"]["prioridade"]
+          rateio?: boolean
+          reaberto_vezes?: number
+          recorrencia?: Json | null
+          responsavel_id?: string | null
+          serie_data?: string | null
+          serie_id?: string | null
+          setor_id: string
+          solicitante_nome?: string | null
+          solicitante_telefone?: string | null
+          solucao?: string | null
+          status?: Database["os"]["Enums"]["status_chamado"]
+          tipo?: Database["os"]["Enums"]["tipo_chamado"]
+          titulo: string
+          ultimo_motivo_reabertura?: string | null
+          vinculado_a_id?: string | null
+          visita_data?: string | null
+          visita_periodo?: Database["os"]["Enums"]["periodo_visita"] | null
+          vistoria_id?: string | null
+        }
+        Update: {
+          aberto_por?: string | null
+          aguardando_desde?: string | null
+          aguardando_min?: number
+          aguardando_motivo?: string | null
+          aguardando_tipo?: Database["os"]["Enums"]["motivo_aguardando"] | null
+          ambiente_id?: string | null
+          assinado_em?: string | null
+          assinatura_nome?: string | null
+          assinatura_path?: string | null
+          ativo_id?: string | null
+          ativo_parado?: boolean
+          atualizado_em?: string
+          avaliacao?: number | null
+          avaliacao_comentario?: string | null
+          avaliado_em?: string | null
+          bloco?: string | null
+          campos?: Json
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          categoria_id?: string | null
+          causa_falha?: string | null
+          checklist?: Json
+          cobranca_avisada_em?: string | null
+          concluido_em?: string | null
+          concluido_por?: string | null
+          criado_em?: string
+          descricao?: string | null
+          destinos_em_ordem?: boolean
+          empresa_id?: string | null
+          etiquetas?: string[]
+          execucao?: Database["os"]["Enums"]["execucao"]
+          fechado_automatico?: boolean
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          iniciado_em?: string | null
+          legado_id?: string | null
+          legado_origem?: string | null
+          local?: string | null
+          loja_id?: string | null
+          motivo_cancelamento?: string | null
+          numero?: number
+          origem?: Database["os"]["Enums"]["origem_chamado"]
+          pessoal?: boolean
+          plano_data?: string | null
+          plano_id?: string | null
+          prazo?: string | null
+          prazo_terceirizado?: string | null
+          precisa_confirmacao?: boolean
+          primeira_resposta_em?: string | null
+          prioridade?: Database["os"]["Enums"]["prioridade"]
+          rateio?: boolean
+          reaberto_vezes?: number
+          recorrencia?: Json | null
+          responsavel_id?: string | null
+          serie_data?: string | null
+          serie_id?: string | null
+          setor_id?: string
+          solicitante_nome?: string | null
+          solicitante_telefone?: string | null
+          solucao?: string | null
+          status?: Database["os"]["Enums"]["status_chamado"]
+          tipo?: Database["os"]["Enums"]["tipo_chamado"]
+          titulo?: string
+          ultimo_motivo_reabertura?: string | null
+          vinculado_a_id?: string | null
+          visita_data?: string | null
+          visita_periodo?: Database["os"]["Enums"]["periodo_visita"] | null
+          vistoria_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordens_ambiente_id_fkey"
+            columns: ["ambiente_id"]
+            isOneToOne: false
+            referencedRelation: "vistoria_ambientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_ativo_id_fkey"
+            columns: ["ativo_id"]
+            isOneToOne: false
+            referencedRelation: "ativos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_plano_id_fkey"
+            columns: ["plano_id"]
+            isOneToOne: false
+            referencedRelation: "planos_preventivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "setores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_vinculado_a_id_fkey"
+            columns: ["vinculado_a_id"]
+            isOneToOne: false
+            referencedRelation: "chamados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_vistoria_id_fkey"
+            columns: ["vistoria_id"]
+            isOneToOne: false
+            referencedRelation: "vistorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       os_custos: {
         Row: {
           atualizado_em: string
           calculado_em: string | null
-          chamado_id: string
+          ordem_id: string
           completo: boolean | null
           custo_mao_obra: number | null
           custo_materiais: number | null
@@ -2240,7 +2481,7 @@ export type Database = {
         Insert: {
           atualizado_em?: string
           calculado_em?: string | null
-          chamado_id: string
+          ordem_id: string
           completo?: boolean | null
           custo_mao_obra?: number | null
           custo_materiais?: number | null
@@ -2263,7 +2504,7 @@ export type Database = {
         Update: {
           atualizado_em?: string
           calculado_em?: string | null
-          chamado_id?: string
+          ordem_id?: string
           completo?: boolean | null
           custo_mao_obra?: number | null
           custo_materiais?: number | null
@@ -2285,10 +2526,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "os_custos_chamado_id_fkey"
-            columns: ["chamado_id"]
+            foreignKeyName: "os_custos_ordem_id_fkey"
+            columns: ["ordem_id"]
             isOneToOne: true
-            referencedRelation: "chamados"
+            referencedRelation: "ordens"
             referencedColumns: ["id"]
           },
         ]
@@ -2311,7 +2552,6 @@ export type Database = {
           portal_boas_vindas: string
           preventiva_antecedencia_dias: number
           recorrencia_antecedencia_dias: number
-          setor_financeiro_id: string | null
           sinal_corretivas_avaliar: number
           sinal_corretivas_trocar: number
           sinal_idade_avaliar_pct: number
@@ -2342,7 +2582,6 @@ export type Database = {
           portal_boas_vindas?: string
           preventiva_antecedencia_dias?: number
           recorrencia_antecedencia_dias?: number
-          setor_financeiro_id?: string | null
           sinal_corretivas_avaliar?: number
           sinal_corretivas_trocar?: number
           sinal_idade_avaliar_pct?: number
@@ -2373,7 +2612,6 @@ export type Database = {
           portal_boas_vindas?: string
           preventiva_antecedencia_dias?: number
           recorrencia_antecedencia_dias?: number
-          setor_financeiro_id?: string | null
           sinal_corretivas_avaliar?: number
           sinal_corretivas_trocar?: number
           sinal_idade_avaliar_pct?: number
@@ -2391,24 +2629,37 @@ export type Database = {
       }
       participantes: {
         Row: {
-          chamado_id: string
+          id: number
+          ordem_id: string | null
+          chamado_id: string | null
           criado_em: string
           motivo: string
           usuario_id: string
         }
         Insert: {
-          chamado_id: string
+          id?: never
+          ordem_id?: string | null
+          chamado_id?: string | null
           criado_em?: string
           motivo?: string
           usuario_id: string
         }
         Update: {
-          chamado_id?: string
+          id?: never
+          ordem_id?: string | null
+          chamado_id?: string | null
           criado_em?: string
           motivo?: string
           usuario_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "participantes_ordem_id_fkey"
+            columns: ["ordem_id"]
+            isOneToOne: false
+            referencedRelation: "ordens"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "participantes_chamado_id_fkey"
             columns: ["chamado_id"]
@@ -2673,7 +2924,7 @@ export type Database = {
           almoco_fim: string | null
           almoco_inicio: string | null
           atualizado_em: string
-          chamado_id: string
+          ordem_id: string
           criado_em: string
           criado_por: string | null
           data: string
@@ -2686,7 +2937,7 @@ export type Database = {
           almoco_fim?: string | null
           almoco_inicio?: string | null
           atualizado_em?: string
-          chamado_id: string
+          ordem_id: string
           criado_em?: string
           criado_por?: string | null
           data: string
@@ -2699,7 +2950,7 @@ export type Database = {
           almoco_fim?: string | null
           almoco_inicio?: string | null
           atualizado_em?: string
-          chamado_id?: string
+          ordem_id?: string
           criado_em?: string
           criado_por?: string | null
           data?: string
@@ -2710,10 +2961,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "sessoes_chamado_id_fkey"
-            columns: ["chamado_id"]
+            foreignKeyName: "sessoes_ordem_id_fkey"
+            columns: ["ordem_id"]
             isOneToOne: false
-            referencedRelation: "chamados"
+            referencedRelation: "ordens"
             referencedColumns: ["id"]
           },
         ]
@@ -2858,7 +3109,7 @@ export type Database = {
           assinatura_nome: string | null
           assinatura_path: string | null
           cancelado_em: string | null
-          chamado_id: string
+          ordem_id: string
           chegada_em: string | null
           chegada_local: Json | null
           criado_em: string
@@ -2883,7 +3134,7 @@ export type Database = {
           assinatura_nome?: string | null
           assinatura_path?: string | null
           cancelado_em?: string | null
-          chamado_id: string
+          ordem_id: string
           chegada_em?: string | null
           chegada_local?: Json | null
           criado_em?: string
@@ -2908,7 +3159,7 @@ export type Database = {
           assinatura_nome?: string | null
           assinatura_path?: string | null
           cancelado_em?: string | null
-          chamado_id?: string
+          ordem_id?: string
           chegada_em?: string | null
           chegada_local?: Json | null
           criado_em?: string
@@ -2928,10 +3179,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "terceirizado_links_chamado_id_fkey"
-            columns: ["chamado_id"]
+            foreignKeyName: "terceirizado_links_ordem_id_fkey"
+            columns: ["ordem_id"]
             isOneToOne: false
-            referencedRelation: "chamados"
+            referencedRelation: "ordens"
             referencedColumns: ["id"]
           },
           {
@@ -3169,13 +3420,15 @@ export type Database = {
         Returns: boolean
       }
       envolvido: { Args: { p_chamado: string }; Returns: boolean }
+      envolvido_na_ordem: { Args: { p_ordem: string }; Returns: boolean }
       gerencia: { Args: { p_setor: string }; Returns: boolean }
       gravar_calculo_os: {
-        Args: { p_chamado: string; p_resultado: Json }
+        Args: { p_ordem: string; p_resultado: Json }
         Returns: undefined
       }
       meus_chamados_envolvidos: { Args: never; Returns: string[] }
       meus_setores: { Args: never; Returns: string[] }
+      minhas_ordens_envolvidas: { Args: never; Returns: string[] }
       pessoas: {
         Args: never
         Returns: {
@@ -3185,7 +3438,9 @@ export type Database = {
         }[]
       }
       pode_editar_chamado: { Args: { p_chamado: string }; Returns: boolean }
+      pode_editar_ordem: { Args: { p_ordem: string }; Returns: boolean }
       pode_ver_chamado: { Args: { p_chamado: string }; Returns: boolean }
+      pode_ver_ordem: { Args: { p_ordem: string }; Returns: boolean }
       proximo_codigo_vistoria: { Args: never; Returns: string }
       reservar_horario: {
         Args: {
@@ -3210,7 +3465,6 @@ export type Database = {
           ultima_os: string
         }[]
       }
-      solicitante_de: { Args: { p_chamado: string }; Returns: string }
       ve_chamado: {
         Args: {
           p_aberto_por: string

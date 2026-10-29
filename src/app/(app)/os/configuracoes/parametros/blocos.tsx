@@ -275,7 +275,6 @@ export async function BlocoOperacoes() {
         "almoco_fim",
         "teto_terceirizado",
         "terceirizado_prazo_dias",
-        "setor_financeiro_id",
         "causas_falha",
       ],
     }),
@@ -431,18 +430,6 @@ export async function BlocoOperacoes() {
               />
               <span className={ajuda}>
                 Padrão quando a empresa e a categoria não definem um.
-              </span>
-            </label>
-            <label className={rotulo}>
-              Setor do Financeiro
-              <Selecao
-                name="setor_financeiro_id"
-                rotulo="Setor do Financeiro"
-                valorInicial={p.setor_financeiro_id ?? ""}
-                opcoes={opcoesSetores}
-              />
-              <span className={ajuda}>
-                Recebe o ticket aberto pelo botão da OS concluída.
               </span>
             </label>
           </div>

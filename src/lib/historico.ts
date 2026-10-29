@@ -68,6 +68,7 @@ export const TABELAS: Record<string, string> = {
   "os.modelo_itens": "Item de modelo",
   "os.vistorias": "Vistoria",
   "os.chamados": "Chamado",
+  "os.ordens": "Ordem de serviço",
   "os.os_custos": "Custo da OS",
   "os.material_valores": "Valor de material",
   "os.importacoes": "Importação do sistema de OS",

@@ -304,7 +304,7 @@ const atrasadasPorAtivo = cache(
     const db = await os();
     const lista = await todas((de, ate) =>
       db
-        .from("chamados")
+        .from("ordens")
         .select("ativo_id")
         .not("plano_id", "is", null)
         .not("ativo_id", "is", null)
@@ -690,7 +690,8 @@ export async function fichaDoAtivo(
   const [
     cats,
     porAtivo,
-    chamados,
+    lidasOS,
+    lidosChamados,
     situacoes,
     planos,
     anexos,
@@ -703,10 +704,19 @@ export async function fichaDoAtivo(
   ] = await Promise.all([
     categoriasDeAtivo(),
     resumos(hoje, id),
+    // As OS do ativo e os chamados ligados a ele (cada um na sua tabela).
+    db
+      .from("ordens")
+      .select(
+        "id, numero, tipo, titulo, status, prazo, criado_em, concluido_em, aguardando_min, causa_falha, plano_id, categoria_id",
+      )
+      .eq("ativo_id", id)
+      .order("criado_em", { ascending: false })
+      .limit(1000),
     db
       .from("chamados")
       .select(
-        "id, numero, tipo, titulo, status, prazo, criado_em, concluido_em, aguardando_min, causa_falha, plano_id, categoria_id",
+        "id, numero, tipo, titulo, status, prazo, criado_em, concluido_em, aguardando_min, causa_falha, categoria_id",
       )
       .eq("ativo_id", id)
       .order("criado_em", { ascending: false })
@@ -746,7 +756,8 @@ export async function fichaDoAtivo(
           .maybeSingle()
       : null,
   ]);
-  falhar(chamados.error);
+  falhar(lidasOS.error);
+  falhar(lidosChamados.error);
   falhar(situacoes.error);
   falhar(planos.error);
   falhar(anexos.error);
@@ -754,10 +765,13 @@ export async function fichaDoAtivo(
   const preventivaDaCategoria = new Set(
     catsChamado.filter((c) => c.preventiva).map((c) => c.id),
   );
-  const visiveis = chamados.data ?? [];
+  const visiveis = [
+    ...(lidasOS.data ?? []),
+    ...(lidosChamados.data ?? []).map((c) => ({ ...c, plano_id: null })),
+  ].sort((a, b) => b.criado_em.localeCompare(a.criado_em));
   // Custos e links dos anexos não dependem um do outro.
   const [custos, urls] = await Promise.all([
-    verCustos ? custosDasOS(visiveis.map((c) => c.id)) : null,
+    verCustos ? custosDasOS((lidasOS.data ?? []).map((c) => c.id)) : null,
     urlsAssinadas((anexos.data ?? []).map((a) => a.path)),
   ]);
   const ordens: OSDoAtivo[] = visiveis.map((c) => ({
@@ -865,14 +879,14 @@ async function custosDasOS(ids: string[]): Promise<Map<string, number>> {
     Array.from({ length: Math.ceil(ids.length / 150) }, (_, k) =>
       db
         .from("os_custos")
-        .select("chamado_id, custo_total")
-        .in("chamado_id", ids.slice(k * 150, k * 150 + 150)),
+        .select("ordem_id, custo_total")
+        .in("ordem_id", ids.slice(k * 150, k * 150 + 150)),
     ),
   );
   for (const { data, error } of lotes) {
     falhar(error);
     for (const c of data ?? [])
-      if (c.custo_total !== null) mapa.set(c.chamado_id, Number(c.custo_total));
+      if (c.custo_total !== null) mapa.set(c.ordem_id, Number(c.custo_total));
   }
   return mapa;
 }

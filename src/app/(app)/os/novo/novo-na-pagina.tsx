@@ -8,11 +8,12 @@ import type {
   DadosDoFormulario,
   InicialDoFormulario,
 } from "@/components/os/novo/tipos";
-import { rotaChamado } from "@/lib/os/rotas";
+import { rotaDo } from "@/lib/os/rotas";
 
 /**
- * Formulário na página /os/novo: abriu sem aviso, vai direto para o
- * chamado; com aviso (ex.: horário não reservado), mostra antes.
+ * Formulário nas páginas /os/novo e /os/ordens/nova: abriu sem aviso, vai
+ * direto para o chamado (ou a OS); com aviso (ex.: horário não
+ * reservado), mostra antes.
  */
 export function NovoNaPagina({
   dados,
@@ -28,11 +29,13 @@ export function NovoNaPagina({
     aviso?: string;
   } | null>(null);
   const [rodada, setRodada] = useState(0);
+  const ehOS = inicial.tipo === "os";
 
   if (criado)
     return (
       <Sucesso
         criado={criado}
+        ehOS={ehOS}
         aoAbrirOutro={() => {
           setCriado(null);
           setRodada((r) => r + 1);
@@ -49,7 +52,8 @@ export function NovoNaPagina({
         // e o botão ativo, um segundo clique abria outro chamado igual (o
         // Voltar do navegador também o trazia preenchido).
         setCriado(r);
-        if (!r.aviso) router.push(rotaChamado(r.id));
+        if (!r.aviso)
+          router.push(rotaDo({ id: r.id, tipo: ehOS ? "os" : "solicitacao" }));
       }}
     />
   );

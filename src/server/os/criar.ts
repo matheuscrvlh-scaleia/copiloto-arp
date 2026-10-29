@@ -1,10 +1,13 @@
 import "server-only";
+import { numeroDo } from "@/lib/os/numeros";
 import { calcularPrazo } from "@/lib/os/prazo";
-import { rotaChamado } from "@/lib/os/rotas";
+import { rotaDo } from "@/lib/os/rotas";
 import type { Json } from "@/lib/supabase/database.types";
 import {
+  type Alvo,
   type Categoria,
   calendarioDe,
+  donoDo,
   type Enum,
   membrosDoSetor,
   notificar,
@@ -13,11 +16,13 @@ import {
   type Tabela,
 } from "./base";
 
-// Criação de chamado pelo sistema (service role): portal do lojista,
+// Criação de chamado ou OS pelo sistema (service role): portal do lojista,
 // modelos de entrada e saída, planos preventivos e lembretes recorrentes.
 // Quem chama já conferiu o acesso (token do link, rotina do cron). A
 // categoria dá os padrões (tipo, responsável, prioridade, prazo,
-// confirmação, checklist), e quem chama pode sobrescrever.
+// confirmação, checklist), e quem chama pode sobrescrever. Só tipo 'os'
+// explícito cria OS (em os.ordens): a categoria de OS não transforma o
+// pedido do portal nem o modelo em OS.
 
 export interface NovoChamadoSistema {
   setorId: string;
@@ -37,11 +42,12 @@ export interface NovoChamadoSistema {
   solicitanteNome?: string | null;
   solicitanteTelefone?: string | null;
   lojaId?: string | null;
-  /** Onde: área comum, ponto (ex.: casa de máquinas) e bloco. */
+  /** Só na OS. Onde: área comum, ponto (ex.: casa de máquinas) e bloco. */
   local?: string | null;
   bloco?: string | null;
   ativoId?: string | null;
   vistoriaId?: string | null;
+  /** Só na OS: o plano preventivo e a data da ocorrência. */
   planoId?: string | null;
   planoData?: string | null;
   serieId?: string | null;
@@ -62,8 +68,7 @@ export interface NovoChamadoSistema {
   aviso?: { tipo: string; texto: string };
 }
 
-export interface ChamadoCriado {
-  id: string;
+export interface ChamadoCriado extends Alvo {
   numero: number;
 }
 
@@ -88,7 +93,9 @@ export async function criarChamadoSistema(
     categoria = data;
   }
 
-  const tipo = n.tipo ?? categoria?.tipo_padrao ?? "solicitacao";
+  const padrao =
+    categoria?.tipo_padrao === "os" ? null : categoria?.tipo_padrao;
+  const tipo = n.tipo ?? padrao ?? "solicitacao";
   const prazo = n.prazo ?? (await prazoDaCategoria(categoria, agora));
   const precisaConfirmacao =
     tipo === "aviso" ? false : (categoria?.precisa_confirmacao ?? true);
@@ -101,42 +108,51 @@ export async function criarChamadoSistema(
         }))
       : []);
 
-  const { data, error } = await db
-    .from("chamados")
-    .insert({
-      tipo,
-      titulo: n.titulo.slice(0, 200),
-      descricao: n.descricao ?? null,
-      setor_id: n.setorId,
-      categoria_id: n.categoriaId ?? null,
-      origem: n.origem,
-      prioridade: n.prioridade ?? categoria?.prioridade_padrao ?? "media",
-      precisa_confirmacao: precisaConfirmacao,
-      aberto_por: n.abertoPor ?? null,
-      responsavel_id:
-        n.responsavelId !== undefined
-          ? n.responsavelId
-          : (categoria?.responsavel_padrao_id ?? null),
-      prazo: prazo?.toISOString() ?? null,
-      solicitante_nome: n.solicitanteNome ?? null,
-      solicitante_telefone: n.solicitanteTelefone ?? null,
-      loja_id: n.lojaId ?? null,
-      local: n.local ?? null,
-      bloco: n.bloco ?? null,
-      ativo_id: n.ativoId ?? null,
-      vistoria_id: n.vistoriaId ?? null,
-      plano_id: n.planoId ?? null,
-      plano_data: n.planoData ?? null,
-      serie_id: n.serieId ?? null,
-      serie_data: n.serieData ?? null,
-      recorrencia: n.recorrencia ?? null,
-      campos: (n.campos ?? {}) as Json,
-      checklist: checklist as Json,
-      etiquetas: n.etiquetas ?? [],
-      execucao: tipo === "os" ? "interna" : null,
-    })
-    .select("id, numero, responsavel_id")
-    .single();
+  const comum = {
+    titulo: n.titulo.slice(0, 200),
+    descricao: n.descricao ?? null,
+    setor_id: n.setorId,
+    categoria_id: n.categoriaId ?? null,
+    origem: n.origem,
+    prioridade: n.prioridade ?? categoria?.prioridade_padrao ?? "media",
+    precisa_confirmacao: precisaConfirmacao,
+    aberto_por: n.abertoPor ?? null,
+    responsavel_id:
+      n.responsavelId !== undefined
+        ? n.responsavelId
+        : (categoria?.responsavel_padrao_id ?? null),
+    prazo: prazo?.toISOString() ?? null,
+    solicitante_nome: n.solicitanteNome ?? null,
+    solicitante_telefone: n.solicitanteTelefone ?? null,
+    loja_id: n.lojaId ?? null,
+    ativo_id: n.ativoId ?? null,
+    vistoria_id: n.vistoriaId ?? null,
+    serie_id: n.serieId ?? null,
+    serie_data: n.serieData ?? null,
+    recorrencia: n.recorrencia ?? null,
+    campos: (n.campos ?? {}) as Json,
+    checklist: checklist as Json,
+    etiquetas: n.etiquetas ?? [],
+  };
+  const COLUNAS = "id, numero, tipo, responsavel_id" as const;
+  const { data, error } =
+    tipo === "os"
+      ? await db
+          .from("ordens")
+          .insert({
+            ...comum,
+            local: n.local ?? null,
+            bloco: n.bloco ?? null,
+            plano_id: n.planoId ?? null,
+            plano_data: n.planoData ?? null,
+          })
+          .select(COLUNAS)
+          .single()
+      : await db
+          .from("chamados")
+          .insert({ ...comum, tipo })
+          .select(COLUNAS)
+          .single();
   if (error) {
     // Mesma série/plano na mesma data: já foi criado antes.
     if (error.code === "23505") return null;
@@ -146,7 +162,7 @@ export async function criarChamadoSistema(
   if (n.destinatarios?.length) {
     const { error: e } = await db.from("destinatarios").insert(
       n.destinatarios.map((d, i) => ({
-        chamado_id: data.id,
+        ...donoDo(data),
         setor_id: d.setorId ?? null,
         usuario_id: d.usuarioId ?? null,
         titulo: d.titulo ?? null,
@@ -158,10 +174,10 @@ export async function criarChamadoSistema(
     if (e) throw new Error(`Destinatários: ${e.message}`);
   }
 
-  await registrarComoSistema(data.id, {
+  await registrarComoSistema(data, {
     tipo: "criado",
     autorNome: n.autorNome,
-    texto: `Chamado aberto por ${n.autorNome}.`,
+    texto: `${tipo === "os" ? "OS aberta" : "Chamado aberto"} por ${n.autorNome}.`,
     dados: { origem: n.origem },
     visivelLojista: n.origem === "portal",
   });
@@ -172,7 +188,7 @@ export async function criarChamadoSistema(
     n.abertoPor ?? null,
     n.aviso,
   );
-  return { id: data.id, numero: data.numero };
+  return { id: data.id, tipo: data.tipo, numero: data.numero };
 }
 
 async function prazoDaCategoria(
@@ -207,14 +223,14 @@ async function prazoDaCategoria(
 async function avisarCriacao(
   ch: Pick<
     Tabela<"chamados">,
-    "id" | "numero" | "responsavel_id" | "setor_id" | "titulo"
+    "id" | "tipo" | "numero" | "responsavel_id" | "setor_id" | "titulo"
   >,
   destinos: NonNullable<NovoChamadoSistema["destinatarios"]>,
   autor: string | null,
   aviso?: NovoChamadoSistema["aviso"],
 ) {
-  const href = rotaChamado(ch.id);
-  const titulo = `#${ch.numero} ${ch.titulo}`;
+  const href = rotaDo(ch);
+  const titulo = `${numeroDo(ch)} ${ch.titulo}`;
   if (destinos.length) {
     const pessoas = new Set<string>();
     for (const d of destinos) {
@@ -230,7 +246,7 @@ async function avisarCriacao(
         titulo,
         texto: aviso?.texto ?? "Novo chamado para você ou o seu setor.",
         href,
-        chamadoId: ch.id,
+        alvo: ch,
       },
       autor,
     );
@@ -250,7 +266,7 @@ async function avisarCriacao(
           ? "Novo chamado com você."
           : "Novo chamado na fila do seu setor."),
       href,
-      chamadoId: ch.id,
+      alvo: ch,
     },
     autor,
   );

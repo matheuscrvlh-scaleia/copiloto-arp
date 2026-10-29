@@ -1,8 +1,8 @@
 import "server-only";
-import { formatarNumeroChamado } from "@/lib/os/numeros";
+import { formatarNumeroOS } from "@/lib/os/numeros";
 import { dataHoraBr } from "@/lib/os/relatorios";
-import { rotaChamado } from "@/lib/os/rotas";
-import { notificar, osAdmin } from "../base";
+import { rotaOrdem } from "@/lib/os/rotas";
+import { notificar, ordem, osAdmin } from "../base";
 
 // Prazo do terceirizado (spec 4.8): um dia antes de vencer, o responsável
 // da OS recebe o aviso para cobrar; o botão "Cobrar pelo WhatsApp" fica no
@@ -15,7 +15,7 @@ const ANTECEDENCIA_MS = 24 * 3_600_000;
 export async function rotinaCobrancaTerceirizado(agora: Date): Promise<number> {
   const db = osAdmin();
   const { data, error } = await db
-    .from("chamados")
+    .from("ordens")
     .select(
       "id, numero, titulo, responsavel_id, aberto_por, prazo_terceirizado",
     )
@@ -34,30 +34,30 @@ export async function rotinaCobrancaTerceirizado(agora: Date): Promise<number> {
   if (!ids.length) return 0;
   const { data: links } = await db
     .from("terceirizado_links")
-    .select("chamado_id, criado_por, terminado_em")
-    .in("chamado_id", ids)
+    .select("ordem_id, criado_por, terminado_em")
+    .in("ordem_id", ids)
     .is("cancelado_em", null);
 
   let avisadas = 0;
   for (const ch of data ?? []) {
-    const link = links?.find((l) => l.chamado_id === ch.id);
+    const link = links?.find((l) => l.ordem_id === ch.id);
     // Já terminou pelo link: não há o que cobrar.
     if (link?.terminado_em) continue;
     const prazo = ch.prazo_terceirizado as string;
     const vencido = new Date(prazo).getTime() < agora.getTime();
     await notificar([ch.responsavel_id ?? link?.criado_por ?? ch.aberto_por], {
       tipo: "cobranca",
-      titulo: `${formatarNumeroChamado(ch.numero)} ${ch.titulo}`,
+      titulo: `${formatarNumeroOS(ch.numero)} ${ch.titulo}`,
       texto: vencido
         ? `O prazo do terceirizado venceu em ${dataHoraBr(prazo)}. Cobre pelo WhatsApp na OS.`
         : `O prazo do terceirizado vence em ${dataHoraBr(prazo)}. Cobre pelo WhatsApp na OS.`,
-      href: rotaChamado(ch.id),
-      chamadoId: ch.id,
+      href: rotaOrdem(ch.id),
+      alvo: ordem(ch.id),
       // Link novo (outro prazo) avisa de novo: a chave leva o prazo.
       chave: `cobranca:${ch.id}:${prazo}`,
     });
     const { error: e } = await db
-      .from("chamados")
+      .from("ordens")
       .update({ cobranca_avisada_em: agora.toISOString() })
       .eq("id", ch.id);
     if (e) console.error("cobrança do terceirizado", ch.id, e);

@@ -43,6 +43,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { configDoSistema } from "./automacao";
 import {
   baixarArquivo,
+  chamado,
   os,
   osAdmin,
   type Parametros,
@@ -190,16 +191,12 @@ export type VistoriaResumo = Pick<
   ordens: number;
 };
 
-/** Ordens de serviço (ou chamados de um ambiente) que nasceram da vistoria. */
-const ehOsDaVistoria = (c: { tipo: string; ambiente_id: string | null }) =>
-  c.tipo === "os" || c.ambiente_id !== null;
-
 /**
- * "Com OS gerada" no banco: um segundo embutido dos chamados, com !inner,
- * deixa só as vistorias com OS (ou chamado de ambiente).
+ * "Com OS gerada" no banco: um segundo embutido das OS, com !inner, deixa
+ * só as vistorias com OS.
  */
 const comOS = (colunas: string, cartao: CriterioVistoria | null) =>
-  cartao?.comOS ? `${colunas}, osv:chamados!inner(id)` : colunas;
+  cartao?.comOS ? `${colunas}, osv:ordens!inner(id)` : colunas;
 
 function filtrarVistorias<Q extends Filtravel<Q>>(
   q: Q,
@@ -228,10 +225,6 @@ function filtrarVistorias<Q extends Filtravel<Q>>(
     if (c.ou) r = r.or(c.ou);
     if (c.dataEntre)
       r = r.gte("data", c.dataEntre.de).lt("data", c.dataEntre.ate);
-    if (c.comOS)
-      r = r.or("tipo.eq.os,ambiente_id.not.is.null", {
-        referencedTable: "osv",
-      });
   }
   return r;
 }
@@ -241,16 +234,16 @@ async function ordensDasVistorias(ids: string[]): Promise<Map<string, number>> {
   const ordens = new Map<string, number>();
   if (ids.length === 0) return ordens;
   const db = await os();
-  const chamados = await emPaginas((de, ate) =>
+  const lidas = await emPaginas((de, ate) =>
     db
-      .from("chamados")
-      .select("vistoria_id, tipo, ambiente_id")
+      .from("ordens")
+      .select("vistoria_id")
       .in("vistoria_id", ids)
       .order("id")
       .range(de, ate),
   );
-  for (const c of chamados) {
-    if (!c.vistoria_id || !ehOsDaVistoria(c)) continue;
+  for (const c of lidas) {
+    if (!c.vistoria_id) continue;
     ordens.set(c.vistoria_id, (ordens.get(c.vistoria_id) ?? 0) + 1);
   }
   return ordens;
@@ -447,7 +440,7 @@ export async function vistoriaCompleta(
   const db = await os();
   // Ambientes e chamados só dependem do id: vêm junto com a vistoria (o
   // RLS é o mesmo; sem a vistoria, nada disso é usado).
-  const [lida, ambientes, chamados] = await Promise.all([
+  const [lida, ambientes, chamados, ordensLidas] = await Promise.all([
     db.from("vistorias").select("*").eq("id", id).maybeSingle(),
     db
       .from("vistoria_ambientes")
@@ -460,12 +453,22 @@ export async function vistoriaCompleta(
       .select("id, numero, tipo, titulo, status, ambiente_id, criado_em")
       .eq("vistoria_id", id)
       .order("criado_em"),
+    db
+      .from("ordens")
+      .select("id, numero, tipo, titulo, status, ambiente_id, criado_em")
+      .eq("vistoria_id", id)
+      .order("criado_em"),
   ]);
   falhar(lida.error);
   const vistoria = lida.data;
   if (!vistoria) return null;
   falhar(ambientes.error);
   falhar(chamados.error);
+  falhar(ordensLidas.error);
+  // O chamado que pediu a vistoria e as OS dos ambientes, na ordem.
+  const ligados = [...(chamados.data ?? []), ...(ordensLidas.data ?? [])].sort(
+    (a, b) => a.criado_em.localeCompare(b.criado_em),
+  );
 
   const lista = ambientes.data ?? [];
   const idsEntrada = lista
@@ -527,7 +530,7 @@ export async function vistoriaCompleta(
     }),
     loja: loja.data ?? null,
     entrada: entrada.data ?? null,
-    chamados: chamados.data ?? [],
+    chamados: ligados,
     assinaturas: {
       locador: vistoria.assinatura_locador_path
         ? (urls.get(vistoria.assinatura_locador_path) ?? null)
@@ -796,7 +799,7 @@ export async function criarVistoriaDoContrato(p: {
       .select("codigo")
       .eq("id", id)
       .single();
-    await registrarComoSistema(p.chamadoId, {
+    await registrarComoSistema(chamado(p.chamadoId), {
       tipo: "sistema",
       autorNome: "Sistema",
       texto: `${TIPOS_VISTORIA[p.tipo]} ${v?.codigo ?? ""} criada para ${dadosDaLoja(loja.data).locatario}.`,

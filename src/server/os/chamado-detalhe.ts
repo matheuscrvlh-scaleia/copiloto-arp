@@ -32,8 +32,8 @@ import {
   papelNoChamado,
 } from "./chamados";
 
-// Tudo o que o detalhe do chamado mostra (página e janela lateral), lido
-// com a sessão: o que a pessoa não pode ver o RLS já tira.
+// Tudo o que o detalhe do chamado ou da OS mostra (página e janela
+// lateral), lido com a sessão: o que a pessoa não pode ver o RLS já tira.
 
 export interface ChamadoCurto {
   id: string;
@@ -74,9 +74,10 @@ export interface DetalheChamado {
   loja: Pick<Tabela<"lojas">, "id" | "luc" | "nome" | "telefone"> | null;
   ativo: { id: string; codigo: string; nome: string; local: string } | null;
   vistoria: { id: string; codigo: string } | null;
+  /** Na OS: o chamado a que ela está ligada. */
   vinculado: ChamadoCurto | null;
-  convertidoDe: ChamadoCurto | null;
-  convertidoEm: ChamadoCurto | null;
+  /** No chamado: as OS ligadas a ele. */
+  ordensLigadas: ChamadoCurto[];
   papel: Papel;
   acoes: AcaoChamado[];
   bloqueio: string | null;
@@ -88,7 +89,6 @@ export interface DetalheChamado {
     verVistoria: boolean;
     editar: boolean;
     definirTarefas: boolean;
-    converter: boolean;
   };
   avisoHoras: number;
   causasFalha: string[];
@@ -98,17 +98,25 @@ export interface DetalheChamado {
 const COLUNAS_CURTO = "id, numero, titulo, status, tipo";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Vínculo, origem e conversão numa consulta só (pelos ids). */
-async function curtos(
-  ids: (string | null)[],
-): Promise<Map<string, ChamadoCurto>> {
-  const unicos = [...new Set(ids.filter((x): x is string => !!x))];
-  if (!unicos.length) return new Map();
+/** O chamado ligado (a OS aponta para ele). */
+async function chamadoCurto(id: string | null): Promise<ChamadoCurto | null> {
+  if (!id) return null;
   const { data } = await (await os())
     .from("chamados")
     .select(COLUNAS_CURTO)
-    .in("id", unicos);
-  return new Map((data ?? []).map((c) => [c.id, c]));
+    .eq("id", id)
+    .maybeSingle();
+  return data;
+}
+
+/** As OS ligadas a um chamado (as que a pessoa vê). */
+async function ordensDoChamado(id: string): Promise<ChamadoCurto[]> {
+  const { data } = await (await os())
+    .from("ordens")
+    .select(COLUNAS_CURTO)
+    .eq("vinculado_a_id", id)
+    .order("numero");
+  return data ?? [];
 }
 
 async function lerLoja(id: string | null) {
@@ -144,22 +152,18 @@ async function lerVistoria(id: string | null, pode: boolean) {
   return data;
 }
 
-/** Destinos, linha do tempo, anexos e seguidores: só dependem do id. */
+/**
+ * Destinos, linha do tempo, anexos e seguidores: só dependem do id (único
+ * entre chamado e OS), então saem junto com a leitura do dono.
+ */
 async function filhosDoChamado(id: string) {
   const db = await os();
+  const dono = `chamado_id.eq.${id},ordem_id.eq.${id}`;
   return Promise.all([
-    db.from("destinatarios").select("*").eq("chamado_id", id).order("ordem"),
-    db
-      .from("eventos")
-      .select("*")
-      .eq("chamado_id", id)
-      .order("em", { ascending: true }),
-    db
-      .from("anexos")
-      .select("*")
-      .eq("chamado_id", id)
-      .order("em", { ascending: true }),
-    db.from("participantes").select("usuario_id, motivo").eq("chamado_id", id),
+    db.from("destinatarios").select("*").or(dono).order("ordem"),
+    db.from("eventos").select("*").or(dono).order("em", { ascending: true }),
+    db.from("anexos").select("*").or(dono).order("em", { ascending: true }),
+    db.from("participantes").select("usuario_id, motivo").or(dono),
   ]);
 }
 
@@ -223,20 +227,18 @@ export const carregarDetalhe = cache(
     const acoes = acoesDisponiveis({ ...ch, multiplos }, papel);
     const arquivos = anexos.data ?? [];
 
-    const [urls, loja, ativo, vistoria, vinculos, bloqueio] = await Promise.all(
-      [
+    const [urls, loja, ativo, vistoria, vinculado, bloqueio, ordensLigadas] =
+      await Promise.all([
         urlsAssinadas(arquivos.map((a) => a.path)),
         lerLoja(ch.loja_id),
         lerAtivo(ch.ativo_id),
         lerVistoria(ch.vistoria_id, ctx.pode("os.vistorias")),
-        curtos([ch.vinculado_a_id, ch.convertido_de_id, ch.convertido_em_id]),
+        chamadoCurto(ch.vinculado_a_id),
         acoes.includes("concluir") ? motivoDoBloqueio(ch) : null,
-      ],
-    );
-    const curto = (x: string | null) => (x ? (vinculos.get(x) ?? null) : null);
+        ch.tipo === "os" ? [] : ordensDoChamado(ch.id),
+      ]);
 
     const seguidores = (participantes.data ?? []).map((x) => x.usuario_id);
-    const aberto = ["aberto", "em_andamento", "aguardando"].includes(ch.status);
     const mensagens = (p.mensagens ?? {}) as Record<string, unknown>;
 
     return {
@@ -258,9 +260,8 @@ export const carregarDetalhe = cache(
       loja,
       ativo,
       vistoria,
-      vinculado: curto(ch.vinculado_a_id),
-      convertidoDe: curto(ch.convertido_de_id),
-      convertidoEm: curto(ch.convertido_em_id),
+      vinculado,
+      ordensLigadas,
       papel,
       acoes,
       bloqueio,
@@ -279,8 +280,6 @@ export const carregarDetalhe = cache(
         // A mesma regra de definirTarefaDestino.
         definirTarefas:
           papel.solicitante || papel.responsavel || papel.doSetor || ehGestor,
-        converter:
-          aberto && ch.tipo !== "os" && ch.tipo !== "aviso" && !ch.pessoal,
       },
       avisoHoras: p.aviso_vencimento_horas,
       causasFalha: p.causas_falha,

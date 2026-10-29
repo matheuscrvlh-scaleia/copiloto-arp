@@ -13,7 +13,13 @@ import type { Calendario } from "@/lib/os/prazo";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import { registrarDepois } from "@/server/logs";
 import { configDoSistema } from "./automacao";
-import { os, osAdmin, registrarComoSistema, type Tabela } from "./base";
+import {
+  chamado,
+  os,
+  osAdmin,
+  registrarComoSistema,
+  type Tabela,
+} from "./base";
 import { criarChamadoSistema } from "./criar";
 import { encerrarAcessoDaLoja, portalDaLoja } from "./portal";
 import { criarVistoriaDoContrato } from "./vistorias";
@@ -212,7 +218,7 @@ async function executarAcao(
         return null;
       case "portal_gerar": {
         const { url, temCnpj } = await portalDaLoja(p.loja.id);
-        await registrarComoSistema(chamadoId, {
+        await registrarComoSistema(chamado(chamadoId), {
           tipo: "sistema",
           autorNome: "Sistema",
           texto: temCnpj
@@ -223,7 +229,7 @@ async function executarAcao(
       }
       case "portal_cancelar": {
         const encerradas = await encerrarAcessoDaLoja(p.loja.id, usuarioId);
-        await registrarComoSistema(chamadoId, {
+        await registrarComoSistema(chamado(chamadoId), {
           tipo: "sistema",
           autorNome: "Sistema",
           texto: encerradas
@@ -236,7 +242,7 @@ async function executarAcao(
   } catch (erro) {
     const texto = `Não foi possível ${ACOES[acao].toLowerCase()}: ${erro instanceof Error ? erro.message : "erro"}. Faça pela tela.`;
     console.error("ação do modelo", acao, p.loja.id, erro);
-    await registrarComoSistema(chamadoId, {
+    await registrarComoSistema(chamado(chamadoId), {
       tipo: "sistema",
       autorNome: "Sistema",
       texto,

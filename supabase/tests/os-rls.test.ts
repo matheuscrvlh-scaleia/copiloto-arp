@@ -4,6 +4,11 @@
 // os.pode_editar_chamado, os.envolvido) continuam no banco e servem de
 // oráculo: rodadas como dono da tabela (sem RLS), com o usuário na sessão,
 // dizem o que a regra antiga liberava.
+//
+// A OS (os.ordens, 20261029120000) segue a mesma regra do chamado: cada caso
+// tem uma OS espelho ("OS K01 ..."), com oráculo em os.pode_ver_ordem e
+// os.pode_editar_ordem. As filhas só da OS (tempo, materiais, custos,
+// terceirizado) ficam só nas OS.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
@@ -95,6 +100,8 @@ const U = Object.fromEntries(
 const SETOR = {} as Record<Setor, string>;
 // Título -> id.
 const K: Record<string, string> = {};
+/** As OS espelho de cada caso, pelo título do chamado. */
+const KO: Record<string, string> = {};
 
 let db: PGlite;
 
@@ -139,9 +146,12 @@ async function desfazendo<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-// Ids de chamado -> títulos, em ordem.
+// Ids de chamado e de OS -> títulos, em ordem.
 const nomes = (ids: string[]) => {
-  const porId = Object.fromEntries(Object.entries(K).map(([t, id]) => [id, t]));
+  const porId = Object.fromEntries([
+    ...Object.entries(K).map(([t, id]) => [id, t]),
+    ...Object.entries(KO).map(([t, id]) => [id, `OS ${t}`]),
+  ]);
   return [...new Set(ids.map((id) => porId[id] ?? id))].sort();
 };
 
@@ -152,6 +162,21 @@ async function idsDe(sql: string, coluna = "id"): Promise<string[]> {
 
 const vistos = (u: Pessoa) =>
   como(U[u], async () => nomes(await idsDe("select id from os.chamados")));
+
+/** Dono da linha filha (chamado ou OS) e a regra antiga sobre ele. */
+const COMPARTILHADAS = [
+  "os.eventos",
+  "os.anexos",
+  "os.destinatarios",
+  "os.participantes",
+];
+const dono = (tabela: string) =>
+  COMPARTILHADAS.includes(tabela)
+    ? "coalesce(chamado_id, ordem_id) as dono"
+    : "ordem_id as dono";
+const regraDoDono = (acao: "ver" | "editar") =>
+  `case when chamado_id is not null then os.pode_${acao}_chamado(chamado_id)
+        else os.pode_${acao}_ordem(ordem_id) end`;
 
 async function inserir(
   tabela: string,
@@ -219,22 +244,32 @@ beforeAll(async () => {
       ]);
   }
 
-  const chamado = (
+  // Cada caso: o chamado e a OS espelho (mesmos campos).
+  const chamado = async (
     titulo: string,
     setor: Setor,
     campos: Record<string, string | null> = {},
-  ) =>
-    inserir("os.chamados", {
-      tipo: "solicitacao",
+  ) => {
+    const linha = {
       titulo,
       setor_id: SETOR[setor],
       aberto_por: null,
       responsavel_id: U.responsavel,
       ...campos,
-    }).then((id) => {
-      K[titulo] = id;
-      return id;
-    });
+    };
+    K[titulo] = await inserir("os.chamados", { tipo: "solicitacao", ...linha });
+    KO[titulo] = await inserir("os.ordens", linha);
+    return titulo;
+  };
+  // A mesma filha no chamado e na OS do caso.
+  const nosDois = async (
+    tabela: string,
+    titulo: string,
+    campos: Record<string, string | null>,
+  ) => {
+    await inserir(tabela, { chamado_id: K[titulo] as string, ...campos });
+    await inserir(tabela, { ordem_id: KO[titulo] as string, ...campos });
+  };
 
   await chamado("K01 fila", "S", {
     aberto_por: U.abriu,
@@ -243,21 +278,16 @@ beforeAll(async () => {
   await chamado("K02 atribuído", "S");
   await chamado("K03 fila do marketing", "M", { responsavel_id: null });
   const k4 = await chamado("K04 destino pessoa", "M");
-  await inserir("os.destinatarios", {
-    chamado_id: k4,
-    usuario_id: U.destPessoa,
-  });
+  await nosDois("os.destinatarios", k4, { usuario_id: U.destPessoa });
   const k5 = await chamado("K05 destino setor", "G");
-  await inserir("os.destinatarios", { chamado_id: k5, setor_id: SETOR.C });
+  await nosDois("os.destinatarios", k5, { setor_id: SETOR.C });
   const k6 = await chamado("K06 destino com responsável", "G");
-  await inserir("os.destinatarios", {
-    chamado_id: k6,
+  await nosDois("os.destinatarios", k6, {
     setor_id: SETOR.G,
     responsavel_id: U.destResp,
   });
   const k7 = await chamado("K07 participante", "G");
-  await inserir("os.participantes", {
-    chamado_id: k7,
+  await nosDois("os.participantes", k7, {
     usuario_id: U.participante,
     motivo: "mencionado",
   });
@@ -267,27 +297,35 @@ beforeAll(async () => {
   await chamado("K09 do setor", "S");
   await chamado("K10 fila da gestão", "G", { responsavel_id: null });
 
-  // Filhas em todos os chamados.
+  // Filhas em todos os chamados e OS (as da execução, só nas OS).
   const empresa = await inserir("os.empresas", { nome: "Terceirizada" });
   const profissional = await inserir("os.profissionais", {
     empresa_id: empresa,
     nome: "Profissional",
   });
   const tecnico = await inserir("os.tecnicos", { nome: "Técnico" });
-  for (const [i, id] of Object.values(K).entries()) {
+  for (const id of Object.values(K)) {
     await inserir("os.eventos", { chamado_id: id, tipo: "comentario" });
     await inserir("os.anexos", {
       chamado_id: id,
       nome: "foto.jpg",
       path: `chamados/${id}/foto.jpg`,
     });
+  }
+  for (const [i, id] of Object.values(KO).entries()) {
+    await inserir("os.eventos", { ordem_id: id, tipo: "comentario" });
+    await inserir("os.anexos", {
+      ordem_id: id,
+      nome: "foto.jpg",
+      path: `ordens/${id}/foto.jpg`,
+    });
     await inserir("os.materiais", {
-      chamado_id: id,
+      ordem_id: id,
       descricao: "Material",
       quantidade: 1,
     });
     const sessao = await inserir("os.sessoes", {
-      chamado_id: id,
+      ordem_id: id,
       data: "2026-10-26",
       inicio: "08:00",
     });
@@ -295,13 +333,13 @@ beforeAll(async () => {
       sessao_id: sessao,
       tecnico_id: tecnico,
     });
-    await inserir("os.os_custos", { chamado_id: id });
-    await inserir("os.chamado_profissionais", {
-      chamado_id: id,
+    await inserir("os.os_custos", { ordem_id: id });
+    await inserir("os.ordem_profissionais", {
+      ordem_id: id,
       profissional_id: profissional,
     });
     await inserir("os.terceirizado_links", {
-      chamado_id: id,
+      ordem_id: id,
       token: `token-${String(i).padStart(4, "0")}-${"x".repeat(32)}`,
     });
   }
@@ -403,6 +441,65 @@ describe(
       }
     });
 
+    it("select em os.ordens = os.pode_ver_ordem = o do chamado", async () => {
+      for (const u of pessoas) {
+        const agora = await como(U[u], async () =>
+          nomes(await idsDe("select id from os.ordens")),
+        );
+        const antes = await oraculo(U[u], async () =>
+          nomes(
+            await idsDe("select id from os.ordens where os.pode_ver_ordem(id)"),
+          ),
+        );
+        expect(agora, u).toEqual(antes);
+        expect(agora, u).toEqual((await vistos(u)).map((t) => `OS ${t}`));
+      }
+    });
+
+    it("update em os.ordens = os.pode_editar_ordem = o do chamado", async () => {
+      for (const u of pessoas) {
+        const antes = await oraculo(U[u], async () =>
+          nomes(
+            await idsDe(
+              "select id from os.ordens where os.pode_editar_ordem(id)",
+            ),
+          ),
+        );
+        const agora = await desfazendo(() =>
+          como(U[u], async () =>
+            nomes(
+              await idsDe(
+                "update os.ordens set descricao = 'editado' returning id",
+              ),
+            ),
+          ),
+        );
+        expect(agora, u).toEqual(antes);
+        const doChamado = await oraculo(U[u], async () =>
+          nomes(
+            await idsDe(
+              "select id from os.chamados where os.pode_editar_chamado(id)",
+            ),
+          ),
+        );
+        expect(agora, u).toEqual(doChamado.map((t) => `OS ${t}`));
+      }
+    });
+
+    it("os.minhas_ordens_envolvidas() = os.envolvido_na_ordem (com o módulo)", async () => {
+      for (const u of pessoas) {
+        const [antes, agora] = await oraculo(U[u], async () => [
+          nomes(
+            await idsDe(
+              "select id from os.ordens where os.envolvido_na_ordem(id) and core.pode_modulo('os')",
+            ),
+          ),
+          nomes(await idsDe("select id from os.minhas_ordens_envolvidas() id")),
+        ]);
+        expect(agora, u).toEqual(antes);
+      }
+    });
+
     // Com o módulo: a função nova só responde a quem usa o módulo (a regra
     // de ver já exigia core.pode_modulo junto de os.envolvido).
     it("os.meus_chamados_envolvidos() = os.envolvido (com o módulo)", async () => {
@@ -419,45 +516,39 @@ describe(
       }
     });
 
-    // Filha -> regra antiga, sobre o chamado_id da linha.
-    const FILHAS: [string, string, string][] = [
-      ["os.eventos", "chamado_id", "os.pode_ver_chamado(chamado_id)"],
+    // Filha -> regra antiga, sobre o dono da linha (chamado ou OS).
+    const FILHAS: [string, string][] = [
+      ["os.eventos", regraDoDono("ver")],
       [
         "os.anexos",
-        "chamado_id",
-        "chamado_id is not null and os.pode_ver_chamado(chamado_id)",
+        `coalesce(chamado_id, ordem_id) is not null and ${regraDoDono("ver")}`,
       ],
-      ["os.destinatarios", "chamado_id", "os.pode_ver_chamado(chamado_id)"],
-      ["os.participantes", "chamado_id", "os.pode_ver_chamado(chamado_id)"],
-      ["os.sessoes", "chamado_id", "os.pode_ver_chamado(chamado_id)"],
-      ["os.materiais", "chamado_id", "os.pode_ver_chamado(chamado_id)"],
+      ["os.destinatarios", regraDoDono("ver")],
+      ["os.participantes", regraDoDono("ver")],
+      ["os.sessoes", "os.pode_ver_ordem(ordem_id)"],
+      ["os.materiais", "os.pode_ver_ordem(ordem_id)"],
       [
         "os.os_custos",
-        "chamado_id",
-        "core.pode('os.custos') and os.pode_ver_chamado(chamado_id)",
+        "core.pode('os.custos') and os.pode_ver_ordem(ordem_id)",
       ],
-      [
-        "os.chamado_profissionais",
-        "chamado_id",
-        "os.pode_ver_chamado(chamado_id)",
-      ],
+      ["os.ordem_profissionais", "os.pode_ver_ordem(ordem_id)"],
       [
         "os.terceirizado_links",
-        "chamado_id",
-        "core.pode('os.terceirizados') or os.pode_editar_chamado(chamado_id)",
+        "core.pode('os.terceirizados') or os.pode_editar_ordem(ordem_id)",
       ],
     ];
 
-    it.each(
-      FILHAS,
-    )("select em %s = regra antiga", async (tabela, col, regra) => {
+    it.each(FILHAS)("select em %s = regra antiga", async (tabela, regra) => {
       for (const u of pessoas) {
         const agora = await como(U[u], async () =>
-          nomes(await idsDe(`select ${col} from ${tabela}`, col)),
+          nomes(await idsDe(`select ${dono(tabela)} from ${tabela}`, "dono")),
         );
         const antes = await oraculo(U[u], async () =>
           nomes(
-            await idsDe(`select ${col} from ${tabela} where ${regra}`, col),
+            await idsDe(
+              `select ${dono(tabela)} from ${tabela} where ${regra}`,
+              "dono",
+            ),
           ),
         );
         expect(agora, `${tabela} ${u}`).toEqual(antes);
@@ -467,48 +558,71 @@ describe(
     it("select em os.sessao_tecnicos = regra antiga", async () => {
       for (const u of pessoas) {
         const sql = (regra: string) =>
-          `select s.chamado_id from os.sessao_tecnicos st
+          `select s.ordem_id from os.sessao_tecnicos st
          join os.sessoes s on s.id = st.sessao_id ${regra}`;
         const agora = await como(U[u], async () =>
           nomes(
             await idsDe(
-              "select (select chamado_id from os.sessoes s where s.id = st.sessao_id) as chamado_id from os.sessao_tecnicos st",
-              "chamado_id",
+              "select (select ordem_id from os.sessoes s where s.id = st.sessao_id) as ordem_id from os.sessao_tecnicos st",
+              "ordem_id",
             ),
           ),
         );
         const antes = await oraculo(U[u], async () =>
           nomes(
-            await idsDe(
-              sql("where os.pode_ver_chamado(s.chamado_id)"),
-              "chamado_id",
-            ),
+            await idsDe(sql("where os.pode_ver_ordem(s.ordem_id)"), "ordem_id"),
           ),
         );
         expect(agora, u).toEqual(antes);
       }
     });
 
-    // Tabela, set do update e se exige os.custos além da edição do chamado.
-    const EDICOES: [string, string, boolean][] = [
-      ["os.materiais", "descricao = 'outro'", false],
-      ["os.sessoes", "observacao = 'outro'", false],
-      ["os.chamado_profissionais", "profissional_id = profissional_id", false],
-      ["os.destinatarios", "observacao = 'outro'", false],
-      ["os.os_custos", "valor_terceirizado = 1", true],
+    // Tabela, set do update, regra de edição sobre o dono e se exige
+    // os.custos além dela.
+    const EDICOES: [string, string, string, boolean][] = [
+      [
+        "os.materiais",
+        "descricao = 'outro'",
+        "os.pode_editar_ordem(ordem_id)",
+        false,
+      ],
+      [
+        "os.sessoes",
+        "observacao = 'outro'",
+        "os.pode_editar_ordem(ordem_id)",
+        false,
+      ],
+      [
+        "os.ordem_profissionais",
+        "profissional_id = profissional_id",
+        "os.pode_editar_ordem(ordem_id)",
+        false,
+      ],
+      [
+        "os.destinatarios",
+        "observacao = 'outro'",
+        regraDoDono("editar"),
+        false,
+      ],
+      [
+        "os.os_custos",
+        "valor_terceirizado = 1",
+        "os.pode_editar_ordem(ordem_id)",
+        true,
+      ],
     ];
 
     it.each(
       EDICOES,
-    )("update e delete em %s = os.pode_editar_chamado", async (tabela, set, exigeCustos) => {
+    )("update e delete em %s = regra antiga", async (tabela, set, regra, exigeCustos) => {
       for (const u of pessoas) {
         const esperado = await oraculo(U[u], async () =>
           nomes(
             await idsDe(
-              `select distinct chamado_id from ${tabela}
-               where os.pode_editar_chamado(chamado_id)
+              `select distinct ${dono(tabela)} from ${tabela}
+               where ${regra}
                  ${exigeCustos ? "and core.pode('os.custos')" : ""}`,
-              "chamado_id",
+              "dono",
             ),
           ),
         );
@@ -516,8 +630,8 @@ describe(
           como(U[u], async () =>
             nomes(
               await idsDe(
-                `update ${tabela} set ${set} returning chamado_id`,
-                "chamado_id",
+                `update ${tabela} set ${set} returning ${dono(tabela)}`,
+                "dono",
               ),
             ),
           ),
@@ -527,8 +641,8 @@ describe(
           como(U[u], async () =>
             nomes(
               await idsDe(
-                `delete from ${tabela} returning chamado_id`,
-                "chamado_id",
+                `delete from ${tabela} returning ${dono(tabela)}`,
+                "dono",
               ),
             ),
           ),
@@ -537,13 +651,13 @@ describe(
       }
     });
 
-    it("delete em os.sessao_tecnicos = os.pode_editar_chamado da sessão", async () => {
+    it("delete em os.sessao_tecnicos = os.pode_editar_ordem da sessão", async () => {
       for (const u of pessoas) {
         const esperado = await oraculo(U[u], () =>
           valor<number>(
             `select count(*)::int from os.sessao_tecnicos st
            join os.sessoes s on s.id = st.sessao_id
-           where os.pode_editar_chamado(s.chamado_id)`,
+           where os.pode_editar_ordem(s.ordem_id)`,
           ),
         );
         // Sem returning nem where: só a política de delete decide.
@@ -557,63 +671,82 @@ describe(
       }
     });
 
-    // Tabela, insert de uma linha no chamado e a regra antiga que decidia.
+    // Tabela, insert de uma linha (coluna do dono, id, eu), a regra antiga
+    // que decidia e em que donos a tabela existe.
+    type Dono = "chamado" | "ordem";
     const INSERCOES: [
       string,
-      (id: string, eu: string) => string,
+      (col: string, id: string, eu: string) => string,
       "ver" | "editar",
+      Dono[],
     ][] = [
       [
         "os.eventos",
-        (id, eu) =>
-          `insert into os.eventos (chamado_id, tipo, autor_id) values ('${id}', 'comentario', '${eu}')`,
+        (col, id, eu) =>
+          `insert into os.eventos (${col}, tipo, autor_id) values ('${id}', 'comentario', '${eu}')`,
         "ver",
+        ["chamado", "ordem"],
       ],
       [
         "os.participantes",
-        (id) =>
-          `insert into os.participantes (chamado_id, usuario_id) values ('${id}', '${U.todos}')`,
+        (col, id) =>
+          `insert into os.participantes (${col}, usuario_id) values ('${id}', '${U.todos}')`,
         "ver",
+        ["chamado", "ordem"],
       ],
       [
         "os.materiais",
-        (id) =>
-          `insert into os.materiais (chamado_id, descricao, quantidade) values ('${id}', 'Novo', 2)`,
+        (col, id) =>
+          `insert into os.materiais (${col}, descricao, quantidade) values ('${id}', 'Novo', 2)`,
         "editar",
+        ["ordem"],
       ],
       [
         "os.anexos",
-        (id) =>
-          `insert into os.anexos (chamado_id, nome, path) values ('${id}', 'b.jpg', 'chamados/${id}/b.jpg')`,
+        (col, id) =>
+          `insert into os.anexos (${col}, nome, path) values ('${id}', 'b.jpg', 'x/${id}/b.jpg')`,
         "editar",
+        ["chamado", "ordem"],
       ],
       [
         "os.destinatarios",
-        (id) =>
-          `insert into os.destinatarios (chamado_id, setor_id) values ('${id}', '${SETOR.M}')`,
+        (col, id) =>
+          `insert into os.destinatarios (${col}, setor_id) values ('${id}', '${SETOR.M}')`,
         "editar",
+        ["chamado", "ordem"],
       ],
     ];
 
     it.each(
       INSERCOES,
-    )("insert em %s = regra antiga", async (tabela, sql, regra) => {
+    )("insert em %s = regra antiga", async (tabela, sql, regra, donos) => {
       for (const u of pessoas) {
         const esperado = await oraculo(U[u], async () =>
           nomes(
             await idsDe(
-              `select id from os.chamados where os.pode_${regra}_chamado(id)`,
+              donos
+                .map((d) =>
+                  d === "chamado"
+                    ? `select id from os.chamados where os.pode_${regra}_chamado(id)`
+                    : `select id from os.ordens where os.pode_${regra}_ordem(id)`,
+                )
+                .join(" union all "),
             ),
+          ),
+        );
+        const alvos = donos.flatMap((d) =>
+          Object.values(d === "chamado" ? K : KO).map(
+            (id) => [`${d}_id`, id] as const,
           ),
         );
         const ok: string[] = [];
         const erros: string[] = [];
         await desfazendo(() =>
           como(U[u], async () => {
-            for (const id of Object.values(K)) {
+            for (const [col, id] of alvos) {
               await db.exec("savepoint tentativa");
               try {
-                await db.query(sql(id, U[u]));
+                await db.query(sql(col, id, U[u]));
                 ok.push(id);
                 await db.exec("release savepoint tentativa");
               } catch (e) {
@@ -729,11 +862,16 @@ describe("plano: regra calculada uma vez por consulta", () => {
         .join("\n"),
     );
 
-  it("os.chamados: InitPlan e hashed SubPlan, sem função por linha", async () => {
-    const p = await plano("membro", "select id from os.chamados");
+  it.each([
+    "chamados",
+    "ordens",
+  ])("os.%s: InitPlan e hashed SubPlan, sem função por linha", async (t) => {
+    const p = await plano("membro", `select id from os.${t}`);
     expect(p).toMatch(/InitPlan/);
     expect(p).toMatch(/hashed SubPlan/);
-    expect(p).not.toMatch(/ve_chamado|envolvido\(|gerencia\(|pode_ver_chamado/);
+    expect(p).not.toMatch(
+      /ve_chamado|envolvido(_na_ordem)?\(|gerencia\(|pode_ver_(chamado|ordem)/,
+    );
   });
 
   it("filhas: sem os.pode_ver_chamado por linha", async () => {
@@ -745,9 +883,7 @@ describe("plano: regra calculada uma vez por consulta", () => {
       "materiais",
     ]) {
       const p = await plano("membro", `select * from os.${t}`);
-      expect(p, t).not.toMatch(
-        /pode_ver_chamado|pode_editar_chamado|ve_chamado/,
-      );
+      expect(p, t).not.toMatch(/pode_(ver|editar)_(chamado|ordem)|ve_chamado/);
       expect(p, t).toMatch(/InitPlan/);
     }
   });

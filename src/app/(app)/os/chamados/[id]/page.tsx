@@ -1,16 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import {
   DetalheCarregando,
   DetalheChamado,
 } from "@/components/os/chamado/detalhe";
 import { Protegido } from "@/components/protegido";
-import { ROTAS_OS } from "@/lib/os/rotas";
+import { ROTAS_OS, rotaOrdem } from "@/lib/os/rotas";
+import { carregarDetalhe } from "@/server/os/chamado-detalhe";
 
 export const metadata: Metadata = { title: "Chamado" };
 
 // Página inteira do chamado (a mesma visão da janela lateral das listas).
+// Id de OS (link antigo, notificação de antes da separação): vai para a
+// página da OS.
 export default function Page({ params }: { params: Promise<{ id: string }> }) {
   return (
     <>
@@ -31,5 +35,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
 
 async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // A mesma leitura do detalhe (cache da requisição): não lê duas vezes.
+  if ((await carregarDetalhe(id))?.ch.tipo === "os") redirect(rotaOrdem(id));
   return <DetalheChamado id={id} />;
 }

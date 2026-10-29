@@ -14,10 +14,10 @@ import {
   type Papel,
   statusAoConcluir,
 } from "@/lib/os/ciclo";
-import { formatarNumeroChamado } from "@/lib/os/numeros";
+import { numeroDo } from "@/lib/os/numeros";
 import { calcularPrazo } from "@/lib/os/prazo";
 import type { Recorrencia } from "@/lib/os/recorrencia";
-import { rotaChamado } from "@/lib/os/rotas";
+import { rotaDo } from "@/lib/os/rotas";
 import {
   MOTIVOS_AGUARDANDO,
   type MotivoAguardando,
@@ -29,11 +29,15 @@ import type { Json } from "@/lib/supabase/database.types";
 import { erroDoBanco } from "@/server/acoes";
 import { podeConcluirOS } from "@/server/os/ordem";
 import {
+  type Alvo,
   type Contexto,
   calendario,
   caminhoDoArquivo,
+  chaveDo,
   contexto,
+  donoDo,
   type Enum,
+  ehOrdem,
   enviarArquivo,
   membrosDoSetor,
   notificar,
@@ -41,14 +45,17 @@ import {
   osAdmin,
   pessoas,
   registrar,
-  registrarComoSistema,
   type Tabela,
+  tabelaDo,
 } from "./base";
 
-// Chamado aberto e movido por um usuário logado: tudo pela sessão (RLS e os
-// gatilhos os.validar_chamado e os.ciclo_do_chamado decidem o que vale).
-// Criação pelo sistema (portal, modelos, preventivas) fica em ./criar.ts.
+// Chamado ou OS aberto e movido por um usuário logado: tudo pela sessão (RLS
+// e os gatilhos os.validar_chamado e os.ciclo_do_chamado decidem o que
+// vale). O tipo decide a tabela: 'os' fica em os.ordens, o resto em
+// os.chamados. Criação pelo sistema (portal, modelos, preventivas) fica em
+// ./criar.ts.
 
+/** Linha de os.chamados ou de os.ordens (a OS tem as mesmas colunas). */
 export type Chamado = Tabela<"chamados">;
 
 export interface Resultado {
@@ -65,19 +72,27 @@ const MUDOU: Resultado = {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** O chamado inteiro, se a pessoa pode vê-lo (RLS). */
+/**
+ * O chamado ou a OS inteira, se a pessoa pode vê-la (RLS). O id é único
+ * entre as duas tabelas; as duas leituras saem juntas.
+ */
 export async function lerChamado(id: string): Promise<Chamado | null> {
   if (!UUID.test(id)) return null;
-  const { data, error } = await (await os())
-    .from("chamados")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) {
-    console.error("ler chamado", id, error);
+  const db = await os();
+  const [c, o] = await Promise.all([
+    db.from("chamados").select("*").eq("id", id).maybeSingle(),
+    db
+      .from(tabelaDo({ tipo: "os" }))
+      .select("*")
+      .eq("id", id)
+      .maybeSingle(),
+  ]);
+  const erro = c.error ?? o.error;
+  if (erro) {
+    console.error("ler chamado", id, erro);
     return null;
   }
-  return data;
+  return c.data ?? o.data;
 }
 
 /** Gestor do setor: a mesma regra de os.gerencia no banco. */
@@ -110,7 +125,7 @@ export function papelNoChamado(
  * seguir o chamado (os.envolvido), como quem foi citado.
  */
 export async function manterAcesso(
-  ch: Pick<Chamado, "id" | "aberto_por">,
+  ch: Pick<Chamado, "id" | "tipo" | "aberto_por">,
   ctx: Contexto,
   depois: { setorId: string; responsavelId: string | null },
 ): Promise<void> {
@@ -129,18 +144,18 @@ export async function manterAcesso(
   const { error } = await (await os())
     .from("participantes")
     .upsert(
-      { chamado_id: ch.id, usuario_id: eu, motivo: "seguindo" },
-      { onConflict: "chamado_id,usuario_id", ignoreDuplicates: true },
+      { ...donoDo(ch), usuario_id: eu, motivo: "seguindo" },
+      { onConflict: `${chaveDo(ch)},usuario_id`, ignoreDuplicates: true },
     );
   if (error) console.error("seguir antes de transferir", ch.id, error);
 }
 
 /** Quantos destinatários o chamado tem (vários: cada um conclui o seu). */
-export async function contarDestinos(chamadoId: string): Promise<number> {
+export async function contarDestinos(alvo: Alvo): Promise<number> {
   const { count } = await (await os())
     .from("destinatarios")
     .select("id", { count: "exact", head: true })
-    .eq("chamado_id", chamadoId);
+    .eq(chaveDo(alvo), alvo.id);
   return count ?? 0;
 }
 
@@ -157,7 +172,7 @@ export async function motivoDoBloqueio(ch: Chamado): Promise<string | null> {
   if (checklist) return checklist;
   // Regras do tempo e da OS (cronômetro rodando, solução da terceirizada,
   // orçamento acima do teto): um lugar só, no módulo da OS.
-  return podeConcluirOS(ch.id);
+  return ehOrdem(ch) ? podeConcluirOS(ch.id) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,7 +203,7 @@ export function conferirArquivos(arquivos: File[]): string | null {
  * no chamado) e só então o arquivo vai para o bucket. Devolve os nomes.
  */
 export async function anexar(
-  chamadoId: string,
+  alvo: Alvo,
   arquivos: File[],
   opcoes: { eventoId?: number | null; visivelLojista?: boolean } = {},
 ): Promise<{ nomes: string[]; erro?: string }> {
@@ -196,12 +211,12 @@ export async function anexar(
   const db = await os();
   const nomes: string[] = [];
   for (const arquivo of arquivos) {
-    const path = caminhoDoArquivo("chamados", chamadoId, arquivo.name);
+    const path = caminhoDoArquivo(tabelaDo(alvo), alvo.id, arquivo.name);
     const foto = arquivo.type.startsWith("image/");
     const { data, error } = await db
       .from("anexos")
       .insert({
-        chamado_id: chamadoId,
+        ...donoDo(alvo),
         evento_id: opcoes.eventoId ?? null,
         categoria: foto ? "foto" : "anexo",
         nome: arquivo.name.slice(0, 200),
@@ -222,7 +237,7 @@ export async function anexar(
       );
       nomes.push(arquivo.name);
     } catch (e) {
-      console.error("anexo", chamadoId, e);
+      console.error("anexo", alvo.id, e);
       await db.from("anexos").delete().eq("id", data.id);
       return { nomes, erro: `Não foi possível enviar “${arquivo.name}”.` };
     }
@@ -257,9 +272,8 @@ export interface NovoChamado {
   ativoId: string | null;
   vistoriaId: string | null;
   ambienteId: string | null;
+  /** Chamado vinculado (só referência). */
   vinculadoAId: string | null;
-  /** Converter em OS: o chamado de origem (fecha ao criar a OS). */
-  convertidoDeId: string | null;
   recorrencia: Recorrencia | null;
   campos: Record<string, ValorCampo>;
   /** Arquivos soltos e os dos campos de foto/anexo da categoria. */
@@ -275,7 +289,10 @@ export interface ChamadoAberto {
   aviso?: string;
 }
 
-/** Abre o chamado em nome de quem está logado (RLS: aberto_por = eu). */
+/**
+ * Abre o chamado (ou a OS, tipo 'os', em os.ordens) em nome de quem está
+ * logado (RLS: aberto_por = eu). Um não cria o outro.
+ */
 export async function criarChamado(
   n: NovoChamado,
 ): Promise<ChamadoAberto | { erro: string }> {
@@ -285,15 +302,16 @@ export async function criarChamado(
   const eu = ctx.usuario.id;
   const db = await os();
   const agora = new Date();
+  const ehOS = n.tipo === "os";
 
-  // A categoria (lida com a sessão: só a que a pessoa vê) e a original da
-  // conversão não dependem uma da outra.
-  const [lidaCategoria, original] = await Promise.all([
-    n.categoriaId
-      ? db.from("categorias").select("*").eq("id", n.categoriaId).maybeSingle()
-      : null,
-    n.convertidoDeId ? lerChamado(n.convertidoDeId) : null,
-  ]);
+  // A categoria é lida com a sessão: só a que a pessoa vê.
+  const lidaCategoria = n.categoriaId
+    ? await db
+        .from("categorias")
+        .select("*")
+        .eq("id", n.categoriaId)
+        .maybeSingle()
+    : null;
   let categoria: Tabela<"categorias"> | null = null;
   if (n.categoriaId) {
     const data = lidaCategoria?.data;
@@ -309,11 +327,6 @@ export async function criarChamado(
       if (!pai?.ativo) return { erro: "Categoria indisponível." };
     }
     categoria = data;
-  }
-  if (n.convertidoDeId) {
-    if (!original) return NAO_ENCONTRADO as { erro: string };
-    if (!["aberto", "em_andamento", "aguardando"].includes(original.status))
-      return { erro: "Só dá para converter um chamado que ainda está aberto." };
   }
 
   const prazo =
@@ -338,13 +351,10 @@ export async function criarChamado(
     n.tipo !== "aviso" &&
     (categoria?.precisa_confirmacao ?? true);
 
-  // Id gerado aqui: na conversão a OS fica no nome de quem pediu a
-  // original, e quem converte pode não conseguir lê-la de volta (RLS).
+  // Id gerado aqui: a série usa o id do primeiro.
   const novoId = randomUUID();
-  // Pedido do portal convertido: a OS segue sendo o pedido da loja (o
-  // lojista acompanha por ela, com o mesmo contato).
-  const doPortal = original?.origem === "portal";
-  const { error } = await db.from("chamados").insert({
+  const novo: Alvo = { id: novoId, tipo: n.tipo };
+  const { error } = await db.from(tabelaDo(novo)).insert({
     id: novoId,
     tipo: n.tipo,
     titulo: n.titulo,
@@ -352,28 +362,23 @@ export async function criarChamado(
     setor_id: n.setorId,
     categoria_id: n.categoriaId,
     prioridade: n.prioridade ?? categoria?.prioridade_padrao ?? "media",
-    origem: doPortal ? "portal" : "sistema",
-    solicitante_nome: doPortal ? original.solicitante_nome : null,
-    solicitante_telefone: doPortal ? original.solicitante_telefone : null,
+    origem: "sistema",
     pessoal: n.pessoal,
     precisa_confirmacao: precisaConfirmacao,
     // Fora o Aviso, os destinos extras andam um depois do outro.
     destinos_em_ordem:
       n.tipo !== "aviso" && n.setoresExtras.length + n.pessoasExtras.length > 0,
-    // Converter em OS: o solicitante continua sendo quem pediu a original.
-    aberto_por: original ? (original.aberto_por ?? eu) : eu,
+    aberto_por: eu,
     responsavel_id: responsavel,
     prazo: prazo?.toISOString() ?? null,
-    loja_id: doPortal ? original.loja_id : n.lojaId,
+    loja_id: n.lojaId,
     ativo_id: n.ativoId,
     vistoria_id: n.vistoriaId,
     ambiente_id: n.ambienteId,
     vinculado_a_id: n.vinculadoAId,
-    convertido_de_id: n.convertidoDeId,
     campos: n.campos as Json,
     etiquetas: n.etiquetas,
     checklist: checklistInicial(categoria?.checklist) as unknown as Json,
-    execucao: n.tipo === "os" ? "interna" : null,
     recorrencia: (n.recorrencia ?? null) as Json,
     // A série leva o id do primeiro chamado (o mesmo das rotinas e do
     // "Parar série", que procuram por serie_id = id).
@@ -384,49 +389,32 @@ export async function criarChamado(
   // O número e os destinos juntos; depois, com os destinos já gravados (o
   // RLS dos anexos e da linha do tempo olha quem mexe no chamado), os
   // arquivos, a linha do tempo e o horário, também juntos.
-  const [lido, destinos] = await Promise.all([
-    numeroDe(novoId),
-    gravarDestinos(novoId, n, responsavel),
+  const [numero, destinos] = await Promise.all([
+    numeroDe(novo),
+    gravarDestinos(novo, n, responsavel),
   ]);
-  const ch = { id: novoId, numero: lido.numero };
+  const ch = { ...novo, numero };
 
-  const criado = {
-    tipo: "criado" as const,
-    texto: original
-      ? `${TIPOS[n.tipo]} criada a partir do chamado ${formatarNumeroChamado(original.numero)}, convertido por ${ctx.usuario.nome}.`
-      : `${TIPOS[n.tipo]} aberta.`,
-    dados: { origem: "sistema", convertido_por: original ? eu : undefined },
-  };
   const [arquivos, , reserva, gente] = await Promise.all([
-    gravarArquivos(ch.id, n),
-    // Quem converte e não vê a OS fica registrado pelo nome.
-    registrar(ch.id, criado).then((r) =>
-      r === null && original
-        ? registrarComoSistema(ch.id, {
-            ...criado,
-            autorNome: ctx.usuario.nome,
-          })
-        : r,
-    ),
-    n.horario ? reservar(ch.id, n.horario, n.lojaId) : null,
+    gravarArquivos(ch, n),
+    registrar(ch, {
+      tipo: "criado",
+      texto: `${TIPOS[n.tipo]} aberta.`,
+      dados: { origem: "sistema" },
+    }),
+    // Horário da agenda: só no chamado.
+    n.horario && !ehOS ? reservar(ch.id, n.horario, n.lojaId) : null,
     n.descricao ? pessoas() : [],
   ]);
 
   const avisos: string[] = [];
-  // Converter em OS para outro setor: a OS fica no nome de quem pediu e
-  // quem converteu pode não vê-la (a tela não leva a um chamado vazio).
-  if (!lido.vejo)
-    avisos.push(
-      "A OS ficou no nome de quem pediu o chamado original e você não tem acesso a ela.",
-    );
   if (destinos.erro) avisos.push(destinos.erro);
   if (arquivos.erro) avisos.push(arquivos.erro);
   if (reserva) avisos.push(reserva);
-  if (original) await fecharConvertido(original, ch);
 
   const citados = n.descricao ? extrairMencoes(n.descricao, gente) : [];
   await avisarNovo(
-    { id: ch.id, numero: ch.numero, titulo: n.titulo, setorId: n.setorId },
+    { ...ch, titulo: n.titulo, setorId: n.setorId },
     {
       responsavel,
       // Em ordem, os outros destinos são avisados quando chega a vez deles.
@@ -444,25 +432,16 @@ export async function criarChamado(
 }
 
 /**
- * Número do chamado recém-criado. Pela sessão; se quem converteu não vê a
- * OS (RLS), lê só o número pela service role: o chamado acabou de ser
- * gravado por esta pessoa.
+ * Número do chamado recém-criado. Lido pela service role: quem abriu para
+ * outro setor pode não vê-lo depois (RLS), e acabou de gravá-lo.
  */
-async function numeroDe(
-  id: string,
-): Promise<{ numero: number; vejo: boolean }> {
-  const { data } = await (await os())
-    .from("chamados")
+async function numeroDe(alvo: Alvo): Promise<number> {
+  const { data } = await osAdmin()
+    .from(tabelaDo(alvo))
     .select("numero")
-    .eq("id", id)
+    .eq("id", alvo.id)
     .maybeSingle();
-  if (data) return { numero: data.numero, vejo: true };
-  const admin = await osAdmin()
-    .from("chamados")
-    .select("numero")
-    .eq("id", id)
-    .maybeSingle();
-  return { numero: admin.data?.numero ?? 0, vejo: false };
+  return data?.numero ?? 0;
 }
 
 interface Destino {
@@ -476,7 +455,7 @@ interface Destino {
  * linha de andamento para cada um, a primeira é o setor principal.
  */
 async function gravarDestinos(
-  chamadoId: string,
+  alvo: Alvo,
   n: NovoChamado,
   responsavel: string | null,
 ): Promise<{ lista: Destino[]; erro?: string }> {
@@ -501,13 +480,13 @@ async function gravarDestinos(
   const { error } = await (await os()).from("destinatarios").insert(
     lista.map((d, ordem) => ({
       ...d,
-      chamado_id: chamadoId,
+      ...donoDo(alvo),
       ordem,
       titulo: n.tarefas[d.usuario_id ?? d.setor_id ?? ""] || null,
     })),
   );
   if (error) {
-    console.error("destinatários", chamadoId, error);
+    console.error("destinatários", alvo.id, error);
     return { lista: [], erro: "Os destinatários extras não foram gravados." };
   }
   return { lista };
@@ -515,17 +494,17 @@ async function gravarDestinos(
 
 /** Arquivos soltos e os dos campos da categoria (o nome vai para o campo). */
 async function gravarArquivos(
-  chamadoId: string,
+  alvo: Alvo,
   n: NovoChamado,
 ): Promise<{ erro?: string }> {
-  const soltos = await anexar(chamadoId, n.arquivos);
+  const soltos = await anexar(alvo, n.arquivos);
   if (soltos.erro) return { erro: soltos.erro };
   const campos = { ...n.campos };
   let erro: string | undefined;
   let mudou = false;
   for (const [chave, arquivos] of Object.entries(n.arquivosDosCampos)) {
     if (!arquivos.length || erro) continue;
-    const r = await anexar(chamadoId, arquivos);
+    const r = await anexar(alvo, arquivos);
     if (r.nomes.length) {
       campos[chave] = r.nomes;
       mudou = true;
@@ -534,9 +513,9 @@ async function gravarArquivos(
   }
   if (mudou)
     await (await os())
-      .from("chamados")
+      .from(tabelaDo(alvo))
       .update({ campos: campos as Json })
-      .eq("id", chamadoId);
+      .eq("id", alvo.id);
   return { erro };
 }
 
@@ -558,26 +537,6 @@ async function reservar(
   return `O chamado foi aberto, mas o horário não foi reservado: ${erroDoBanco(error).erro}`;
 }
 
-/** Converter em OS: a original aponta para a nova e fecha. */
-async function fecharConvertido(
-  original: Chamado,
-  nova: { id: string; numero: number },
-) {
-  const { error } = await (await os())
-    .from("chamados")
-    .update({ convertido_em_id: nova.id, status: "fechado" })
-    .eq("id", original.id);
-  if (error) {
-    console.error("converter", original.id, error);
-    return;
-  }
-  await registrar(original.id, {
-    tipo: "conversao",
-    texto: `Convertido em Ordem de Serviço ${formatarNumeroChamado(nova.numero)}.`,
-    dados: { de: original.status, para: "fechado", os_id: nova.id },
-  });
-}
-
 /**
  * Avisos de chamado novo: o responsável; sem responsável, a fila do setor;
  * cada destino extra; e quem foi citado na descrição. Nunca quem abriu.
@@ -585,7 +544,7 @@ async function fecharConvertido(
  * saem depois da resposta (after), sem segurar quem abriu.
  */
 async function avisarNovo(
-  ch: { id: string; numero: number; titulo: string; setorId: string },
+  ch: Alvo & { numero: number; titulo: string; setorId: string },
   p: {
     responsavel: string | null;
     destinos: Destino[];
@@ -596,15 +555,15 @@ async function avisarNovo(
   if (p.citados.length)
     await (await os()).from("participantes").upsert(
       p.citados.map((usuario_id) => ({
-        chamado_id: ch.id,
+        ...donoDo(ch),
         usuario_id,
         motivo: "mencionado",
       })),
-      { onConflict: "chamado_id,usuario_id", ignoreDuplicates: true },
+      { onConflict: `${chaveDo(ch)},usuario_id`, ignoreDuplicates: true },
     );
   after(async () => {
-    const href = rotaChamado(ch.id);
-    const titulo = `${formatarNumeroChamado(ch.numero)} ${ch.titulo}`;
+    const href = rotaDo(ch);
+    const titulo = `${numeroDo(ch)} ${ch.titulo}`;
     const setoresAvisados = [
       ...(p.responsavel ? [] : [ch.setorId]),
       ...p.destinos.slice(1).flatMap((d) => (d.setor_id ? [d.setor_id] : [])),
@@ -622,11 +581,15 @@ async function avisarNovo(
         {
           tipo: "novo",
           titulo,
-          texto: p.responsavel
-            ? "Novo chamado para você."
-            : "Novo chamado na fila do seu setor.",
+          texto: ehOrdem(ch)
+            ? p.responsavel
+              ? "Nova OS para você."
+              : "Nova OS na fila do seu setor."
+            : p.responsavel
+              ? "Novo chamado para você."
+              : "Novo chamado na fila do seu setor.",
           href,
-          chamadoId: ch.id,
+          alvo: ch,
         },
         p.autor,
       ),
@@ -637,7 +600,7 @@ async function avisarNovo(
           titulo,
           texto: "Você foi citado num chamado novo.",
           href,
-          chamadoId: ch.id,
+          alvo: ch,
         },
         p.autor,
       ),
@@ -736,7 +699,7 @@ function textoDaAcao(acao: AcaoChamado, patch: Patch, x: ExtraDaAcao): string {
 /** Grava o patch só se o status não mudou desde a leitura. */
 async function aplicar(ch: Chamado, patch: Patch): Promise<Resultado> {
   const { data, error } = await (await os())
-    .from("chamados")
+    .from(tabelaDo(ch))
     .update(patch)
     .eq("id", ch.id)
     .eq("status", ch.status)
@@ -752,12 +715,9 @@ export async function executarAcao(
   x: ExtraDaAcao = {},
 ): Promise<Resultado> {
   // Os destinos só dependem do id: saem junto com o chamado.
-  const [ctx, ch, destinos] = await Promise.all([
-    contexto(),
-    lerChamado(chamadoId),
-    contarDestinos(chamadoId),
-  ]);
+  const [ctx, ch] = await Promise.all([contexto(), lerChamado(chamadoId)]);
   if (!ch) return NAO_ENCONTRADO;
+  const destinos = await contarDestinos(ch);
   const eu = ctx.usuario.id;
   const multiplos = destinos > 1;
   const permitidas = acoesDisponiveis(
@@ -783,11 +743,11 @@ export async function executarAcao(
     let q = (await os())
       .from("destinatarios")
       .update({ status: "em_andamento" })
-      .eq("chamado_id", ch.id);
+      .eq(chaveDo(ch), ch.id);
     if (ch.destinos_em_ordem) q = q.eq("ordem", destinos - 1);
     await q;
   }
-  await registrar(ch.id, {
+  await registrar(ch, {
     tipo: "status",
     texto: textoDaAcao(acao, patch, x),
     dados: {
@@ -806,9 +766,9 @@ export async function executarAcao(
 /** Avisos do ciclo: concluído (quem pediu), reaberto e cancelado (executor). */
 async function avisarAcao(acao: AcaoChamado, ch: Chamado, eu: string) {
   const base = {
-    titulo: `${formatarNumeroChamado(ch.numero)} ${ch.titulo}`,
-    href: rotaChamado(ch.id),
-    chamadoId: ch.id,
+    titulo: `${numeroDo(ch)} ${ch.titulo}`,
+    href: rotaDo(ch),
+    alvo: ch,
   };
   if (acao === "concluir" && ch.status === "concluido")
     await notificar(
@@ -846,12 +806,9 @@ async function avisarAcao(acao: AcaoChamado, ch: Chamado, eu: string) {
  * Em andamento já está certo. Exportada para o bloco da OS.
  */
 export async function assumirOuIniciar(chamadoId: string): Promise<Resultado> {
-  const [ctx, ch, destinos] = await Promise.all([
-    contexto(),
-    lerChamado(chamadoId),
-    contarDestinos(chamadoId),
-  ]);
+  const [ctx, ch] = await Promise.all([contexto(), lerChamado(chamadoId)]);
   if (!ch) return NAO_ENCONTRADO;
+  const destinos = await contarDestinos(ch);
   if (ch.status === "em_andamento") return {};
   if (!["aberto", "aguardando"].includes(ch.status))
     return { erro: "O chamado já foi concluído ou cancelado." };
@@ -871,7 +828,7 @@ export async function assumirOuIniciar(chamadoId: string): Promise<Resultado> {
   if (!ch.responsavel_id) patch.responsavel_id = ctx.usuario.id;
   const r = await aplicar(ch, patch);
   if (r.erro) return r;
-  await registrar(ch.id, {
+  await registrar(ch, {
     tipo: "status",
     texto: patch.responsavel_id
       ? "Assumiu e iniciou o atendimento."

@@ -5,8 +5,8 @@ import { CartaoCarregando } from "@/components/carregando";
 import { Protegido } from "@/components/protegido";
 import { formatarDataHora } from "@/lib/formato";
 import { textoDoCampo } from "@/lib/os/chamado";
-import { formatarNumeroChamado } from "@/lib/os/numeros";
-import { rotaChamado } from "@/lib/os/rotas";
+import { numeroDo } from "@/lib/os/numeros";
+import { rotaDo } from "@/lib/os/rotas";
 import {
   MOTIVOS_AGUARDANDO,
   ORIGENS,
@@ -93,7 +93,7 @@ async function Folha({ params }: { params: Promise<{ id: string }> }) {
       <style dangerouslySetInnerHTML={{ __html: CSS_IMPRESSAO }} />
       <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
         <Link
-          href={rotaChamado(ch.id)}
+          href={rotaDo(ch)}
           className="inline-flex min-h-10 items-center text-sm text-neutral-500 hover:text-neutral-900"
         >
           ← Voltar ao chamado
@@ -108,7 +108,7 @@ async function Folha({ params }: { params: Promise<{ id: string }> }) {
         <header className="flex items-start justify-between gap-6 border-b border-[#ddd] pb-4">
           <div className="min-w-0">
             <p className="text-[11px] tracking-[0.18em] text-[#666] uppercase">
-              {TIPOS[ch.tipo]} {formatarNumeroChamado(ch.numero)}
+              {TIPOS[ch.tipo]} {numeroDo(ch)}
             </p>
             <h1 className="mt-1 text-2xl font-semibold break-words">
               {ch.titulo}

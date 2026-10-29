@@ -286,7 +286,8 @@ beforeAll(async () => {
     "2026-10-27T09:00:00Z",
     null,
   ];
-  const TIPOS = ["tarefa", "solicitacao", "os", "aviso"];
+  // OS fica em os.ordens (fora das listas de chamados).
+  const TIPOS = ["tarefa", "solicitacao", "aviso"];
   const PRIORIDADES = ["baixa", "media", "alta", "urgente"];
   const CATEGORIAS = [CATEGORIA.a, CATEGORIA.b, null];
   const ETIQUETAS = [[], ["eletrica"], ["eletrica", "urgente"], ["hidraulica"]];
@@ -343,8 +344,8 @@ const BARRAS: [string, () => Barra][] = [
     () => ({ setor: SETOR.S, status: STATUS_ABERTOS, etiqueta: "eletrica" }),
   ],
   [
-    "tipo OS",
-    () => ({ setor: SETOR.S, status: STATUS_ABERTOS, tipos: ["os"] }),
+    "tipo tarefa",
+    () => ({ setor: SETOR.S, status: STATUS_ABERTOS, tipos: ["tarefa"] }),
   ],
   [
     "aberto de 05/10 a 12/10",

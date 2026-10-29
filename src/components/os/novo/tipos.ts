@@ -53,7 +53,6 @@ export interface InicialDoFormulario {
   vistoriaId?: string;
   ambienteId?: string;
   vinculadoAId?: string;
-  convertidoDeId?: string;
   /** O que já vem ligado, para mostrar no topo ("Ativo AT-0012 · Bomba"). */
   contexto: { rotulo: string; valor: string }[];
 }

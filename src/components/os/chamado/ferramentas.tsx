@@ -20,9 +20,9 @@ import { limparTelefone, linkWhatsApp } from "@/lib/os/whatsapp";
 import { seguirChamado } from "@/server/os/acoes/chamados";
 import { BOTAO_PRIMARIO, Janela } from "./janela";
 
-// Ferramentas do chamado, numa barra no topo: Seguir, WhatsApp e Imprimir
-// à mão; converter em OS, duplicar, criar vinculado e histórico no
-// menu "Mais". Cada uma só aparece para quem pode usá-la.
+// Ferramentas do chamado (ou da OS), numa barra no topo: Seguir, WhatsApp e
+// Imprimir à mão; duplicar, criar vinculado, abrir OS ligada e histórico
+// no menu "Mais". Cada uma só aparece para quem pode usá-la.
 
 const ICONE =
   "grid size-10 shrink-0 place-items-center rounded-full text-neutral-600 transition hover:bg-neutral-900/[0.06] hover:text-neutral-900 aria-pressed:bg-neutral-900/[0.06] aria-pressed:text-neutral-900 aria-expanded:bg-neutral-900/[0.06] disabled:opacity-60";
@@ -44,9 +44,11 @@ export function Ferramentas({
   id: string;
   links: {
     imprimir: string;
-    converter: string | null;
     duplicar: string;
-    vinculado: string;
+    /** Chamado ligado a este chamado (null na OS). */
+    vinculado: string | null;
+    /** OS nova ligada a este chamado (null na OS). */
+    ordem: string | null;
     historico: string | null;
   };
   sigo: boolean;
@@ -146,20 +148,22 @@ export function Ferramentas({
               role="menu"
               className="absolute top-full right-0 z-30 mt-1.5 flex min-w-56 flex-col rounded-2xl bg-white p-1.5 shadow-lg ring-1 ring-neutral-900/[0.08]"
             >
-              {links.converter && (
-                <Link role="menuitem" href={links.converter} className={ITEM}>
-                  <Wrench className="size-4 text-neutral-500" aria-hidden />
-                  Converter em Ordem de Serviço
-                </Link>
-              )}
               <Link role="menuitem" href={links.duplicar} className={ITEM}>
                 <Copy className="size-4 text-neutral-500" aria-hidden />
                 Duplicar
               </Link>
-              <Link role="menuitem" href={links.vinculado} className={ITEM}>
-                <Link2 className="size-4 text-neutral-500" aria-hidden />
-                Criar chamado vinculado
-              </Link>
+              {links.vinculado && (
+                <Link role="menuitem" href={links.vinculado} className={ITEM}>
+                  <Link2 className="size-4 text-neutral-500" aria-hidden />
+                  Criar chamado vinculado
+                </Link>
+              )}
+              {links.ordem && (
+                <Link role="menuitem" href={links.ordem} className={ITEM}>
+                  <Wrench className="size-4 text-neutral-500" aria-hidden />
+                  Abrir OS ligada
+                </Link>
+              )}
               {links.historico && (
                 <Link role="menuitem" href={links.historico} className={ITEM}>
                   <History className="size-4 text-neutral-500" aria-hidden />

@@ -629,9 +629,9 @@ export const PREFERENCIA_FILTROS: Record<Tela, string> = {
 /** Telas com lista paginada (a de Avisos é a Minha caixa dos avisos). */
 export type TelaComLista = "caixa" | "setor" | "avisos";
 
-/** Tipos das abas de tickets: os avisos têm a aba deles. */
+/** Tipos das abas de tickets: os avisos têm a aba deles; a OS, a tela dela. */
 export const TIPOS_SEM_AVISO = (Object.keys(TIPOS) as TipoChamado[]).filter(
-  (t) => t !== "aviso",
+  (t) => t !== "aviso" && t !== "os",
 );
 
 export type Busca = Record<string, unknown>;

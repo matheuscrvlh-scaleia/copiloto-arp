@@ -1,13 +1,11 @@
 import {
   AlertTriangle,
   ArrowUpRight,
-  Banknote,
   Building2,
   ClipboardCheck,
   Coins,
   HardHat,
   Package,
-  Plus,
   Timer,
 } from "lucide-react";
 import Link from "next/link";
@@ -27,11 +25,7 @@ import {
   linkAtivo,
 } from "@/lib/os/ordem";
 import { dataHoraBr } from "@/lib/os/relatorios";
-import {
-  rotaChamado,
-  rotaTerceirizado,
-  rotaTicketFinanceiro,
-} from "@/lib/os/rotas";
+import { rotaOrdem, rotaTerceirizado } from "@/lib/os/rotas";
 import { EXECUCOES, PERIODOS, STATUS } from "@/lib/os/rotulos";
 import { deBrasilia, hojeEmBrasilia } from "@/lib/os/tempo";
 import { linkWhatsApp, preencher } from "@/lib/os/whatsapp";
@@ -58,20 +52,20 @@ import { WhatsAppOS } from "./whatsapp-os";
 // Bloco da Ordem de Serviço no detalhe do chamado. Contrato: componente de
 // servidor, use dentro de <Suspense>; recebe o id de um chamado do tipo
 // "os" (ou de qualquer tipo cuja categoria registra tempo: aí só o Tempo).
-//   <BlocoOS chamadoId="<uuid>" compacto={false} />
+//   <BlocoOS ordemId="<uuid>" compacto={false} />
 // `compacto`: versão resumida para a janela lateral.
 // O cronômetro (Iniciar/Pausar/Finalizar) fica fora, em <CronometroDaOS>,
 // preso no topo do detalhe; aqui o gestor tem as sessões numa tabela,
 // materiais, custos com a memória de cálculo e as pendências em destaque.
 
 export async function BlocoOS({
-  chamadoId,
+  ordemId,
   compacto = false,
 }: {
-  chamadoId: string;
+  ordemId: string;
   compacto?: boolean;
 }) {
-  const d = await dadosDaOS(chamadoId);
+  const d = await dadosDaOS(ordemId);
   if (!d || (!d.ehOS && !d.categoria?.registrar_tempo)) return null;
   const agora = new Date();
   const hoje = hojeEmBrasilia(agora);
@@ -94,7 +88,7 @@ export async function BlocoOS({
 
       <Parte titulo="Tempo" icone={<Timer className="size-4" aria-hidden />}>
         <Sessoes
-          chamadoId={d.chamado.id}
+          ordemId={d.chamado.id}
           podeEditar={d.podeEditar}
           sessoes={linhasDasSessoes(d)}
           tecnicos={[...d.cad.tecnicos.values()].map((t) => ({
@@ -125,7 +119,7 @@ export async function BlocoOS({
           >
             {d.podeEditar ? (
               <FormExecucao
-                chamadoId={d.chamado.id}
+                ordemId={d.chamado.id}
                 valores={{
                   execucao: d.chamado.execucao ?? "interna",
                   empresa_id: d.chamado.empresa_id,
@@ -170,7 +164,7 @@ export async function BlocoOS({
               icone={<Building2 className="size-4" aria-hidden />}
             >
               <Terceirizado
-                chamadoId={d.chamado.id}
+                ordemId={d.chamado.id}
                 link={linkNaTela(d)}
                 podeEnviar={
                   d.podeTerceirizados &&
@@ -192,7 +186,7 @@ export async function BlocoOS({
               {d.comCustos && d.podeEditar && (
                 <div className="mt-4 border-t border-neutral-200/70 pt-4">
                   <FormCustoTerceirizado
-                    chamadoId={d.chamado.id}
+                    ordemId={d.chamado.id}
                     valor={d.custos?.valor_terceirizado ?? null}
                     orcamento={d.custos?.orcamento_numero ?? null}
                   />
@@ -200,7 +194,7 @@ export async function BlocoOS({
               )}
               <div className="mt-4">
                 <Fotos
-                  chamadoId={d.chamado.id}
+                  ordemId={d.chamado.id}
                   categoria="orcamento"
                   titulo="Orçamento, nota ou laudo"
                   documento
@@ -216,7 +210,7 @@ export async function BlocoOS({
             icone={<Package className="size-4" aria-hidden />}
           >
             <Materiais
-              chamadoId={d.chamado.id}
+              ordemId={d.chamado.id}
               podeEditar={d.podeEditar}
               comCustos={d.comCustos}
               materiais={d.materiais}
@@ -231,14 +225,14 @@ export async function BlocoOS({
               <Resultado d={d} />
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Fotos
-                  chamadoId={d.chamado.id}
+                  ordemId={d.chamado.id}
                   categoria="antes"
                   titulo="Fotos de antes"
                   podeEditar={d.podeEditar}
                   arquivos={arquivosDa(d, ["antes"])}
                 />
                 <Fotos
-                  chamadoId={d.chamado.id}
+                  ordemId={d.chamado.id}
                   categoria="depois"
                   titulo="Fotos de depois"
                   podeEditar={d.podeEditar}
@@ -248,10 +242,6 @@ export async function BlocoOS({
               <Assinaturas d={d} />
             </div>
           </Parte>
-
-          {["concluido", "fechado"].includes(d.chamado.status) && (
-            <TicketFinanceiro d={d} />
-          )}
 
           <Parte
             titulo={d.comCustos ? "Custos e rateio" : "Rateio"}
@@ -272,7 +262,7 @@ export async function BlocoOS({
               )}
               {d.podeEditar ? (
                 <FormRateio
-                  chamadoId={d.chamado.id}
+                  ordemId={d.chamado.id}
                   rateio={d.chamado.rateio}
                   regra={d.custos?.rateio_regra ?? null}
                   valor={d.custos?.rateio_valor ?? null}
@@ -302,7 +292,7 @@ function Assinaturas({ d }: { d: DadosOS }) {
   const arp = (
     <Assinatura
       acao={assinarOS}
-      campos={{ chamado_id: ch.id }}
+      campos={{ ordem_id: ch.id }}
       podeEditar={d.podeEditar}
       bloqueio={
         link && doLink === false
@@ -379,46 +369,19 @@ function Assinaturas({ d }: { d: DadosOS }) {
   );
 }
 
-/** Com a OS concluída: abre o ticket do Financeiro já preenchido. */
-function TicketFinanceiro({ d }: { d: DadosOS }) {
-  return (
-    <section
-      className={`${quadro} flex flex-wrap items-center justify-between gap-3`}
-    >
-      <div>
-        <h3 className={`${titulo} flex items-center gap-2`}>
-          <Banknote className="size-4" aria-hidden />
-          Financeiro
-        </h3>
-        <p className="mt-1 text-sm text-neutral-600">
-          OS finalizada: abra o ticket para o Financeiro com o valor, a empresa
-          e o vínculo com esta OS.
-        </p>
-      </div>
-      <Link
-        href={rotaTicketFinanceiro(d.chamado.id)}
-        className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-neutral-800"
-      >
-        <Plus className="size-4" aria-hidden />
-        Criar ticket para o Financeiro
-      </Link>
-    </section>
-  );
-}
-
 /**
  * Cronômetro preso no topo do detalhe enquanto a tela rola (use dentro de
  * <Suspense>). Some para quem não pode marcar tempo agora, a não ser que a
  * própria sessão esteja rodando (aí ainda dá para pausar).
  */
 export async function CronometroDaOS({
-  chamadoId,
+  ordemId,
   className,
 }: {
-  chamadoId: string;
+  ordemId: string;
   className: string;
 }) {
-  const d = await dadosDaOS(chamadoId);
+  const d = await dadosDaOS(ordemId);
   if (!d || (!d.ehOS && !d.categoria?.registrar_tempo)) return null;
   const bloqueio = bloqueioDoCronometro(d);
   const minha = d.minhaSessaoAberta;
@@ -426,7 +389,7 @@ export async function CronometroDaOS({
   return (
     <div className={className}>
       <Cronometro
-        chamadoId={d.chamado.id}
+        ordemId={d.chamado.id}
         desde={
           minha ? deBrasilia(minha.data, minha.inicio).toISOString() : null
         }
@@ -550,7 +513,7 @@ function Resultado({ d }: { d: DadosOS }) {
       rotulo="Salvar resultado"
       className="flex flex-col gap-3"
     >
-      <input type="hidden" name="chamado_id" value={ch.id} />
+      <input type="hidden" name="ordem_id" value={ch.id} />
       <label className={rotulo}>
         {terceirizada
           ? "Solução para fechamento (obrigatória para concluir)"
@@ -642,7 +605,7 @@ function Compacto({ d, pendencias }: { d: DadosOS; pendencias: string[] }) {
         {d.ehOS && ` · Rateio: ${d.chamado.rateio ? "Sim" : "Não"}`}
       </p>
       <Link
-        href={rotaChamado(d.chamado.id)}
+        href={rotaOrdem(d.chamado.id)}
         className="inline-flex items-center gap-1.5 self-start text-sm font-medium underline-offset-4 hover:underline"
       >
         {d.ehOS ? "Sessões, materiais e custos da OS" : "Corrigir as sessões"}

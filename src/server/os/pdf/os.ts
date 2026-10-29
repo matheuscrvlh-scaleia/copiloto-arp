@@ -212,9 +212,9 @@ async function extras(ids: string[], comFotos: boolean): Promise<Extras> {
       db
         .from("materiais")
         .select(
-          "chamado_id, descricao, quantidade, unidade, criado_em, material_valores(valor_unitario)",
+          "ordem_id, descricao, quantidade, unidade, criado_em, material_valores(valor_unitario)",
         )
-        .in("chamado_id", ids)
+        .in("ordem_id", ids)
         .order("criado_em")
         .order("id")
         .range(de, ate),
@@ -223,8 +223,8 @@ async function extras(ids: string[], comFotos: boolean): Promise<Extras> {
       ? todasAsLinhas((de, ate) =>
           db
             .from("anexos")
-            .select("chamado_id, nome, path, mime, categoria, em")
-            .in("chamado_id", ids)
+            .select("ordem_id, nome, path, mime, categoria, em")
+            .in("ordem_id", ids)
             .in("categoria", ["foto", "antes", "depois"])
             .order("em")
             .order("id")
@@ -235,20 +235,19 @@ async function extras(ids: string[], comFotos: boolean): Promise<Extras> {
     db
       .from("terceirizado_links")
       .select(
-        "chamado_id, assinatura_nome, assinatura_documento, assinatura_path, assinado_em",
+        "ordem_id, assinatura_nome, assinatura_documento, assinatura_path, assinado_em",
       )
-      .in("chamado_id", ids)
+      .in("ordem_id", ids)
       .is("cancelado_em", null)
       .not("assinado_em", "is", null),
   ]);
-  const agrupar = <T extends { chamado_id: string | null }, R>(
+  const agrupar = <T extends { ordem_id: string | null }, R>(
     lista: T[] | null,
     f: (t: T) => R,
   ) => {
     const m = new Map<string, R[]>();
     for (const t of lista ?? [])
-      if (t.chamado_id)
-        m.set(t.chamado_id, [...(m.get(t.chamado_id) ?? []), f(t)]);
+      if (t.ordem_id) m.set(t.ordem_id, [...(m.get(t.ordem_id) ?? []), f(t)]);
     return m;
   };
   return {
@@ -269,7 +268,7 @@ async function extras(ids: string[], comFotos: boolean): Promise<Extras> {
     ),
     terceirizados: new Map(
       (links.data ?? []).map((l) => [
-        l.chamado_id,
+        l.ordem_id,
         {
           nome: l.assinatura_nome,
           documento: l.assinatura_documento,

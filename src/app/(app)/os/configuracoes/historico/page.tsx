@@ -106,7 +106,9 @@ async function Historico({ busca }: { busca: Promise<Busca> }) {
 
 /** Abrir o chamado e ver só as alterações daquele registro. */
 function Atalhos({ a, filtros }: { a: Alteracao; filtros: Filtros }) {
-  const chamado = a.tabela === "os.chamados" && a.acao !== "delete";
+  const chamado =
+    (a.tabela === "os.chamados" || a.tabela === "os.ordens") &&
+    a.acao !== "delete";
   const soEste = filtros.registro !== a.registroId;
   if (!chamado && !soEste) return null;
   return (

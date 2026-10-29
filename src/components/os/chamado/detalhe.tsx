@@ -1,5 +1,4 @@
 import {
-  ArrowUpRight,
   CircleAlert,
   CirclePause,
   Lightbulb,
@@ -21,9 +20,9 @@ import {
 import { formatarDataHora } from "@/lib/formato";
 import { mensagemDoChamado, textoDoCampo } from "@/lib/os/chamado";
 import { statusAoConcluir } from "@/lib/os/ciclo";
-import { formatarNumeroChamado } from "@/lib/os/numeros";
+import { numeroDo } from "@/lib/os/numeros";
 import { descreverRecorrencia, type Recorrencia } from "@/lib/os/recorrencia";
-import { rotaAtivo, rotaChamado, rotaVistoria } from "@/lib/os/rotas";
+import { ROTAS_OS, rotaAtivo, rotaDo, rotaVistoria } from "@/lib/os/rotas";
 import { MOTIVOS_AGUARDANDO, ORIGENS, STATUS, TIPOS } from "@/lib/os/rotulos";
 import { tempoAtras } from "@/lib/os/texto";
 import { pessoas, urlDoSistema } from "@/server/os/base";
@@ -89,7 +88,8 @@ export async function DetalheChamado({
   const formulario = comGestao ? dados : null;
   const nome = (u: string | null) => (u ? (d.nomes[u] ?? "—") : null);
   const ehOS = ch.tipo === "os";
-  const registraTempo = ehOS || Boolean(d.categoria?.registrar_tempo);
+  // Tempo, materiais e custos: só na OS.
+  const registraTempo = ehOS;
 
   const ferramentas = (
     <Ferramentas
@@ -97,10 +97,15 @@ export async function DetalheChamado({
       links={{
         imprimir: ehOS
           ? `/os/ordens/pdf?ids=${ch.id}`
-          : `${rotaChamado(ch.id)}/imprimir`,
-        converter: d.pode.converter ? `/os/novo?converter=${ch.id}` : null,
-        duplicar: `/os/novo?duplicar=${ch.id}`,
-        vinculado: `/os/novo?vinculado=${ch.id}`,
+          : `${rotaDo(ch)}/imprimir`,
+        duplicar: ehOS
+          ? `${ROTAS_OS.novaOrdem}?duplicar=${ch.id}`
+          : `${ROTAS_OS.novo}?duplicar=${ch.id}`,
+        vinculado: ehOS ? null : `${ROTAS_OS.novo}?vinculado=${ch.id}`,
+        ordem:
+          ehOS || ch.tipo === "aviso"
+            ? null
+            : `${ROTAS_OS.novaOrdem}?vinculado=${ch.id}`,
         historico: d.pode.historico
           ? `/os/configuracoes/historico?registro=${ch.id}`
           : null,
@@ -111,14 +116,14 @@ export async function DetalheChamado({
           ? null
           : {
               mensagem: mensagemDoChamado(d.modeloMensagem, {
-                numero: formatarNumeroChamado(ch.numero),
+                numero: numeroDo(ch),
                 titulo: ch.titulo,
                 status: STATUS[ch.status],
                 prazo: ch.prazo ? formatarDataHora(ch.prazo) : "Sem prazo",
                 tipo: TIPOS[ch.tipo],
                 setor: d.setor?.nome ?? "",
                 descricao: ch.descricao ?? "",
-                link: urlDoSistema(rotaChamado(ch.id)),
+                link: urlDoSistema(rotaDo(ch)),
               }),
               sugeridos: [
                 ...(ch.solicitante_telefone
@@ -155,7 +160,7 @@ export async function DetalheChamado({
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2 pt-1.5">
           <span className="rounded-full bg-neutral-900 px-2.5 py-1 font-mono text-xs font-semibold text-white">
-            {formatarNumeroChamado(ch.numero)}
+            {numeroDo(ch)}
           </span>
           <SeloTipo tipo={ch.tipo} />
           <SeloStatusChamado
@@ -230,7 +235,7 @@ export async function DetalheChamado({
   const cronometro = registraTempo && (
     <Suspense fallback={null}>
       <CronometroDaOS
-        chamadoId={ch.id}
+        ordemId={ch.id}
         className={`sticky z-20 ${compacto ? "top-0" : "top-3"}`}
       />
     </Suspense>
@@ -316,7 +321,7 @@ export async function DetalheChamado({
       )}
       {registraTempo && (
         <Suspense fallback={<CartaoCarregando altura="h-48" />}>
-          <BlocoOS chamadoId={ch.id} compacto={compacto} />
+          <BlocoOS ordemId={ch.id} compacto={compacto} />
         </Suspense>
       )}
       <section className={CARTAO} aria-labelledby={`conversa-${ch.id}`}>
@@ -426,24 +431,7 @@ function Avisos({ d }: { d: Detalhe }) {
       classe: neutro,
       texto: `Reaberto ${ch.reaberto_vezes === 1 ? "uma vez" : `${ch.reaberto_vezes} vezes`}. Último motivo: ${ch.ultimo_motivo_reabertura}`,
     });
-  if (d.convertidoEm)
-    faixas.push({
-      chave: "convertido",
-      Icone: ArrowUpRight,
-      classe: neutro,
-      texto: (
-        <>
-          Convertido na Ordem de Serviço{" "}
-          <Link
-            href={rotaChamado(d.convertidoEm.id)}
-            className="font-semibold underline"
-          >
-            {formatarNumeroChamado(d.convertidoEm.numero)}
-          </Link>
-          .
-        </>
-      ),
-    });
+
   if (ch.solucao && ["concluido", "fechado"].includes(ch.status))
     faixas.push({
       chave: "solucao",
@@ -590,21 +578,29 @@ function Informacoes({
           )}
         </Linha>
       )}
-      {[
-        { rotulo: "Ligado ao chamado", c: d.vinculado },
-        { rotulo: "Criado a partir de", c: d.convertidoDe },
-      ].map(
-        ({ rotulo, c }) =>
-          c && (
-            <Linha key={rotulo} rotulo={rotulo}>
-              <Link href={rotaChamado(c.id)} className={LINK}>
-                {formatarNumeroChamado(c.numero)} {c.titulo}
+      {d.vinculado && (
+        <Linha rotulo="Ligado ao chamado">
+          <Link href={rotaDo(d.vinculado)} className={LINK}>
+            {numeroDo(d.vinculado)} {d.vinculado.titulo}
+          </Link>
+          <span className="block text-xs text-neutral-500">
+            {TIPOS[d.vinculado.tipo]} · {STATUS[d.vinculado.status]}
+          </span>
+        </Linha>
+      )}
+      {d.ordensLigadas.length > 0 && (
+        <Linha rotulo="OS ligadas">
+          {d.ordensLigadas.map((o) => (
+            <span key={o.id} className="block">
+              <Link href={rotaDo(o)} className={LINK}>
+                {numeroDo(o)} {o.titulo}
               </Link>
               <span className="block text-xs text-neutral-500">
-                {TIPOS[c.tipo]} · {STATUS[c.status]}
+                {STATUS[o.status]}
               </span>
-            </Linha>
-          ),
+            </span>
+          ))}
+        </Linha>
       )}
       {ch.avaliacao && (
         <Linha rotulo="Avaliação do lojista">

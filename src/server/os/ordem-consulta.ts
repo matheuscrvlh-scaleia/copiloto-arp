@@ -32,10 +32,10 @@ import { lojasDoModulo } from "./lojas";
 // esconde os_custos de quem não tem os.custos.
 
 const COLUNAS_OS =
-  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, status, prioridade, aguardando_tipo, aberto_por, solicitante_nome, responsavel_id, loja_id, ativo_id, execucao, local, bloco, empresa_id, visita_data, visita_periodo, prazo_terceirizado, solucao, causa_falha, ativo_parado, rateio, assinatura_nome, assinatura_path, assinado_em, concluido_em, fechado_em, fechado_por, cancelado_em, criado_em, legado_origem, sessoes(id, data, inicio, fim, almoco_inicio, almoco_fim, sessao_tecnicos(tecnico_id)), chamado_profissionais(profissional_id), os_custos(custo_total, valor_rateio, custo_mao_obra, custo_materiais, valor_terceirizado, completo, legado_valor, legado_valor_rateio)" as const;
+  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, status, prioridade, aguardando_tipo, aberto_por, solicitante_nome, responsavel_id, loja_id, ativo_id, execucao, local, bloco, empresa_id, visita_data, visita_periodo, prazo_terceirizado, solucao, causa_falha, ativo_parado, rateio, assinatura_nome, assinatura_path, assinado_em, concluido_em, fechado_em, fechado_por, cancelado_em, criado_em, legado_origem, sessoes(id, data, inicio, fim, almoco_inicio, almoco_fim, sessao_tecnicos(tecnico_id)), ordem_profissionais(profissional_id), os_custos(custo_total, valor_rateio, custo_mao_obra, custo_materiais, valor_terceirizado, completo, legado_valor, legado_valor_rateio)" as const;
 
 function consultaBase(db: Awaited<ReturnType<typeof os>>) {
-  return db.from("chamados").select(COLUNAS_OS);
+  return db.from("ordens").select(COLUNAS_OS);
 }
 
 export type LinhaOS = QueryData<ReturnType<typeof consultaBase>>[number];
@@ -174,10 +174,10 @@ export function tecnicosDa(
 }
 
 export function profissionaisDa(
-  o: Pick<LinhaOS, "chamado_profissionais">,
+  o: Pick<LinhaOS, "ordem_profissionais">,
   c: Cadastros,
 ): string[] {
-  return o.chamado_profissionais
+  return o.ordem_profissionais
     .map((p) => c.profissionais.get(p.profissional_id)?.nome)
     .filter((n): n is string => !!n);
 }
@@ -360,11 +360,11 @@ function filtrarOS<Q extends Filtravel<Q>>(
 const osRodando = cache(async (): Promise<string[]> => {
   const { data, error } = await (await os())
     .from("sessoes")
-    .select("chamado_id")
+    .select("ordem_id")
     .is("fim", null)
     .limit(500);
   if (error) throw new Error(`Falha ao ler as sessões: ${error.message}`);
-  return [...new Set((data ?? []).map((s) => s.chamado_id))];
+  return [...new Set((data ?? []).map((s) => s.ordem_id))];
 });
 
 /** Uma página da lista (a mais recente primeiro) e o total do filtro. */
@@ -379,7 +379,7 @@ export async function paginaDeOS(
   const rodando = extra?.rodando ? await osRodando() : [];
   const { de, ate } = intervalo(pagina);
   const { data, error, count } = await filtrarOS(
-    db.from("chamados").select(comTecnico(COLUNAS_OS, f) as typeof COLUNAS_OS, {
+    db.from("ordens").select(comTecnico(COLUNAS_OS, f) as typeof COLUNAS_OS, {
       count: "exact",
     }),
     f,
@@ -408,7 +408,7 @@ export async function contarCartoesOS(
     chaves.map(async (c) => {
       const { count, error } = await filtrarOS(
         db
-          .from("chamados")
+          .from("ordens")
           .select(comTecnico("id", f) as "id", { count: "exact", head: true }),
         f,
         criterioDoCartao(c, agora),
@@ -437,7 +437,7 @@ export async function osDoFiltro(
     (de, ate) =>
       filtrarOS(
         db
-          .from("chamados")
+          .from("ordens")
           .select(comTecnico(COLUNAS_OS, f) as typeof COLUNAS_OS),
         f,
         extra,

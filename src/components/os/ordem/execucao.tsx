@@ -26,14 +26,14 @@ export interface ValoresExecucao {
 }
 
 export function FormExecucao({
-  chamadoId,
+  ordemId,
   valores: v,
   empresas,
   profissionais,
   lojas,
   ativos,
 }: {
-  chamadoId: string;
+  ordemId: string;
   valores: ValoresExecucao;
   empresas: Opcao[];
   profissionais: { id: string; nome: string; empresa_id: string }[];
@@ -48,7 +48,7 @@ export function FormExecucao({
 
   return (
     <FormAcao acao={salvarExecucao} className="flex flex-col gap-4">
-      <input type="hidden" name="chamado_id" value={chamadoId} />
+      <input type="hidden" name="ordem_id" value={ordemId} />
 
       <fieldset>
         <legend className="mb-2 text-xs font-medium text-neutral-600">

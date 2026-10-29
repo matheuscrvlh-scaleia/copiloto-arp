@@ -126,13 +126,13 @@ export function QuadroCustos({
 
 /** Rateio: entra (todos que editam) e a regra e o valor (só os.custos). */
 export function FormRateio({
-  chamadoId,
+  ordemId,
   rateio,
   regra,
   valor,
   comCustos,
 }: {
-  chamadoId: string;
+  ordemId: string;
   rateio: boolean;
   regra: RegraRateio | null;
   valor: number | null;
@@ -144,7 +144,7 @@ export function FormRateio({
       rotulo="Salvar rateio"
       className="flex flex-col gap-3"
     >
-      <input type="hidden" name="chamado_id" value={chamadoId} />
+      <input type="hidden" name="ordem_id" value={ordemId} />
       <fieldset>
         <legend className="mb-2 text-xs font-medium text-neutral-600">
           Entra no rateio do condomínio?
@@ -210,11 +210,11 @@ export function FormRateio({
 
 /** Quanto o terceirizado cobrou e o nº do orçamento ou nota (os.custos). */
 export function FormCustoTerceirizado({
-  chamadoId,
+  ordemId,
   valor,
   orcamento,
 }: {
-  chamadoId: string;
+  ordemId: string;
   valor: number | null;
   orcamento: string | null;
 }) {
@@ -225,7 +225,7 @@ export function FormCustoTerceirizado({
       className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto]"
       botaoNoFim
     >
-      <input type="hidden" name="chamado_id" value={chamadoId} />
+      <input type="hidden" name="ordem_id" value={ordemId} />
       <label className={rotulo}>
         Valor cobrado (R$)
         <input

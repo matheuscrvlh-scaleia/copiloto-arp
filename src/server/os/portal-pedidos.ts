@@ -8,7 +8,6 @@ import {
   tituloDoPedido,
   validarCampos,
 } from "@/lib/os/portal";
-import { calcularPrazo } from "@/lib/os/prazo";
 import { rotaChamado } from "@/lib/os/rotas";
 import { paraBrasilia } from "@/lib/os/tempo";
 import {
@@ -20,6 +19,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { ocupacao, regrasDe, reservar } from "./agenda";
 import {
   caminhoDoArquivo,
+  chamado,
   enviarArquivo,
   membrosDoSetor,
   notificar,
@@ -30,7 +30,6 @@ import { criarChamadoSistema } from "./criar";
 import {
   type AcessoPortal,
   agendaDoPortal,
-  calendarioDoSistema,
   categoriasDoPortal,
   enviosNaUltimaHora,
   pedidoParaAcao,
@@ -147,7 +146,7 @@ async function avisarEquipe(
       titulo: `#${p.numero} ${p.titulo}`,
       texto,
       href: rotaChamado(p.id),
-      chamadoId: p.id,
+      alvo: chamado(p.id),
     });
   });
 }
@@ -241,30 +240,13 @@ export async function criarPedido(
       .update({ chamado_id: criado.id })
       .eq("id", reserva.id);
     if (error) console.error("agendamento do pedido", error);
-    await registrarComoSistema(criado.id, {
+    await registrarComoSistema(chamado(criado.id), {
       tipo: "portal",
       autorNome: autor(n.solicitante, a),
       texto: `Horário marcado (${reserva.agenda}): ${descreverHorario(reserva.inicio)}.`,
       dados: { ...doLojista(n.solicitante), agendamento_id: reserva.id },
       visivelLojista: true,
     });
-  }
-
-  // Projeto de cliente: prazo de retorno do terceirizado (laudo).
-  if (categoria.prazoTerceirizadoDias) {
-    const prazo = calcularPrazo(
-      {
-        abertura: agora,
-        valor: categoria.prazoTerceirizadoDias,
-        unidade: "dias_uteis",
-      },
-      await calendarioDoSistema(),
-    );
-    const { error } = await db
-      .from("chamados")
-      .update({ prazo_terceirizado: prazo.toISOString() })
-      .eq("id", criado.id);
-    if (error) console.error("prazo do terceirizado", error);
   }
 
   const falhas = await guardarArquivos(
@@ -341,7 +323,7 @@ export async function responderPedido(
   if (!r.texto.trim() && !r.arquivos.length)
     return falha("Escreva uma mensagem ou anexe um arquivo.");
 
-  const eventoId = await registrarComoSistema(p.id, {
+  const eventoId = await registrarComoSistema(chamado(p.id), {
     tipo: "comentario",
     autorNome: autor(r.solicitante, a),
     texto: r.texto.trim() || "Enviou arquivos.",
@@ -369,7 +351,7 @@ export async function responderPedido(
       .update({ status: "em_andamento" })
       .eq("id", p.id);
     if (!error)
-      await registrarComoSistema(p.id, {
+      await registrarComoSistema(chamado(p.id), {
         tipo: "status",
         autorNome: "Portal",
         texto: "Voltou para Em andamento: o lojista respondeu.",
@@ -421,7 +403,7 @@ export async function avaliarPedido(
     return falha("Não foi possível salvar a avaliação. Tente de novo.");
   }
   const estrelas = `${r.nota} estrela${r.nota === 1 ? "" : "s"}`;
-  await registrarComoSistema(p.id, {
+  await registrarComoSistema(chamado(p.id), {
     tipo: "portal",
     autorNome: autor(r.solicitante, a),
     texto: r.comentario.trim()
@@ -459,7 +441,7 @@ export async function reabrirPedido(
     console.error("reabrir pelo portal", error);
     return falha("Não foi possível reabrir. Tente de novo.");
   }
-  await registrarComoSistema(p.id, {
+  await registrarComoSistema(chamado(p.id), {
     tipo: "status",
     autorNome: autor(r.solicitante, a),
     texto: `Reaberto pelo lojista: ${motivo}`,
@@ -512,7 +494,7 @@ export async function remarcarPeloPortal(
     .update({ status: "cancelado", observacao: `Remarcado para ${quando}` })
     .eq("id", antigo.id);
   if (e2) console.error("cancelar o horário remarcado", antigo.id, e2);
-  await registrarComoSistema(p.id, {
+  await registrarComoSistema(chamado(p.id), {
     tipo: "portal",
     autorNome: autor(r.solicitante, a),
     texto: `Novo horário (${novo.agenda}): ${quando}.`,

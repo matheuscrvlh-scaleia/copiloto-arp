@@ -47,7 +47,7 @@ import {
 import { listaEmTexto, situacaoDaGarantia } from "@/lib/os/ativos";
 import { formatarDuracao } from "@/lib/os/calculos";
 import { formatarNumeroChamado } from "@/lib/os/numeros";
-import { ROTAS_OS, rotaAtivo, rotaChamado } from "@/lib/os/rotas";
+import { ROTAS_OS, rotaAtivo, rotaDo } from "@/lib/os/rotas";
 import { hojeEmBrasilia, paraBrasilia } from "@/lib/os/tempo";
 import { linkWhatsApp } from "@/lib/os/whatsapp";
 import {
@@ -339,13 +339,21 @@ function Cabecalho({
       </p>
 
       {!baixado && (
-        <Link
-          href={`/os/novo?ativo=${a.id}`}
-          className="flex items-center justify-center gap-2 rounded-full bg-neutral-900 px-6 py-4 text-base font-semibold text-white shadow-lg transition hover:bg-neutral-800 sm:w-fit sm:py-3"
-        >
-          <Plus className="size-5" aria-hidden />
-          Abrir chamado para este ativo
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href={`${ROTAS_OS.novaOrdem}?ativo=${a.id}`}
+            className="flex items-center justify-center gap-2 rounded-full bg-neutral-900 px-6 py-4 text-base font-semibold text-white shadow-lg transition hover:bg-neutral-800 sm:w-fit sm:py-3"
+          >
+            <Plus className="size-5" aria-hidden />
+            Abrir OS para este ativo
+          </Link>
+          <Link
+            href={`${ROTAS_OS.novo}?ativo=${a.id}`}
+            className="flex items-center justify-center gap-2 rounded-full bg-white px-6 py-4 text-base font-semibold text-neutral-900 ring-1 ring-neutral-900/10 transition hover:bg-neutral-50 sm:w-fit sm:py-3"
+          >
+            Abrir chamado
+          </Link>
+        </div>
       )}
 
       {gerenciar && (
@@ -790,7 +798,7 @@ function LinhaDoTempo({
               className={`absolute top-3 left-0.5 size-3 rounded-full ${tipo === "Corretiva" ? "bg-neutral-900" : "bg-neutral-400"}`}
             />
             <Link
-              href={rotaChamado(o.id)}
+              href={rotaDo(o)}
               className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-2xl px-3 py-2.5 transition hover:bg-white/60 sm:flex-row sm:items-center sm:gap-3"
             >
               <span className="min-w-0 flex-1">

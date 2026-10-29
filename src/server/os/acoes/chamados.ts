@@ -18,9 +18,9 @@ import {
   validarCampos,
 } from "@/lib/os/chamado";
 import type { AcaoChamado } from "@/lib/os/ciclo";
-import { formatarNumeroChamado } from "@/lib/os/numeros";
+import { formatarNumeroChamado, numeroDo } from "@/lib/os/numeros";
 import type { Recorrencia } from "@/lib/os/recorrencia";
-import { rotaChamado } from "@/lib/os/rotas";
+import { rotaDo } from "@/lib/os/rotas";
 import {
   MOTIVOS_AGUARDANDO,
   PRIORIDADES,
@@ -33,7 +33,9 @@ import { erroDoBanco, primeiroErro, valores } from "@/server/acoes";
 import {
   agendas,
   categorias,
+  chaveDo,
   contexto,
+  donoDo,
   membrosDoSetor,
   nomes,
   notificar,
@@ -41,9 +43,11 @@ import {
   pessoas,
   registrar,
   setores,
+  tabelaDo,
 } from "@/server/os/base";
 import {
   anexar,
+  type Chamado,
   conferirArquivos,
   criarChamado,
   executarAcao,
@@ -124,7 +128,6 @@ const novo = z.object({
     .string()
     .trim()
     .regex(/^#?\d*$/, "número inválido"),
-  convertido_de_id: opcional,
   agenda_id: opcional,
   horario: z.string().optional(),
   etiquetas: z.string().max(600).default(""),
@@ -261,7 +264,6 @@ export async function abrirChamado(
     vistoriaId: v.vistoria_id,
     ambienteId: v.ambiente_id,
     vinculadoAId: v.vinculado_a_id ?? vinculadoPeloNumero,
-    convertidoDeId: v.convertido_de_id,
     recorrencia: rec,
     campos: campos.valores,
     arquivos,
@@ -271,7 +273,10 @@ export async function abrirChamado(
   if ("erro" in r) return { erro: r.erro };
   refresh();
   return {
-    ok: `Chamado ${formatarNumeroChamado(r.numero)} aberto.`,
+    ok:
+      v.tipo === "os"
+        ? `${numeroDo({ tipo: "os", numero: r.numero })} aberta.`
+        : `Chamado ${formatarNumeroChamado(r.numero)} aberto.`,
     aviso: r.aviso,
     id: r.id,
     numero: r.numero,
@@ -455,18 +460,18 @@ export async function alterarChamado(
           ? patch.responsavel_id
           : ch.responsavel_id,
     });
-  const r = await aplicarAlteracao(ch.id, patch);
+  const r = await aplicarAlteracao(ch, patch);
   if (r.erro) return r;
-  await registrar(ch.id, {
+  await registrar(ch, {
     tipo: "alteracao",
     texto: mudancas.map((m) => `${m.campo}: ${m.de} → ${m.para}`).join(" · "),
     dados: { mudancas },
   });
 
   const base = {
-    titulo: `${formatarNumeroChamado(ch.numero)} ${ch.titulo}`,
-    href: rotaChamado(ch.id),
-    chamadoId: ch.id,
+    titulo: `${numeroDo(ch)} ${ch.titulo}`,
+    href: rotaDo(ch),
+    alvo: ch,
   };
   const autor = ctx.usuario.id;
   // O aviso sai depois da resposta (não segura a tela nem o lote).
@@ -493,7 +498,7 @@ export async function alterarChamado(
 }
 
 async function aplicarAlteracao(
-  id: string,
+  ch: { id: string; tipo: Chamado["tipo"] },
   patch: {
     responsavel_id?: string | null;
     prazo?: string | null;
@@ -503,9 +508,9 @@ async function aplicarAlteracao(
   },
 ): Promise<EstadoAcao> {
   const { data, error } = await (await os())
-    .from("chamados")
+    .from(tabelaDo(ch))
     .update(patch)
-    .eq("id", id)
+    .eq("id", ch.id)
     .select("id");
   if (error) return erroDoBanco(error);
   return data?.length ? {} : { erro: "Você não pode alterar este chamado." };
@@ -541,7 +546,7 @@ export async function marcarChecklist(
     new Date(),
   );
   const { data, error } = await (await os())
-    .from("chamados")
+    .from(tabelaDo(ch))
     .update({ checklist: novos as unknown as Json })
     .eq("id", ch.id)
     .eq("atualizado_em", ch.atualizado_em)
@@ -551,7 +556,7 @@ export async function marcarChecklist(
     return {
       erro: "O checklist mudou ou você não pode alterá-lo. Atualize a tela.",
     };
-  await registrar(ch.id, {
+  await registrar(ch, {
     tipo: "alteracao",
     texto: `${feito ? "Marcou" : "Desmarcou"} “${alvo.texto}” no checklist.`,
     dados: { campo: "checklist", indice: d.data.indice, feito },
@@ -595,7 +600,7 @@ export async function comentar(
   const eu = ctx.usuario.id;
   const paraLojista = d.data.visivel_lojista === "1" && !!ch.loja_id;
 
-  const eventoId = await registrar(ch.id, {
+  const eventoId = await registrar(ch, {
     tipo: d.data.texto ? "comentario" : "anexo",
     texto: d.data.texto || null,
     visivelLojista: paraLojista,
@@ -603,7 +608,7 @@ export async function comentar(
   });
   if (eventoId === null) return { erro: "Não foi possível comentar." };
   if (arquivos.length) {
-    const r = await anexar(ch.id, arquivos, {
+    const r = await anexar(ch, arquivos, {
       eventoId,
       visivelLojista: paraLojista,
     });
@@ -620,18 +625,18 @@ export async function comentar(
   await Promise.all([
     !ch.primeira_resposta_em && ch.aberto_por !== eu
       ? db
-          .from("chamados")
+          .from(tabelaDo(ch))
           .update({ primeira_resposta_em: new Date().toISOString() })
           .eq("id", ch.id)
       : null,
     citados.length
       ? db.from("participantes").upsert(
           citados.map((usuario_id) => ({
-            chamado_id: ch.id,
+            ...donoDo(ch),
             usuario_id,
             motivo: "mencionado",
           })),
-          { onConflict: "chamado_id,usuario_id", ignoreDuplicates: true },
+          { onConflict: `${chaveDo(ch)},usuario_id`, ignoreDuplicates: true },
         )
       : null,
   ]);
@@ -642,7 +647,7 @@ export async function comentar(
     const { data: seguidores } = await db
       .from("participantes")
       .select("usuario_id")
-      .eq("chamado_id", ch.id);
+      .eq(chaveDo(ch), ch.id);
     const quem = quemAvisarDoComentario({
       autor: eu,
       abertoPor: ch.aberto_por,
@@ -651,9 +656,9 @@ export async function comentar(
       mencionados: citados,
     });
     const base = {
-      titulo: `${formatarNumeroChamado(ch.numero)} ${ch.titulo}`,
-      href: rotaChamado(ch.id),
-      chamadoId: ch.id,
+      titulo: `${numeroDo(ch)} ${ch.titulo}`,
+      href: rotaDo(ch),
+      alvo: ch,
     };
     await Promise.all([
       notificar(quem.mencionados, {
@@ -697,7 +702,7 @@ export async function andarDestino(
     .eq("id", d.data.id)
     .maybeSingle();
   if (!linha) return { erro: "Destino não encontrado." };
-  const ch = await lerChamado(linha.chamado_id);
+  const ch = await lerChamado(linha.chamado_id ?? linha.ordem_id ?? "");
   if (!ch) return { erro: "Chamado não encontrado." };
   const eu = ctx.usuario.id;
   const meu =
@@ -714,7 +719,7 @@ export async function andarDestino(
         await db
           .from("destinatarios")
           .select("ordem, status, setor_id, usuario_id")
-          .eq("chamado_id", ch.id)
+          .eq(chaveDo(ch), ch.id)
           .order("ordem")
       ).data ?? [])
     : [];
@@ -746,7 +751,7 @@ export async function andarDestino(
   const quem = linha.usuario_id
     ? ((await nomes()).get(linha.usuario_id) ?? "Destinatário")
     : ((await setores()).find((s) => s.id === linha.setor_id)?.nome ?? "Setor");
-  await registrar(ch.id, {
+  await registrar(ch, {
     tipo: "status",
     texto: `${quem} ${TEXTO_DESTINO[d.data.acao]}.`,
     dados: { destino: linha.id, acao: d.data.acao },
@@ -767,10 +772,10 @@ export async function andarDestino(
         quem,
         {
           tipo: "novo",
-          titulo: `${formatarNumeroChamado(ch.numero)} ${ch.titulo}`,
+          titulo: `${numeroDo(ch)} ${ch.titulo}`,
           texto: "Chegou a sua vez neste chamado.",
-          href: rotaChamado(ch.id),
-          chamadoId: ch.id,
+          href: rotaDo(ch),
+          alvo: ch,
         },
         eu,
       );
@@ -786,10 +791,10 @@ export async function andarDestino(
           [ch.aberto_por],
           {
             tipo: "concluido",
-            titulo: `${formatarNumeroChamado(ch.numero)} ${ch.titulo}`,
+            titulo: `${numeroDo(ch)} ${ch.titulo}`,
             texto: "Todos concluíram. Confirme se ficou resolvido.",
-            href: rotaChamado(ch.id),
-            chamadoId: ch.id,
+            href: rotaDo(ch),
+            alvo: ch,
           },
           eu,
         );
@@ -811,11 +816,11 @@ export async function definirTarefaDestino(
   const db = await os();
   const { data: linha } = await db
     .from("destinatarios")
-    .select("id, chamado_id, titulo")
+    .select("id, chamado_id, ordem_id, titulo")
     .eq("id", d.data.id)
     .maybeSingle();
   if (!linha) return { erro: "Destino não encontrado." };
-  const ch = await lerChamado(linha.chamado_id);
+  const ch = await lerChamado(linha.chamado_id ?? linha.ordem_id ?? "");
   if (!ch) return { erro: "Chamado não encontrado." };
   const p = papelNoChamado(ch, ctx);
   if (!p.solicitante && !p.responsavel && !p.doSetor && !p.gestor)
@@ -844,22 +849,23 @@ export async function seguirChamado(
 ): Promise<EstadoAcao> {
   const d = alternar.safeParse(Object.fromEntries(form));
   if (!d.success) return primeiroErro(d.error);
-  const ctx = await contexto();
+  const [ctx, ch] = await Promise.all([contexto(), lerChamado(d.data.id)]);
+  if (!ch) return { erro: "Chamado não encontrado." };
   const db = await os();
   const { error } =
     d.data.ligar === "1"
       ? await db.from("participantes").upsert(
           {
-            chamado_id: d.data.id,
+            ...donoDo(ch),
             usuario_id: ctx.usuario.id,
             motivo: "seguindo",
           },
-          { onConflict: "chamado_id,usuario_id", ignoreDuplicates: true },
+          { onConflict: `${chaveDo(ch)},usuario_id`, ignoreDuplicates: true },
         )
       : await db
           .from("participantes")
           .delete()
-          .eq("chamado_id", d.data.id)
+          .eq(chaveDo(ch), ch.id)
           .eq("usuario_id", ctx.usuario.id);
   if (error) return erroDoBanco(error);
   refresh();

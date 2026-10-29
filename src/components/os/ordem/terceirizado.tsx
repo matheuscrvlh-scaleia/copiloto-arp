@@ -66,7 +66,7 @@ const mapa = (l: Localizacao) =>
   `https://www.google.com/maps?q=${l.lat},${l.lng}`;
 
 export function Terceirizado({
-  chamadoId,
+  ordemId,
   link,
   podeEnviar,
   podeEditar,
@@ -76,7 +76,7 @@ export function Terceirizado({
   cobranca,
   orcamento,
 }: {
-  chamadoId: string;
+  ordemId: string;
   link: LinkNaTela | null;
   podeEnviar: boolean;
   podeEditar: boolean;
@@ -110,7 +110,7 @@ export function Terceirizado({
               rotuloEnviando="Aprovando…"
               confirmar="Aprovar o orçamento do terceirizado? A OS poderá ser concluída com este valor."
             >
-              <input type="hidden" name="chamado_id" value={chamadoId} />
+              <input type="hidden" name="ordem_id" value={ordemId} />
             </FormAcao>
           )}
         </div>
@@ -152,7 +152,7 @@ export function Terceirizado({
 
       {link && (link.solucao || link.valor_informado !== null) && (
         <Informado
-          chamadoId={chamadoId}
+          ordemId={ordemId}
           link={link}
           podeEditar={podeEditar}
           comCustos={comCustos}
@@ -162,7 +162,7 @@ export function Terceirizado({
 
       {podeEnviar && (
         <Enviar
-          chamadoId={chamadoId}
+          ordemId={ordemId}
           telefones={telefones}
           reenviar={!!link?.ativo && link.etapa !== "recusado"}
         />
@@ -176,7 +176,7 @@ export function Terceirizado({
           variante="perigo"
           confirmar="Cancelar o link do terceirizado? Ele deixa de abrir a OS."
         >
-          <input type="hidden" name="chamado_id" value={chamadoId} />
+          <input type="hidden" name="ordem_id" value={ordemId} />
         </FormAcao>
       )}
     </div>
@@ -272,13 +272,13 @@ function Situacao({ link }: { link: LinkNaTela }) {
 }
 
 function Informado({
-  chamadoId,
+  ordemId,
   link,
   podeEditar,
   comCustos,
   solucaoAtual,
 }: {
-  chamadoId: string;
+  ordemId: string;
   link: LinkNaTela;
   podeEditar: boolean;
   comCustos: boolean;
@@ -299,7 +299,7 @@ function Informado({
               rotuloEnviando="Salvando…"
               variante="secundario"
             >
-              <input type="hidden" name="chamado_id" value={chamadoId} />
+              <input type="hidden" name="ordem_id" value={ordemId} />
               <input type="hidden" name="campo" value="solucao" />
             </FormAcao>
           )}
@@ -319,7 +319,7 @@ function Informado({
               rotuloEnviando="Salvando…"
               variante="secundario"
             >
-              <input type="hidden" name="chamado_id" value={chamadoId} />
+              <input type="hidden" name="ordem_id" value={ordemId} />
               <input type="hidden" name="campo" value="valor" />
             </FormAcao>
           )}
@@ -330,11 +330,11 @@ function Informado({
 }
 
 function Enviar({
-  chamadoId,
+  ordemId,
   telefones,
   reenviar,
 }: {
-  chamadoId: string;
+  ordemId: string;
   telefones: Opcao[];
   reenviar: boolean;
 }) {
@@ -357,7 +357,7 @@ function Enviar({
       action={enviar}
       className="flex flex-col gap-3 rounded-2xl border border-neutral-200 p-3"
     >
-      <input type="hidden" name="chamado_id" value={chamadoId} />
+      <input type="hidden" name="ordem_id" value={ordemId} />
       <input
         type="hidden"
         name="telefone"

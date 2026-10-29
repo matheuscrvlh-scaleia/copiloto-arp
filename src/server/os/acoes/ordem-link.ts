@@ -218,7 +218,7 @@ export async function salvarRelatorio(
   // A solução entra na OS se ainda não há uma; o valor, a ARP confere.
   if (d.data.solucao && !a.chamado.solucao?.trim())
     await osAdmin()
-      .from("chamados")
+      .from("ordens")
       .update({ solucao: d.data.solucao })
       .eq("id", a.chamado.id)
       .is("solucao", null);
@@ -289,7 +289,7 @@ export async function enviarArquivosDoTerceirizado(
       return { erro: `Não foi possível enviar ${f.name}. Tente de novo.` };
     }
     const { error } = await db.from("anexos").insert({
-      chamado_id: a.chamado.id,
+      ordem_id: a.chamado.id,
       categoria: categoria.data,
       nome: f.name.slice(0, 200),
       path,

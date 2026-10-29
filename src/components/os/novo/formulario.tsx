@@ -53,8 +53,10 @@ import type {
 
 // Abrir um chamado em três passos: escolher setor e categoria, escrever o
 // título, enviar. O resto fica em "Mais detalhes" (opcional). A mesma tela
-// serve ao botão "+ Novo" (janela) e à página /os/novo (com contexto da
-// URL: ativo, loja, vistoria, chamado vinculado, converter, duplicar).
+// serve ao botão "+ Novo" (janela) e às páginas /os/novo e /os/ordens/nova
+// (com contexto da URL: ativo, loja, vistoria, chamado vinculado,
+// duplicar). Com `inicial.tipo` = "os" é o formulário da OS (tipo fixo);
+// sem, o do chamado (sem a opção OS: um não cria o outro).
 
 const sem = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
@@ -101,7 +103,7 @@ export function FormularioChamado({
             : undefined
         }
         contexto={inicial?.contexto ?? []}
-        comPessoal={!inicial?.convertidoDeId && !inicial?.vistoriaId}
+        comPessoal={inicial?.tipo !== "os" && !inicial?.vistoriaId}
         aoEscolher={setEscolha}
         aoCriarCategoria={(c) => {
           setCriadas((l) => [...l, c]);
@@ -192,7 +194,7 @@ function EscolherCategoria({
   dados: DadosDoFormulario;
   dica?: string;
   contexto: InicialDoFormulario["contexto"];
-  /** Atalho da tarefa pessoal (não cabe ao converter em OS). */
+  /** Atalho da tarefa pessoal (não cabe na OS). */
   comPessoal: boolean;
   aoEscolher: (e: Escolha) => void;
   aoCriarCategoria: (c: CategoriaDoFormulario) => void;
@@ -438,8 +440,15 @@ function Detalhes({
     : [];
   const pessoal = escolha.pessoal;
 
+  const ehOS = inicial?.tipo === "os";
   const [tipo, setTipo] = useState<TipoChamado>(
-    pessoal ? "tarefa" : (inicial?.tipo ?? categoria?.tipo ?? "solicitacao"),
+    pessoal
+      ? "tarefa"
+      : ehOS
+        ? "os"
+        : (inicial?.tipo ??
+          (categoria?.tipo === "os" ? null : categoria?.tipo) ??
+          "solicitacao"),
   );
   const [prioridade, setPrioridade] = useState<Prioridade>(
     inicial?.prioridade ?? categoria?.prioridade ?? "media",
@@ -543,11 +552,6 @@ function Detalhes({
         type="hidden"
         name="vinculado_a_id"
         value={inicial?.vinculadoAId ?? ""}
-      />
-      <input
-        type="hidden"
-        name="convertido_de_id"
-        value={inicial?.convertidoDeId ?? ""}
       />
 
       <div
@@ -713,17 +717,19 @@ function Detalhes({
         >
           <section className="flex flex-col gap-3">
             <h3 className={SECAO}>Essencial</h3>
-            {!pessoal && (
+            {!pessoal && !ehOS && (
               <Propriedade nome="Tipo" htmlFor={`${id}-tipo`}>
                 <Selecao
                   id={`${id}-tipo`}
                   valor={tipo}
                   aoMudar={(v) => setTipo(v as TipoChamado)}
                   icone={<IconeTipo tipo={tipo} className="size-4" />}
-                  opcoes={(Object.keys(TIPOS) as TipoChamado[]).map((t) => ({
-                    valor: t,
-                    rotulo: TIPOS[t],
-                  }))}
+                  opcoes={(Object.keys(TIPOS) as TipoChamado[])
+                    .filter((t) => t !== "os")
+                    .map((t) => ({
+                      valor: t,
+                      rotulo: TIPOS[t],
+                    }))}
                 />
               </Propriedade>
             )}
@@ -814,7 +820,11 @@ function Detalhes({
                     id={`${id}-vinculado`}
                     name="vinculado_numero"
                     inputMode="numeric"
-                    placeholder="Ligado a outro (ex.: 1234)"
+                    placeholder={
+                      ehOS
+                        ? "Chamado ligado (ex.: 1234)"
+                        : "Ligado a outro (ex.: 1234)"
+                    }
                     className={classeCampo}
                   />
                 </Propriedade>
@@ -876,7 +886,7 @@ function Detalhes({
               />
             )}
             <Repetir />
-            {categoria?.agendaId && (
+            {categoria?.agendaId && !ehOS && (
               <Horario
                 agendaId={categoria.agendaId}
                 nome={
@@ -920,8 +930,8 @@ function Detalhes({
           <Send className="size-4" aria-hidden />
           {enviando
             ? "Enviando…"
-            : inicial?.convertidoDeId
-              ? "Criar Ordem de Serviço"
+            : ehOS
+              ? "Abrir Ordem de Serviço"
               : "Abrir chamado"}
           <kbd className="ml-1 hidden rounded-md border border-current px-1.5 font-sans text-[11px] opacity-60 sm:inline">
             Ctrl ↵

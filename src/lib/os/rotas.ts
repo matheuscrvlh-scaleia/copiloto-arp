@@ -4,6 +4,7 @@
 export const ROTAS_OS = {
   caixa: "/os",
   novo: "/os/novo",
+  novaOrdem: "/os/ordens/nova",
   meuSetor: "/os/meu-setor",
   quadro: "/os/quadro",
   avisos: "/os/avisos",
@@ -22,9 +23,14 @@ export function rotaChamado(id: string): string {
   return `/os/chamados/${id}`;
 }
 
-/** Novo chamado para o Financeiro, preenchido com a OS concluída. */
-export function rotaTicketFinanceiro(osId: string): string {
-  return `/os/novo?financeiro=${osId}`;
+/** Página inteira da OS. */
+export function rotaOrdem(id: string): string {
+  return `/os/ordens/${id}`;
+}
+
+/** Página do chamado ou da OS. */
+export function rotaDo(x: { id: string; tipo: string }): string {
+  return x.tipo === "os" ? rotaOrdem(x.id) : rotaChamado(x.id);
 }
 
 /** Abre o chamado na janela lateral da tela atual (?c=<id>). */

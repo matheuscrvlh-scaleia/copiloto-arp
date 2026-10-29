@@ -264,12 +264,16 @@ export async function historicoDoModulo(f: FiltrosHistoricoOS): Promise<{
     const ou = [`registro_id.ilike.*${termo}*`];
     const numero = numeroBuscado(f.busca);
     if (numero !== null) {
-      const { data } = await (await os())
-        .from("chamados")
-        .select("id")
-        .eq("numero", numero)
-        .maybeSingle();
-      if (data) ou.push(`registro_id.eq.${data.id}`);
+      // Chamado e OS numeram cada um na sua sequência: o número pode casar
+      // com os dois.
+      const db = await os();
+      const lidos = await Promise.all(
+        (["chamados", "ordens"] as const).map((t) =>
+          db.from(t).select("id").eq("numero", numero).maybeSingle(),
+        ),
+      );
+      for (const { data } of lidos)
+        if (data) ou.push(`registro_id.eq.${data.id}`);
     }
     const tabelas = tabelasQueCasam(termo).filter((t) => t.startsWith("os."));
     if (tabelas.length) ou.push(`tabela.in.(${tabelas.join(",")})`);

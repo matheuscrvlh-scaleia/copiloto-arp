@@ -21,7 +21,7 @@ import type {
 } from "@/components/os/vistorias/tipos";
 import { SemAcesso } from "@/components/protegido";
 import { formatarData, formatarDataHora } from "@/lib/formato";
-import { ROTAS_OS, rotaChamado, rotaVistoria } from "@/lib/os/rotas";
+import { ROTAS_OS, rotaDo, rotaVistoria } from "@/lib/os/rotas";
 import { localDaUnidade, situacaoDaVistoria } from "@/lib/os/vistoria-regras";
 import { contexto, pessoas } from "@/server/os/base";
 import {
@@ -224,7 +224,7 @@ function ChamadosDaVistoria({ chamados }: { chamados: ChamadoDaVistoria[] }) {
           {chamados.map((c) => (
             <li key={c.id}>
               <Link
-                href={rotaChamado(c.id)}
+                href={rotaDo(c)}
                 className="flex flex-wrap items-center gap-2 rounded-2xl border border-neutral-900/[0.06] bg-white/60 px-3 py-2.5 text-sm transition hover:bg-white"
               >
                 <span className="font-medium tabular-nums">#{c.numero}</span>

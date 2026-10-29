@@ -28,9 +28,10 @@ import {
 
 // Leitura dos painéis (spec 4.13). Tudo pela sessão (RLS): o painel geral
 // vê todos os setores (os.painel_geral) e o de setor, os chamados do
-// próprio setor (os.painel_setor). Uma consulta de chamados por painel,
-// paginada; as tabelas filhas vêm em lotes pelos ids. Os números saem das
-// funções puras de src/lib/os/indicadores*.ts.
+// próprio setor (os.painel_setor). Os painéis somam chamados e OS: uma
+// consulta em cada tabela, paginada (a OS tem tipo 'os'); as tabelas
+// filhas vêm em lotes pelos ids (o id é único entre as duas). Os números
+// saem das funções puras de src/lib/os/indicadores*.ts.
 
 export type Busca = Record<string, string | string[] | undefined>;
 
@@ -91,20 +92,36 @@ export async function lerFiltrosDoPainel(
 // ---------------------------------------------------------------------------
 
 const COLUNAS_PAINEL =
-  "id, numero, tipo, titulo, setor_id, categoria_id, status, prioridade, origem, pessoal, precisa_confirmacao, aberto_por, solicitante_nome, responsavel_id, prazo, loja_id, ativo_id, etiquetas, aguardando_tipo, aguardando_min, aguardando_desde, primeira_resposta_em, concluido_em, fechado_em, cancelado_em, execucao, local, rateio, avaliacao, criado_em, atualizado_em, bloco, empresa_id, prazo_terceirizado, reaberto_vezes, plano_id, vistoria_id, ambiente_id, avaliado_em" as const;
+  "id, numero, tipo, titulo, setor_id, categoria_id, status, prioridade, origem, pessoal, precisa_confirmacao, aberto_por, solicitante_nome, responsavel_id, prazo, loja_id, ativo_id, etiquetas, aguardando_tipo, aguardando_min, aguardando_desde, primeira_resposta_em, concluido_em, fechado_em, cancelado_em, avaliacao, criado_em, atualizado_em, reaberto_vezes, vistoria_id, ambiente_id, avaliado_em" as const;
+/** Na OS, também a execução. */
+const COLUNAS_PAINEL_OS =
+  `${COLUNAS_PAINEL}, execucao, local, rateio, bloco, empresa_id, prazo_terceirizado, plano_id` as const;
 
+type ColunaDaOS =
+  | "execucao"
+  | "local"
+  | "rateio"
+  | "bloco"
+  | "empresa_id"
+  | "prazo_terceirizado"
+  | "plano_id";
+
+/** Chamado ou OS; no chamado, as colunas da execução vêm nulas. */
 export type ChamadoDoPainel = ChamadoResumo &
   Pick<
     Tabela<"chamados">,
-    | "bloco"
-    | "empresa_id"
-    | "prazo_terceirizado"
-    | "reaberto_vezes"
-    | "plano_id"
-    | "vistoria_id"
-    | "ambiente_id"
-    | "avaliado_em"
-  >;
+    "reaberto_vezes" | "vistoria_id" | "ambiente_id" | "avaliado_em"
+  > & { [K in ColunaDaOS]: Tabela<"ordens">[K] | null };
+
+const SEM_EXECUCAO: { [K in ColunaDaOS]: null } = {
+  execucao: null,
+  local: null,
+  rateio: null,
+  bloco: null,
+  empresa_id: null,
+  prazo_terceirizado: null,
+  plano_id: null,
+};
 
 const PAGINA = 1000;
 const LOTE = 150;
@@ -188,35 +205,59 @@ export async function chamadosDoPainel(
   const cliente = await os();
   const inicio = `"${desde}T00:00:00-03:00"`;
   const fim = `${somarDias(ate, 1)}T00:00:00-03:00`;
-  return paginasEmParalelo((de, ultimo, contar) =>
-    cliente
-      .from("chamados")
-      .select(COLUNAS_PAINEL, contar ? { count: "estimated" } : undefined)
-      .lt("criado_em", fim)
-      .or(
-        [
-          "status.in.(aberto,em_andamento,aguardando,concluido)",
-          `criado_em.gte.${inicio}`,
-          `concluido_em.gte.${inicio}`,
-          `fechado_em.gte.${inicio}`,
-          `cancelado_em.gte.${inicio}`,
-        ].join(","),
-      )
-      .order("criado_em", { ascending: false })
-      .order("id")
-      .range(de, ultimo),
+  const doPeriodo = [
+    "status.in.(aberto,em_andamento,aguardando,concluido)",
+    `criado_em.gte.${inicio}`,
+    `concluido_em.gte.${inicio}`,
+    `fechado_em.gte.${inicio}`,
+    `cancelado_em.gte.${inicio}`,
+  ].join(",");
+  const [chamados, ordens] = await Promise.all([
+    paginasEmParalelo((de, ultimo, contar) =>
+      cliente
+        .from("chamados")
+        .select(COLUNAS_PAINEL, contar ? { count: "estimated" } : undefined)
+        .lt("criado_em", fim)
+        .or(doPeriodo)
+        .order("criado_em", { ascending: false })
+        .order("id")
+        .range(de, ultimo),
+    ),
+    paginasEmParalelo((de, ultimo, contar) =>
+      cliente
+        .from("ordens")
+        .select(COLUNAS_PAINEL_OS, contar ? { count: "estimated" } : undefined)
+        .lt("criado_em", fim)
+        .or(doPeriodo)
+        .order("criado_em", { ascending: false })
+        .order("id")
+        .range(de, ultimo),
+    ),
+  ]);
+  return juntar(chamados, ordens);
+}
+
+/** Chamados e OS juntos, do mais novo para o mais antigo. */
+function juntar(
+  chamados: Omit<ChamadoDoPainel, ColunaDaOS>[],
+  ordens: ChamadoDoPainel[],
+): ChamadoDoPainel[] {
+  return [...chamados.map((c) => ({ ...c, ...SEM_EXECUCAO })), ...ordens].sort(
+    (a, b) => b.criado_em.localeCompare(a.criado_em),
   );
 }
 
 /** Chamados pelos ids (os que um painel cita e não vieram na consulta). */
 export async function chamadosPorId(ids: string[]): Promise<ChamadoDoPainel[]> {
   return emLotes(ids, async (lote) => {
-    const { data, error } = await (await os())
-      .from("chamados")
-      .select(COLUNAS_PAINEL)
-      .in("id", lote);
-    falhar(error);
-    return data ?? [];
+    const db = await os();
+    const [c, o] = await Promise.all([
+      db.from("chamados").select(COLUNAS_PAINEL).in("id", lote),
+      db.from("ordens").select(COLUNAS_PAINEL_OS).in("id", lote),
+    ]);
+    falhar(c.error);
+    falhar(o.error);
+    return juntar(c.data ?? [], o.data ?? []);
   });
 }
 
@@ -284,21 +325,36 @@ export async function setoresDasVistorias(): Promise<Set<string>> {
 // ---------------------------------------------------------------------------
 
 const COLUNAS_DESTINO =
-  "chamado_id, titulo, setor_id, status, prazo, concluido_em, criado_em" as const;
+  "chamado_id, ordem_id, titulo, setor_id, status, prazo, concluido_em, criado_em" as const;
 
-/** Itens (destinatários) dos chamados. */
+/** O destino com o id do dono (chamado ou OS) em chamado_id. */
+const doDono = ({
+  ordem_id,
+  chamado_id,
+  ...d
+}: {
+  chamado_id: string | null;
+  ordem_id: string | null;
+} & Omit<DestinoDoPainel, "chamado_id">): DestinoDoPainel => ({
+  ...d,
+  chamado_id: chamado_id ?? ordem_id ?? "",
+});
+
+/** Itens (destinatários) dos chamados e das OS. */
 export function destinosDe(ids: string[]): Promise<DestinoDoPainel[]> {
   return emLotes(ids, async (lote) => {
     const cliente = await os();
+    const lista = lote.join(",");
     // Um aviso de modelo tem um item por setor: o lote passa de mil linhas.
-    return todasAsPaginas((de, ate) =>
+    const linhas = await todasAsPaginas((de, ate) =>
       cliente
         .from("destinatarios")
         .select(COLUNAS_DESTINO)
-        .in("chamado_id", lote)
+        .or(`chamado_id.in.(${lista}),ordem_id.in.(${lista})`)
         .order("id")
         .range(de, ate),
     );
+    return linhas.map(doDono);
   });
 }
 
@@ -308,7 +364,7 @@ export async function destinosDoSetor(
   desde: string,
 ): Promise<DestinoDoPainel[]> {
   const cliente = await os();
-  return todasAsPaginas((de, ate) =>
+  const linhas = await todasAsPaginas((de, ate) =>
     cliente
       .from("destinatarios")
       .select(COLUNAS_DESTINO)
@@ -319,9 +375,10 @@ export async function destinosDoSetor(
       .order("id")
       .range(de, ate),
   );
+  return linhas.map(doDono);
 }
 
-/** Sessões de trabalho dos chamados, com os técnicos de cada uma. */
+/** Sessões de trabalho das OS, com os técnicos de cada uma. */
 export function sessoesDe(ids: string[]): Promise<SessaoDoPainel[]> {
   return emLotes(ids, async (lote) => {
     const cliente = await os();
@@ -329,14 +386,14 @@ export function sessoesDe(ids: string[]): Promise<SessaoDoPainel[]> {
       cliente
         .from("sessoes")
         .select(
-          "chamado_id, data, inicio, fim, almoco_inicio, almoco_fim, sessao_tecnicos(tecnico_id)",
+          "ordem_id, data, inicio, fim, almoco_inicio, almoco_fim, sessao_tecnicos(tecnico_id)",
         )
-        .in("chamado_id", lote)
+        .in("ordem_id", lote)
         .order("id")
         .range(de, ate),
     );
     return data.map((s) => ({
-      chamado_id: s.chamado_id,
+      chamado_id: s.ordem_id,
       data: s.data,
       inicio: s.inicio.slice(0, 5),
       fim: s.fim?.slice(0, 5) ?? null,
@@ -366,13 +423,18 @@ export async function custosDe(
     const { data, error } = await (await os())
       .from("os_custos")
       .select(
-        "chamado_id, custo_mao_obra, custo_materiais, valor_terceirizado, custo_total, valor_rateio, completo",
+        "ordem_id, custo_mao_obra, custo_materiais, valor_terceirizado, custo_total, valor_rateio, completo",
       )
-      .in("chamado_id", lote);
+      .in("ordem_id", lote);
     falhar(error);
     return data ?? [];
   });
-  return new Map(linhas.map((l) => [l.chamado_id, l]));
+  return new Map(
+    linhas.map(({ ordem_id, ...l }) => [
+      ordem_id,
+      { ...l, chamado_id: ordem_id },
+    ]),
+  );
 }
 
 /** Links da OS enviados aos terceirizados no período. */
@@ -381,15 +443,16 @@ export async function linksDoPeriodo(
   ate: string,
 ): Promise<LinkDoPainel[]> {
   const cliente = await os();
-  return todasAsPaginas((inicio, fim) =>
+  const linhas = await todasAsPaginas((inicio, fim) =>
     cliente
       .from("terceirizado_links")
-      .select("chamado_id, empresa_id, aceito_em, recusado_em, terminado_em")
+      .select("ordem_id, empresa_id, aceito_em, recusado_em, terminado_em")
       .gte("criado_em", `${de}T00:00:00-03:00`)
       .lt("criado_em", `${somarDias(ate, 1)}T00:00:00-03:00`)
       .order("id")
       .range(inicio, fim),
   );
+  return linhas.map(({ ordem_id, ...l }) => ({ ...l, chamado_id: ordem_id }));
 }
 
 export async function empresas(): Promise<Map<string, string>> {

@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
 import { ACOES, CONDICOES, GATILHOS } from "@/lib/os/modelos";
 import { erroDoBanco, primeiroErro } from "@/server/acoes";
-import { os, registrar } from "@/server/os/base";
+import { chamado, os, registrar } from "@/server/os/base";
 import {
   exigir,
   exigirAgora,
@@ -218,7 +218,7 @@ export async function pararSerie(
     .select("id");
   if (error) return erroDoBanco(error);
   if (!data?.length) return NADA_ALTERADO;
-  await registrar(ultima.data, {
+  await registrar(chamado(ultima.data), {
     tipo: "alteracao",
     texto: "Parou de repetir: nenhuma ocorrência nova será criada.",
     dados: { campo: "recorrencia", para: null },

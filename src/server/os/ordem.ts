@@ -1,6 +1,5 @@
 import "server-only";
 import { cache } from "react";
-import { formatarMoeda } from "@/lib/formato";
 import {
   calcularOS,
   type ResultadoOS,
@@ -19,7 +18,7 @@ import {
   tipoDeServico,
 } from "@/lib/os/ordem";
 import { dataBr } from "@/lib/os/relatorios";
-import { rotaChamado } from "@/lib/os/rotas";
+import { rotaOrdem } from "@/lib/os/rotas";
 import { STATUS } from "@/lib/os/rotulos";
 import {
   type ChaveMensagem,
@@ -53,7 +52,7 @@ const COLUNAS_CHAMADO =
   "id, numero, tipo, titulo, descricao, setor_id, categoria_id, status, prioridade, aberto_por, responsavel_id, loja_id, ativo_id, execucao, local, bloco, empresa_id, visita_data, visita_periodo, prazo_terceirizado, solucao, causa_falha, ativo_parado, rateio, assinatura_nome, assinatura_path, assinado_em, criado_em, concluido_em, fechado_em, legado_origem, checklist, pessoal, precisa_confirmacao" as const;
 
 export type ChamadoOS = Pick<
-  Tabela<"chamados">,
+  Tabela<"ordens">,
   | "id"
   | "numero"
   | "tipo"
@@ -188,13 +187,13 @@ const ehImagem = (mime: string | null) => !!mime?.startsWith("image/");
  */
 export const dadosDaOS = cache(lerDadosDaOS);
 
-async function lerDadosDaOS(chamadoId: string): Promise<DadosOS | null> {
+async function lerDadosDaOS(ordemId: string): Promise<DadosOS | null> {
   const ctx = await contexto();
   const db = await os();
   const { data: chamado, error } = await db
-    .from("chamados")
+    .from("ordens")
     .select(COLUNAS_CHAMADO)
-    .eq("id", chamadoId)
+    .eq("id", ordemId)
     .maybeSingle();
   falhar(error);
   if (!chamado) return null;
@@ -220,26 +219,22 @@ async function lerDadosDaOS(chamadoId: string): Promise<DadosOS | null> {
       .select(
         "id, data, inicio, fim, almoco_inicio, almoco_fim, observacao, sessao_tecnicos(tecnico_id)",
       )
-      .eq("chamado_id", chamadoId),
+      .eq("ordem_id", ordemId),
     db
       .from("materiais")
       .select(
         "id, descricao, quantidade, unidade, material_valores(valor_unitario)",
       )
-      .eq("chamado_id", chamadoId)
+      .eq("ordem_id", ordemId)
       .order("criado_em"),
     comCustos
-      ? db
-          .from("os_custos")
-          .select("*")
-          .eq("chamado_id", chamadoId)
-          .maybeSingle()
+      ? db.from("os_custos").select("*").eq("ordem_id", ordemId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     ehOS
       ? db
           .from("terceirizado_links")
           .select("*")
-          .eq("chamado_id", chamadoId)
+          .eq("ordem_id", ordemId)
           .order("criado_em", { ascending: false })
           .limit(5)
       : Promise.resolve({ data: [] as LinkDaOS[], error: null }),
@@ -248,17 +243,17 @@ async function lerDadosDaOS(chamadoId: string): Promise<DadosOS | null> {
       .select(
         "id, nome, categoria, path, mime, enviado_por, enviado_por_nome, em",
       )
-      .eq("chamado_id", chamadoId)
+      .eq("ordem_id", ordemId)
       .in("categoria", ["antes", "depois", "orcamento", "laudo"])
       .order("em"),
-    db.rpc("pode_editar_chamado", { p_chamado: chamadoId }),
+    db.rpc("pode_editar_ordem", { p_ordem: ordemId }),
     cadastros(),
     parametros(),
     categorias(),
     db
-      .from("chamado_profissionais")
+      .from("ordem_profissionais")
       .select("profissional_id")
-      .eq("chamado_id", chamadoId),
+      .eq("ordem_id", ordemId),
     ehOS
       ? db.rpc("ativos_para_vincular")
       : Promise.resolve({ data: [], error: null }),
@@ -318,7 +313,7 @@ async function lerDadosDaOS(chamadoId: string): Promise<DadosOS | null> {
   const urls = await urlsAssinadas(caminhos);
   const gerencia = gerenciaSetor(ctx, chamado.setor_id);
   const orcamento = ehOS
-    ? await situacaoDoOrcamento(chamadoId, k, p.teto_terceirizado)
+    ? await situacaoDoOrcamento(ordemId, k, p.teto_terceirizado)
     : { pendente: false, aprovadoEm: null };
   const encerrada = osEncerrada(chamado.status);
   const local = localDa(chamado, cad);
@@ -372,7 +367,7 @@ async function lerDadosDaOS(chamadoId: string): Promise<DadosOS | null> {
       data: dataBr(chamado.criado_em),
       local,
       descricao: chamado.descricao ?? chamado.titulo,
-      link: urlDoSistema(rotaChamado(chamado.id)),
+      link: urlDoSistema(rotaOrdem(chamado.id)),
     }),
   };
 }
@@ -383,7 +378,7 @@ async function lerDadosDaOS(chamadoId: string): Promise<DadosOS | null> {
  * sai daqui.
  */
 async function situacaoDoOrcamento(
-  chamadoId: string,
+  ordemId: string,
   custos: Pick<
     Tabela<"os_custos">,
     "valor_terceirizado" | "orcamento_aprovado_em"
@@ -396,7 +391,7 @@ async function situacaoDoOrcamento(
       await osAdmin()
         .from("os_custos")
         .select("valor_terceirizado, orcamento_aprovado_em")
-        .eq("chamado_id", chamadoId)
+        .eq("ordem_id", ordemId)
         .maybeSingle()
     ).data;
   const acima = precisaAprovacao(k?.valor_terceirizado ?? null, teto);
@@ -435,28 +430,28 @@ async function vigenciasDe(
  * de qualquer mudança em sessões, técnicos, materiais, valores ou rateio —
  * e só depois de conferir que a pessoa mexe no chamado.
  */
-export async function recalcularOS(chamadoId: string): Promise<void> {
+export async function recalcularOS(ordemId: string): Promise<void> {
   const db = osAdmin();
   const [ch, sessoes, materiais, custos] = await Promise.all([
     db
-      .from("chamados")
+      .from("ordens")
       .select("rateio, legado_origem")
-      .eq("id", chamadoId)
+      .eq("id", ordemId)
       .single(),
     db
       .from("sessoes")
       .select(
         "id, data, inicio, fim, almoco_inicio, almoco_fim, sessao_tecnicos(tecnico_id)",
       )
-      .eq("chamado_id", chamadoId),
+      .eq("ordem_id", ordemId),
     db
       .from("materiais")
       .select("descricao, quantidade, material_valores(valor_unitario)")
-      .eq("chamado_id", chamadoId),
+      .eq("ordem_id", ordemId),
     db
       .from("os_custos")
       .select("valor_terceirizado, rateio_regra, rateio_valor")
-      .eq("chamado_id", chamadoId)
+      .eq("ordem_id", ordemId)
       .maybeSingle(),
   ]);
   for (const r of [ch, sessoes, materiais, custos]) falhar(r.error);
@@ -491,10 +486,10 @@ export async function recalcularOS(chamadoId: string): Promise<void> {
     nomes: Object.fromEntries((tecnicos.data ?? []).map((t) => [t.id, t.nome])),
   });
   const { error } = await db.rpc("gravar_calculo_os", {
-    p_chamado: chamadoId,
+    p_ordem: ordemId,
     p_resultado: resultadoParaBanco(r) as unknown as Json,
   });
-  if (error) console.error("gravar cálculo da OS", chamadoId, error);
+  if (error) console.error("gravar cálculo da OS", ordemId, error);
 }
 
 /**
@@ -502,32 +497,30 @@ export async function recalcularOS(chamadoId: string): Promise<void> {
  * chamado (qualquer tipo com tempo: cronômetro rodando impede). Lê pela
  * service role só para devolver o motivo (o valor não sai daqui).
  */
-export async function podeConcluirOS(
-  chamadoId: string,
-): Promise<string | null> {
+export async function podeConcluirOS(ordemId: string): Promise<string | null> {
   const db = osAdmin();
   const [ch, abertas, custos, p, links] = await Promise.all([
     db
-      .from("chamados")
+      .from("ordens")
       .select("tipo, execucao, solucao, assinado_em")
-      .eq("id", chamadoId)
+      .eq("id", ordemId)
       .maybeSingle(),
     db
       .from("sessoes")
       .select("id", { count: "exact", head: true })
-      .eq("chamado_id", chamadoId)
+      .eq("ordem_id", ordemId)
       .is("fim", null),
     db
       .from("os_custos")
       .select("valor_terceirizado, orcamento_aprovado_em")
-      .eq("chamado_id", chamadoId)
+      .eq("ordem_id", ordemId)
       .maybeSingle(),
     // O teto vem do cache (quem conclui usa o módulo).
     parametros(),
     db
       .from("terceirizado_links")
       .select("cancelado_em, recusado_em, assinado_em")
-      .eq("chamado_id", chamadoId),
+      .eq("ordem_id", ordemId),
   ]);
   if (!ch.data) return "Chamado não encontrado.";
   return motivoParaNaoConcluir({
@@ -571,12 +564,12 @@ export async function marcarAtivoParado(
  * Ao fechar ou cancelar a OS: o ativo parado volta a "Em uso". O agente
  * do chamado (e o aceite automático) chamam depois de mudar o status.
  */
-export async function liberarAtivoDaOS(chamadoId: string): Promise<void> {
+export async function liberarAtivoDaOS(ordemId: string): Promise<void> {
   const db = osAdmin();
   const { data } = await db
-    .from("chamados")
+    .from("ordens")
     .select("ativo_id, ativo_parado, status")
-    .eq("id", chamadoId)
+    .eq("id", ordemId)
     .maybeSingle();
   if (!data?.ativo_id || !data.ativo_parado || !osEncerrada(data.status))
     return;
@@ -585,7 +578,7 @@ export async function liberarAtivoDaOS(chamadoId: string): Promise<void> {
     .update({ situacao: "em_uso" })
     .eq("id", data.ativo_id)
     .eq("situacao", "em_manutencao");
-  if (error) console.error("liberar ativo", chamadoId, error);
+  if (error) console.error("liberar ativo", ordemId, error);
 }
 
 // ---------------------------------------------------------------------------
@@ -636,18 +629,12 @@ export type ParaEditar =
  * O chamado para uma ação do bloco da OS: a pessoa precisa mexer nele (RLS)
  * e, se a OS já fechou ou foi cancelada, gerenciar o setor (correção).
  */
-export async function chamadoParaEditar(
-  chamadoId: string,
-): Promise<ParaEditar> {
+export async function chamadoParaEditar(ordemId: string): Promise<ParaEditar> {
   const ctx = await contexto();
   const db = await os();
   const [{ data: ch }, editavel] = await Promise.all([
-    db
-      .from("chamados")
-      .select(COLUNAS_CHAMADO)
-      .eq("id", chamadoId)
-      .maybeSingle(),
-    db.rpc("pode_editar_chamado", { p_chamado: chamadoId }),
+    db.from("ordens").select(COLUNAS_CHAMADO).eq("id", ordemId).maybeSingle(),
+    db.rpc("pode_editar_ordem", { p_ordem: ordemId }),
   ]);
   if (!ch || editavel.data !== true)
     return { erro: "Você não pode mexer nesta OS." };
@@ -657,58 +644,4 @@ export async function chamadoParaEditar(
       erro: "A OS já foi fechada ou cancelada. Só quem gerencia o setor corrige.",
     };
   return { ctx, ch, gerencia };
-}
-
-// ---------------------------------------------------------------------------
-// Ticket do Financeiro
-// ---------------------------------------------------------------------------
-
-export interface TicketFinanceiro {
-  setorId: string | null;
-  titulo: string;
-  descricao: string;
-  lojaId: string | null;
-  osId: string;
-  rotuloOS: string;
-}
-
-/**
- * O ticket do Financeiro de uma OS concluída, para abrir já preenchido
- * (setor dos Parâmetros, valor só para quem vê custos). null: a pessoa não
- * vê a OS ou ela ainda não foi concluída.
- */
-export async function ticketDoFinanceiro(
-  osId: string,
-): Promise<TicketFinanceiro | null> {
-  const d = await dadosDaOS(osId);
-  if (!d?.ehOS || !["concluido", "fechado"].includes(d.chamado.status))
-    return null;
-  const ch = d.chamado;
-  const empresa = ch.empresa_id ? d.cad.empresas.get(ch.empresa_id) : null;
-  const link = d.links.find((l) => !l.cancelado_em && !l.recusado_em);
-  const orcamento = d.custos?.orcamento_numero ?? link?.orcamento_numero;
-  const concluida = ch.concluido_em ?? ch.fechado_em;
-  const linhas = [
-    `Pagamento da O.S. nº ${ch.numero} (${tipoDeServico(d.categoria?.nome)})${concluida ? `, concluída em ${dataBr(concluida)}` : ""}.`,
-    empresa && `Empresa: ${empresa.nome}`,
-    `Local: ${d.local}`,
-    d.comCustos && `Valor da O.S.: ${formatarMoeda(d.resultado.total)}`,
-    orcamento && `Orçamento/nota: ${orcamento}`,
-    ch.solucao?.trim() && `Serviço: ${ch.solucao.trim()}`,
-    link?.assinado_em &&
-      `Assinada pelo terceirizado (${link.assinatura_nome}) e validada pela ARP${ch.assinatura_nome ? ` (${ch.assinatura_nome})` : ""}.`,
-    `OS: ${urlDoSistema(rotaChamado(ch.id))}`,
-  ];
-  return {
-    setorId: d.parametros.setor_financeiro_id,
-    titulo:
-      `Pagamento da O.S. nº ${ch.numero} · ${empresa?.nome ?? d.local}`.slice(
-        0,
-        200,
-      ),
-    descricao: linhas.filter(Boolean).join("\n"),
-    lojaId: ch.loja_id,
-    osId: ch.id,
-    rotuloOS: `#${ch.numero} ${ch.titulo}`,
-  };
 }

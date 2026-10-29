@@ -21,7 +21,7 @@ import { classeCampo } from "@/components/estilos";
 import { ModalConfirmacao } from "@/components/modal-confirmacao";
 import { notificar } from "@/components/notificacoes";
 import { SeloStatusChamado } from "@/components/os/selos";
-import { rotaChamado } from "@/lib/os/rotas";
+import { rotaDo } from "@/lib/os/rotas";
 import { RESPOSTAS_AMBIENTE, type RespostaAmbiente } from "@/lib/os/rotulos";
 import { mover } from "@/lib/os/vistoria-regras";
 import {
@@ -46,7 +46,7 @@ function avisarErro(e: string | null) {
 const ESPERA_MS = 1500;
 const SUGESTOES = ["Mezanino", "Sacada", "Depósito", "Copa", "Vitrine"];
 /** Tela do novo chamado (agente Chamado), que lê a vistoria e o ambiente. */
-const ROTA_NOVO_CHAMADO = "/os/novo";
+const ROTA_NOVA_OS = "/os/ordens/nova";
 
 type Salvamento = "salvo" | "salvando" | "erro" | "sujo";
 
@@ -154,7 +154,7 @@ export function Ambientes({
     // Sem gravar tudo, o novo chamado sairia sem a descrição do ambiente.
     if (!(await salvarSujos())) return;
     if (antesDeSair && !(await antesDeSair())) return;
-    router.push(`${ROTA_NOVO_CHAMADO}?vistoria=${vistoriaId}&ambiente=${a.id}`);
+    router.push(`${ROTA_NOVA_OS}?vistoria=${vistoriaId}&ambiente=${a.id}`);
   }
 
   async function reordenar(de: number, para: number) {
@@ -434,7 +434,7 @@ export function Ambientes({
                   {osDoAmbiente(atual.id).map((c) => (
                     <li key={c.id}>
                       <Link
-                        href={rotaChamado(c.id)}
+                        href={rotaDo(c)}
                         className="flex flex-wrap items-center gap-2 text-sm underline-offset-2 hover:underline"
                       >
                         <span className="font-medium">#{c.numero}</span>

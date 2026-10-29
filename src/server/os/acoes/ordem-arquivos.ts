@@ -14,6 +14,7 @@ import { erroDoBanco } from "@/server/acoes";
 import {
   caminhoDoArquivo,
   enviarArquivo,
+  ordem,
   os,
   osAdmin,
   registrar,
@@ -33,7 +34,7 @@ const CATEGORIAS = {
 } as const;
 
 const envio = z.object({
-  chamado_id: z.uuid(),
+  ordem_id: z.uuid(),
   categoria: z.enum(["antes", "depois", "orcamento", "laudo"]),
 });
 
@@ -43,7 +44,7 @@ export async function enviarArquivos(
 ): Promise<EstadoOS> {
   const d = envio.safeParse(Object.fromEntries(form));
   if (!d.success) return { erro: "Envio inválido." };
-  const { chamado_id, categoria } = d.data;
+  const { ordem_id, categoria } = d.data;
   const arquivos = form
     .getAll("arquivos")
     .filter((a): a is File => a instanceof File && a.size > 0);
@@ -64,18 +65,18 @@ export async function enviarArquivos(
     );
     if (erro) return { erro };
   }
-  const alvo = await chamadoParaEditar(chamado_id);
+  const alvo = await chamadoParaEditar(ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx } = alvo;
 
   const db = await os();
   for (const [i, a] of arquivos.entries()) {
     const mime = tipos[i] ?? "";
-    const path = caminhoDoArquivo("chamados", chamado_id, a.name);
+    const path = caminhoDoArquivo("chamados", ordem_id, a.name);
     const { data: linha, error } = await db
       .from("anexos")
       .insert({
-        chamado_id,
+        ordem_id,
         categoria,
         nome: a.name.slice(0, 200),
         path,
@@ -94,7 +95,7 @@ export async function enviarArquivos(
       return { erro: `Não foi possível enviar ${a.name}. Tente de novo.` };
     }
   }
-  await registrar(chamado_id, {
+  await registrar(ordem(ordem_id), {
     tipo: "anexo",
     texto:
       arquivos.length === 1
@@ -113,23 +114,23 @@ export async function removerArquivo(
   form: FormData,
 ): Promise<EstadoOS> {
   const d = z
-    .object({ chamado_id: z.uuid(), id: z.uuid() })
+    .object({ ordem_id: z.uuid(), id: z.uuid() })
     .safeParse(Object.fromEntries(form));
   if (!d.success) return { erro: "Arquivo inválido." };
-  const alvo = await chamadoParaEditar(d.data.chamado_id);
+  const alvo = await chamadoParaEditar(d.data.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   // O RLS só deixa apagar o que a própria pessoa enviou.
   const { data, error } = await (await os())
     .from("anexos")
     .delete()
     .eq("id", d.data.id)
-    .eq("chamado_id", d.data.chamado_id)
+    .eq("ordem_id", d.data.ordem_id)
     .select("path, nome");
   if (error) return erroDoBanco(error);
   const removido = data?.[0];
   if (!removido) return { erro: "Só quem enviou o arquivo pode removê-lo." };
   await removerArquivos([removido.path]);
-  await registrar(d.data.chamado_id, {
+  await registrar(ordem(d.data.ordem_id), {
     tipo: "anexo",
     texto: `Removeu o arquivo ${removido.nome}.`,
   });
@@ -138,7 +139,7 @@ export async function removerArquivo(
 }
 
 const assinatura = z.object({
-  chamado_id: z.uuid(),
+  ordem_id: z.uuid(),
   nome: z.string().trim().min(2, "informe o nome de quem assina").max(120),
 });
 
@@ -154,7 +155,7 @@ export async function assinarOS(
   if (!(png instanceof File) || png.size === 0 || png.type !== "image/png")
     return { erro: "Assine no quadro antes de salvar." };
   if (png.size > 1024 * 1024) return { erro: "Assinatura grande demais." };
-  const alvo = await chamadoParaEditar(d.data.chamado_id);
+  const alvo = await chamadoParaEditar(d.data.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ch } = alvo;
   // OS terceirizada com link: a ARP valida e assina depois do terceirizado.
@@ -164,7 +165,7 @@ export async function assinarOS(
     const { data: links } = await osAdmin()
       .from("terceirizado_links")
       .select("cancelado_em, recusado_em, assinado_em")
-      .eq("chamado_id", ch.id);
+      .eq("ordem_id", ch.id);
     if (assinaturaDoLink(links ?? []) === false)
       return {
         erro: "Aguarde o terceirizado conferir e assinar pelo link (ou cancele o link).",
@@ -179,7 +180,7 @@ export async function assinarOS(
     return { erro: "Não foi possível guardar a assinatura. Tente de novo." };
   }
   const { error } = await (await os())
-    .from("chamados")
+    .from("ordens")
     .update({
       assinatura_path: path,
       assinatura_nome: d.data.nome,
@@ -191,7 +192,7 @@ export async function assinarOS(
     return erroDoBanco(error);
   }
   if (ch.assinatura_path) await removerArquivos([ch.assinatura_path]);
-  await registrar(ch.id, {
+  await registrar(ordem(ch.id), {
     tipo: "alteracao",
     texto:
       ch.execucao === "terceirizada"

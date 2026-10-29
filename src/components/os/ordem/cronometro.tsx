@@ -22,12 +22,12 @@ const INICIAL: EstadoOS = {};
 const TAMANHO = "min-h-11 px-4 text-sm";
 
 export function Cronometro({
-  chamadoId,
+  ordemId,
   desde,
   bloqueio,
   outrosRodando,
 }: {
-  chamadoId: string;
+  ordemId: string;
   /** Início da minha sessão rodando (ISO); null se parado. */
   desde: string | null;
   /** Por que não dá para iniciar agora (OS concluída, sem permissão). */
@@ -85,7 +85,7 @@ export function Cronometro({
           </div>
           <div className="flex gap-2 max-sm:w-full">
             <form action={pausar} className="max-sm:flex-1">
-              <input type="hidden" name="chamado_id" value={chamadoId} />
+              <input type="hidden" name="ordem_id" value={ordemId} />
               <input type="hidden" name="finalizar" value="0" />
               <button
                 type="submit"
@@ -97,7 +97,7 @@ export function Cronometro({
               </button>
             </form>
             <form action={pausar} className="max-sm:flex-1">
-              <input type="hidden" name="chamado_id" value={chamadoId} />
+              <input type="hidden" name="ordem_id" value={ordemId} />
               <input type="hidden" name="finalizar" value="1" />
               <button
                 type="submit"
@@ -115,7 +115,7 @@ export function Cronometro({
           action={iniciar}
           className="vidro flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[1.5rem] py-2.5 pr-2.5 pl-4"
         >
-          <input type="hidden" name="chamado_id" value={chamadoId} />
+          <input type="hidden" name="ordem_id" value={ordemId} />
           <p className="flex min-w-0 flex-1 items-center gap-2.5 text-sm text-neutral-600">
             <Timer className="size-4 shrink-0 text-neutral-500" aria-hidden />
             <span className="min-w-0">
@@ -172,7 +172,7 @@ export function Cronometro({
           )}
           <div className="flex flex-wrap gap-2">
             <form action={concluir}>
-              <input type="hidden" name="chamado_id" value={chamadoId} />
+              <input type="hidden" name="ordem_id" value={ordemId} />
               <button
                 type="submit"
                 disabled={concluindo}

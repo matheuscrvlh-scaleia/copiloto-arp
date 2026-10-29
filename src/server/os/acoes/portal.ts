@@ -18,7 +18,7 @@ import { limparTelefone } from "@/lib/os/whatsapp";
 import { erroDoBanco, primeiroErro, valores } from "@/server/acoes";
 import { TAG } from "@/server/cache";
 import { ocupacao, regrasDe, reservar } from "@/server/os/agenda";
-import { contexto, os, registrarComoSistema } from "@/server/os/base";
+import { chamado, contexto, os, registrarComoSistema } from "@/server/os/base";
 import { lojasDoFiltro } from "@/server/os/lojas";
 import { encerrarComSessao, lojasDoPortal } from "@/server/os/portal";
 
@@ -57,7 +57,7 @@ async function avisarNoPedido(
   texto: string,
   dados: Record<string, string | boolean> = {},
 ) {
-  await registrarComoSistema(chamadoId, {
+  await registrarComoSistema(chamado(chamadoId), {
     tipo: "sistema",
     autorNome: autor,
     texto,

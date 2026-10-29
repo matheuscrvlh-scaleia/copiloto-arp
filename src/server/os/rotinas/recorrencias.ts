@@ -9,7 +9,7 @@ import { checklistInicial } from "@/lib/os/chamado";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import type { Json } from "@/lib/supabase/database.types";
 import { configDoSistema } from "../automacao";
-import { osAdmin } from "../base";
+import { type Alvo, chamado, ordem, osAdmin, tabelaDo } from "../base";
 import { criarChamadoSistema } from "../criar";
 
 // Lembretes recorrentes (Repetir): cada série cria a próxima ocorrência
@@ -17,13 +17,23 @@ import { criarChamadoSistema } from "../criar";
 // Série = serie_id (o id do primeiro chamado, gravado nele também) +
 // serie_data. O banco recusa a mesma série na mesma data (unique), então
 // rodar duas vezes não cria nada a mais. Parar a série = tirar o Repetir.
+// Chamados e OS repetem cada um na sua tabela (a OS gera OS).
 
 const COLUNAS =
   "id, numero, tipo, titulo, descricao, setor_id, categoria_id, prioridade, responsavel_id, aberto_por, pessoal, precisa_confirmacao, destinos_em_ordem, loja_id, ativo_id, checklist, etiquetas, campos, recorrencia, serie_id, serie_data, prazo, criado_em, destinatarios(setor_id, usuario_id, titulo, responsavel_id, ordem)" as const;
 
+type Dono = Pick<Alvo, "tipo">;
+
 export async function rotinaRecorrencias(agora: Date): Promise<number> {
+  let criados = 0;
+  for (const dono of [chamado(""), ordem("")])
+    criados += await recorrenciasDe(dono, agora);
+  return criados;
+}
+
+async function recorrenciasDe(dono: Dono, agora: Date): Promise<number> {
   const { p, cal } = await configDoSistema();
-  const data = await ocorrenciasComRepetir();
+  const data = await ocorrenciasComRepetir(dono);
 
   // A ocorrência mais recente de cada série manda (Repetir editado vale
   // dali para a frente).
@@ -36,7 +46,7 @@ export async function rotinaRecorrencias(agora: Date): Promise<number> {
       series.set(chave, c);
   }
 
-  const fins = await fimDasSeries([...series.keys()]);
+  const fins = await fimDasSeries(dono, [...series.keys()]);
   const hoje = hojeEmBrasilia(agora);
   let criados = 0;
   for (const [serieId, ultima] of series) {
@@ -49,7 +59,7 @@ export async function rotinaRecorrencias(agora: Date): Promise<number> {
       if (!fim.repete) continue;
       dataUltima = fim.data;
     }
-    if (!ultima.serie_id) await marcarPrimeira(ultima.id, dataUltima);
+    if (!ultima.serie_id) await marcarPrimeira(dono, ultima.id, dataUltima);
 
     for (const dia of datasACriar(
       r,
@@ -96,7 +106,7 @@ export async function rotinaRecorrencias(agora: Date): Promise<number> {
       );
       if (!novo) continue;
       criados++;
-      await manterTipoDeTarefa(novo.id, ultima);
+      await manterTipoDeTarefa(novo, ultima);
     }
   }
   return criados;
@@ -107,12 +117,12 @@ export async function rotinaRecorrencias(agora: Date): Promise<number> {
  * máximo 1000 linhas por consulta, e toda ocorrência guarda o Repetir (com
  * um ano de séries semanais já passa disso).
  */
-async function ocorrenciasComRepetir() {
+async function ocorrenciasComRepetir(dono: Dono) {
   const POR_PAGINA = 1000;
   const todas = [];
   for (let de = 0; ; de += POR_PAGINA) {
     const { data, error } = await osAdmin()
-      .from("chamados")
+      .from(tabelaDo(dono))
       .select(COLUNAS)
       .not("recorrencia", "is", null)
       .order("id")
@@ -127,6 +137,7 @@ async function ocorrenciasComRepetir() {
  * A data mais nova de cada série, contando as ocorrências sem Repetir.
  */
 async function fimDasSeries(
+  dono: Dono,
   ids: string[],
 ): Promise<Map<string, { data: string; repete: boolean }>> {
   const fins = new Map<string, { data: string; repete: boolean }>();
@@ -135,7 +146,7 @@ async function fimDasSeries(
   for (let i = 0; i < ids.length; i += 100) {
     for (let de = 0; ; de += 1000) {
       const { data, error } = await osAdmin()
-        .from("chamados")
+        .from(tabelaDo(dono))
         .select("serie_id, serie_data, recorrencia")
         .in("serie_id", ids.slice(i, i + 100))
         .not("serie_data", "is", null)
@@ -158,9 +169,13 @@ async function fimDasSeries(
 }
 
 /** O primeiro chamado da série passa a ter a série gravada nele também. */
-async function marcarPrimeira(id: string, data: string): Promise<void> {
+async function marcarPrimeira(
+  dono: Dono,
+  id: string,
+  data: string,
+): Promise<void> {
   const { error } = await osAdmin()
-    .from("chamados")
+    .from(tabelaDo(dono))
     .update({ serie_id: id, serie_data: data })
     .eq("id", id)
     .is("serie_id", null);
@@ -173,7 +188,7 @@ async function marcarPrimeira(id: string, data: string): Promise<void> {
  * em ordem).
  */
 async function manterTipoDeTarefa(
-  id: string,
+  { id, tipo }: Alvo,
   ultima: {
     pessoal: boolean;
     precisa_confirmacao: boolean;
@@ -181,7 +196,7 @@ async function manterTipoDeTarefa(
   },
 ): Promise<void> {
   const { error } = await osAdmin()
-    .from("chamados")
+    .from(tabelaDo({ tipo }))
     .update({
       pessoal: ultima.pessoal,
       precisa_confirmacao: ultima.precisa_confirmacao,

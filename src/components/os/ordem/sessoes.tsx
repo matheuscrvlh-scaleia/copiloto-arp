@@ -35,7 +35,7 @@ export interface TecnicoOpcao {
 }
 
 export function Sessoes({
-  chamadoId,
+  ordemId,
   podeEditar,
   sessoes,
   tecnicos,
@@ -43,7 +43,7 @@ export function Sessoes({
   almocoPadrao,
   hoje,
 }: {
-  chamadoId: string;
+  ordemId: string;
   podeEditar: boolean;
   sessoes: SessaoLinha[];
   tecnicos: TecnicoOpcao[];
@@ -152,7 +152,7 @@ export function Sessoes({
         (editando ? (
           <FormSessao
             key={editando === "nova" ? "nova" : editando.id}
-            chamadoId={chamadoId}
+            ordemId={ordemId}
             sessao={editando === "nova" ? null : editando}
             tecnicos={tecnicos}
             meuTecnico={meuTecnico}
@@ -175,7 +175,7 @@ export function Sessoes({
 }
 
 function FormSessao({
-  chamadoId,
+  ordemId,
   sessao,
   tecnicos,
   meuTecnico,
@@ -183,7 +183,7 @@ function FormSessao({
   hoje,
   aoFechar,
 }: {
-  chamadoId: string;
+  ordemId: string;
   sessao: SessaoLinha | null;
   tecnicos: TecnicoOpcao[];
   meuTecnico: string | null;
@@ -230,7 +230,7 @@ function FormSessao({
       </div>
 
       <form action={salvar} className="flex flex-col gap-4">
-        <input type="hidden" name="chamado_id" value={chamadoId} />
+        <input type="hidden" name="ordem_id" value={ordemId} />
         {sessao && <input type="hidden" name="id" value={sessao.id} />}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className={rotulo}>
@@ -372,7 +372,7 @@ function FormSessao({
           confirmar="Excluir esta sessão? O tempo sai da OS e o custo é recalculado."
           className="border-t border-neutral-200 pt-3"
         >
-          <input type="hidden" name="chamado_id" value={chamadoId} />
+          <input type="hidden" name="ordem_id" value={ordemId} />
           <input type="hidden" name="id" value={sessao.id} />
         </FormAcao>
       )}

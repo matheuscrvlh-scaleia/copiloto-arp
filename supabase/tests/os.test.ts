@@ -139,6 +139,15 @@ const chamado = (titulo: string, campos: Record<string, Valor> = {}) =>
     ...campos,
   });
 
+// A OS mora em os.ordens (mesmas colunas do chamado e as da execução).
+const ordem = (titulo: string, campos: Record<string, Valor> = {}) =>
+  inserir("os.ordens", {
+    titulo,
+    setor_id: SETOR.operacoes,
+    aberto_por: U.solicitante,
+    ...campos,
+  });
+
 async function campo<T = unknown>(id: string, coluna: string): Promise<T> {
   const { rows } = await db.query<{ v: T }>(
     `select ${coluna} as v from os.chamados where id = $1`,
@@ -789,15 +798,12 @@ describe("vários destinatários (os.sincronizar_destinos)", () => {
 
 describe("dinheiro só com os.custos", () => {
   let id = "";
-  const MATERIAIS = "select * from os.materiais where chamado_id = ";
+  const MATERIAIS = "select * from os.materiais where ordem_id = ";
 
   beforeAll(async () => {
-    id = await chamado("$ OS com custo", {
-      tipo: "os",
-      responsavel_id: U.tecnico,
-    });
+    id = await ordem("$ OS com custo", { responsavel_id: U.tecnico });
     const material = await inserir("os.materiais", {
-      chamado_id: id,
+      ordem_id: id,
       descricao: "Disjuntor 20A",
       quantidade: 2,
     });
@@ -811,7 +817,7 @@ describe("dinheiro só com os.custos", () => {
       [tecnico],
     );
     await db.query(
-      "insert into os.os_custos (chamado_id, valor_terceirizado) values ($1, 100)",
+      "insert into os.os_custos (ordem_id, valor_terceirizado) values ($1, 100)",
       [id],
     );
   });
@@ -825,7 +831,7 @@ describe("dinheiro só com os.custos", () => {
       expect(
         await erro(
           `insert into os.material_valores (material_id, valor_unitario)
-           select id, 1 from os.materiais where chamado_id = '${id}'
+           select id, 1 from os.materiais where ordem_id = '${id}'
            on conflict (material_id) do nothing`,
         ),
       ).toMatch(/row-level security/);
@@ -862,7 +868,7 @@ describe("dinheiro só com os.custos", () => {
       custo_total: string;
       valor_terceirizado: string;
     }>(
-      `select custo_total, valor_terceirizado from os.os_custos where chamado_id = '${id}'`,
+      `select custo_total, valor_terceirizado from os.os_custos where ordem_id = '${id}'`,
     );
     expect(rows).toEqual([
       { custo_total: "261.80", valor_terceirizado: "100.00" },
@@ -1059,10 +1065,10 @@ describe("ativos", () => {
       proxima_data: "2026-12-01",
       setor_id: SETOR.operacoes,
     });
-    const doPlano = { tipo: "os", plano_id: plano, plano_data: "2026-12-01" };
-    await chamado("P preventiva", doPlano);
-    await expect(chamado("P preventiva de novo", doPlano)).rejects.toThrow(
-      /chamados_plano_id_plano_data_key/,
+    const doPlano = { plano_id: plano, plano_data: "2026-12-01" };
+    await ordem("P preventiva", doPlano);
+    await expect(ordem("P preventiva de novo", doPlano)).rejects.toThrow(
+      /ordens_plano_id_plano_data_key/,
     );
 
     const serie = {
@@ -1072,6 +1078,11 @@ describe("ativos", () => {
     await chamado("P lembrete", serie);
     await expect(chamado("P lembrete de novo", serie)).rejects.toThrow(
       /chamados_serie_id_serie_data_key/,
+    );
+    // A OS repete na sua tabela, com a mesma trava.
+    await ordem("P lembrete da OS", serie);
+    await expect(ordem("P lembrete da OS de novo", serie)).rejects.toThrow(
+      /ordens_serie_id_serie_data_key/,
     );
   });
 
@@ -1089,9 +1100,9 @@ describe("ativos", () => {
       setor_id: SETOR.operacoes,
     });
     const os = (titulo: string, extra: Record<string, Valor>, custo: number) =>
-      chamado(titulo, { tipo: "os", ativo_id: outro, ...extra }).then((id) =>
+      ordem(titulo, { ativo_id: outro, ...extra }).then((id) =>
         db.query(
-          "insert into os.os_custos (chamado_id, custo_total) values ($1, $2)",
+          "insert into os.os_custos (ordem_id, custo_total) values ($1, $2)",
           [id, custo],
         ),
       );
@@ -1107,7 +1118,8 @@ describe("ativos", () => {
       },
       999,
     );
-    await os("R não é OS", { tipo: "solicitacao" }, 77);
+    // Chamado do ativo não é OS: fora do resumo.
+    await chamado("R não é OS", { ativo_id: outro });
 
     const resumo = `select custo_periodo::float, custo_total::float, corretivas_periodo::int,
         preventivas_periodo::int, os_abertas::int

@@ -14,7 +14,7 @@ import {
   horaCurta,
   precisaAprovacao,
 } from "@/lib/os/ordem";
-import { rotaChamado } from "@/lib/os/rotas";
+import { rotaOrdem } from "@/lib/os/rotas";
 import { STATUS } from "@/lib/os/rotulos";
 import { hojeEmBrasilia, paraBrasilia } from "@/lib/os/tempo";
 import type { Json } from "@/lib/supabase/database.types";
@@ -22,6 +22,7 @@ import { erroDoBanco, primeiroErro, valores } from "@/server/acoes";
 import {
   membrosDoSetor,
   notificar,
+  ordem,
   os,
   parametros,
   registrar,
@@ -54,7 +55,7 @@ const uuidOpcional = z.preprocess(
 );
 
 function chamadoDo(form: FormData): string | null {
-  const r = id.safeParse(form.get("chamado_id"));
+  const r = id.safeParse(form.get("ordem_id"));
   return r.success ? r.data : null;
 }
 
@@ -67,9 +68,9 @@ export async function iniciarTempo(
   _: EstadoOS,
   form: FormData,
 ): Promise<EstadoOS> {
-  const chamadoId = chamadoDo(form);
-  if (!chamadoId) return { erro: "Chamado inválido." };
-  const alvo = await chamadoParaEditar(chamadoId);
+  const ordemId = chamadoDo(form);
+  if (!ordemId) return { erro: "Chamado inválido." };
+  const alvo = await chamadoParaEditar(ordemId);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx, ch } = alvo;
   if (!["aberto", "em_andamento", "aguardando"].includes(ch.status))
@@ -86,23 +87,23 @@ export async function iniciarTempo(
   const db = await os();
   const { data: rodando } = await db
     .from("sessao_tecnicos")
-    .select("sessoes!inner(chamado_id, fim, chamados(numero))")
+    .select("sessoes!inner(ordem_id, fim, ordens(numero))")
     .eq("tecnico_id", tecnico.id)
     .is("sessoes.fim", null);
   const outra = rodando?.[0]?.sessoes;
   if (outra)
     return {
       erro:
-        outra.chamado_id === chamadoId
+        outra.ordem_id === ordemId
           ? "Seu cronômetro já está rodando nesta OS."
-          : `Pause o tempo do chamado #${outra.chamados?.numero ?? ""} antes de iniciar outro.`,
+          : `Pause o tempo da OS ${outra.ordens?.numero ?? ""} antes de iniciar outro.`,
     };
 
   const agora = paraBrasilia(new Date());
   const { data: sessao, error } = await db
     .from("sessoes")
     .insert({
-      chamado_id: chamadoId,
+      ordem_id: ordemId,
       data: agora.data,
       inicio: agora.hora,
       fim: null,
@@ -120,9 +121,9 @@ export async function iniciarTempo(
   }
 
   // Começar a trabalhar leva a OS a Em andamento (e assume, se está sem dono).
-  const andamento = await assumirOuIniciar(chamadoId);
+  const andamento = await assumirOuIniciar(ordemId);
   if (andamento.erro) console.error("iniciar pelo cronômetro", andamento.erro);
-  await registrar(chamadoId, {
+  await registrar(ordem(ordemId), {
     tipo: "tempo",
     texto: `Iniciou o cronômetro às ${agora.hora}.`,
     dados: { sessao_id: sessao.id },
@@ -140,10 +141,10 @@ export async function pausarTempo(
   _: EstadoOS,
   form: FormData,
 ): Promise<EstadoOS> {
-  const chamadoId = chamadoDo(form);
-  if (!chamadoId) return { erro: "Chamado inválido." };
+  const ordemId = chamadoDo(form);
+  if (!ordemId) return { erro: "Chamado inválido." };
   const finalizar = form.get("finalizar") === "1";
-  const alvo = await chamadoParaEditar(chamadoId);
+  const alvo = await chamadoParaEditar(ordemId);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx } = alvo;
 
@@ -157,7 +158,7 @@ export async function pausarTempo(
   const { data: abertas, error } = await db
     .from("sessoes")
     .select("id, data, inicio, sessao_tecnicos!inner(tecnico_id)")
-    .eq("chamado_id", chamadoId)
+    .eq("ordem_id", ordemId)
     .is("fim", null)
     .eq("sessao_tecnicos.tecnico_id", tecnico.id);
   if (error) return erroDoBanco(error);
@@ -200,8 +201,8 @@ export async function pausarTempo(
     });
   }
 
-  await recalcularOS(chamadoId);
-  await registrar(chamadoId, {
+  await recalcularOS(ordemId);
+  await registrar(ordem(ordemId), {
     tipo: "tempo",
     texto: `${finalizar ? "Finalizou" : "Pausou"} o cronômetro: ${formatarDuracao(total)}.`,
   });
@@ -211,7 +212,7 @@ export async function pausarTempo(
     : "";
   if (!finalizar)
     return { ok: `Tempo registrado: ${formatarDuracao(total)}.${aviso}` };
-  const motivo = await podeConcluirOS(chamadoId);
+  const motivo = await podeConcluirOS(ordemId);
   return {
     ok: `Tempo registrado: ${formatarDuracao(total)}.${aviso}`,
     concluir: motivo === null,
@@ -230,7 +231,7 @@ const horaOpcional = z.preprocess(
 );
 
 const sessao = z.object({
-  chamado_id: id,
+  ordem_id: id,
   id: uuidOpcional,
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "informe a data"),
   inicio: hora,
@@ -258,7 +259,7 @@ export async function salvarSessao(
   if (!d.success) return primeiroErro(d.error, ROTULOS_SESSAO);
   const s = d.data;
   const tecnicos = [...new Set(valores(form, "tecnicos"))];
-  const alvo = await chamadoParaEditar(s.chamado_id);
+  const alvo = await chamadoParaEditar(s.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx } = alvo;
 
@@ -307,7 +308,7 @@ export async function salvarSessao(
     almoco,
   );
   const linha = {
-    chamado_id: s.chamado_id,
+    ordem_id: s.ordem_id,
     data: s.data,
     inicio: s.inicio,
     fim: s.fim,
@@ -321,7 +322,7 @@ export async function salvarSessao(
       .from("sessoes")
       .update(linha)
       .eq("id", sessaoId)
-      .eq("chamado_id", s.chamado_id)
+      .eq("ordem_id", s.ordem_id)
       .select("id");
     if (error) return erroDoBanco(error);
     if (!mudou?.length) return { erro: "Sessão não encontrada." };
@@ -346,9 +347,9 @@ export async function salvarSessao(
     );
   if (e3) return erroDoBanco(e3);
 
-  await recalcularOS(s.chamado_id);
+  await recalcularOS(s.ordem_id);
   const nomesTec = (cadastrados ?? []).map((t) => t.nome).join(", ");
-  await registrar(s.chamado_id, {
+  await registrar(ordem(s.ordem_id), {
     tipo: "tempo",
     texto: `${s.id ? "Corrigiu" : "Incluiu"} a sessão de ${formatarData(s.data)} ${s.inicio}–${s.fim ?? "…"} (${nomesTec}).`,
     dados: { sessao_id: sessaoId },
@@ -361,23 +362,21 @@ export async function excluirSessao(
   _: EstadoOS,
   form: FormData,
 ): Promise<EstadoOS> {
-  const d = z
-    .object({ chamado_id: id, id })
-    .safeParse(Object.fromEntries(form));
+  const d = z.object({ ordem_id: id, id }).safeParse(Object.fromEntries(form));
   if (!d.success) return { erro: "Sessão inválida." };
-  const alvo = await chamadoParaEditar(d.data.chamado_id);
+  const alvo = await chamadoParaEditar(d.data.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { data, error } = await (await os())
     .from("sessoes")
     .delete()
     .eq("id", d.data.id)
-    .eq("chamado_id", d.data.chamado_id)
+    .eq("ordem_id", d.data.ordem_id)
     .select("data, inicio, fim");
   if (error) return erroDoBanco(error);
   const s = data?.[0];
   if (!s) return { erro: "Sessão não encontrada." };
-  await recalcularOS(d.data.chamado_id);
-  await registrar(d.data.chamado_id, {
+  await recalcularOS(d.data.ordem_id);
+  await registrar(ordem(d.data.ordem_id), {
     tipo: "tempo",
     texto: `Excluiu a sessão de ${formatarData(s.data)} ${horaCurta(s.inicio)}–${horaCurta(s.fim) ?? "…"}.`,
   });
@@ -390,7 +389,7 @@ export async function excluirSessao(
 // ---------------------------------------------------------------------------
 
 const execucao = z.object({
-  chamado_id: id,
+  ordem_id: id,
   execucao: z.enum(["interna", "terceirizada"]),
   empresa_id: uuidOpcional,
   bloco: textoOpcional,
@@ -422,7 +421,7 @@ export async function salvarExecucao(
       visita_periodo: "Período",
     });
   const e = d.data;
-  const alvo = await chamadoParaEditar(e.chamado_id);
+  const alvo = await chamadoParaEditar(e.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx, ch } = alvo;
   if (ch.tipo !== "os") return { erro: "Só Ordem de Serviço tem execução." };
@@ -431,7 +430,7 @@ export async function salvarExecucao(
 
   const db = await os();
   const { error } = await db
-    .from("chamados")
+    .from("ordens")
     .update({
       execucao: e.execucao,
       empresa_id: terceirizada ? e.empresa_id : null,
@@ -443,18 +442,18 @@ export async function salvarExecucao(
       visita_data: terceirizada ? e.visita_data : null,
       visita_periodo: terceirizada ? e.visita_periodo : null,
     })
-    .eq("id", e.chamado_id);
+    .eq("id", e.ordem_id);
   if (error) return erroDoBanco(error);
 
   const { error: e2 } = await db
-    .from("chamado_profissionais")
+    .from("ordem_profissionais")
     .delete()
-    .eq("chamado_id", e.chamado_id);
+    .eq("ordem_id", e.ordem_id);
   if (e2) return erroDoBanco(e2);
   if (profissionais.length) {
-    const { error: e3 } = await db.from("chamado_profissionais").insert(
+    const { error: e3 } = await db.from("ordem_profissionais").insert(
       profissionais.map((profissional_id) => ({
-        chamado_id: e.chamado_id,
+        ordem_id: e.ordem_id,
         profissional_id,
       })),
     );
@@ -476,7 +475,7 @@ export async function salvarExecucao(
     mudancas.push(parado ? "ativo parado" : "ativo liberado");
   if (ch.visita_data !== (terceirizada ? e.visita_data : null))
     mudancas.push("data da visita");
-  await registrar(e.chamado_id, {
+  await registrar(ordem(e.ordem_id), {
     tipo: "alteracao",
     texto: mudancas.length
       ? `Atualizou a OS: ${mudancas.join(", ")}.`
@@ -496,7 +495,7 @@ export async function salvarExecucao(
 // ---------------------------------------------------------------------------
 
 const material = z.object({
-  chamado_id: id,
+  ordem_id: id,
   id: uuidOpcional,
   descricao: z.string().trim().min(2, "descreva o material").max(300),
   quantidade: z.string(),
@@ -514,7 +513,7 @@ export async function salvarMaterial(
   const quantidade = lerValorBr(m.quantidade);
   if (quantidade === null || Number.isNaN(quantidade) || quantidade <= 0)
     return { erro: "Quantidade: informe um número maior que zero." };
-  const alvo = await chamadoParaEditar(m.chamado_id);
+  const alvo = await chamadoParaEditar(m.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx } = alvo;
   const comCustos = ctx.pode("os.custos");
@@ -531,7 +530,7 @@ export async function salvarMaterial(
 
   const db = await os();
   const linha = {
-    chamado_id: m.chamado_id,
+    ordem_id: m.ordem_id,
     descricao: m.descricao,
     quantidade,
     unidade: m.unidade,
@@ -542,7 +541,7 @@ export async function salvarMaterial(
       .from("materiais")
       .update(linha)
       .eq("id", materialId)
-      .eq("chamado_id", m.chamado_id)
+      .eq("ordem_id", m.ordem_id)
       .select("id");
     if (error) return erroDoBanco(error);
     if (!data?.length) return { erro: "Material não encontrado." };
@@ -568,8 +567,8 @@ export async function salvarMaterial(
     if (error) return erroDoBanco(error);
   }
 
-  await recalcularOS(m.chamado_id);
-  await registrar(m.chamado_id, {
+  await recalcularOS(m.ordem_id);
+  await registrar(ordem(m.ordem_id), {
     tipo: "alteracao",
     texto: `${m.id ? "Corrigiu" : "Incluiu"} o material: ${m.descricao}.`,
     dados: { campo: "materiais", material_id: materialId },
@@ -582,22 +581,20 @@ export async function excluirMaterial(
   _: EstadoOS,
   form: FormData,
 ): Promise<EstadoOS> {
-  const d = z
-    .object({ chamado_id: id, id })
-    .safeParse(Object.fromEntries(form));
+  const d = z.object({ ordem_id: id, id }).safeParse(Object.fromEntries(form));
   if (!d.success) return { erro: "Material inválido." };
-  const alvo = await chamadoParaEditar(d.data.chamado_id);
+  const alvo = await chamadoParaEditar(d.data.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { data, error } = await (await os())
     .from("materiais")
     .delete()
     .eq("id", d.data.id)
-    .eq("chamado_id", d.data.chamado_id)
+    .eq("ordem_id", d.data.ordem_id)
     .select("descricao");
   if (error) return erroDoBanco(error);
   if (!data?.length) return { erro: "Material não encontrado." };
-  await recalcularOS(d.data.chamado_id);
-  await registrar(d.data.chamado_id, {
+  await recalcularOS(d.data.ordem_id);
+  await registrar(ordem(d.data.ordem_id), {
     tipo: "alteracao",
     texto: `Excluiu o material: ${data[0]?.descricao}.`,
     dados: { campo: "materiais" },
@@ -611,7 +608,7 @@ export async function excluirMaterial(
 // ---------------------------------------------------------------------------
 
 const rateio = z.object({
-  chamado_id: id,
+  ordem_id: id,
   rateio: z.enum(["sim", "nao"]),
   rateio_regra: z.preprocess(
     (v) => (v === "" || v == null ? null : v),
@@ -630,7 +627,7 @@ export async function salvarRateio(
   const d = rateio.safeParse(Object.fromEntries(form));
   if (!d.success) return primeiroErro(d.error, { rateio_regra: "Regra" });
   const r = d.data;
-  const alvo = await chamadoParaEditar(r.chamado_id);
+  const alvo = await chamadoParaEditar(r.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx, ch } = alvo;
   const sim = r.rateio === "sim";
@@ -638,9 +635,9 @@ export async function salvarRateio(
   const db = await os();
   if (ch.rateio !== sim) {
     const { error } = await db
-      .from("chamados")
+      .from("ordens")
       .update({ rateio: sim })
-      .eq("id", r.chamado_id);
+      .eq("id", r.ordem_id);
     if (error) return erroDoBanco(error);
   }
   if (ctx.pode("os.custos") && r.rateio_regra) {
@@ -650,7 +647,7 @@ export async function salvarRateio(
     if (r.rateio_regra === "percentual" && valor !== null && valor > 100)
       return { erro: "Percentual: no máximo 100%." };
     const { error } = await db.from("os_custos").upsert({
-      chamado_id: r.chamado_id,
+      ordem_id: r.ordem_id,
       rateio_regra: r.rateio_regra,
       rateio_valor:
         r.rateio_regra === "manual" || r.rateio_regra === "percentual"
@@ -660,8 +657,8 @@ export async function salvarRateio(
     if (error) return erroDoBanco(error);
   }
 
-  await recalcularOS(r.chamado_id);
-  await registrar(r.chamado_id, {
+  await recalcularOS(r.ordem_id);
+  await registrar(ordem(r.ordem_id), {
     tipo: "alteracao",
     texto: sim ? "Rateio do condomínio: Sim." : "Rateio do condomínio: Não.",
     dados: { campo: "rateio", de: ch.rateio, para: sim },
@@ -671,7 +668,7 @@ export async function salvarRateio(
 }
 
 const terceirizado = z.object({
-  chamado_id: id,
+  ordem_id: id,
   valor_terceirizado: z.string(),
   orcamento_numero: textoOpcional,
 });
@@ -684,7 +681,7 @@ export async function salvarCustoTerceirizado(
   const d = terceirizado.safeParse(Object.fromEntries(form));
   if (!d.success) return primeiroErro(d.error);
   const t = d.data;
-  const alvo = await chamadoParaEditar(t.chamado_id);
+  const alvo = await chamadoParaEditar(t.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx, ch } = alvo;
   if (!ctx.pode("os.custos"))
@@ -697,11 +694,11 @@ export async function salvarCustoTerceirizado(
   const { data: antes } = await db
     .from("os_custos")
     .select("valor_terceirizado, orcamento_aprovado_em")
-    .eq("chamado_id", t.chamado_id)
+    .eq("ordem_id", t.ordem_id)
     .maybeSingle();
   const mudouValor = (antes?.valor_terceirizado ?? null) !== valor;
   const { error } = await db.from("os_custos").upsert({
-    chamado_id: t.chamado_id,
+    ordem_id: t.ordem_id,
     valor_terceirizado: valor,
     orcamento_numero: t.orcamento_numero,
     // Valor novo: a aprovação anterior não vale mais.
@@ -713,8 +710,8 @@ export async function salvarCustoTerceirizado(
 
   // O cálculo, a linha do tempo e o teto não dependem um do outro.
   const [, , p] = await Promise.all([
-    recalcularOS(t.chamado_id),
-    registrar(t.chamado_id, {
+    recalcularOS(t.ordem_id),
+    registrar(ordem(t.ordem_id), {
       tipo: "alteracao",
       texto: "Atualizou o custo do terceirizado.",
       dados: { campo: "custo_terceirizado" },
@@ -731,8 +728,8 @@ export async function salvarCustoTerceirizado(
           titulo: `#${ch.numero} ${ch.titulo}`,
           texto:
             "O orçamento do terceirizado passou do teto e precisa da sua aprovação.",
-          href: rotaChamado(ch.id),
-          chamadoId: ch.id,
+          href: rotaOrdem(ch.id),
+          alvo: ordem(ch.id),
         },
         ctx.usuario.id,
       ),
@@ -747,7 +744,7 @@ export async function salvarCustoTerceirizado(
 // ---------------------------------------------------------------------------
 
 const resultado = z.object({
-  chamado_id: id,
+  ordem_id: id,
   solucao: textoOpcional,
   causa_falha: textoOpcional,
 });
@@ -759,7 +756,7 @@ export async function salvarResultado(
   const d = resultado.safeParse(Object.fromEntries(form));
   if (!d.success) return primeiroErro(d.error, { solucao: "Solução" });
   const r = d.data;
-  const alvo = await chamadoParaEditar(r.chamado_id);
+  const alvo = await chamadoParaEditar(r.ordem_id);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ch } = alvo;
   const p = await parametros();
@@ -770,11 +767,11 @@ export async function salvarResultado(
   )
     return { erro: "Causa da falha: escolha uma da lista." };
   const { error } = await (await os())
-    .from("chamados")
+    .from("ordens")
     .update({ solucao: r.solucao, causa_falha: r.causa_falha })
-    .eq("id", r.chamado_id);
+    .eq("id", r.ordem_id);
   if (error) return erroDoBanco(error);
-  await registrar(r.chamado_id, {
+  await registrar(ordem(r.ordem_id), {
     tipo: "alteracao",
     texto: "Atualizou a solução aplicada e a causa da falha.",
     dados: { campo: "solucao", causa_falha: r.causa_falha },
@@ -792,9 +789,9 @@ export async function concluirOS(
   _: EstadoOS,
   form: FormData,
 ): Promise<EstadoOS> {
-  const chamadoId = chamadoDo(form);
-  if (!chamadoId) return { erro: "Chamado inválido." };
-  const alvo = await chamadoParaEditar(chamadoId);
+  const ordemId = chamadoDo(form);
+  if (!ordemId) return { erro: "Chamado inválido." };
+  const alvo = await chamadoParaEditar(ordemId);
   if (alvo.erro !== undefined) return { erro: alvo.erro };
   const { ctx, ch, gerencia } = alvo;
   if (ch.responsavel_id !== ctx.usuario.id && !gerencia)
@@ -814,20 +811,20 @@ export async function concluirOS(
     return {
       erro: `Falta o item obrigatório do checklist: ${String(pendente.texto ?? "")}.`,
     };
-  const motivo = await podeConcluirOS(chamadoId);
+  const motivo = await podeConcluirOS(ordemId);
   if (motivo) return { erro: motivo };
 
   const { error } = await (await os())
-    .from("chamados")
+    .from("ordens")
     .update({ status: destino })
-    .eq("id", chamadoId);
+    .eq("id", ordemId);
   if (error) return erroDoBanco(error);
-  await registrar(chamadoId, {
+  await registrar(ordem(ordemId), {
     tipo: "status",
     texto: destino === "fechado" ? "Concluiu e fechou a OS." : "Concluiu a OS.",
     dados: { de: ch.status, para: destino },
   });
-  if (destino === "fechado") await liberarAtivoDaOS(chamadoId);
+  if (destino === "fechado") await liberarAtivoDaOS(ordemId);
   after(() =>
     notificar(
       [ch.aberto_por],
@@ -838,8 +835,8 @@ export async function concluirOS(
           destino === "fechado"
             ? "A OS foi concluída."
             : "A OS foi concluída. Confira e confirme.",
-        href: rotaChamado(ch.id),
-        chamadoId: ch.id,
+        href: rotaOrdem(ch.id),
+        alvo: ordem(ch.id),
       },
       ctx.usuario.id,
     ),

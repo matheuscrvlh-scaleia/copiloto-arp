@@ -41,6 +41,7 @@ import {
   TIPOS_SEM_AVISO,
   temFiltrosNaUrl,
 } from "@/lib/os/lista";
+import { formatarNumeroOS } from "@/lib/os/numeros";
 import { paginaDaUrl } from "@/lib/os/paginacao";
 import {
   COLUNAS_QUADRO,
@@ -53,7 +54,6 @@ import { rotaAtivo } from "@/lib/os/rotas";
 import { PRIORIDADES, STATUS, type StatusChamado } from "@/lib/os/rotulos";
 import { deBrasilia, instante, paraBrasilia, somarDias } from "@/lib/os/tempo";
 import {
-  buscarChamados,
   buscarPaginaDeChamados,
   type Categoria,
   type ChamadoResumo,
@@ -677,7 +677,11 @@ export async function andamentoDosAvisos(
 
   const porChamado = new Map<string, typeof linhas>();
   for (const d of linhas)
-    porChamado.set(d.chamado_id, [...(porChamado.get(d.chamado_id) ?? []), d]);
+    if (d.chamado_id)
+      porChamado.set(d.chamado_id, [
+        ...(porChamado.get(d.chamado_id) ?? []),
+        d,
+      ]);
 
   const r = new Map<string, NonNullable<LinhaChamado["destinos"]>>();
   for (const [id, destinos] of porChamado) {
@@ -776,36 +780,37 @@ export function itensDePrazo(
 
 /**
  * Visitas de terceirizados (OS com data de visita) no intervalo. Com um
- * recorte, só as dos chamados dele: as duas consultas saem juntas.
+ * recorte de setor, só as OS daquele setor.
  */
 export async function itensDeVisita(
   de: string,
   ate: string,
   recorte: FiltroChamados | null,
 ): Promise<ItemCalendario[]> {
-  const [{ data, error }, doRecorte] = await Promise.all([
-    (await os())
-      .from("chamados")
-      .select("id, numero, titulo, status, visita_data, visita_periodo")
-      .gte("visita_data", de)
-      .lte("visita_data", ate)
-      .neq("status", "cancelado")
-      .limit(500),
-    recorte
-      ? buscarChamados({ ...recorte, visitaEntre: { de, ate }, limite: 500 })
-      : null,
-  ]);
+  const setores = recorte?.setores?.length
+    ? recorte.setores
+    : recorte?.setor
+      ? [recorte.setor]
+      : null;
+  let q = (await os())
+    .from("ordens")
+    .select("id, numero, titulo, status, visita_data, visita_periodo")
+    .gte("visita_data", de)
+    .lte("visita_data", ate)
+    .neq("status", "cancelado")
+    .limit(500);
+  if (setores) q = q.in("setor_id", setores);
+  const { data, error } = await q;
   falhou("visitas", error);
-  const soEstes = doRecorte ? new Set(doRecorte.map((c) => c.id)) : null;
   return (data ?? [])
-    .filter((c) => c.visita_data && (!soEstes || soEstes.has(c.id)))
+    .filter((c) => c.visita_data)
     .map((c) => ({
       chave: `visita:${c.id}`,
       tipo: "visita",
       dia: c.visita_data as string,
       hora: null,
       quando: rotuloPeriodo(c.visita_periodo) ?? "Visita",
-      titulo: `#${c.numero} ${c.titulo}`,
+      titulo: `${formatarNumeroOS(c.numero)} ${c.titulo}`,
       detalhe: "Visita do terceirizado",
       chamadoId: c.id,
       href: null,

@@ -12,8 +12,8 @@ import {
   BOTAO_SECUNDARIO,
   Janela,
 } from "@/components/os/chamado/janela";
-import { formatarNumeroChamado } from "@/lib/os/numeros";
-import { ROTAS_OS, rotaChamado } from "@/lib/os/rotas";
+import { formatarNumeroChamado, formatarNumeroOS } from "@/lib/os/numeros";
+import { ROTAS_OS, rotaDo } from "@/lib/os/rotas";
 import type { DadosDoFormulario } from "./tipos";
 
 // O formulário (com o catálogo de ícones e a citação com @) só vem quando
@@ -34,7 +34,8 @@ const FormularioChamado = dynamic(
 // inferior direito; se a página tiver avisos (que usam o mesmo canto), sobe
 // para cima deles. No celular some ao rolar para baixo (não cobre o fim da
 // lista) e volta ao rolar para cima. Na vistoria (nova e edição) não
-// aparece: cobriria a barra de salvar.
+// aparece: cobriria a barra de salvar. Nas telas da OS (/os/ordens) abre
+// uma OS; no resto, um chamado.
 
 interface Criado {
   id: string;
@@ -102,6 +103,8 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
   const naVistoria =
     caminho.startsWith(`${ROTAS_OS.vistorias}/`) &&
     !caminho.slice(ROTAS_OS.vistorias.length + 1).includes("/");
+  const ehOS =
+    caminho === ROTAS_OS.ordens || caminho.startsWith(`${ROTAS_OS.ordens}/`);
   useEffect(() => setMontado(true), []);
 
   function fechar() {
@@ -117,8 +120,8 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
       onPointerEnter={carregarFormulario}
       onFocus={carregarFormulario}
       aria-haspopup="dialog"
-      aria-label="Abrir novo chamado"
-      title="Novo chamado"
+      aria-label={ehOS ? "Abrir nova OS" : "Abrir novo chamado"}
+      title={ehOS ? "Nova OS" : "Novo chamado"}
       style={{ bottom: desvio ? desvio + 12 : undefined }}
       data-escondido={!visivel && !aberta}
       className="group fixed right-4 bottom-4 z-40 flex h-14 items-center gap-2 rounded-full bg-neutral-900 pr-5 pl-4 text-white shadow-[0_18px_36px_-12px_rgb(0_0_0/0.55)] ring-1 ring-white/10 transition-[transform,opacity,bottom] duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca data-[escondido=true]:pointer-events-none data-[escondido=true]:translate-y-24 data-[escondido=true]:opacity-0 md:right-6 md:bottom-6 md:data-[escondido=true]:translate-y-0 md:data-[escondido=true]:opacity-100 md:data-[escondido=true]:pointer-events-auto print:hidden motion-reduce:transition-none"
@@ -126,23 +129,29 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
       <span className="grid size-8 place-items-center rounded-full bg-marca text-[#fff] transition-transform duration-300 group-hover:rotate-90">
         <Plus className="size-5" aria-hidden />
       </span>
-      <span className="text-sm font-semibold">Novo</span>
+      <span className="text-sm font-semibold">{ehOS ? "Nova OS" : "Novo"}</span>
     </button>
   );
 
   return (
     <>
-      {montado && !naVistoria && createPortal(botao, document.body)}
+      {montado &&
+        !naVistoria &&
+        caminho !== ROTAS_OS.novaOrdem &&
+        createPortal(botao, document.body)}
       <Janela
         aberta={aberta}
         aoFechar={fechar}
         largura={criado ? "lg" : "xl"}
         cheia={!criado}
-        titulo={criado ? "Pronto!" : "Novo chamado"}
+        titulo={
+          criado ? "Pronto!" : ehOS ? "Nova Ordem de Serviço" : "Novo chamado"
+        }
       >
         {criado ? (
           <Sucesso
             criado={criado}
+            ehOS={ehOS}
             aoFechar={fechar}
             aoAbrirOutro={() => {
               setCriado(null);
@@ -151,8 +160,10 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
           />
         ) : (
           <FormularioChamado
-            key={rodada}
+            // Trocar de tela (chamado ↔ OS) recomeça o formulário.
+            key={`${rodada}-${ehOS}`}
             dados={dados}
+            inicial={ehOS ? { tipo: "os", contexto: [] } : undefined}
             naJanela
             aoCriar={setCriado}
           />
@@ -164,13 +175,17 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
 
 export function Sucesso({
   criado,
+  ehOS = false,
   aoFechar,
   aoAbrirOutro,
 }: {
   criado: Criado;
+  /** Abriu uma OS (numeração e página próprias). */
+  ehOS?: boolean;
   aoFechar?: () => void;
   aoAbrirOutro: () => void;
 }) {
+  const alvo = { id: criado.id, tipo: ehOS ? "os" : "solicitacao" };
   return (
     <div className="flex flex-col items-center gap-4 py-6 text-center">
       <span className="grid size-16 place-items-center rounded-full bg-green-50 text-green-700">
@@ -178,7 +193,9 @@ export function Sucesso({
       </span>
       <div>
         <p className="text-xl font-semibold tracking-tight">
-          Chamado {formatarNumeroChamado(criado.numero)} aberto
+          {ehOS
+            ? `${formatarNumeroOS(criado.numero)} aberta`
+            : `Chamado ${formatarNumeroChamado(criado.numero)} aberto`}
         </p>
         <p className="mt-1 text-sm text-neutral-600">
           Quem precisa saber já foi avisado.
@@ -194,12 +211,8 @@ export function Sucesso({
         </p>
       )}
       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-        <Link
-          href={rotaChamado(criado.id)}
-          onClick={aoFechar}
-          className={BOTAO_PRIMARIO}
-        >
-          Ver chamado
+        <Link href={rotaDo(alvo)} onClick={aoFechar} className={BOTAO_PRIMARIO}>
+          {ehOS ? "Ver OS" : "Ver chamado"}
           <ArrowUpRight className="size-4" aria-hidden />
         </Link>
         <button

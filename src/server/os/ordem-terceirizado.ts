@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { formatarData } from "@/lib/formato";
 import { linkAtivo, localDaOS, tipoDeServico } from "@/lib/os/ordem";
 import { dataHoraBr } from "@/lib/os/relatorios";
-import { rotaChamado, rotaTerceirizado } from "@/lib/os/rotas";
+import { rotaOrdem, rotaTerceirizado } from "@/lib/os/rotas";
 import { PERIODOS, type Periodo, PRIORIDADES } from "@/lib/os/rotulos";
 import { preencher } from "@/lib/os/whatsapp";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,6 +12,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { TAG } from "@/server/cache";
 import {
   notificar,
+  ordem,
   osAdmin,
   type Parametros,
   registrarComoSistema,
@@ -79,19 +80,19 @@ export function mensagemTerceirizado(
 // ---------------------------------------------------------------------------
 
 const COLUNAS_LINK =
-  "id, chamado_id, token, empresa_id, criado_por, criado_em, aceito_em, recusado_em, recusa_motivo, chegada_em, saida_em, solucao, valor_informado, orcamento_numero, terminado_em, cancelado_em, assinado_em, assinatura_nome" as const;
+  "id, ordem_id, token, empresa_id, criado_por, criado_em, aceito_em, recusado_em, recusa_motivo, chegada_em, saida_em, solucao, valor_informado, orcamento_numero, terminado_em, cancelado_em, assinado_em, assinatura_nome" as const;
 
 const COLUNAS_CHAMADO =
   "id, numero, titulo, descricao, status, prioridade, categoria_id, bloco, local, loja_id, empresa_id, visita_data, visita_periodo, prazo_terceirizado, responsavel_id, aberto_por, solucao" as const;
 
 /** O link, a OS e a empresa (do link ou da OS) numa consulta só. */
 const COLUNAS_ACESSO =
-  `${COLUNAS_LINK}, empresa:empresas(nome, telefone, ativo), chamado:chamados!inner(${COLUNAS_CHAMADO}, empresa:empresas(nome, telefone, ativo))` as const;
+  `${COLUNAS_LINK}, empresa:empresas(nome, telefone, ativo), chamado:ordens!inner(${COLUNAS_CHAMADO}, empresa:empresas(nome, telefone, ativo))` as const;
 
 type Link = Pick<
   Tabela<"terceirizado_links">,
   | "id"
-  | "chamado_id"
+  | "ordem_id"
   | "token"
   | "empresa_id"
   | "criado_por"
@@ -110,7 +111,7 @@ type Link = Pick<
   | "assinatura_nome"
 >;
 type ChamadoDoLink = Pick<
-  Tabela<"chamados">,
+  Tabela<"ordens">,
   | "id"
   | "numero"
   | "titulo"
@@ -239,15 +240,15 @@ export async function paginaDoTerceirizado(
             .maybeSingle()
         : Promise.resolve({ data: null }),
       db
-        .from("chamado_profissionais")
+        .from("ordem_profissionais")
         .select("profissionais(nome)")
-        .eq("chamado_id", chamado.id),
+        .eq("ordem_id", chamado.id),
       db
         .from("anexos")
         .select(
           "id, nome, path, mime, categoria, enviado_por_nome, evento_id, visivel_lojista",
         )
-        .eq("chamado_id", chamado.id)
+        .eq("ordem_id", chamado.id)
         .order("em"),
       // Sem o contato a página ainda serve (cai no "ARP" padrão).
       contatoDaArp().catch((e) => {
@@ -362,7 +363,7 @@ export async function avisarDoTerceirizado(
   dados: Record<string, Json | undefined> = {},
   notificacao?: string,
 ): Promise<void> {
-  await registrarComoSistema(a.chamado.id, {
+  await registrarComoSistema(ordem(a.chamado.id), {
     tipo: "terceirizado",
     autorNome: a.autor,
     texto,
@@ -377,8 +378,8 @@ export async function avisarDoTerceirizado(
         tipo: "terceirizado",
         titulo: `#${a.chamado.numero} ${a.chamado.titulo}`,
         texto: notificacao,
-        href: rotaChamado(a.chamado.id),
-        chamadoId: a.chamado.id,
+        href: rotaOrdem(a.chamado.id),
+        alvo: ordem(a.chamado.id),
       },
     ),
   );

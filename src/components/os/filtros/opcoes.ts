@@ -17,7 +17,8 @@ export const campoTipo: CampoBarra = {
   chave: "tipo",
   rotulo: "Tipo",
   todos: "Todos os tipos",
-  opcoes: de(TIPOS),
+  // A OS tem a tela própria (Ordens de serviço).
+  opcoes: de(TIPOS).filter((o) => o.valor !== "os"),
   largura: "w-48",
 };
 

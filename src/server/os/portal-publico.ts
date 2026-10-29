@@ -376,19 +376,13 @@ export async function pedidoDaLoja(
   const db = osAdmin();
   // Tudo de uma vez: a conversa, os arquivos e os horários só saem daqui se
   // o pedido for desta loja (conferido logo abaixo, antes de usar).
-  const [pedido, conversao, eventos, anexos, agendamentos] = await Promise.all([
+  const [pedido, eventos, anexos, agendamentos] = await Promise.all([
     db
       .from("chamados")
       .select(COLUNAS_PEDIDO)
       .eq("id", id)
       .eq("loja_id", lojaId)
       .eq("origem", "portal")
-      .maybeSingle(),
-    db
-      .from("chamados")
-      .select("convertido_em_id")
-      .eq("id", id)
-      .eq("loja_id", lojaId)
       .maybeSingle(),
     db
       .from("eventos")
@@ -414,9 +408,6 @@ export async function pedidoDaLoja(
   if (pedido.error) throw new Error(`Pedido: ${pedido.error.message}`);
   const data = pedido.data;
   if (!data) return null;
-  // Convertido em OS: o link antigo do pedido abre a OS (também da loja).
-  const virouOs = conversao.data?.convertido_em_id;
-  if (virouOs && virouOs !== id) return pedidoDaLoja(lojaId, virouOs);
   for (const r of [eventos, anexos, agendamentos])
     if (r.error) throw new Error(`Pedido: ${r.error.message}`);
 

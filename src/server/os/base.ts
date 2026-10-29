@@ -38,6 +38,46 @@ export type Setor = Tabela<"setores">;
 export type Categoria = Tabela<"categorias">;
 export type Parametros = Tabela<"parametros">;
 
+// ---------------------------------------------------------------------------
+// Chamado ou OS
+// ---------------------------------------------------------------------------
+
+/**
+ * Um chamado (os.chamados) ou uma OS (os.ordens): o tipo decide a tabela e
+ * a coluna das filhas comuns (destinos, participantes, linha do tempo,
+ * anexos, notificações). Qualquer linha lida serve de alvo.
+ */
+export interface Alvo {
+  id: string;
+  tipo: Enum<"tipo_chamado">;
+}
+
+/** Alvo de uma OS pelo id (o bloco da OS, o link do terceirizado). */
+export const ordem = (id: string): Alvo => ({ id, tipo: "os" });
+
+/**
+ * Alvo de um chamado pelo id (portal, modelos, vistorias: só chamados). O
+ * tipo serve só para escolher a tabela.
+ */
+export const chamado = (id: string): Alvo => ({ id, tipo: "solicitacao" });
+
+export const ehOrdem = (a: Pick<Alvo, "tipo">) => a.tipo === "os";
+
+/**
+ * Tabela do alvo. os.ordens tem todas as colunas de os.chamados (e mais as
+ * da execução); por isso o tipo é o do chamado.
+ */
+export const tabelaDo = (a: Pick<Alvo, "tipo">) =>
+  (ehOrdem(a) ? "ordens" : "chamados") as "chamados";
+
+/** Coluna que liga a filha comum ao dono. */
+export const chaveDo = (a: Pick<Alvo, "tipo">) =>
+  ehOrdem(a) ? ("ordem_id" as const) : ("chamado_id" as const);
+
+/** { chamado_id } ou { ordem_id }, para gravar a filha comum. */
+export const donoDo = (a: Alvo): { chamado_id?: string; ordem_id?: string } =>
+  ehOrdem(a) ? { ordem_id: a.id } : { chamado_id: a.id };
+
 function falhar(erro: { message: string } | null): asserts erro is null {
   if (erro) throw new Error(`Falha ao ler o banco: ${erro.message}`);
 }
@@ -300,7 +340,7 @@ export const nomes = cache(async (): Promise<Map<string, string>> => {
 
 /** Colunas que as listas usam; o detalhe lê o chamado inteiro. */
 export const COLUNAS_RESUMO =
-  "id, numero, tipo, titulo, setor_id, categoria_id, status, prioridade, origem, pessoal, precisa_confirmacao, aberto_por, solicitante_nome, responsavel_id, prazo, loja_id, ativo_id, etiquetas, aguardando_tipo, aguardando_min, aguardando_desde, primeira_resposta_em, concluido_em, fechado_em, cancelado_em, execucao, local, rateio, avaliacao, criado_em, atualizado_em" as const;
+  "id, numero, tipo, titulo, setor_id, categoria_id, status, prioridade, origem, pessoal, precisa_confirmacao, aberto_por, solicitante_nome, responsavel_id, prazo, loja_id, ativo_id, etiquetas, aguardando_tipo, aguardando_min, aguardando_desde, primeira_resposta_em, concluido_em, fechado_em, cancelado_em, avaliacao, criado_em, atualizado_em" as const;
 
 export type ChamadoResumo = Pick<
   Tabela<"chamados">,
@@ -329,9 +369,6 @@ export type ChamadoResumo = Pick<
   | "concluido_em"
   | "fechado_em"
   | "cancelado_em"
-  | "execucao"
-  | "local"
-  | "rateio"
   | "avaliacao"
   | "criado_em"
   | "atualizado_em"
@@ -366,8 +403,6 @@ export interface FiltroChamados {
   cartao?: CriterioCartao | null;
   /** Calendário: prazo no intervalo (ISO; de inclusive, até exclusive). */
   prazoEntre?: { de: string; ate: string } | null;
-  /** Calendário: visita do terceirizado no intervalo (aaaa-mm-dd). */
-  visitaEntre?: { de: string; ate: string } | null;
 }
 
 /**
@@ -487,10 +522,6 @@ function filtrar(
   if (f.ate) q = q.lte("criado_em", criadoAte(f.ate));
   if (f.prazoEntre)
     q = q.gte("prazo", f.prazoEntre.de).lt("prazo", f.prazoEntre.ate);
-  if (f.visitaEntre)
-    q = q
-      .gte("visita_data", f.visitaEntre.de)
-      .lte("visita_data", f.visitaEntre.ate);
 
   const c = f.cartao;
   if (c?.abertoPor) q = q.eq("aberto_por", c.abertoPor);
@@ -654,7 +685,8 @@ async function destinosDaMinhaCaixa(
   falhar(error);
   const unicos = new Map<string, DestinoMeu>();
   for (const d of data ?? [])
-    unicos.set(d.chamado_id, { id: d.chamado_id, status: d.chamados.status });
+    if (d.chamado_id)
+      unicos.set(d.chamado_id, { id: d.chamado_id, status: d.chamados.status });
   return [...unicos.values()];
 }
 
@@ -669,7 +701,7 @@ export type TipoEvento = Tabela<"eventos">["tipo"];
  * Para lojista, terceirizado e rotinas, use `registrarComoSistema`.
  */
 export async function registrar(
-  chamadoId: string,
+  alvo: Alvo,
   e: {
     tipo: TipoEvento;
     texto?: string | null;
@@ -681,7 +713,7 @@ export async function registrar(
   const { data, error } = await (await os())
     .from("eventos")
     .insert({
-      chamado_id: chamadoId,
+      ...donoDo(alvo),
       tipo: e.tipo,
       texto: e.texto ?? null,
       dados: (e.dados ?? {}) as Json,
@@ -691,7 +723,7 @@ export async function registrar(
     .select("id")
     .single();
   if (error) {
-    console.error("linha do tempo", chamadoId, error);
+    console.error("linha do tempo", alvo.id, error);
     return null;
   }
   return data.id;
@@ -699,7 +731,7 @@ export async function registrar(
 
 /** Registro feito pelo lojista, terceirizado ou por uma rotina (sem sessão). */
 export async function registrarComoSistema(
-  chamadoId: string,
+  alvo: Alvo,
   e: {
     tipo: TipoEvento;
     autorNome: string;
@@ -711,7 +743,7 @@ export async function registrarComoSistema(
   const { data, error } = await osAdmin()
     .from("eventos")
     .insert({
-      chamado_id: chamadoId,
+      ...donoDo(alvo),
       tipo: e.tipo,
       texto: e.texto ?? null,
       dados: (e.dados ?? {}) as Json,
@@ -721,7 +753,7 @@ export async function registrarComoSistema(
     .select("id")
     .single();
   if (error) {
-    console.error("linha do tempo (sistema)", chamadoId, error);
+    console.error("linha do tempo (sistema)", alvo.id, error);
     return null;
   }
   return data.id;
@@ -732,7 +764,8 @@ export interface Notificacao {
   titulo: string;
   texto?: string;
   href: string;
-  chamadoId?: string | null;
+  /** O chamado ou a OS do aviso (some com ele). */
+  alvo?: Alvo | null;
   /** Mesmo aviso não se repete para a mesma pessoa (ex.: "vence24h:<id>"). */
   chave?: string;
 }
@@ -756,7 +789,8 @@ export async function notificar(
       .upsert(
         destino.map((usuario_id) => ({
           usuario_id,
-          chamado_id: n.chamadoId ?? null,
+          chamado_id: n.alvo && !ehOrdem(n.alvo) ? n.alvo.id : null,
+          ordem_id: n.alvo && ehOrdem(n.alvo) ? n.alvo.id : null,
           tipo: n.tipo,
           titulo: n.titulo.slice(0, 200),
           texto: n.texto?.slice(0, 500) ?? null,
@@ -797,7 +831,13 @@ const BUCKET = "os";
 
 /** Caminho no bucket: <dono>/<id do dono>/<id aleatório>-<nome limpo>. */
 export function caminhoDoArquivo(
-  dono: "chamados" | "vistorias" | "ambientes" | "ativos" | "assinaturas",
+  dono:
+    | "chamados"
+    | "ordens"
+    | "vistorias"
+    | "ambientes"
+    | "ativos"
+    | "assinaturas",
   id: string,
   nome: string,
 ): string {

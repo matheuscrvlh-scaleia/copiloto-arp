@@ -660,9 +660,9 @@ export async function prepararEnvio(entrada: {
         .eq("vistoria_id", id)
         .eq("categoria", "laudo"),
     ]);
-  // O chamado da loja que pediu a vistoria (o Aviso), não as OS dos ambientes.
-  const chamado =
-    (chamados ?? []).find((c) => c.tipo !== "os" && !c.ambiente_id) ?? null;
+  // O chamado da loja que pediu a vistoria (o Aviso); as OS dos ambientes
+  // ficam em os.ordens.
+  const chamado = (chamados ?? []).find((c) => !c.ambiente_id) ?? null;
 
   const path = caminhoDoArquivo("vistorias", id, laudo.nome);
   const { data: anexo, error: e1 } = await db
@@ -704,7 +704,7 @@ export async function prepararEnvio(entrada: {
   const link = (await urlsAssinadas([path], DIAS_DO_LINK * 86_400)).get(path);
   if (!link) return { erro: "Não foi possível gerar o link do laudo." };
   if (chamado)
-    await registrar(chamado.id, {
+    await registrar(chamado, {
       tipo: "anexo",
       texto: `Laudo da vistoria ${v.codigo} enviado ao locatário.`,
       dados: { vistoria_id: id, anexo_id: anexo.id },

@@ -23,12 +23,12 @@ export interface MaterialLinha {
 const qtd = (n: number) => formatarNumero(n, Number.isInteger(n) ? 0 : 2);
 
 export function Materiais({
-  chamadoId,
+  ordemId,
   podeEditar,
   comCustos,
   materiais,
 }: {
-  chamadoId: string;
+  ordemId: string;
   podeEditar: boolean;
   comCustos: boolean;
   materiais: MaterialLinha[];
@@ -100,7 +100,7 @@ export function Materiais({
         (editando ? (
           <FormMaterial
             key={editando === "novo" ? "novo" : editando.id}
-            chamadoId={chamadoId}
+            ordemId={ordemId}
             comCustos={comCustos}
             material={editando === "novo" ? null : editando}
             aoFechar={() => setEditando(null)}
@@ -120,12 +120,12 @@ export function Materiais({
 }
 
 function FormMaterial({
-  chamadoId,
+  ordemId,
   comCustos,
   material: m,
   aoFechar,
 }: {
-  chamadoId: string;
+  ordemId: string;
   comCustos: boolean;
   material: MaterialLinha | null;
   aoFechar: () => void;
@@ -154,7 +154,7 @@ function FormMaterial({
         </button>
       </div>
       <form action={salvar} className="flex flex-col gap-3">
-        <input type="hidden" name="chamado_id" value={chamadoId} />
+        <input type="hidden" name="ordem_id" value={ordemId} />
         {m && <input type="hidden" name="id" value={m.id} />}
         <div
           className={`grid grid-cols-2 gap-3 ${comCustos ? "sm:grid-cols-[minmax(0,1fr)_6rem_6rem_8rem]" : "sm:grid-cols-[minmax(0,1fr)_6rem_6rem]"}`}
@@ -232,7 +232,7 @@ function FormMaterial({
           confirmar={`Excluir ${m.descricao}? O custo é recalculado.`}
           className="border-t border-neutral-200 pt-3"
         >
-          <input type="hidden" name="chamado_id" value={chamadoId} />
+          <input type="hidden" name="ordem_id" value={ordemId} />
           <input type="hidden" name="id" value={m.id} />
         </FormAcao>
       )}
