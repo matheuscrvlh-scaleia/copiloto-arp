@@ -12,10 +12,18 @@ import {
 const ID = "6f1c2a52-6a5b-4c1e-9d43-0b9b1f0a7c11";
 
 describe("filtros da URL", () => {
+  it("responsável: uma pessoa ou a fila; o resto é ignorado", () => {
+    expect(lerFiltrosOS({ responsavel: ID }).responsavel).toBe(ID);
+    expect(lerFiltrosOS({ responsavel: "x" }).responsavel).toBeNull();
+    expect(lerFiltrosOS({ setor: "x" }).setor).toBeNull();
+  });
+
   it("lê o que vale e ignora o resto", () => {
     const f = lerFiltrosOS({
       status: "em_aberto",
       execucao: "terceirizada",
+      setor: ID,
+      responsavel: "fila",
       categoria: ID,
       tecnico: "x",
       rateio: "nao",
@@ -28,6 +36,8 @@ describe("filtros da URL", () => {
     expect(f).toEqual({
       status: "em_aberto",
       execucao: "terceirizada",
+      setor: ID,
+      responsavel: "fila",
       categoria: ID,
       tecnico: null,
       empresa: null,
@@ -108,6 +118,10 @@ describe("cartões", () => {
       status: ["aberto", "em_andamento", "aguardando"],
     });
     expect(criterioDoCartao("em_execucao", agora)).toEqual({ rodando: true });
+    expect(criterioDoCartao("atrasadas", agora)).toEqual({
+      status: ["aberto", "em_andamento", "aguardando"],
+      prazoAntes: "2026-11-01T02:00:00.000Z",
+    });
     expect(criterioDoCartao("terceirizadas", agora).execucao).toBe(
       "terceirizada",
     );

@@ -1,3 +1,4 @@
+import { formatarDataHora } from "@/lib/formato";
 import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 import type {
   Execucao,
@@ -19,6 +20,12 @@ export interface LinhaOSTela {
   execucao: Execucao | null;
   tipoServico: string;
   local: string;
+  /** Setor e responsável ("Na fila" sem responsável). */
+  setor: string;
+  responsavel: string;
+  /** Prazo (ISO) e se já passou com a OS em aberto. */
+  prazo: string | null;
+  atrasada: boolean;
   tecnicos: string;
   periodos: string;
   minutos: number;
@@ -40,6 +47,9 @@ export function colunasDeOS(comCustos: boolean): ColunaExportar[] {
     { titulo: "Título" },
     { titulo: "Tipo" },
     { titulo: "Status" },
+    { titulo: "Setor" },
+    { titulo: "Responsável" },
+    { titulo: "Prazo" },
     { titulo: "Local" },
     { titulo: "Técnicos" },
     { titulo: "Períodos" },
@@ -64,6 +74,9 @@ export function linhaDeOS(
     l.titulo,
     l.tipoServico,
     STATUS[l.status],
+    l.setor,
+    l.responsavel,
+    l.prazo ? formatarDataHora(l.prazo) : "",
     l.local,
     l.tecnicos,
     l.periodos,

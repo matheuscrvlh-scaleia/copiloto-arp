@@ -1,10 +1,10 @@
 "use client";
 
-import { Printer, Timer, Wrench } from "lucide-react";
+import { AlarmClock, Printer, Timer, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SeloStatusChamado } from "@/components/os/selos";
-import { formatarMoeda, formatarNumero } from "@/lib/formato";
+import { formatarDataHora, formatarMoeda, formatarNumero } from "@/lib/formato";
 import { formatarDuracao } from "@/lib/os/calculos";
 import { MAXIMO_LOTE_PDF, rotaPdfOS } from "@/lib/os/ordem";
 import type { LinhaOSTela } from "@/lib/os/tabela-ordens";
@@ -211,6 +211,9 @@ export function ListaOrdens({
                     <span className="block truncate text-xs text-neutral-500">
                       {[l.local, l.tecnicos].filter(Boolean).join(" · ")}
                     </span>
+                    <span className="mt-1 block">
+                      <Acompanhamento l={l} />
+                    </span>
                     <span className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <SeloStatusChamado
                         status={l.status}
@@ -312,6 +315,9 @@ export function ListaOrdens({
                         {l.rodando && <Rodando />}
                       </span>
                       <span className="mt-1 block">
+                        <Acompanhamento l={l} />
+                      </span>
+                      <span className="mt-1 block">
                         <Periodos texto={l.periodos} />
                       </span>
                     </td>
@@ -403,6 +409,35 @@ export function ListaOrdens({
       )}
       {paginacao}
     </section>
+  );
+}
+
+/** Setor, responsável e prazo (vermelho quando a OS aberta passou dele). */
+function Acompanhamento({ l }: { l: LinhaOSTela }) {
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500">
+      <span>{l.setor}</span>
+      <span aria-hidden>·</span>
+      <span className={l.responsavel === "Na fila" ? "italic" : undefined}>
+        {l.responsavel}
+      </span>
+      {l.prazo && (
+        <>
+          <span aria-hidden>·</span>
+          <span
+            className={
+              l.atrasada
+                ? "inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-700"
+                : "tabular-nums"
+            }
+          >
+            {l.atrasada && <AlarmClock className="size-3" aria-hidden />}
+            {l.atrasada ? "Atrasada · " : "Prazo "}
+            {formatarDataHora(l.prazo)}
+          </span>
+        </>
+      )}
+    </span>
   );
 }
 

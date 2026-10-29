@@ -260,7 +260,7 @@ feriados e textos do laudo).
   manda o "agora" da visita e põe as contagens nas pessoas do setor
   (`cargaDasContagens`, `src/lib/os/lista.ts`); o teste compara com a conta
   antiga em JavaScript (`supabase/tests/os-carga.test.ts`).
-  O Geral das OS usa `os.carga_das_ordens` (`20261029160000_os_carga_das_ordens.sql`),
+  O Meu setor das OS usa `os.carga_das_ordens` (`20261029160000_os_carga_das_ordens.sql`),
   a mesma conta sobre `os.ordens`, testada contra a dos chamados.
 - **Custo da OS**: calculado em `src/lib/os/calculos.ts` (regras exatas do
   sistema atual, centavo a centavo) e gravado por `os.gravar_calculo_os`

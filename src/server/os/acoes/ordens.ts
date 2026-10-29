@@ -41,7 +41,7 @@ export async function exportarOrdens(
   return {
     colunas: colunasDeOS(comCustos),
     linhas: lista.map((o) =>
-      linhaDeOS(paraTela(o, cad, comCustos, {}), comCustos),
+      linhaDeOS(paraTela(o, cad, comCustos, {}, agora), comCustos),
     ),
   };
 }

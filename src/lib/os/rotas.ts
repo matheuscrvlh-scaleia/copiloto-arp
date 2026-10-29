@@ -12,7 +12,7 @@ export const ROTAS_OS = {
   calendario: "/os/calendario",
   ordens: "/os/ordens",
   ordensCaixa: "/os/ordens/caixa",
-  ordensGeral: "/os/ordens/geral",
+  ordensMeuSetor: "/os/ordens/meu-setor",
   ordensQuadro: "/os/ordens/quadro",
   ativos: "/os/ativos",
   vistorias: "/os/vistorias",

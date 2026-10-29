@@ -6,7 +6,7 @@ import { TelaGeral } from "@/components/os/telas/geral";
 import { Protegido } from "@/components/protegido";
 import { ROTAS_OS } from "@/lib/os/rotas";
 
-export const metadata: Metadata = { title: "Geral das OS" };
+export const metadata: Metadata = { title: "Meu setor (OS)" };
 
 export default function Page({
   searchParams,
@@ -20,13 +20,13 @@ export default function Page({
         <Protegido permissao="os.meu_setor">
           <TelaGeral
             busca={searchParams}
-            caminho={ROTAS_OS.ordensGeral}
+            caminho={ROTAS_OS.ordensMeuSetor}
             ordens
           />
           <Suspense fallback={null}>
             <PainelDaBusca
               busca={searchParams}
-              caminho={ROTAS_OS.ordensGeral}
+              caminho={ROTAS_OS.ordensMeuSetor}
             />
           </Suspense>
         </Protegido>

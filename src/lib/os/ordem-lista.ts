@@ -2,9 +2,9 @@ import { limitesDoMes } from "./filtro-postgrest";
 import type { Execucao, StatusChamado } from "./rotulos";
 import { paraBrasilia, somarDias } from "./tempo";
 
-// Tela "Ordens de serviço" (a central de Operações): filtros da URL, os
-// quatro cartões e o que cada cartão conta. Regras puras; a consulta fica
-// em src/server/os/ordem-consulta.ts.
+// Aba Acompanhamento das Ordens de serviço: filtros da URL, os cartões e o
+// que cada cartão conta. Regras puras; a consulta fica em
+// src/server/os/ordem-consulta.ts.
 
 export const FILTROS_STATUS = {
   em_aberto: "Em aberto (aberto, em andamento, aguardando)",
@@ -19,6 +19,7 @@ export type FiltroStatus = keyof typeof FILTROS_STATUS;
 
 export const CARTOES_OS = {
   abertas: "Abertas",
+  atrasadas: "Atrasadas",
   em_execucao: "Em execução agora",
   terceirizadas: "Terceirizadas aguardando retorno",
   finalizadas_mes: "Finalizadas no mês",
@@ -33,9 +34,15 @@ export const PERIODOS_OS = {
 } as const;
 export type PeriodoOS = keyof typeof PERIODOS_OS;
 
+/** Responsável "fila": as OS sem responsável. */
+export const NA_FILA = "fila";
+
 export interface FiltrosOS {
   status: FiltroStatus | null;
   execucao: Execucao | null;
+  setor: string | null;
+  /** Uma pessoa (uuid) ou NA_FILA. */
+  responsavel: string | null;
   categoria: string | null;
   tecnico: string | null;
   empresa: string | null;
@@ -54,6 +61,8 @@ export interface FiltrosOS {
 
 /** Filtros que ficam no painel "Filtros" (o resto está na barra). */
 export const FILTROS_EXTRAS = [
+  "setor",
+  "responsavel",
   "categoria",
   "tecnico",
   "empresa",
@@ -79,12 +88,15 @@ function deLista<T extends string>(v: string | null, lista: object): T | null {
 export function lerFiltrosOS(b: Busca): FiltrosOS {
   const rateio = um(b.rateio);
   const periodo = deLista<PeriodoOS>(um(b.periodo), PERIODOS_OS);
+  const responsavel = um(b.responsavel);
   return {
     status: deLista<FiltroStatus>(um(b.status), FILTROS_STATUS),
     execucao: deLista<Execucao>(um(b.execucao), {
       interna: 1,
       terceirizada: 1,
     }),
+    setor: uuid(um(b.setor)),
+    responsavel: responsavel === NA_FILA ? NA_FILA : uuid(responsavel),
     categoria: uuid(um(b.categoria)),
     tecnico: uuid(um(b.tecnico)),
     empresa: uuid(um(b.empresa)),
@@ -145,12 +157,16 @@ export interface CriterioDoCartao {
   fechadoEntre?: { de: string; ate: string };
   /** Só as OS com o cronômetro rodando. */
   rodando?: true;
+  /** Prazo antes deste instante (ISO): as atrasadas. */
+  prazoAntes?: string;
 }
 
 export function criterioDoCartao(c: CartaoOS, agora: Date): CriterioDoCartao {
   switch (c) {
     case "abertas":
       return { status: EM_ABERTO };
+    case "atrasadas":
+      return { status: EM_ABERTO, prazoAntes: agora.toISOString() };
     case "em_execucao":
       return { rodando: true };
     case "terceirizadas":
@@ -181,6 +197,8 @@ export function urlDosFiltros(
   const atual: Record<string, string | null> = {
     status: f.status,
     execucao: f.execucao,
+    setor: f.setor,
+    responsavel: f.responsavel,
     categoria: f.categoria,
     tecnico: f.tecnico,
     empresa: f.empresa,

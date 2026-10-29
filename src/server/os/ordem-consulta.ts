@@ -18,12 +18,13 @@ import {
   criterioDoCartao,
   type FiltrosOS,
   localConfere,
+  NA_FILA,
   statusDoFiltro,
 } from "@/lib/os/ordem-lista";
 import { intervalo } from "@/lib/os/paginacao";
 import type { OSRelatorio } from "@/lib/os/relatorios";
 import type { Execucao, StatusChamado } from "@/lib/os/rotulos";
-import { categorias, nomes, os, type Tabela } from "./base";
+import { categorias, nomes, os, setores, type Tabela } from "./base";
 import { lojasDoModulo } from "./lojas";
 
 // Consulta das Ordens de Serviço com tudo o que as listas, o PDF e os
@@ -32,7 +33,7 @@ import { lojasDoModulo } from "./lojas";
 // esconde os_custos de quem não tem os.custos.
 
 const COLUNAS_OS =
-  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, status, prioridade, aguardando_tipo, aberto_por, solicitante_nome, responsavel_id, loja_id, ativo_id, execucao, local, bloco, empresa_id, visita_data, visita_periodo, prazo_terceirizado, solucao, causa_falha, ativo_parado, rateio, assinatura_nome, assinatura_path, assinado_em, concluido_em, fechado_em, fechado_por, cancelado_em, criado_em, legado_origem, sessoes(id, data, inicio, fim, almoco_inicio, almoco_fim, sessao_tecnicos(tecnico_id)), ordem_profissionais(profissional_id), os_custos(custo_total, valor_rateio, custo_mao_obra, custo_materiais, valor_terceirizado, completo, legado_valor, legado_valor_rateio)" as const;
+  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, status, prioridade, aguardando_tipo, aberto_por, solicitante_nome, responsavel_id, prazo, loja_id, ativo_id, execucao, local, bloco, empresa_id, visita_data, visita_periodo, prazo_terceirizado, solucao, causa_falha, ativo_parado, rateio, assinatura_nome, assinatura_path, assinado_em, concluido_em, fechado_em, fechado_por, cancelado_em, criado_em, legado_origem, sessoes(id, data, inicio, fim, almoco_inicio, almoco_fim, sessao_tecnicos(tecnico_id)), ordem_profissionais(profissional_id), os_custos(custo_total, valor_rateio, custo_mao_obra, custo_materiais, valor_terceirizado, completo, legado_valor, legado_valor_rateio)" as const;
 
 function consultaBase(db: Awaited<ReturnType<typeof os>>) {
   return db.from("ordens").select(COLUNAS_OS);
@@ -122,6 +123,7 @@ export interface Cadastros {
     >
   >;
   categorias: Map<string, Tabela<"categorias">>;
+  setores: Map<string, Tabela<"setores">>;
   pessoas: Map<string, string>;
 }
 
@@ -129,13 +131,14 @@ export interface Cadastros {
 export const cadastros = cache(async (): Promise<Cadastros> => {
   const db = await os();
   // Lojas: um contrato por linha (passa de mil), do cache do módulo.
-  const [tecnicos, empresas, profissionais, lojas, cats, pessoas] =
+  const [tecnicos, empresas, profissionais, lojas, cats, sets, pessoas] =
     await Promise.all([
       db.from("tecnicos").select("*").order("nome"),
       db.from("empresas").select("*").order("nome"),
       db.from("profissionais").select("*").order("nome"),
       lojasDoModulo(),
       categorias(),
+      setores(),
       nomes(),
     ]);
   for (const r of [tecnicos, empresas, profissionais])
@@ -149,6 +152,7 @@ export const cadastros = cache(async (): Promise<Cadastros> => {
     profissionais: porId(profissionais.data),
     lojas: porId(lojas),
     categorias: porId(cats),
+    setores: porId(sets),
     pessoas,
   };
 });
@@ -255,6 +259,9 @@ export function paraRelatorio(
 export interface FiltroListaOS {
   status: StatusChamado[];
   execucao: Execucao | null;
+  setor: string | null;
+  /** Uma pessoa ou NA_FILA (sem responsável). */
+  responsavel: string | null;
   categoria: string | null;
   empresa: string | null;
   rateio: boolean | null;
@@ -305,6 +312,8 @@ export function filtroDaListaOS(
   return {
     status: statusDoFiltro(f.status),
     execucao: f.execucao,
+    setor: f.setor,
+    responsavel: f.responsavel,
     categoria: f.categoria,
     empresa: f.empresa,
     rateio: f.rateio,
@@ -335,6 +344,9 @@ function filtrarOS<Q extends Filtravel<Q>>(
   let c = q.eq("tipo", "os");
   if (f.status.length) c = c.in("status", f.status);
   if (f.execucao) c = c.eq("execucao", f.execucao);
+  if (f.setor) c = c.eq("setor_id", f.setor);
+  if (f.responsavel === NA_FILA) c = c.is("responsavel_id", null);
+  else if (f.responsavel) c = c.eq("responsavel_id", f.responsavel);
   if (f.categoria) c = c.eq("categoria_id", f.categoria);
   if (f.empresa) c = c.eq("empresa_id", f.empresa);
   if (f.rateio !== null) c = c.eq("rateio", f.rateio);
@@ -352,6 +364,7 @@ function filtrarOS<Q extends Filtravel<Q>>(
         .gte("fechado_em", extra.fechadoEntre.de)
         .lt("fechado_em", extra.fechadoEntre.ate);
     if (extra.rodando) c = c.in("id", rodando);
+    if (extra.prazoAntes) c = c.lt("prazo", extra.prazoAntes);
   }
   return c;
 }
@@ -396,7 +409,7 @@ export async function paginaDeOS(
   return { linhas: data ?? [], total: count ?? 0 };
 }
 
-/** Os quatro cartões: contagens no banco, com os filtros da tela. */
+/** Os cartões: contagens no banco, com os filtros da tela. */
 export async function contarCartoesOS(
   f: FiltroListaOS,
   agora: Date,

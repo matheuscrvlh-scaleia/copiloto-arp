@@ -33,8 +33,9 @@ import { EXECUCOES } from "@/lib/os/rotulos";
 
 // Filtros da tela Ordens de serviço, guardados na URL (o link leva os
 // filtros junto), no mesmo desenho da barra das visões: uma linha com os
-// principais (status, execução, período) e a busca; o resto (tipo,
-// técnico, empresa, rateio, local) fica no painel "Filtros", e o que
+// principais (status, execução, período) e a busca; o resto (setor,
+// responsável, tipo, técnico, empresa, rateio, local) fica no painel
+// "Filtros", e o que
 // estiver em uso aparece em etiquetas removíveis embaixo da barra. No
 // celular, a linha mostra status e execução; o período vai para o painel,
 // que abre em tela cheia.
@@ -49,6 +50,8 @@ const CHAVES = [
   "periodo",
   "de",
   "ate",
+  "setor",
+  "responsavel",
   "categoria",
   "tecnico",
   "empresa",
@@ -62,6 +65,8 @@ type Troca = Record<string, string | null>;
 export function FiltrosOrdens({
   f,
   extras,
+  setores,
+  pessoas,
   categorias,
   tecnicos,
   empresas,
@@ -69,6 +74,9 @@ export function FiltrosOrdens({
   f: FiltrosOS;
   /** Quantos filtros do painel estão em uso. */
   extras: number;
+  setores: Opcao[];
+  /** Pessoas e a fila (sem responsável). */
+  pessoas: Opcao[];
   categorias: Opcao[];
   tecnicos: Opcao[];
   empresas: Opcao[];
@@ -102,6 +110,14 @@ export function FiltrosOrdens({
   const rotuloDe = (lista: Opcao[], valor: string | null) =>
     lista.find((o) => o.valor === valor)?.rotulo ?? "—";
   const chips: { chave: string; texto: string }[] = [
+    f.setor && {
+      chave: "setor",
+      texto: `Setor: ${rotuloDe(setores, f.setor)}`,
+    },
+    f.responsavel && {
+      chave: "responsavel",
+      texto: `Responsável: ${rotuloDe(pessoas, f.responsavel)}`,
+    },
     f.categoria && {
       chave: "categoria",
       texto: `Tipo: ${rotuloDe(categorias, f.categoria)}`,
@@ -214,6 +230,28 @@ export function FiltrosOrdens({
           <div className="md:hidden">
             <PeriodoNoPainel f={f} trocar={trocar} />
           </div>
+          <Campo rotulo="Setor">
+            {(id) => (
+              <Selecao
+                id={id}
+                rotulo="Setor"
+                valor={f.setor ?? ""}
+                aoMudar={(v) => trocar({ setor: v })}
+                opcoes={[{ valor: "", rotulo: "Todos os setores" }, ...setores]}
+              />
+            )}
+          </Campo>
+          <Campo rotulo="Responsável">
+            {(id) => (
+              <Selecao
+                id={id}
+                rotulo="Responsável"
+                valor={f.responsavel ?? ""}
+                aoMudar={(v) => trocar({ responsavel: v })}
+                opcoes={[{ valor: "", rotulo: "Qualquer pessoa" }, ...pessoas]}
+              />
+            )}
+          </Campo>
           <Campo rotulo="Tipo de serviço">
             {(id) => (
               <Selecao

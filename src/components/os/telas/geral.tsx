@@ -32,8 +32,8 @@ import {
   pessoasPorSetor,
 } from "@/server/os/visoes";
 
-// Geral: o dos chamados (/os/meu-setor) e o das OS (/os/ordens/geral) são a
-// mesma tela; `ordens` troca a tabela, os filtros lembrados e os textos.
+// Geral dos chamados (/os/meu-setor) e Meu setor das OS
+// (/os/ordens/meu-setor) são a mesma tela; `ordens` troca a tabela, os filtros lembrados e os textos.
 
 const DETALHES: Partial<Record<ChaveCartao, string>> = {
   sem_responsavel: "na fila, para distribuir",
@@ -169,13 +169,13 @@ export async function TelaGeral({
           a.ctx.pode("os.exportar")
             ? {
                 tela,
-                titulo: ordens ? "Geral (OS)" : "Geral",
+                titulo: ordens ? "Meu setor (OS)" : "Geral",
                 filtros: descreverFiltros(
                   tela,
                   filtros,
                   nomesDosFiltros(filtros, a),
                 ),
-                nomeArquivo: ordens ? "os-geral" : "geral",
+                nomeArquivo: ordens ? "os-meu-setor" : "geral",
               }
             : null
         }

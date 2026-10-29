@@ -7,8 +7,10 @@ import {
 } from "@/lib/os/calculos";
 import {
   CARTOES_OS,
+  EM_ABERTO,
   FILTROS_STATUS,
   type FiltrosOS,
+  NA_FILA,
   PERIODOS_OS,
 } from "@/lib/os/ordem-lista";
 import { PARAM_PAINEL } from "@/lib/os/rotas";
@@ -35,6 +37,7 @@ export function paraTela(
   cad: Cadastros,
   comCustos: boolean,
   params: Busca,
+  agora: Date,
 ): LinhaOSTela {
   const sessoes = sessoesDa(o);
   const minutos = minutosDaOS(sessoes);
@@ -53,6 +56,15 @@ export function paraTela(
     execucao: o.execucao,
     tipoServico: tipoServicoDa(o, cad),
     local: localDa(o, cad),
+    setor: cad.setores.get(o.setor_id)?.nome ?? "Setor",
+    responsavel: o.responsavel_id
+      ? (cad.pessoas.get(o.responsavel_id) ?? "Usuário inativo")
+      : "Na fila",
+    prazo: o.prazo,
+    atrasada:
+      !!o.prazo &&
+      EM_ABERTO.includes(o.status) &&
+      new Date(o.prazo).getTime() < agora.getTime(),
     tecnicos:
       o.execucao === "terceirizada" && o.empresa_id
         ? [cad.empresas.get(o.empresa_id)?.nome, ...tecnicosDa(o, cad)]
@@ -80,6 +92,9 @@ export function descreverFiltros(f: FiltrosOS, cad: Cadastros): string {
     f.q && `Busca: ${f.q}`,
     f.status && `Status: ${FILTROS_STATUS[f.status]}`,
     f.execucao && `Execução: ${EXECUCOES[f.execucao]}`,
+    f.setor && `Setor: ${cad.setores.get(f.setor)?.nome ?? "—"}`,
+    f.responsavel &&
+      `Responsável: ${f.responsavel === NA_FILA ? "na fila" : (cad.pessoas.get(f.responsavel) ?? "—")}`,
     f.periodo && `Criadas: ${PERIODOS_OS[f.periodo].toLowerCase()}`,
     !f.periodo &&
       (f.de || f.ate) &&
@@ -92,6 +107,21 @@ export function descreverFiltros(f: FiltrosOS, cad: Cadastros): string {
     f.cartao && CARTOES_OS[f.cartao],
   ].filter(Boolean);
   return partes.length ? partes.join(" · ") : "Todas as OS";
+}
+
+/** Setores ativos e pessoas do módulo, para os filtros do painel. */
+export function opcoesDeSetorEPessoa(cad: Cadastros) {
+  return {
+    setores: [...cad.setores.values()]
+      .filter((s) => s.ativo)
+      .map((s) => ({ valor: s.id, rotulo: s.nome })),
+    pessoas: [
+      { valor: NA_FILA, rotulo: "Na fila (sem responsável)" },
+      ...[...cad.pessoas.entries()]
+        .map(([valor, rotulo]) => ({ valor, rotulo }))
+        .sort((a, b) => a.rotulo.localeCompare(b.rotulo, "pt-BR")),
+    ],
+  };
 }
 
 export function opcoesDeCategoria(cad: Cadastros) {

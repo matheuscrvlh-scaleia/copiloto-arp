@@ -1,4 +1,5 @@
 import {
+  AlarmClock,
   Building2,
   CircleCheck,
   Inbox,
@@ -46,13 +47,14 @@ import {
   CAMINHO_ORDENS as CAMINHO,
   descreverFiltros,
   opcoesDeCategoria,
+  opcoesDeSetorEPessoa,
   paraTela,
 } from "@/server/os/ordens-tela";
 import { FiltrosOrdens } from "./filtros";
 import { ListaOrdens } from "./lista";
 import { Relatorios } from "./relatorios";
 
-export const metadata: Metadata = { title: "Ordens de serviço" };
+export const metadata: Metadata = { title: "Acompanhamento das OS" };
 
 type Busca = Record<string, string | string[] | undefined>;
 
@@ -63,7 +65,7 @@ export default function Page({
 }) {
   return (
     <>
-      <CabecalhoOrdens descricao="Todas as OS, internas e terceirizadas, com tempo, técnicos, minuto-homem e custo. Filtre, abra o detalhe ao lado, imprima em lote e baixe as planilhas de sempre." />
+      <CabecalhoOrdens descricao="Acompanhe todas as OS, de todos os setores: as atrasadas, as em execução e as com terceirizado, com responsável, prazo, tempo, técnicos, minuto-homem e custo. Filtre por setor ou pessoa, abra o detalhe ao lado, imprima em lote e baixe as planilhas." />
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="os.acessar">
           <Ordens busca={searchParams} />
@@ -91,7 +93,8 @@ async function Ordens({ busca }: { busca: Promise<Busca> }) {
   const ultima = totalDePaginas(total);
   if (pagina > ultima) redirect(hrefDaPagina(CAMINHO, params, ultima));
   const comCustos = ctx.pode("os.custos");
-  const linhas = pag.map((o) => paraTela(o, cad, comCustos, params));
+  const linhas = pag.map((o) => paraTela(o, cad, comCustos, params, agora));
+  const { setores, pessoas } = opcoesDeSetorEPessoa(cad);
   // A exportação relê o filtro inteiro no clique (sem a página e a janela).
   const filtros: Record<string, string> = {};
   for (const [k, v] of Object.entries(params))
@@ -104,6 +107,8 @@ async function Ordens({ busca }: { busca: Promise<Busca> }) {
       <FiltrosOrdens
         f={f}
         extras={extrasAtivos(f)}
+        setores={setores}
+        pessoas={pessoas}
         categorias={opcoesDeCategoria(cad)}
         tecnicos={[...cad.tecnicos.values()].map((t) => ({
           valor: t.id,
@@ -149,6 +154,7 @@ async function Ordens({ busca }: { busca: Promise<Busca> }) {
 
 const ICONES: Record<CartaoOS, LucideIcon> = {
   abertas: Inbox,
+  atrasadas: AlarmClock,
   em_execucao: Timer,
   terceirizadas: Building2,
   finalizadas_mes: CircleCheck,
@@ -156,14 +162,15 @@ const ICONES: Record<CartaoOS, LucideIcon> = {
 
 const DETALHE: Record<CartaoOS, string> = {
   abertas: "aberto, em andamento ou aguardando",
+  atrasadas: "em aberto e com o prazo vencido",
   em_execucao: "com o cronômetro rodando",
   terceirizadas: "com o terceirizado, ainda abertas",
   finalizadas_mes: "fechadas neste mês",
 };
 
-const TONS = tonsDaTela("ordens");
+const TONS = tonsDaTela("ordens", Object.keys(CARTOES_OS).length);
 
-/** Os quatro cartões; clicar filtra a lista (de novo, volta para todas). */
+/** Os cartões; clicar filtra a lista (de novo, volta para todas). */
 function Cartoes({
   f,
   contagem,
@@ -174,7 +181,7 @@ function Cartoes({
   return (
     <nav
       aria-label="Filtrar pelos indicadores"
-      className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4"
+      className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5"
     >
       {(Object.keys(CARTOES_OS) as CartaoOS[]).map((c, i) => {
         const Icone = ICONES[c];
@@ -211,8 +218,8 @@ function Esqueleto() {
     <TelaCarregando>
       <FiltrosCarregando />
       <IndicadoresCarregando
-        quantidade={4}
-        className="grid-cols-2 xl:grid-cols-4"
+        quantidade={5}
+        className="grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
       />
       <CartaoCarregando altura="h-[36rem]" />
     </TelaCarregando>
