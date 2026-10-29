@@ -171,6 +171,17 @@ export function usePreCarga(
   }, [detalhe]);
 }
 
+/**
+ * Com mais de 6 pontos, o eixo X mostra um rótulo sim, um não (contando do
+ * último, que sempre aparece), para não se atropelarem em cartão estreito.
+ * Com um ponto ativo, ele aparece e os vizinhos somem.
+ */
+export function rotuloVisivel(k: number, total: number, ativo: number | null) {
+  if (k === ativo) return true;
+  if (ativo !== null && Math.abs(k - ativo) <= 1) return false;
+  return total <= 6 || (total - 1 - k) % 2 === 0;
+}
+
 export const ANEL_FOCO =
   "rounded-2xl outline-none has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-neutral-900/25 has-[input:focus-visible]:ring-offset-4 has-[input:focus-visible]:ring-offset-transparent";
 

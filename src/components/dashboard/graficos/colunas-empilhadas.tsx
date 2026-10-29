@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ANEL_FOCO, Dica, Explorar, eixoJusto, useMontado } from "./base";
+import {
+  ANEL_FOCO,
+  Dica,
+  Explorar,
+  eixoJusto,
+  rotuloVisivel,
+  useMontado,
+} from "./base";
 import {
   corDa,
   formatar,
@@ -139,11 +146,14 @@ export function ColunasEmpilhadas({
       </div>
       <div className="flex gap-1.5 pl-14 sm:gap-2" aria-hidden>
         {pontos.map((p, k) => (
-          <span
-            key={p.chave}
-            className={`flex-1 truncate text-center text-[11px] ${k === ativo ? "font-medium text-neutral-900" : "text-neutral-500"}`}
-          >
-            {p.rotulo}
+          <span key={p.chave} className="relative h-4 flex-1">
+            {rotuloVisivel(k, pontos.length, ativo) && (
+              <span
+                className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] ${k === ativo ? "font-medium text-neutral-900" : "text-neutral-500"}`}
+              >
+                {p.rotulo}
+              </span>
+            )}
           </span>
         ))}
       </div>

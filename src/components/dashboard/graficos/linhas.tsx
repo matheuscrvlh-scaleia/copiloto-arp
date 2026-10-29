@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ANEL_FOCO,
   caminhoSuave,
   Dica,
   Explorar,
   eixoJusto,
+  rotuloVisivel,
   useMontado,
 } from "./base";
 import { Legenda } from "./colunas-empilhadas";
@@ -43,7 +44,19 @@ export function Linhas({
   zero?: boolean;
   altura?: number;
 }) {
-  const L = 600;
+  // Largura real do quadro: 1 unidade = 1px, então o texto do SVG não
+  // encolhe em cartão estreito.
+  const caixa = useRef<HTMLDivElement>(null);
+  const [L, setL] = useState(600);
+  useEffect(() => {
+    const el = caixa.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([e]) => {
+      if (e && e.contentRect.width > 0) setL(e.contentRect.width);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
   const A = altura;
   const margem = { esq: 46, dir: 14, topo: 16, base: 6 };
   const todos = series.flatMap((s) =>
@@ -101,6 +114,7 @@ export function Linhas({
   return (
     <div className="flex flex-col gap-3">
       <div
+        ref={caixa}
         className={`relative touch-pan-y select-none ${ANEL_FOCO}`}
         onPointerMove={apontar}
         onPointerDown={apontar}
@@ -132,27 +146,18 @@ export function Linhas({
               </text>
             </g>
           ))}
+          {/* O texto da meta fica na legenda: aqui batia no valor do último ponto. */}
           {meta && (
-            <g>
-              <line
-                x1={margem.esq}
-                x2={L - margem.dir}
-                y1={y(meta.valor)}
-                y2={y(meta.valor)}
-                stroke="currentColor"
-                strokeOpacity={0.55}
-                strokeDasharray="5 5"
-                strokeWidth={1.5}
-              />
-              <text
-                x={L - margem.dir}
-                y={y(meta.valor) - 5}
-                textAnchor="end"
-                className="fill-neutral-600 text-[10px] font-medium"
-              >
-                {meta.texto}
-              </text>
-            </g>
+            <line
+              x1={margem.esq}
+              x2={L - margem.dir}
+              y1={y(meta.valor)}
+              y2={y(meta.valor)}
+              stroke="currentColor"
+              strokeOpacity={0.55}
+              strokeDasharray="5 5"
+              strokeWidth={1.5}
+            />
           )}
           {series.map((s, i) => (
             <path
@@ -246,15 +251,22 @@ export function Linhas({
           descricao={descricao}
         />
       </div>
-      <div className="flex justify-between pl-[7.6%] pr-[2%]" aria-hidden>
-        {pontos.map((pt, k) => (
-          <span
-            key={pt.chave}
-            className={`text-[11px] ${k === ativo ? "font-medium text-neutral-900" : "text-neutral-500"} ${pontos.length > 8 && k % 2 === 1 && k !== ativo ? "invisible sm:visible" : ""}`}
-          >
-            {pt.rotulo}
-          </span>
-        ))}
+      <div className="relative h-4" aria-hidden>
+        {pontos.map(
+          (pt, k) =>
+            rotuloVisivel(k, pontos.length, ativo) && (
+              <span
+                key={pt.chave}
+                // O último encosta na direita, para não sair do cartão.
+                className={`absolute whitespace-nowrap text-[11px] ${k === ultimo && k > 0 ? "-translate-x-full" : "-translate-x-1/2"} ${k === ativo ? "font-medium text-neutral-900" : "text-neutral-500"}`}
+                style={{
+                  left: k === ultimo && k > 0 ? L - margem.dir + 6 : x(k),
+                }}
+              >
+                {pt.rotulo}
+              </span>
+            ),
+        )}
       </div>
       {(series.length > 1 || meta) && (
         <Legenda

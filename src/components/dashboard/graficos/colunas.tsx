@@ -7,6 +7,7 @@ import {
   Dica,
   Explorar,
   type ItemGrafico,
+  rotuloVisivel,
   useDetalhes,
   useMontado,
   usePreCarga,
@@ -81,7 +82,8 @@ export function Colunas({
                 />
                 {rotular && (
                   <span
-                    className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-medium tabular-nums text-neutral-900 transition-opacity duration-500"
+                    // Nas pontas, o texto cresce para dentro do cartão.
+                    className={`absolute ${k === ultimo && !rotularTodas ? "right-0" : k === 0 && !rotularTodas ? "left-0" : "left-1/2 -translate-x-1/2"} whitespace-nowrap text-xs font-medium tabular-nums text-neutral-900 transition-opacity duration-500`}
                     style={{
                       bottom: `calc(${h}% + 6px)`,
                       opacity: montado ? 1 : 0,
@@ -117,11 +119,14 @@ export function Colunas({
       </div>
       <div className="flex gap-1.5 sm:gap-2" aria-hidden>
         {itens.map((i, k) => (
-          <span
-            key={i.chave}
-            className={`flex-1 truncate text-center text-[11px] ${k === ativo || i.destaque ? "font-medium text-neutral-900" : "text-neutral-500"}`}
-          >
-            {i.rotulo}
+          <span key={i.chave} className="relative h-4 flex-1">
+            {rotuloVisivel(k, itens.length, ativo) && (
+              <span
+                className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] ${k === ativo || i.destaque ? "font-medium text-neutral-900" : "text-neutral-500"}`}
+              >
+                {i.rotulo}
+              </span>
+            )}
           </span>
         ))}
       </div>
