@@ -653,6 +653,28 @@ export const TELAS = {
   calendario: ["recorte", "setor", "tipo", "visao", "de", "ate"],
   /** Os avisos (que não aparecem nas outras abas): sem status, só leitura. */
   avisos: ["aberto_por", "setor", "categoria", "prioridade", "etiqueta"],
+  // As mesmas telas para as OS (aba de Ordens de serviço), sem o tipo.
+  os_caixa: [
+    "aberto_por",
+    "setor",
+    "categoria",
+    "status",
+    "prioridade",
+    "etiqueta",
+  ],
+  os_setor: [
+    "setores",
+    "responsavel",
+    "categoria",
+    "status",
+    "prioridade",
+    "de",
+    "ate",
+    "etiqueta",
+    "agrupar",
+    "aberto_por",
+  ],
+  os_quadro: ["recorte", "setor", "categoria", "prioridade", "fechados"],
 } as const satisfies Record<string, readonly CampoFiltro[]>;
 export type Tela = keyof typeof TELAS;
 
@@ -663,10 +685,26 @@ export const PREFERENCIA_FILTROS: Record<Tela, string> = {
   quadro: "os.quadro.filtros",
   calendario: "os.calendario.filtros",
   avisos: "os.avisos.filtros",
+  os_caixa: "os.ordens.caixa.filtros",
+  os_setor: "os.ordens.setor.filtros",
+  os_quadro: "os.ordens.quadro.filtros",
 };
 
+/** Tela da OS → a tela de chamados de que ela é cópia. */
+export const TELA_BASE = {
+  os_caixa: "caixa",
+  os_setor: "setor",
+  os_quadro: "quadro",
+} as const satisfies Partial<Record<Tela, Tela>>;
+export type TelaDaOS = keyof typeof TELA_BASE;
+
 /** Telas com lista paginada (a de Avisos é a Minha caixa dos avisos). */
-export type TelaComLista = "caixa" | "setor" | "avisos";
+export type TelaComLista =
+  | "caixa"
+  | "setor"
+  | "avisos"
+  | "os_caixa"
+  | "os_setor";
 
 /** Tipos das abas de tickets: os avisos têm a aba deles; a OS, a tela dela. */
 export const TIPOS_SEM_AVISO = (Object.keys(TIPOS) as TipoChamado[]).filter(

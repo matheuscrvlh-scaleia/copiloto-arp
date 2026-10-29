@@ -9,7 +9,7 @@ import { BarraFiltros } from "@/components/os/filtros/barra-filtros";
 import {
   campoRecorte,
   campoSetor,
-  campoTipo,
+  campoTipoComOS,
   campoVisao,
 } from "@/components/os/filtros/opcoes";
 import { Atualizado, PainelDaBusca } from "@/components/os/lista/topo";
@@ -112,26 +112,30 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
     setor: comSetor ? filtros.setor : undefined,
   };
 
-  // Tudo de uma vez: os prazos do período (filtrados no banco), as visitas
-  // dos chamados do recorte, os agendamentos e as preventivas.
+  // Tudo de uma vez: os prazos do período (chamados e OS, filtrados no
+  // banco), as visitas das OS do recorte, os agendamentos e as preventivas.
+  // O tipo OS lê só as OS; outro tipo, só os chamados.
   const consulta = paraConsulta({ ...valores, status: undefined }, recorte);
-  const [chamados, visitas, agendamentos, planos] = await Promise.all([
-    buscarChamados({
-      ...consulta,
-      prazoEntre: {
-        de: deBrasilia(de).toISOString(),
-        ate: deBrasilia(somarDias(ate, 1)).toISOString(),
-      },
-    }),
-    itensDeVisita(
-      de,
-      ate,
-      recorte === "todos" && !valores.setor ? null : consulta,
-    ),
+  const soOS = valores.tipo === "os";
+  const semOS = !!valores.tipo && !soOS;
+  const prazoEntre = {
+    de: deBrasilia(de).toISOString(),
+    ate: deBrasilia(somarDias(ate, 1)).toISOString(),
+  };
+  const [chamados, ordens, visitas, agendamentos, planos] = await Promise.all([
+    soOS ? [] : buscarChamados({ ...consulta, prazoEntre }),
+    semOS ? [] : buscarChamados({ ...consulta, ordens: true, prazoEntre }),
+    semOS
+      ? []
+      : itensDeVisita(
+          de,
+          ate,
+          recorte === "todos" && !valores.setor ? null : consulta,
+        ),
     itensDeAgendamento(de, ate),
     itensDePlano(a, de, ate, valores.setor ?? null),
   ]);
-  const linhas = chamados.map((c) => paraLinha(c, a));
+  const linhas = [...chamados, ...ordens].map((c) => paraLinha(c, a));
   const itens = [
     ...itensDePrazo(linhas, de, ate),
     ...visitas,
@@ -179,7 +183,7 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
           campoVisao,
           campoRecorte(permitidos),
           ...(comSetor ? [campoSetor(setores)] : []),
-          campoTipo,
+          campoTipoComOS,
         ]}
       />
       <nav aria-label="Período" className="flex flex-wrap items-center gap-2">

@@ -36,13 +36,14 @@ import {
   paraExportar,
   type Recorte,
   statusDoFiltro,
+  TELA_BASE,
   type Tela,
   type TelaComLista,
   type TelaLista,
   TIPOS_SEM_AVISO,
   temFiltrosNaUrl,
 } from "@/lib/os/lista";
-import { formatarNumeroOS } from "@/lib/os/numeros";
+import { formatarNumeroOS, numeroDo } from "@/lib/os/numeros";
 import { paginaDaUrl } from "@/lib/os/paginacao";
 import {
   COLUNAS_QUADRO,
@@ -280,6 +281,8 @@ const umTexto = (v: unknown): string | undefined =>
 
 export interface EstadoDaLista {
   tela: TelaLista;
+  /** Lista das OS (aba de Ordens de serviço) em vez dos chamados. */
+  ordens: boolean;
   a: Apoio;
   filtros: Filtros;
   lembrados: boolean;
@@ -308,11 +311,14 @@ export async function estadoDaLista(
   const [a, lidos] = await Promise.all([apoio(), filtrosDaTela(tela, busca)]);
   let filtros = lidos.filtros;
   const porMim = filtros.aberto_por === "eu";
+  // As telas da OS são as mesmas listas, lendo os.ordens.
+  const ordens = tela === "os_caixa" || tela === "os_setor";
+  const base = ordens ? TELA_BASE[tela] : tela;
   // Avisos: os que recebi (como a Minha caixa) e, em Mostrar, os que mandei.
   const lista: TelaLista =
-    tela === "setor"
+    base === "setor"
       ? "setor"
-      : tela === "avisos"
+      : base === "avisos"
         ? porMim
           ? "avisos_mandados"
           : "avisos"
@@ -324,7 +330,7 @@ export async function estadoDaLista(
     filtros = { ...filtros, status: undefined };
   let disponiveis: Setor[] = [];
   let setores: string[] = [];
-  if (tela === "setor") {
+  if (base === "setor") {
     // Setores escolhidos (lembrados) que a pessoa ainda pode ver; sem
     // escolha válida, ou com todos marcados, valem todos os disponíveis.
     disponiveis = setoresDisponiveis(a);
@@ -343,6 +349,7 @@ export async function estadoDaLista(
   const ordem = lerOrdem(busca.ordem);
   return {
     tela: lista,
+    ordens,
     a,
     filtros,
     lembrados: lidos.lembrados,
@@ -352,6 +359,7 @@ export async function estadoDaLista(
         RECORTE_DA_TELA[lista],
         tela === "avisos" ? "avisos" : "tickets",
       ),
+      ordens,
       setores: setores.length ? setores : null,
       abertoPor: porMim ? a.ctx.usuario.id : null,
       comConfirmacao: lista === "caixa",
@@ -406,7 +414,7 @@ async function paraLinhasDaLista(
     }));
   }
   const destinos =
-    e.tela === "abertos"
+    e.tela === "abertos" && !e.ordens
       ? await andamentoDosAvisos(
           chamados.filter((c) => c.tipo === "aviso").map((c) => c.id),
           e.a,
@@ -482,6 +490,8 @@ export async function exportacaoDaLista(e: EstadoDaLista) {
 // ---------------------------------------------------------------------------
 
 export interface EstadoDoQuadro {
+  /** Quadro das OS (aba de Ordens de serviço) em vez dos chamados. */
+  ordens: boolean;
   a: Apoio;
   filtros: Filtros;
   lembrados: boolean;
@@ -494,10 +504,13 @@ export interface EstadoDoQuadro {
   mais: MaisPorColuna;
 }
 
-export async function estadoDoQuadro(busca: Busca): Promise<EstadoDoQuadro> {
+export async function estadoDoQuadro(
+  busca: Busca,
+  ordens = false,
+): Promise<EstadoDoQuadro> {
   const [a, { filtros, lembrados }] = await Promise.all([
     apoio(),
-    filtrosDaTela("quadro", busca),
+    filtrosDaTela(ordens ? "os_quadro" : "quadro", busca),
   ]);
   const permitidos: Recorte[] = [
     "minha_caixa",
@@ -516,6 +529,7 @@ export async function estadoDoQuadro(busca: Busca): Promise<EstadoDoQuadro> {
     setor: comSetor ? filtros.setor : undefined,
   };
   return {
+    ordens,
     a,
     filtros,
     lembrados,
@@ -526,11 +540,10 @@ export async function estadoDoQuadro(busca: Busca): Promise<EstadoDoQuadro> {
       recorte === "todos"
         ? a.setores.filter((s) => s.ativo)
         : setoresDisponiveis(a),
-    consulta: paraConsulta(
-      { ...valores, status: undefined },
-      recorte,
-      "tickets",
-    ),
+    consulta: {
+      ...paraConsulta({ ...valores, status: undefined }, recorte, "tickets"),
+      ordens,
+    },
     mais: lerMais(busca.mais),
   };
 }
@@ -577,6 +590,7 @@ export async function colunasDoQuadro(
   );
   const numeros = await contagens(
     colunas.flatMap((c) => c.chamados.map((x) => x.id)),
+    e.ordens,
   );
   return colunas.map((c) => ({
     status: c.status,
@@ -645,15 +659,18 @@ const FOTOS = ["foto", "antes", "depois"];
  */
 export async function contagens(
   ids: string[],
+  ordens = false,
 ): Promise<Map<string, Contagens>> {
   const mapa = new Map<string, Contagens>();
   const cliente = await os();
+  // As filhas apontam para o chamado ou para a OS (uma chave para cada).
+  const fk = ordens ? "ordem_id" : "chamado_id";
   await Promise.all(
     lotes(ids).map(async (lote) => {
       const { data, error } = await cliente
-        .from("chamados")
+        .from(ordens ? "ordens" : "chamados")
         .select(
-          "id, fotos:anexos!anexos_chamado_id_fkey(count), arquivos:anexos!anexos_chamado_id_fkey(count), comentarios:eventos!eventos_chamado_id_fkey(count), destinos:destinatarios!destinatarios_chamado_id_fkey(count)",
+          `id, fotos:anexos!anexos_${fk}_fkey(count), arquivos:anexos!anexos_${fk}_fkey(count), comentarios:eventos!eventos_${fk}_fkey(count), destinos:destinatarios!destinatarios_${fk}_fkey(count)`,
         )
         .in("id", lote)
         .in("fotos.categoria", FOTOS)
@@ -807,7 +824,7 @@ export function itensDePrazo(
         dia: data,
         hora,
         quando: hora,
-        titulo: `#${l.numero} ${l.titulo}`,
+        titulo: `${numeroDo(l)} ${l.titulo}`,
         detalhe: l.responsavel ?? "Na fila",
         chamadoId: l.id,
         href: null,

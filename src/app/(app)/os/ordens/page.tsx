@@ -18,9 +18,9 @@ import {
 import { TOM } from "@/components/estilos";
 import { BotaoExportar } from "@/components/os/exportar";
 import { Atualizado, PainelDaBusca } from "@/components/os/lista/topo";
+import { CabecalhoOrdens } from "@/components/os/operacoes";
 import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
 import { CLASSE_MARCADO, tonsDaTela } from "@/components/os/tons";
-import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarNumero } from "@/lib/formato";
 import {
@@ -63,10 +63,7 @@ export default function Page({
 }) {
   return (
     <>
-      <PageHeader
-        title="Ordens de serviço"
-        description="A central de Operações: as OS internas e terceirizadas com tempo, técnicos, minuto-homem e custo. Filtre, abra o detalhe ao lado, imprima em lote e baixe as planilhas de sempre."
-      />
+      <CabecalhoOrdens descricao="Todas as OS, internas e terceirizadas, com tempo, técnicos, minuto-homem e custo. Filtre, abra o detalhe ao lado, imprima em lote e baixe as planilhas de sempre." />
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="os.acessar">
           <Ordens busca={searchParams} />

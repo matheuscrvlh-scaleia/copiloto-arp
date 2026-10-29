@@ -245,7 +245,7 @@ export async function moverChamado(entrada: {
 // Exportação das listas paginadas: o resultado filtrado inteiro, no clique
 // ---------------------------------------------------------------------------
 
-const telaLista = z.enum(["caixa", "setor", "avisos"]);
+const telaLista = z.enum(["caixa", "setor", "avisos", "os_caixa", "os_setor"]);
 /** Parâmetros da URL da tela (filtros, cartão, busca, ordem). */
 const parametrosDaUrl = z
   .record(z.string().max(40), z.string().max(400))
@@ -280,11 +280,13 @@ export async function exportarLista(
 /** Quadro: todas as colunas consultadas, inteiras. */
 export async function exportarQuadro(
   busca: Record<string, string>,
+  ordens = false,
 ): Promise<Planilha> {
   const p = parametrosDaUrl.safeParse(busca);
-  if (!p.success) throw new Error("Pedido inválido.");
+  if (!p.success || typeof ordens !== "boolean")
+    throw new Error("Pedido inválido.");
   if (!(await podeExportar())) throw new Error("Sem permissão para exportar.");
-  return exportacaoDoQuadro(await estadoDoQuadro(p.data));
+  return exportacaoDoQuadro(await estadoDoQuadro(p.data, ordens));
 }
 
 // ---------------------------------------------------------------------------

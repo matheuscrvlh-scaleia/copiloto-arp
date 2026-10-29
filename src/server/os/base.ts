@@ -375,6 +375,11 @@ export type ChamadoResumo = Pick<
 >;
 
 export interface FiltroChamados {
+  /**
+   * Lê as OS (os.ordens) em vez dos chamados: as mesmas colunas, filtros e
+   * recortes; o tipo não filtra (é sempre OS).
+   */
+  ordens?: boolean;
   /** Minha caixa: responsável sou eu, ou destino meu/do meu setor. */
   recorte?: "minha_caixa" | "meu_setor" | "abertos_por_mim" | "todos";
   setor?: string | null;
@@ -424,7 +429,7 @@ async function montarConsulta(
     contexto(),
     os(),
     f.recorte === "minha_caixa"
-      ? destinosEmCache((daBarra ?? []).join(","))
+      ? destinosEmCache((daBarra ?? []).join(","), !!f.ordens)
       : [],
   ]);
   const ids = destinos
@@ -432,14 +437,22 @@ async function montarConsulta(
     .map((d) => d.id);
   // Num objeto: o construtor é "thenable" e o await de uma função async
   // dispararia a consulta antes da ordem e da página.
-  return { q: filtrar(selecionar(cliente, contar), f, status, ctx, ids) };
+  return {
+    q: filtrar(selecionar(cliente, contar, f.ordens), f, status, ctx, ids),
+  };
 }
 
 type Contar = { count: "exact"; head?: boolean };
 type Consulta = ReturnType<typeof selecionar>;
 
-function selecionar(cliente: Awaited<ReturnType<typeof os>>, contar?: Contar) {
-  return cliente.from("chamados").select(COLUNAS_RESUMO, contar);
+function selecionar(
+  cliente: Awaited<ReturnType<typeof os>>,
+  contar?: Contar,
+  ordens = false,
+) {
+  return cliente
+    .from(tabelaDo({ tipo: ordens ? "os" : "solicitacao" }))
+    .select(COLUNAS_RESUMO, contar);
 }
 
 /** Período de abertura da barra (aaaa-mm-dd, inclusive), em Brasília. */
@@ -478,11 +491,10 @@ async function cargaDeUmSetor(
   f: FiltroChamados,
   agora: Date,
 ): Promise<ContagemDaCarga[]> {
-  const { data, error } = await (await os()).rpc("carga_do_setor", {
+  const comuns = {
     p_setor: setor,
     p_agora: agora.toISOString(),
     p_status: f.status?.length ? f.status : undefined,
-    p_tipos: f.tipos?.length ? f.tipos : undefined,
     p_categoria: f.categoria ?? undefined,
     p_responsavel: f.responsavel ?? undefined,
     p_aberto_por: f.abertoPor ?? undefined,
@@ -490,7 +502,14 @@ async function cargaDeUmSetor(
     p_etiqueta: f.etiqueta ?? undefined,
     p_criado_desde: f.de ? criadoDesde(f.de) : undefined,
     p_criado_ate: f.ate ? criadoAte(f.ate) : undefined,
-  });
+  };
+  const cliente = await os();
+  const { data, error } = f.ordens
+    ? await cliente.rpc("carga_das_ordens", comuns)
+    : await cliente.rpc("carga_do_setor", {
+        ...comuns,
+        p_tipos: f.tipos?.length ? f.tipos : undefined,
+      });
   falhar(error);
   // O tipo gerado não marca a coluna como opcional: a fila vem com null.
   return (data ?? []).map((c) => ({
@@ -511,7 +530,7 @@ function filtrar(
   let q = consulta;
   if (f.setor) q = q.eq("setor_id", f.setor);
   if (f.setores?.length) q = q.in("setor_id", f.setores);
-  if (f.tipos?.length) q = q.in("tipo", f.tipos);
+  if (f.tipos?.length && !f.ordens) q = q.in("tipo", f.tipos);
   if (status?.length) q = q.in("status", status);
   if (f.categoria) q = q.eq("categoria_id", f.categoria);
   if (f.responsavel) q = q.eq("responsavel_id", f.responsavel);
@@ -661,8 +680,9 @@ interface DestinoMeu {
  * consulta.
  */
 const destinosEmCache = cache(
-  async (status: string): Promise<DestinoMeu[]> =>
+  async (status: string, ordens: boolean): Promise<DestinoMeu[]> =>
     destinosDaMinhaCaixa(await contexto(), {
+      ordens,
       status: status ? (status.split(",") as Enum<"status_chamado">[]) : [],
     }),
 );
@@ -680,18 +700,26 @@ async function destinosDaMinhaCaixa(
   const eu = ctx.usuario.id;
   const ou = [`usuario_id.eq.${eu}`, `responsavel_id.eq.${eu}`];
   if (ctx.setores.length) ou.push(`setor_id.in.(${ctx.setores.join(",")})`);
+  const dono = f.ordens ? "ordem_id" : "chamado_id";
+  const tabela = f.ordens ? "ordens" : "chamados";
+  // O embutido com !inner deixa só os destinos do lado pedido.
   let q = (await os())
     .from("destinatarios")
-    .select("chamado_id, chamados!inner(status)")
+    .select(`${dono}, dono:${tabela}!inner(status)`)
     .neq("status", "concluido")
     .or(ou.join(","));
-  if (f.status?.length) q = q.in("chamados.status", f.status);
+  if (f.status?.length) q = q.in("dono.status", f.status);
   const { data, error } = await q;
   falhar(error);
   const unicos = new Map<string, DestinoMeu>();
-  for (const d of data ?? [])
-    if (d.chamado_id)
-      unicos.set(d.chamado_id, { id: d.chamado_id, status: d.chamados.status });
+  for (const d of (data ?? []) as unknown as {
+    chamado_id?: string | null;
+    ordem_id?: string | null;
+    dono: { status: Enum<"status_chamado"> };
+  }[]) {
+    const id = d.chamado_id ?? d.ordem_id;
+    if (id) unicos.set(id, { id, status: d.dono.status });
+  }
   return [...unicos.values()];
 }
 

@@ -426,3 +426,82 @@ describe("os.carga_do_setor = carga de antes", { timeout: 60_000 }, () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// OS (os.carga_das_ordens, 20261029160000): a mesma conta sobre os.ordens.
+// Os chamados do cenário viram OS (mesmos campos); sem filtro de tipo, as
+// duas funções contam igual em todos os perfis, filtros e horários.
+// ---------------------------------------------------------------------------
+
+async function contagensDasOrdens(b: Barra, agora: string) {
+  const { rows } = await db.query<{
+    responsavel_id: string | null;
+    abertos: number;
+    atrasados: number;
+  }>(
+    `select * from os.carga_das_ordens(
+       p_setor => $1, p_agora => $2, p_status => $3::os.status_chamado[],
+       p_categoria => $4, p_responsavel => $5, p_prioridade => $6::os.prioridade,
+       p_etiqueta => $7, p_criado_desde => $8, p_criado_ate => $9)`,
+    [
+      b.setor,
+      agora,
+      b.status?.length ? literal(b.status) : null,
+      b.categoria ?? null,
+      b.responsavel ?? null,
+      b.prioridade ?? null,
+      b.etiqueta ?? null,
+      b.de ? `${b.de}T00:00:00-03:00` : null,
+      b.ate ? `${b.ate}T23:59:59-03:00` : null,
+    ],
+  );
+  return rows;
+}
+
+describe(
+  "os.carga_das_ordens = carga dos chamados",
+  { timeout: 60_000 },
+  () => {
+    beforeAll(async () => {
+      await db.exec(`
+      insert into os.ordens (titulo, setor_id, status, aguardando_tipo,
+        motivo_cancelamento, responsavel_id, prazo, prioridade, categoria_id,
+        etiquetas, aberto_por, criado_em)
+      select titulo, setor_id, status, aguardando_tipo, motivo_cancelamento,
+        responsavel_id, prazo, prioridade, categoria_id, etiquetas, aberto_por,
+        criado_em
+      from os.chamados`);
+    });
+
+    it.each(
+      BARRAS.filter(([, barra]) => !barra().tipos),
+    )("%s, em todos os perfis e horários", async (_, barra) => {
+      const b = barra();
+      for (const u of PERFIS)
+        for (const agora of AGORAS) {
+          const [chamados, ordens] = await como(U[u], async () => [
+            await contagensNovas(b, agora),
+            await contagensDasOrdens(b, agora),
+          ]);
+          const ordenar = (r: typeof chamados) =>
+            [...r].sort((x, y) =>
+              String(x.responsavel_id).localeCompare(String(y.responsavel_id)),
+            );
+          expect(ordenar(ordens), `${u} às ${agora}`).toEqual(
+            ordenar(chamados),
+          );
+        }
+    });
+
+    it("anônimo não executa", async () => {
+      await db.exec("set role anon");
+      try {
+        await expect(
+          contagensDasOrdens({ setor: SETOR.S }, AGORA),
+        ).rejects.toThrow(/permission denied/);
+      } finally {
+        await db.exec("reset role");
+      }
+    });
+  },
+);

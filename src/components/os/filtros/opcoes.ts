@@ -22,6 +22,12 @@ export const campoTipo: CampoBarra = {
   largura: "w-48",
 };
 
+/** Calendário: chamados e OS juntos (o tipo OS lê só as OS). */
+export const campoTipoComOS: CampoBarra = {
+  ...campoTipo,
+  opcoes: de(TIPOS),
+};
+
 /** Abas de tickets: os avisos têm a aba deles. */
 export const campoTipoSemAviso: CampoBarra = {
   ...campoTipo,

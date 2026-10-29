@@ -23,6 +23,38 @@ export function CabecalhoOperacoes({ descricao }: { descricao: string }) {
   );
 }
 
+/**
+ * Ordens de serviço: as mesmas abas do dia a dia (Minha caixa, Geral,
+ * Quadro), lendo as OS, e a lista completa com tempo, custo e relatórios.
+ */
+export function CabecalhoOrdens({ descricao }: { descricao: string }) {
+  return (
+    <>
+      <PageHeader title="Ordens de serviço" description={descricao} />
+      <div className="mb-6">
+        <Suspense
+          fallback={<div className="vidro h-11 w-96 max-w-full rounded-full" />}
+        >
+          <AbasDasOrdens />
+        </Suspense>
+      </div>
+    </>
+  );
+}
+
+async function AbasDasOrdens() {
+  const ctx = await contexto();
+  const abas = [
+    { href: ROTAS_OS.ordensCaixa, rotulo: "Minha caixa" },
+    ...(ctx.pode("os.meu_setor")
+      ? [{ href: ROTAS_OS.ordensGeral, rotulo: "Geral" }]
+      : []),
+    { href: ROTAS_OS.ordensQuadro, rotulo: "Quadro" },
+    { href: ROTAS_OS.ordens, rotulo: "Todas as OS" },
+  ];
+  return <Abas abas={abas} rotulo="Seções de Ordens de serviço" />;
+}
+
 async function AbasDeOperacoes() {
   const ctx = await contexto();
   const abas = [

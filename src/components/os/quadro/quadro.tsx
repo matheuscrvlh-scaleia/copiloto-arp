@@ -64,6 +64,8 @@ export interface PropsQuadro {
   /** Fechados recentes carregados (coluna aberta); senão ela fica recolhida. */
   comFechados: boolean;
   exportar: { titulo: string; filtros: string } | null;
+  /** Quadro das OS (aba de Ordens de serviço). */
+  ordens?: boolean;
 }
 
 export function Quadro(props: PropsQuadro) {
@@ -114,6 +116,7 @@ function Conteudo({
   avisoHoras,
   comFechados,
   exportar,
+  ordens = false,
 }: PropsQuadro) {
   const avisar = useAvisar();
   const [ponte] = useState(() => new Ponte());
@@ -296,7 +299,9 @@ function Conteudo({
               filtros={exportar.filtros}
               nomeArquivo="quadro"
               total={doServidor.reduce((n, c) => n + c.total, 0)}
-              carregar={() => exportarQuadro(Object.fromEntries(params))}
+              carregar={() =>
+                exportarQuadro(Object.fromEntries(params), ordens)
+              }
             />
           )}
         </div>

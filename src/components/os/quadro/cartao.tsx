@@ -6,6 +6,7 @@ import { useAtributos, usePonte } from "@/components/os/arraste/ponte";
 import { IconeTipo, SeloPrazo } from "@/components/os/selos";
 import { iniciais } from "@/lib/formato";
 import type { LinhaChamado } from "@/lib/os/lista";
+import { numeroDo } from "@/lib/os/numeros";
 import { MOTIVOS_AGUARDANDO, PRIORIDADES, TIPOS } from "@/lib/os/rotulos";
 
 // Cartão do quadro: número, categoria, título, prioridade alta/urgente,
@@ -48,7 +49,7 @@ export function CartaoDoQuadro({
       {...(flutuando ? {} : attributes)}
       {...(flutuando ? {} : ponte.eventos(c.id))}
       aria-roledescription="cartão arrastável"
-      aria-label={`#${c.numero} ${c.titulo}`}
+      aria-label={`${numeroDo(c)} ${c.titulo}`}
       className={`flex touch-manipulation flex-col gap-2 rounded-2xl border border-neutral-900/[0.06] bg-white/80 p-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-marca ${arrastado ? "opacity-30" : ""} ${flutuando ? "rotate-1 cursor-grabbing shadow-[0_24px_48px_-20px_rgb(0_0_0/0.5)]" : "cursor-grab hover:border-neutral-900/20 hover:bg-white"}`}
     >
       <div className="flex items-center gap-1.5 text-xs text-neutral-500">
@@ -56,7 +57,7 @@ export function CartaoDoQuadro({
           <IconeTipo tipo={c.tipo} className="size-3.5" />
           <span className="sr-only">{TIPOS[c.tipo]}</span>
         </span>
-        <span className="tabular-nums">#{c.numero}</span>
+        <span className="tabular-nums">{numeroDo(c)}</span>
         {c.categoria && (
           <span className="min-w-0 truncate">· {c.categoria}</span>
         )}

@@ -66,6 +66,8 @@ import { BarraDoLote } from "./lote";
 
 export type { ColunasVisiveis } from "@/lib/os/lista";
 
+import { numeroDo } from "@/lib/os/numeros";
+
 export function VisaoLista(props: {
   /** Só a página mostrada, na ordem do banco. */
   linhas: LinhaChamado[];
@@ -726,7 +728,7 @@ function LinhaTabela({
       </td>
       <td className="px-2 py-2.5 whitespace-nowrap text-neutral-500 tabular-nums">
         <Link href={href} scroll={false} className="hover:text-neutral-900">
-          #{l.numero}
+          {numeroDo(l)}
         </Link>
       </td>
       <td className="min-w-48 px-2 py-2.5">
@@ -848,7 +850,7 @@ function Empilhados({
                     </span>
                     <div className="flex min-w-0 flex-1 flex-col gap-2">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
-                        <span className="tabular-nums">#{l.numero}</span>
+                        <span className="tabular-nums">{numeroDo(l)}</span>
                         {p.colunas.aviso ? (
                           <span>{formatarDataHora(l.criadoEm)}</span>
                         ) : (
