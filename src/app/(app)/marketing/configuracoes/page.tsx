@@ -22,7 +22,6 @@ import {
 import { dadosRd } from "@/server/marketing/fontes";
 import { historicoMkt } from "@/server/marketing/parametros";
 import {
-  BlocoEstacionamento,
   BlocoLandingPages,
   BlocoLocatarios,
   BlocoMetas,
@@ -44,7 +43,6 @@ const CADASTROS = [
   "regras",
   "reputacao",
   "ronda",
-  "estacionamento",
 ] as const satisfies Bloco[];
 type Cadastro = (typeof CADASTROS)[number];
 
@@ -124,7 +122,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         <BlocoReputacao parametros={p} temas={temasCodigos.temas} />
       )}
       {bloco === "ronda" && <BlocoRonda codigos={temasCodigos.codigos} />}
-      {bloco === "estacionamento" && <BlocoEstacionamento parametros={p} />}
     </div>
   );
 }

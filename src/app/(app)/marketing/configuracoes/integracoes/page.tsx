@@ -13,11 +13,7 @@ import { Fonte } from "@/components/marketing/tela";
 import { Protegido } from "@/components/protegido";
 import type { Sistema } from "@/lib/integracoes";
 import { conferirAsana, nomesDoAsana } from "@/lib/marketing/parametros";
-import {
-  type IntegracaoNaTela,
-  integracoesNaTela,
-  situacaoDaIntegracao,
-} from "@/server/admin/dados";
+import { type IntegracaoNaTela, integracoesNaTela } from "@/server/admin/dados";
 import { parametros } from "@/server/marketing/base";
 import { dadosAsana } from "@/server/marketing/fontes";
 import { historicoMkt } from "@/server/marketing/parametros";
@@ -28,9 +24,8 @@ export const metadata: Metadata = { title: "Integrações do Marketing" };
 
 // Ferramentas que alimentam o módulo (spec 4.1). Só leitura: nada é
 // publicado, pausado ou respondido nelas. O acesso de cada uma é salvo e
-// testado aqui (cifrado, como em Administração › Integrações); o WPS é o
-// mesmo do Financeiro e fica na Administração. Quem libera cada acesso está
-// em docs/integracoes.md.
+// testado aqui (cifrado, como em Administração › Integrações). Quem libera
+// cada acesso está em docs/integracoes.md.
 const FERRAMENTAS: {
   nome: string;
   detalhe: string;
@@ -91,12 +86,6 @@ const FERRAMENTAS: {
     sistemas: ["mkt_asana"],
     telas: [["Radar operacional", "/marketing/radar"]],
   },
-  {
-    nome: "Estacionamento (WPS)",
-    detalhe: "Passagens nas cancelas; a placa nunca sai do servidor",
-    sistemas: ["wps"],
-    telas: [["Público e visitação", "/marketing/publico"]],
-  },
 ];
 
 export default function Page() {
@@ -110,17 +99,16 @@ export default function Page() {
 }
 
 async function Tela() {
-  const [p, asana, historico, { cofre, integracoes }, wps] = await Promise.all([
+  const [p, asana, historico, { cofre, integracoes }] = await Promise.all([
     parametros(),
     dadosAsana(),
     historicoMkt(1),
     integracoesNaTela("marketing"),
-    situacaoDaIntegracao("wps"),
   ]);
   const nomes = nomesDoAsana(asana);
   const faltando = conferirAsana(p, nomes).filter((c) => !c.existe);
   const porSistema = new Map<Sistema, IntegracaoNaTela>(
-    [...integracoes, wps].map((i) => [i.sistema, i]),
+    integracoes.map((i) => [i.sistema, i]),
   );
   const conectadas = integracoes.filter(
     (i) => situacao(i).tipo === "ok",
@@ -151,21 +139,16 @@ async function Tela() {
                   const i = porSistema.get(sistema);
                   if (!i) return null;
                   const s = situacao(i);
-                  const href =
-                    sistema === "wps"
-                      ? "/admin/integracoes#wps"
-                      : `#${sistema}`;
                   return (
                     <a
                       key={sistema}
-                      href={href}
+                      href={`#${sistema}`}
                       className="flex items-center gap-2 text-xs font-medium hover:underline"
                     >
                       <Ponto cor={COR_SITUACAO[s.tipo]} />
                       {f.sistemas.length > 1 &&
                         `${sistema === "mkt_youtube" ? "YouTube" : "Instagram e Facebook"}: `}
                       {s.texto}
-                      {sistema === "wps" && " (na Administração)"}
                     </a>
                   );
                 })}

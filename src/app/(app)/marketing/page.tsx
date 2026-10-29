@@ -8,7 +8,6 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
-import { Colunas } from "@/components/dashboard/graficos/colunas";
 import { ColunasEmpilhadas } from "@/components/dashboard/graficos/colunas-empilhadas";
 import { Linhas } from "@/components/dashboard/graficos/linhas";
 import { SeloStatus } from "@/components/dashboard/indicador";
@@ -25,12 +24,7 @@ import {
 import { BotaoExportar } from "@/components/os/exportar";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
-import {
-  formatarData,
-  formatarMoeda,
-  formatarNumero,
-  formatarPct,
-} from "@/lib/formato";
+import { formatarMoeda, formatarNumero, formatarPct } from "@/lib/formato";
 import { status } from "@/lib/indicadores";
 import { type Alerta, avaliarAlertas, NIVEIS } from "@/lib/marketing/alertas";
 import { linhasDeCampanha, somar } from "@/lib/marketing/anuncios";
@@ -44,9 +38,7 @@ import {
   mesesAte,
   paramsDoPeriodoMkt,
   semanasAte,
-  somarDias,
 } from "@/lib/marketing/periodo";
-import { resumoPublico } from "@/lib/marketing/publico";
 import { resumoRadar, tarefasDoTime } from "@/lib/marketing/radar";
 import { resumoRedes } from "@/lib/marketing/redes";
 import {
@@ -71,7 +63,6 @@ import {
 import {
   dadosAnuncios,
   dadosAsana,
-  dadosPassagens,
   dadosRd,
   dadosRedes,
   dadosReputacao,
@@ -110,7 +101,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     redes,
     reputacao,
     asana,
-    passagens,
     params,
     lista,
     { temas, codigos },
@@ -127,7 +117,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     dadosRedes(),
     dadosReputacao(),
     dadosAsana(),
-    dadosPassagens(),
     parametros(),
     locatarios(),
     temasEcodigos(),
@@ -167,8 +156,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     limiteSemRespostaDias: regraSemResposta?.limite ?? null,
   });
   const radar = resumoRadar(asana, params, codigos, regras, hoje);
-  const pub = resumoPublico(passagens, params, hoje);
-  const pubAnt = resumoPublico(passagens, params, somarDias(hoje, -7));
 
   const query = new URLSearchParams(paramsDoPeriodoMkt(periodo)).toString();
   const resumo = linhasDoResumo(
@@ -182,7 +169,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       redes: { atual: red, anterior: redAnt },
       reputacao: rep,
       radar,
-      publico: { atual: pub, anterior: pubAnt },
       metas: {
         custoPorLead: metaCpl,
         leadsMes: metaLeads,
@@ -252,9 +238,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   const cplSemana = semanas.map(
     (s) =>
       somar(linhasDeCampanha(anuncios, rd.conversoes, s).linhas).custoPorLead,
-  );
-  const fins = Array.from({ length: 12 }, (_, i) =>
-    resumoPublico(passagens, params, somarDias(hoje, -7 * (11 - i))),
   );
 
   const linhaFiltros = linhaDeFiltros([{ rotulo: "Semana", valor: f.rotulo }]);
@@ -348,20 +331,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             href={`/marketing/anuncios?${query}&cartao=acima_meta`}
           />
         )}
-        {pode("marketing.publico") && (
-          <CartaoMkt
-            titulo="Carros no último fim de semana"
-            valor={formatarNumero(pub.entradas)}
-            variacao={variacaoContra(
-              pub.entradas,
-              pubAnt.entradas,
-              "fim de semana anterior",
-            )}
-            detalhe={`${formatarData(pub.de)} e ${formatarData(pub.ate)}${pub.ocupacaoMaxima !== null ? ` · ocupação máxima ${formatarPct(pub.ocupacaoMaxima)}` : ""}`}
-            fonte="Estacionamento (cancelas)"
-            href="/marketing/publico?periodo=fim_de_semana"
-          />
-        )}
       </Cartoes>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
@@ -394,9 +363,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Fonte>
             Anúncios: Meta, Google e TikTok Ads; leads: RD Station; site: Google
             Analytics 4; redes: Instagram, Facebook, YouTube e TikTok;
-            reputação: Google Meu Negócio; radar: Asana; público:
-            estacionamento. Reputação e radar não seguem a semana: mês até hoje
-            ou foto de agora.
+            reputação: Google Meu Negócio; radar: Asana. Reputação e radar não
+            seguem a semana: mês até hoje ou foto de agora.
           </Fonte>
         </Secao>
 
@@ -413,7 +381,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         </Secao>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {cartaoLeads && (
           <Secao
             tom="verde"
@@ -477,28 +445,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
               }
             />
             <Fonte>Anúncios e RD Station; meta em Configurações</Fonte>
-          </Secao>
-        )}
-        {pode("marketing.publico") && (
-          <Secao
-            titulo="Carros por fim de semana"
-            descricao="Entradas de sábado e domingo, últimos 12 fins de semana"
-          >
-            <Colunas
-              descricao="Carros que entraram no estacionamento por fim de semana"
-              itens={fins.map((x) => ({
-                chave: x.de,
-                rotulo: `${x.de.slice(8, 10)}/${x.de.slice(5, 7)}`,
-                titulo: `${formatarData(x.de)} e ${formatarData(x.ate)}`,
-                valor: x.entradas,
-                texto: `${formatarNumero(x.entradas)} carros`,
-                detalhe:
-                  x.ocupacaoMaxima !== null
-                    ? `Ocupação máxima ${formatarPct(x.ocupacaoMaxima)}`
-                    : undefined,
-              }))}
-            />
-            <Fonte>Estacionamento (cancelas); vagas em Configurações</Fonte>
           </Secao>
         )}
       </div>

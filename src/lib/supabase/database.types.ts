@@ -980,13 +980,11 @@ export type Database = {
           atualizado_em: string
           estrelas_reclamacao: number[]
           id: boolean
-          janela_recorrencia_dias: number
           janela_reputacao_dias: number
           nota_atencao: number
           reclamacoes_alerta: number
           reclamacoes_atencao: number
           sinalizacao_antiga_dias: number
-          vagas: number
         }
         Insert: {
           asana_projeto_calendario?: string | null
@@ -999,13 +997,11 @@ export type Database = {
           atualizado_em?: string
           estrelas_reclamacao?: number[]
           id?: boolean
-          janela_recorrencia_dias?: number
           janela_reputacao_dias?: number
           nota_atencao?: number
           reclamacoes_alerta?: number
           reclamacoes_atencao?: number
           sinalizacao_antiga_dias?: number
-          vagas?: number
         }
         Update: {
           asana_projeto_calendario?: string | null
@@ -1018,13 +1014,11 @@ export type Database = {
           atualizado_em?: string
           estrelas_reclamacao?: number[]
           id?: boolean
-          janela_recorrencia_dias?: number
           janela_reputacao_dias?: number
           nota_atencao?: number
           reclamacoes_alerta?: number
           reclamacoes_atencao?: number
           sinalizacao_antiga_dias?: number
-          vagas?: number
         }
         Relationships: []
       }

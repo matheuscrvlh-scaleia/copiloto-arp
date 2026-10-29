@@ -4,7 +4,6 @@ import {
   Building2,
   Cable,
   CalendarDays,
-  Car,
   ChartColumn,
   CircleAlert,
   ClipboardCheck,
@@ -81,5 +80,4 @@ export const ICONES: Record<Icone, LucideIcon> = {
   redes: Share2,
   reputacao: Star,
   radar: Radar,
-  publico: Car,
 };

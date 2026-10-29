@@ -285,29 +285,3 @@ export async function integracoesNaTela(
     })),
   };
 }
-
-/**
- * Só a situação de uma integração (ativa e último teste), para quem não
- * configura: o Marketing mostra assim o WPS, que fica na Administração.
- */
-export async function situacaoDaIntegracao(
-  sistema: Sistema,
-): Promise<IntegracaoNaTela> {
-  const { data, error } = await (await createClient())
-    .schema("core")
-    .rpc("estado_integracoes");
-  if (error) throw error;
-  const c = (data ?? []).find((r) => r.sistema === sistema);
-  const ambiente = !c && temNoAmbiente(sistema);
-  return {
-    sistema,
-    origem: c ? "tela" : ambiente ? "ambiente" : null,
-    parametros: {},
-    ativa: c ? c.ativa : ambiente,
-    configuradoPor: null,
-    configuradoEm: null,
-    testadoEm: c?.testado_em ?? null,
-    testeOk: c?.teste_ok ?? null,
-    testeMensagem: null,
-  };
-}

@@ -35,7 +35,6 @@ import {
   removerMeta,
   salvarAsana,
   salvarCodigoRonda,
-  salvarEstacionamento,
   salvarLandingPage,
   salvarLocatario,
   salvarRegra,
@@ -689,47 +688,6 @@ export function BlocoRonda({ codigos }: { codigos: CodigoRonda[] }) {
             obrigatorio
             placeholder="Escolha a área…"
             opcoes={opcoes(AREAS)}
-          />
-        </label>
-      </FormAcao>
-    </Secao>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-export function BlocoEstacionamento({
-  parametros: p,
-}: {
-  parametros: Parametros;
-}) {
-  return (
-    <Secao
-      titulo="Estacionamento"
-      descricao="Vagas: base da ocupação na tela Público e visitação. Janela de recorrência: um carro que volta dentro desses dias conta como recorrente."
-    >
-      <FormAcao
-        acao={salvarEstacionamento}
-        className="grid items-end gap-3 sm:grid-cols-[10rem_14rem_auto]"
-      >
-        <label className={rotulo}>
-          Quantidade de vagas
-          <input
-            name="vagas"
-            inputMode="numeric"
-            required
-            defaultValue={p.vagas}
-            className={classeCampo}
-          />
-        </label>
-        <label className={rotulo}>
-          Janela de recorrência (dias)
-          <input
-            name="janela_recorrencia_dias"
-            inputMode="numeric"
-            required
-            defaultValue={p.janela_recorrencia_dias}
-            className={classeCampo}
           />
         </label>
       </FormAcao>

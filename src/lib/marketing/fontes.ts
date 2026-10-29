@@ -344,17 +344,3 @@ export interface AsanaTarefa {
   custom_fields: { name: string; display_value: string | null }[];
   permalink_url: string;
 }
-
-// ---------------------------------------------------------------------------
-// Estacionamento (WPS): passagens de veículos. Campos esperados, a confirmar
-// com o WPS (sem documentação). A placa só serve para a recorrência e nunca
-// sai do servidor.
-// ---------------------------------------------------------------------------
-
-export interface Passagem {
-  placa: string;
-  /** "aaaa-mm-ddTHH:MM" no horário do estacionamento. */
-  entrada: string;
-  saida: string | null;
-  cancela: string;
-}

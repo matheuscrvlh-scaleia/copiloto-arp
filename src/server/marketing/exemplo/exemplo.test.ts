@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dentro, somarDias } from "@/lib/marketing/periodo";
-import { fluxoPorDia } from "@/lib/marketing/publico";
 import { gerarAnuncios } from "./anuncios";
 import { gerarAsana } from "./asana";
-import { gerarPassagens } from "./estacionamento";
 import { gerarRd } from "./rd";
 import { gerarRedes } from "./redes";
 import { gerarReputacao } from "./reputacao";
@@ -77,7 +75,7 @@ describe("anúncios e RD", () => {
   });
 });
 
-describe("site, redes, Asana, reputação e estacionamento", () => {
+describe("site, redes, Asana e reputação", () => {
   it("GA4 e Search Console têm linhas todos os dias", () => {
     const site = gerarSite(HOJE, anuncios);
     expect(site.ga4.some((l) => l.date === "2026-10-28")).toBe(true);
@@ -133,23 +131,5 @@ describe("site, redes, Asana, reputação e estacionamento", () => {
         ["Atendimento", "Limpeza", "Estacionamento"].includes(t),
       ),
     ).toBe(true);
-  });
-
-  it("estacionamento tem centenas de carros por dia e mais no sábado", () => {
-    const p = gerarPassagens(HOJE, new Set());
-    const doDia = (d: string) =>
-      p.filter((x) => x.entrada.startsWith(d)).length;
-    expect(doDia("2026-10-21")).toBeGreaterThan(150); // quarta
-    expect(doDia("2026-10-24")).toBeGreaterThan(doDia("2026-10-21") * 2); // sábado
-  });
-
-  it("o estacionamento não passa das 350 vagas, nem em dia de evento", () => {
-    const sabados = new Set(
-      Array.from({ length: 16 }, (_, i) => somarDias("2026-10-24", -7 * i)),
-    );
-    const fluxo = fluxoPorDia(gerarPassagens(HOJE, sabados), 30);
-    const pico = Math.max(...[...fluxo.values()].map((d) => d.dentroMax));
-    expect(pico).toBeLessThan(350);
-    expect(pico).toBeGreaterThan(350 * 0.6);
   });
 });

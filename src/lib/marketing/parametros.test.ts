@@ -225,13 +225,13 @@ describe("histórico e voltar", () => {
       antes: {
         id: true,
         reclamacoes_alerta: 3,
-        vagas: 350,
+        nota_atencao: 4,
         atualizado_em: "a",
       },
       depois: {
         id: true,
         reclamacoes_alerta: 5,
-        vagas: 350,
+        nota_atencao: 4,
         atualizado_em: "b",
       },
     };

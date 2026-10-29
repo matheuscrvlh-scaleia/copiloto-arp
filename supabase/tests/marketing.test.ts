@@ -95,19 +95,19 @@ beforeAll(async () => {
 }, 60_000);
 
 describe("permissões e ponto de partida", () => {
-  it("cadastra as 12 permissões da seção 3 e dá todas ao Administrador", async () => {
+  it("cadastra as 11 permissões da seção 3 (sem Público e visitação) e dá todas ao Administrador", async () => {
     expect(
       await valor<number>(
         "select count(*)::int from core.permissoes where codigo like 'marketing.%'",
       ),
-    ).toBe(12);
+    ).toBe(11);
     expect(
       await valor<number>(
         `select count(*)::int from core.cargo_permissoes cp
          join core.cargos c on c.id = cp.cargo_id
          where c.nome = 'Administrador' and cp.permissao like 'marketing.%'`,
       ),
-    ).toBe(12);
+    ).toBe(11);
   });
 
   it("deixa os parâmetros preenchidos com os valores iniciais da 4.12", async () => {
@@ -115,15 +115,13 @@ describe("permissões e ponto de partida", () => {
       await db.query<{
         estrelas_reclamacao: number[];
         reclamacoes_alerta: number;
-        vagas: number;
       }>(
-        "select estrelas_reclamacao, reclamacoes_alerta, vagas from marketing.parametros",
+        "select estrelas_reclamacao, reclamacoes_alerta from marketing.parametros",
       )
     ).rows[0];
     expect(p).toEqual({
       estrelas_reclamacao: [1, 2],
       reclamacoes_alerta: 3,
-      vagas: 350,
     });
     expect(
       await valor<number>("select count(*)::int from marketing.regras_alerta"),

@@ -3,7 +3,6 @@ import { cache } from "react";
 import { contextoMkt, locatarios, temasEcodigos } from "./base";
 import { type DadosAnuncios, gerarAnuncios } from "./exemplo/anuncios";
 import { type DadosAsana, gerarAsana } from "./exemplo/asana";
-import { gerarPassagens } from "./exemplo/estacionamento";
 import { type DadosRd, gerarRd } from "./exemplo/rd";
 import { type DadosRedes, gerarRedes } from "./exemplo/redes";
 import { type DadosReputacao, gerarReputacao } from "./exemplo/reputacao";
@@ -24,15 +23,6 @@ const rdDoDia = memo((hoje) => gerarRd(hoje, anunciosDoDia(hoje)));
 const siteDoDia = memo((hoje) => gerarSite(hoje, anunciosDoDia(hoje)));
 const redesDoDia = memo(gerarRedes);
 const asanaDoDia = memo(gerarAsana);
-const passagensDoDia = memo((hoje) => {
-  const eventos = new Set<string>();
-  for (const t of asanaDoDia(hoje).tarefas) {
-    if (!t.projects.some((p) => p.gid === "p-cal") || !t.due_on) continue;
-    eventos.add(t.start_on ?? t.due_on);
-    eventos.add(t.due_on);
-  }
-  return gerarPassagens(hoje, eventos);
-});
 const reputacaoDoDia = memo((chave) => {
   const { hoje, locais, temas } = JSON.parse(chave) as {
     hoje: string;
@@ -70,12 +60,6 @@ export const dadosRedes = cache(
 export const dadosAsana = cache(
   async (): Promise<DadosAsana> => asanaDoDia(await hoje()),
 );
-
-/**
- * Passagens do estacionamento (WPS). Têm a placa: só para contar
- * recorrência no servidor, nunca para a tela nem para o Excel.
- */
-export const dadosPassagens = cache(async () => passagensDoDia(await hoje()));
 
 /**
  * Google Perfil da Empresa: a ARP e os locatários ativos de Configurações, com

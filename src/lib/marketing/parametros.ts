@@ -14,7 +14,6 @@ export const BLOCOS = {
   reputacao: "Reputação",
   asana: "Asana",
   ronda: "Ronda de ambiência",
-  estacionamento: "Estacionamento",
   historico: "Histórico",
 } as const;
 export type Bloco = keyof typeof BLOCOS;
@@ -782,15 +781,13 @@ export const TABELAS_MKT: Record<string, TabelaMkt> = {
       "asana_tag_gratuita",
       "asana_tag_paga",
       "sinalizacao_antiga_dias",
-      "vagas",
-      "janela_recorrencia_dias",
     ],
     fixas: [],
     incluiRemove: false,
   },
 };
 
-/** A linha única de parâmetros guarda três blocos: o da alteração vem dos campos. */
+/** A linha única de parâmetros guarda dois blocos: o da alteração vem dos campos. */
 function blocoDosParametros(campos: string[]): Bloco {
   if (
     campos.some(
@@ -798,8 +795,6 @@ function blocoDosParametros(campos: string[]): Bloco {
     )
   )
     return "asana";
-  if (campos.some((c) => c === "vagas" || c === "janela_recorrencia_dias"))
-    return "estacionamento";
   return "reputacao";
 }
 
@@ -839,8 +834,6 @@ export const CAMPOS: Record<string, string> = {
   asana_tag_gratuita: "Tag de gratuita",
   asana_tag_paga: "Tag de paga",
   sinalizacao_antiga_dias: "Sinalização antiga (dias)",
-  vagas: "Vagas",
-  janela_recorrencia_dias: "Janela de recorrência (dias)",
 };
 
 /** Colunas que mudam sozinhas ou são a identidade da linha. */

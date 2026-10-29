@@ -396,7 +396,6 @@ mais de um, vão juntos num JSON cifrado) e testada ao salvar, só com leituras
 | YouTube | Id do canal, Client ID; client secret e refresh token (`youtube.readonly` + `yt-analytics.readonly`) | `channels.list?mine=true` confere que o canal é da conta |
 | Google Perfil da Empresa | Id da conta, Client ID; client secret e refresh token (`business.manage`) | Lista os locais da conta |
 | Asana | Id do workspace; token de acesso pessoal | `/users/me` e projetos ativos do workspace |
-| WPS | O mesmo acesso do Financeiro, em Administração › Integrações | — |
 
 Os refresh tokens do Google saem do OAuth Playground usando o Client ID e o
 secret do app do Google Cloud (com as APIs ativadas no projeto). A Google Ads
@@ -413,7 +412,12 @@ API muda de versão com frequência: a usada fica em
 | Instagram, Facebook e YouTube | Redes sociais (foto diária de seguidores) | Com o Daniel; YouTube na mesma conta Google que autoriza |
 | Google Perfil da Empresa | Reputação | API aprovada pelo Google; cada locatário adiciona a ARP como gerente (opção A) |
 | Asana | Radar operacional | Usuário que veja todos os projetos |
-| WPS | Público e visitação (passagens por hora, placa só para recorrência) | Hoje a API BI entrega só entradas por dia; passagens a confirmar com o WPS |
+
+**Público e visitação saiu do módulo** (29/10/2026): a tela precisava de cada
+passagem (placa, entrada, saída e cancela), e a API BI do WPS entrega só a
+quantidade de entradas e saídas por dia. Saíram a tela, a permissão
+`marketing.publico` e os parâmetros `vagas` e `janela_recorrencia_dias`
+(migration `20261029234000`). Volta quando o WPS liberar as passagens.
 
 Os anúncios precisam de UTM com o nome da campanha (`traffic_campaign` no
 RD): sem isso o custo por lead por campanha não fecha, e o lead aparece como

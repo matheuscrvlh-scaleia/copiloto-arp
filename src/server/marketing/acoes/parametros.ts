@@ -179,10 +179,6 @@ const asanaCampos = z.object({
   asana_tag_paga: textoOpcional(100),
   sinalizacao_antiga_dias: inteiro(1, 365),
 });
-const estacionamentoCampos = z.object({
-  vagas: inteiro(1, 100_000),
-  janela_recorrencia_dias: inteiro(1, 365),
-});
 
 const id = z.uuid({ message: "registro inválido" });
 
@@ -555,13 +551,12 @@ export async function salvarRegra(
 }
 
 // ---------------------------------------------------------------------------
-// Linha única de parâmetros: reputação, Asana e estacionamento
+// Linha única de parâmetros: reputação e Asana
 // ---------------------------------------------------------------------------
 
 async function gravarParametros(
   valores: Partial<z.infer<typeof reputacaoCampos>> &
-    Partial<z.infer<typeof asanaCampos>> &
-    Partial<z.infer<typeof estacionamentoCampos>>,
+    Partial<z.infer<typeof asanaCampos>>,
 ): Promise<EstadoAcao> {
   if (!(await podeAgora("marketing.parametros"))) return SEM_PERMISSAO;
   const { error } = await (await mkt())
@@ -603,15 +598,6 @@ export async function salvarAsana(
   });
   if (!a.success) return primeiroErro(a.error);
   return gravarParametros(a.data);
-}
-
-export async function salvarEstacionamento(
-  _: EstadoAcao,
-  form: FormData,
-): Promise<EstadoAcao> {
-  const e = estacionamentoCampos.safeParse(Object.fromEntries(form));
-  if (!e.success) return primeiroErro(e.error);
-  return gravarParametros(e.data);
 }
 
 // ---------------------------------------------------------------------------
@@ -694,9 +680,7 @@ const TAG_DA_TABELA: Record<string, string> = {
   "marketing.parametros": TAG.marketing.parametros,
 };
 
-const parametrosCampos = reputacaoCampos
-  .extend(asanaCampos.shape)
-  .extend(estacionamentoCampos.shape);
+const parametrosCampos = reputacaoCampos.extend(asanaCampos.shape);
 
 /** Os valores do "antes" passam pelas mesmas regras dos formulários. */
 function validar<T extends z.ZodObject>(

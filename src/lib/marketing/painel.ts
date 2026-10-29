@@ -2,7 +2,6 @@ import { type Meta, type Status, status } from "@/lib/indicadores";
 import type { Permissao } from "@/lib/permissions";
 import type { Totais } from "./anuncios";
 import { variacaoPct } from "./periodo";
-import type { ResumoPublico } from "./publico";
 import type { ResumoRadar } from "./radar";
 import type { TotaisRedes } from "./redes";
 import { fracaoDoMes, type ResumoReputacao } from "./reputacao";
@@ -48,7 +47,6 @@ export interface EntradaResumo {
   redes?: { atual: TotaisRedes; anterior: TotaisRedes };
   reputacao?: ResumoReputacao;
   radar?: ResumoRadar;
-  publico?: { atual: ResumoPublico; anterior: ResumoPublico };
   metas: MetasPainel;
   hoje: string;
   /** Query do período do Painel, para as telas abrirem no mesmo filtro. */
@@ -329,36 +327,6 @@ export function linhasDoResumo(
         direcao: "neutro",
         href: "/marketing/radar?aba=calendario",
         permissao: "marketing.radar",
-      }),
-    );
-  }
-
-  if (e.publico) {
-    const { atual: a, anterior: b } = e.publico;
-    out.push(
-      linha({
-        chave: "carros_fds",
-        frente: "Público e visitação",
-        indicador: "Carros no último fim de semana",
-        quando: "sábado e domingo",
-        atual: a.entradas,
-        anterior: b.entradas,
-        unidade: "numero",
-        direcao: "maior_melhor",
-        href: "/marketing/publico?periodo=fim_de_semana",
-        permissao: "marketing.publico",
-      }),
-      linha({
-        chave: "ocupacao_fds",
-        frente: "Público e visitação",
-        indicador: "Maior ocupação do estacionamento",
-        quando: "sábado e domingo",
-        atual: a.ocupacaoMaxima,
-        anterior: b.ocupacaoMaxima,
-        unidade: "pct",
-        direcao: "neutro",
-        href: "/marketing/publico?periodo=fim_de_semana",
-        permissao: "marketing.publico",
       }),
     );
   }

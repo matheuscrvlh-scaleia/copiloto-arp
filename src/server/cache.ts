@@ -44,7 +44,7 @@ export const TAG = {
     landingPages: "marketing:landing_pages",
     /** Regras de alerta do Painel (limite, nível, ativa). */
     regras: "marketing:regras",
-    /** Reputação, Asana, estacionamento, temas e códigos da ronda. */
+    /** Reputação, Asana, temas e códigos da ronda. */
     parametros: "marketing:parametros",
     /** Metas do Marketing (core.metas marketing.*). */
     metas: "marketing:metas",
