@@ -245,6 +245,10 @@ async function Tela({
               <Secao
                 tom="verde"
                 titulo="Estrelas"
+                calculo="Avaliações deste local feitas no período, contadas por número de estrelas (starRating), de 5 a 1. Fonte: Google Perfil da Empresa."
+                exemplo={
+                  "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+                }
                 descricao={`${f.rotulo}, de 5 a 1`}
               >
                 <div className="mb-4">

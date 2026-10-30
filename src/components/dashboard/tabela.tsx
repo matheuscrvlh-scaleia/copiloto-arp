@@ -1,3 +1,4 @@
+import { Info, TriangleAlert } from "lucide-react";
 import { TOM, type Tom } from "@/components/estilos";
 
 export interface Coluna<T> {
@@ -126,6 +127,40 @@ export function paraBusca<T>(
   };
 }
 
+/**
+ * Ícone com balão ao passar o mouse ou tocar (foco): ocupa a largura do
+ * título, sem passar da borda do bloco. O texto também vai para leitor de tela.
+ */
+function Dica({
+  icone,
+  rotulo,
+  texto,
+  classe,
+}: {
+  icone: React.ReactNode;
+  rotulo: string;
+  texto: string;
+  classe: string;
+}) {
+  return (
+    <span className="group/dica inline-flex">
+      <button
+        type="button"
+        aria-label={`${rotulo}: ${texto}`}
+        className={`grid size-5 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-current ${classe}`}
+      >
+        {icone}
+      </button>
+      <span
+        aria-hidden
+        className="pointer-events-none invisible absolute inset-x-0 top-full z-20 mt-1.5 whitespace-pre-line rounded-xl bg-neutral-900/80 px-3 py-2 text-xs font-normal leading-snug text-white opacity-0 backdrop-blur-md transition group-hover/dica:visible group-hover/dica:opacity-100 group-focus-within/dica:visible group-focus-within/dica:opacity-100"
+      >
+        {texto}
+      </span>
+    </span>
+  );
+}
+
 export function Secao({
   titulo,
   descricao,
@@ -134,6 +169,8 @@ export function Secao({
   tom = "claro",
   id,
   classeCorpo = "",
+  calculo,
+  exemplo,
 }: {
   /** Âncora (ex.: #beneficios) para os atalhos levarem ao bloco certo. */
   id?: string;
@@ -144,13 +181,35 @@ export function Secao({
   tom?: Tom;
   /** Classe extra do corpo (ex.: "flex flex-col" para esticar o conteúdo). */
   classeCorpo?: string;
+  /** Como o número é calculado e de onde vem: ícone "i" ao lado do título. */
+  calculo?: string;
+  /** O que é de exemplo (fictício) no bloco: ícone de alerta ao lado do título. */
+  exemplo?: string | false;
 }) {
   return (
     <section
       id={id}
       className={`${TOM[tom]} scroll-mt-6 rounded-[1.75rem] p-5 md:p-6 ${className}`}
     >
-      <h2 className="text-base font-semibold">{titulo}</h2>
+      <div className="relative flex items-center gap-1">
+        <h2 className="text-base font-semibold">{titulo}</h2>
+        {calculo && (
+          <Dica
+            icone={<Info className="size-3.5" aria-hidden />}
+            rotulo="Cálculo e fonte"
+            texto={calculo}
+            classe="opacity-40 hover:opacity-80"
+          />
+        )}
+        {exemplo && (
+          <Dica
+            icone={<TriangleAlert className="size-3.5" aria-hidden />}
+            rotulo="Dados de exemplo"
+            texto={`Dados de exemplo (fictícios): ${exemplo}`}
+            classe="text-amber-500"
+          />
+        )}
+      </div>
       {descricao && (
         <p className="mt-1 text-xs text-neutral-500">{descricao}</p>
       )}

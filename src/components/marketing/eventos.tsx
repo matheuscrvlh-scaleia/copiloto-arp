@@ -172,6 +172,7 @@ export function AgendaDeEventos({
       <Secao
         tom="escuro"
         titulo="Eventos por mês"
+        calculo="Eventos publicados na agenda do site em cada mês, dos últimos 6 meses aos próximos 5. Evento de vários dias conta em cada mês que ocupa. Fonte: agenda do site, lida de hora em hora."
         descricao="Publicados no site, dos últimos 6 meses aos próximos 5"
       >
         <Colunas

@@ -403,6 +403,7 @@ export function AbaTarefas({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Secao
           titulo="Concluídas no prazo × com atraso"
+          calculo="Tarefas concluídas em cada mês (completed_at), últimos 6 meses. No prazo: concluída até a data de entrega (due_on). Com atraso: depois dela. Sem prazo: tarefa sem data de entrega. Fonte: Asana."
           descricao="Últimos 6 meses, pelo mês da conclusão"
         >
           <ColunasEmpilhadas
@@ -437,6 +438,7 @@ export function AbaTarefas({
         </Secao>
         <Secao
           titulo="Abertas por responsável"
+          calculo="Tarefas abertas hoje por responsável (assignee). Em dia: entrega hoje ou depois. Atrasadas: a data de entrega já passou. Sem prazo: sem data de entrega. Fonte: Asana."
           descricao="Em dia, atrasadas e sem prazo, hoje"
         >
           <ColunasEmpilhadas

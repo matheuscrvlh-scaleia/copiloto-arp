@@ -291,6 +291,7 @@ export function AbaRonda({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Secao
           titulo="Abertas por semana"
+          calculo="Sinalizações do Marketing abertas no fim de cada semana (12 semanas): abertas até aquele dia (campo Data do Registro do Asana; sem ele, a data de criação) e ainda não concluídas. Linha tracejada: limite da regra de alerta em Configurações. Fonte: Asana, projeto da ronda."
           descricao="Quantas estavam abertas no fim de cada semana (12 semanas), com a linha do limite"
         >
           <Linhas
@@ -320,6 +321,7 @@ export function AbaRonda({
         </Secao>
         <Secao
           titulo="Há quanto tempo estão abertas"
+          calculo="Sinalizações abertas hoje por dias desde a abertura (campo Data do Registro do Asana; sem ele, a data de criação): 0 a 7, 8 a 15, 16 a 30 e mais de 30 dias. Fonte: Asana, projeto da ronda."
           descricao="Sinalizações abertas hoje por dias em aberto"
         >
           <Faixas

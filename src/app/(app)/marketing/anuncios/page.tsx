@@ -404,6 +404,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Secao
             tom="escuro"
             titulo="Investimento por semana"
+            calculo="Soma do investimento (spend) de todas as campanhas em cada semana, separada por plataforma. Últimas 12 semanas até a semana do fim do período; os filtros da tela valem aqui. Fonte: relatório diário do Meta Ads, do Google Ads (cost_micros) e do TikTok Ads."
+            exemplo={
+              plataforma !== "meta" &&
+              "investimentos do Google Ads e do TikTok Ads (os da Meta são reais)"
+            }
             descricao="Últimas 12 semanas, por plataforma"
           >
             <ColunasEmpilhadas
@@ -417,6 +422,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Secao
             tom="verde"
             titulo="Leads no RD por semana"
+            calculo="Conversões do RD Station em cada semana cujo traffic_campaign (UTM) é igual ao nome de uma campanha, somadas pela plataforma dessa campanha. Lead sem UTM, ou com campanha que não existe nos anúncios, não entra. Nunca usa as conversões que a plataforma informa. Fonte: RD Station."
+            exemplo={
+              plataforma !== "meta" &&
+              "leads do Google Ads e do TikTok Ads (os da Meta são reais)"
+            }
             descricao="Últimas 12 semanas, pela plataforma da campanha de origem"
           >
             <ColunasEmpilhadas
@@ -429,6 +439,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Secao
             tom="verde"
             titulo="Custo por lead por semana"
+            calculo="Investimento da semana ÷ leads no RD vindos das campanhas naquela semana. Semana sem lead fica sem ponto. Linha tracejada: meta de custo por lead do mês (Configurações › Metas). Fontes: anúncios (investimento) e RD Station (leads)."
+            exemplo={
+              plataforma !== "meta" &&
+              "investimentos e leads do Google Ads e do TikTok Ads (os da Meta são reais)"
+            }
             descricao="Investimento ÷ leads do RD, com a linha da meta"
           >
             <Linhas
@@ -453,6 +468,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           </Secao>
           <Secao
             titulo="Onde a verba rende"
+            calculo="Um ponto por campanha com lead no período. Horizontal: investimento no período. Vertical: custo por lead = investimento ÷ leads no RD da campanha. Campanha sem lead não aparece (não tem custo por lead). Cor: plataforma. Fontes: anúncios e RD Station."
+            exemplo={
+              plataforma !== "meta" &&
+              "campanhas do Google Ads e do TikTok Ads (os da Meta são reais)"
+            }
             descricao="Cada campanha com lead no período: investimento × custo por lead. Abaixo e à direita: investe muito e o lead sai barato."
           >
             <Dispersao

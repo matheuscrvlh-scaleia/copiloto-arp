@@ -398,6 +398,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Secao
             tom="verde"
             titulo="Leads no RD por semana"
+            calculo="Contatos únicos que converteram no RD Station em cada semana, pelo interesse da landing page (Evento ou Locação, em Configurações › Landing pages). Outros = contatos únicos − Evento − Locação. Últimas 12 semanas. Fonte: RD Station."
+            exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             descricao="Contatos únicos, pelo tipo da landing page"
           >
             <ColunasEmpilhadas
@@ -433,6 +435,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Secao
             tom="verde"
             titulo="Custo por lead por semana"
+            calculo="Investimento da semana em anúncios ÷ leads no RD vindos dessas campanhas (traffic_campaign = nome da campanha). Semana sem lead fica sem ponto. Linha tracejada: meta do mês (Configurações › Metas). Fontes: Meta Ads, Google Ads, TikTok Ads e RD Station."
+            exemplo={
+              "investimentos e leads do Google Ads e do TikTok Ads (os da Meta são reais)"
+            }
             descricao="Investimento ÷ leads do RD, com a linha da meta"
           >
             <Linhas

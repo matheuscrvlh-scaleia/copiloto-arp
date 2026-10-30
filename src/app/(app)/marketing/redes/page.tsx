@@ -1,4 +1,4 @@
-import { Clapperboard, Share2 } from "lucide-react";
+import { Clapperboard, Share2, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import {
@@ -312,6 +312,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Secao
           titulo="Seguidores por rede"
+          calculo="Seguidores no fim de cada semana, pela foto diária de cada rede. Instagram e Facebook: followers_count gravado todo dia pela sincronização da Meta (06h45). YouTube: inscritos de hoje, voltando os ganhos e perdas de cada dia. TikTok: followers_count. Antes da primeira foto não há número. Cada mini-gráfico tem a própria escala."
+          exemplo={
+            redes.some((r) => r === "youtube" || r === "tiktok") &&
+            "YouTube e TikTok (Instagram e Facebook são reais)"
+          }
           descricao="Últimas 12 semanas, no fim de cada semana. Cada rede na sua escala."
         >
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -323,7 +328,15 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
               return (
                 <li key={h.rede} className="flex flex-col gap-1">
                   <p className="flex items-baseline justify-between gap-2 text-sm">
-                    <span className="font-medium">{REDES[h.rede].rotulo}</span>
+                    <span className="inline-flex items-center gap-1 font-medium">
+                      {REDES[h.rede].rotulo}
+                      {(h.rede === "youtube" || h.rede === "tiktok") && (
+                        <TriangleAlert
+                          className="size-3 text-amber-500"
+                          aria-label="Dados de exemplo"
+                        />
+                      )}
+                    </span>
                     <span className="tabular-nums text-neutral-600">
                       {ultimo ? formatarNumero(ultimo.valor) : "—"}
                     </span>
@@ -357,6 +370,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         <Secao
           tom="escuro"
           titulo="O que engaja no Instagram"
+          calculo="Para cada tipo de post do Instagram publicado no período (reels, carrossel, imagem): (curtidas + comentários + compartilhamentos + salvos) ÷ alcance, somando os posts do tipo. Fonte: Instagram, métricas de cada post (like_count, comments_count, shares, saved, reach)."
           descricao={`${f.rotulo} · interações ÷ alcance por tipo de conteúdo`}
         >
           <BarrasHorizontais
@@ -378,7 +392,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       </div>
 
       {comInstagram && (
-        <Secao titulo={DEMOGRAFIA.titulo} descricao={DEMOGRAFIA.aviso}>
+        <Secao
+          titulo={DEMOGRAFIA.titulo}
+          descricao={DEMOGRAFIA.aviso}
+          calculo="Retrato de hoje dos seguidores do Instagram: as 10 cidades com mais seguidores, as faixas de idade e o gênero (follower_demographics). São seguidores da conta, não visitantes do Espaço ARP. Fonte: Instagram."
+        >
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             <div>
               <h3 className="mb-2 text-sm font-medium text-neutral-700">

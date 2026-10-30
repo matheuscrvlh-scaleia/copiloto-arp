@@ -496,6 +496,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Secao
             tom="escuro"
             titulo="Leads por semana, por interesse"
+            calculo="Contatos únicos que converteram no RD Station em cada semana, pelo interesse da landing page (Configurações › Landing pages). Quem converteu em Evento e em Locação na mesma semana conta nas duas cores. Últimas 12 semanas. Fonte: RD Station."
+            exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             descricao="Últimas 12 semanas, contatos únicos em cada semana"
           >
             <ColunasEmpilhadas
@@ -511,6 +513,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Secao
             tom="verde"
             titulo="Sessões por canal"
+            calculo="Sessões no site em cada semana por canal (sessionDefaultChannelGroup: busca orgânica, social pago, direto, indicação…). Últimas 12 semanas. Fonte: Google Analytics 4."
+            exemplo={
+              "sessões do Google Analytics 4, até a ferramenta ser ligada"
+            }
             descricao="Últimas 12 semanas"
           >
             <ColunasEmpilhadas
@@ -522,6 +528,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           </Secao>
           <Secao
             titulo="Do site ao cliente"
+            calculo="Etapas no período: sessões no site (GA4) → visitas às landing pages (RD) → conversões (RD) → contatos que converteram e hoje são lead qualificado ou cliente (RD) → clientes (RD). Cada etapa mostra a passagem para a seguinte. Fontes diferentes: a passagem é uma indicação, não um rastreio pessoa a pessoa."
+            exemplo={
+              "sessões do Google Analytics 4 (visitas, conversões e etapas vêm do RD Station)"
+            }
             descricao={`${f.rotulo} · cada etapa com a passagem para a seguinte`}
           >
             <Funil
@@ -562,6 +572,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           </Secao>
           <Secao
             titulo="De onde vêm os leads"
+            calculo="Contatos únicos que converteram no período, pela cidade e UF do cadastro no RD Station (city, state); as 10 maiores. Contato sem cidade entra em Sem cidade (os formulários da ARP não pedem cidade). Fonte: RD Station."
+            exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             descricao={`${f.rotulo} · as 10 cidades com mais contatos`}
           >
             <BarrasHorizontais

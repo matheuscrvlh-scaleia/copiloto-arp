@@ -212,7 +212,15 @@ async function Tela({
             </Cartoes>
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <Secao titulo="Investimento por dia" descricao={f.rotulo}>
+              <Secao
+                titulo="Investimento por dia"
+                descricao={f.rotulo}
+                calculo="Investimento (spend) da campanha em cada dia do período, como a plataforma informa no relatório diário. Fonte: Meta Ads, Google Ads ou TikTok Ads, conforme a campanha."
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
+              >
                 <AreaLinha
                   descricao="Investimento por dia"
                   itens={dias.map((d) => ({
@@ -229,7 +237,15 @@ async function Tela({
                 />
                 <Fonte>{PLATAFORMAS[c.plataforma].ferramenta}</Fonte>
               </Secao>
-              <Secao titulo="Leads no RD por dia" descricao={f.rotulo}>
+              <Secao
+                titulo="Leads no RD por dia"
+                descricao={f.rotulo}
+                calculo="Conversões do RD Station em cada dia cujo traffic_campaign (UTM) é igual ao nome desta campanha. As conversões que a plataforma conta ficam de fora. Fonte: RD Station."
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `leads de exemplo da campanha do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
+              >
                 <Colunas
                   descricao="Leads no RD por dia"
                   itens={dias.map((d) => ({
@@ -360,6 +376,7 @@ function QuebrasMeta({
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <Secao
         titulo="Facebook × Instagram"
+        calculo="Investimento da campanha no período, dividido por onde o anúncio apareceu (publisher_platform: Facebook, Instagram, Messenger, Audience Network). No centro, o total investido. Fonte: Meta Ads, relatório diário com a quebra por plataforma."
         descricao="Investimento por onde o anúncio apareceu"
       >
         <Rosca
@@ -377,6 +394,7 @@ function QuebrasMeta({
       </Secao>
       <Secao
         titulo="Por estado"
+        calculo="Investimento da campanha no período por estado de quem viu o anúncio (quebra region do Meta Ads). Mostra onde o anúncio foi entregue, não onde mora quem virou lead. Fonte: Meta Ads."
         descricao="Investimento por região de quem viu o anúncio"
       >
         <BarrasHorizontais
