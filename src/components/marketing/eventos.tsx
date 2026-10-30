@@ -323,7 +323,7 @@ function CartaoEvento({ e, hoje }: { e: EventoSite; hoje: string }) {
         href={e.link}
         target="_blank"
         rel="noopener noreferrer"
-        className="relative block aspect-[16/9] bg-neutral-100"
+        className="relative block aspect-[16/9] overflow-hidden bg-neutral-100"
       >
         {e.imagem ? (
           // biome-ignore lint/performance/noImgElement: imagem do site da ARP (domínio de terceiros, sem otimização do Next)
@@ -331,7 +331,7 @@ function CartaoEvento({ e, hoje }: { e: EventoSite; hoje: string }) {
             src={e.imagem}
             alt=""
             loading="lazy"
-            className="size-full object-cover"
+            className="absolute inset-0 size-full object-cover"
           />
         ) : (
           <CalendarDays
