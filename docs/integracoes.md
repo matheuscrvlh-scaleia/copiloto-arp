@@ -391,7 +391,7 @@ parte, e o resultado vira uma linha ✓/✗ por produto.
 
 | Acesso | Produtos (id de cada um, opcional) | Segredos | Teste |
 |---|---|---|---|
-| Google (`mkt_google`) | Escolhidos numa lista depois de conectar: conta do Google Ads (com a MCC, se o acesso for por ela), propriedade do Analytics 4 e do Search Console, canal do YouTube, conta do Perfil da Empresa | Client ID e client secret; o refresh token sai do botão **Conectar com o Google**; token de desenvolvedor (só Ads) | Conta Google: e-mail e escopos concedidos (no próprio token); Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; YouTube: `channels.list?mine=true` confere que o canal é da conta; Perfil: lista os locais |
+| Google (`mkt_google`) | Escolhidos numa lista depois de conectar: conta do Google Ads (com a MCC, se o acesso for por ela), propriedade do Analytics 4 e do Search Console, canal do YouTube, conta do Perfil da Empresa | Client ID e client secret; o refresh token sai do botão **Conectar com o Google** (o Ads não usa mais token de desenvolvedor) | Conta Google: e-mail e escopos concedidos (no próprio token); Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; YouTube: `channels.list?mine=true` confere que o canal é da conta; Perfil: lista os locais |
 | Meta (`mkt_meta`) | Meta Ads (conta de anúncios), Facebook (página), Instagram (conta profissional) | Token de usuário do sistema | `GET /act_{id}`, `GET /{página}`, `GET /{instagram}` |
 | TikTok (`mkt_tiktok`) | App ID; o anunciante vem da autorização (fora do formulário) | App secret; o token de Ads sai do botão **Conectar com o TikTok** | `/advertiser/info/` |
 | RD Station (`mkt_rd_station`) | — | Client ID e client secret; o refresh token sai do botão **Conectar com o RD Station** | `/auth/token` e `/marketing/account_info` |
@@ -417,11 +417,20 @@ Para não vencer, publicar o app (verificação do Google, pelos escopos
 sensíveis). A Google Ads API muda de versão com frequência: a usada fica em
 `src/connectors/marketing/google.ts`.
 
+Google Ads sem token de desenvolvedor: o Google o descontinuou em 09/09/2026
+(o cabeçalho `developer-token` é ignorado). O nível de acesso é o do projeto
+do Google Cloud das credenciais OAuth (`arp-copiloto`): em **Teste** só lê
+contas de teste (`CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION` com a conta
+real); **Exploração** libera contas reais com até 2.880 operações por dia,
+de sobra para este painel. Pedido em Google Cloud › Google Ads API ›
+níveis de acesso; projeto em teste gratuito ou sem faturamento ativo pode
+ser recusado.
+
 **Descoberta** (`src/server/marketing/descoberta-google.ts`): ninguém digita
 id. Com a conta conectada, o cartão lista o que ela acessa:
 `customers:listAccessibleCustomers` e, em cada uma, `customer_client` (as
-filhas de uma MCC vêm com a MCC como `login-customer-id`; o token de
-desenvolvedor precisa estar salvo); `accountSummaries` do GA4; `sites` do
+filhas de uma MCC vêm com a MCC como `login-customer-id`);
+`accountSummaries` do GA4; `sites` do
 Search Console (só verificadas); `channels?mine=true`; `accounts` do Perfil
 da Empresa (403/429 até o Google aprovar o acesso). Ao conectar, o produto com
 uma opção só já fica escolhido; com várias, a pessoa escolhe e salva. Uma
@@ -504,7 +513,7 @@ voltam aos dados de exemplo).
 | Fonte | Serve para | Acesso |
 |---|---|---|
 | Meta Ads (Facebook e Instagram) | Performance de anúncios | Com o Pablo (falta confirmar); app com leitura de anúncios, pode exigir verificação da empresa |
-| Google Ads (inclui YouTube) | Performance de anúncios, termos de pesquisa | Com o Pablo; token de desenvolvedor aprovado para a conta |
+| Google Ads (inclui YouTube) | Performance de anúncios, termos de pesquisa | Projeto `arp-copiloto` no nível Exploração da Google Ads API (o token de desenvolvedor foi descontinuado em 09/09/2026) |
 | TikTok Ads e conta Business | Anúncios e Redes | Com o Daniel; confirmar se anunciam e se a conta é Business |
 | Google Analytics 4 e Search Console | Site e leads | Confirmar se estão instalados no site (WordPress) e quais eventos-chave |
 | RD Station Marketing | Leads, landing pages, custo por lead | Com o Daniel; confirmar se o plano libera a API (histórico por exportação única) |

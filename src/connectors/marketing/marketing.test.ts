@@ -59,7 +59,7 @@ describe("google", () => {
         chamadas,
       ),
     });
-    expect(await api.adsCliente("123", "dev", "999")).toEqual({
+    expect(await api.adsCliente("123", "999")).toEqual({
       nome: "ARP",
       moeda: "BRL",
     });
@@ -69,7 +69,7 @@ describe("google", () => {
       /googleads\.googleapis\.com\/v\d+\/customers\/123\/googleAds:search$/,
     );
     expect(chamadas[1]?.headers.get("authorization")).toBe("Bearer acesso");
-    expect(chamadas[1]?.headers.get("developer-token")).toBe("dev");
+    expect(chamadas[1]?.headers.get("developer-token")).toBeNull();
     expect(chamadas[1]?.headers.get("login-customer-id")).toBe("999");
   });
 
@@ -792,12 +792,12 @@ describe("google: descoberta", () => {
       ],
       chamadas,
     );
-    expect(await api.contasAds("dev")).toEqual([
+    expect(await api.contasAds()).toEqual([
       { id: "111", nome: "ARP", login: "" },
       { id: "222", nome: "ARP Eventos", login: "999" },
     ]);
     expect(chamadas[1]?.url).toMatch(/\/customers:listAccessibleCustomers$/);
-    expect(chamadas[1]?.headers.get("developer-token")).toBe("dev");
+    expect(chamadas[1]?.headers.get("developer-token")).toBeNull();
     expect(chamadas[3]?.headers.get("login-customer-id")).toBe("999");
     expect(chamadas[3]?.corpo).toContain("FROM customer_client");
   });
@@ -812,9 +812,7 @@ describe("google: descoberta", () => {
         ],
       },
     ]);
-    expect(await api.contasAds("dev")).toEqual([
-      { id: "2", nome: "B", login: "" },
-    ]);
+    expect(await api.contasAds()).toEqual([{ id: "2", nome: "B", login: "" }]);
   });
 
   it("GA4, Search Console (só verificadas) e Perfil da Empresa", async () => {

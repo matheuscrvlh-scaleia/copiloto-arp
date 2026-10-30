@@ -4,6 +4,11 @@ import { ConnectorError, parseWith, requestJson } from "../http";
 // Google (Ads, Analytics 4, Search Console, YouTube e Perfil da Empresa).
 // Todas usam OAuth com token de atualização: o cliente troca o refresh token
 // por um token de acesso (1 hora) e só faz leituras.
+//
+// Google Ads sem developer token (descontinuado em 09/09/2026; o Google
+// ignora o cabeçalho): o nível de acesso é o do projeto do Google Cloud das
+// credenciais OAuth. Contas reais exigem o nível Exploração ou acima; em
+// "Teste" o Google responde CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION.
 
 /** Versão da Google Ads API; cada uma vale cerca de um ano. */
 const VERSAO_ADS = "v26";
@@ -262,12 +267,8 @@ export function createGoogleClient(config: GoogleConfig) {
       };
     },
 
-    /** Nome e moeda da conta do Google Ads (confirma o token de desenvolvedor). */
-    async adsCliente(
-      customerId: string,
-      developerToken: string,
-      loginCustomerId?: string,
-    ) {
+    /** Nome e moeda da conta do Google Ads (confirma o acesso à conta). */
+    async adsCliente(customerId: string, loginCustomerId?: string) {
       const r = await chamar(
         `https://googleads.googleapis.com/${VERSAO_ADS}/customers/${customerId}/googleAds:search`,
         {
@@ -276,12 +277,9 @@ export function createGoogleClient(config: GoogleConfig) {
             query:
               "SELECT customer.descriptive_name, customer.currency_code FROM customer LIMIT 1",
           },
-          headers: {
-            "developer-token": developerToken,
-            ...(loginCustomerId
-              ? { "login-customer-id": loginCustomerId }
-              : {}),
-          },
+          headers: loginCustomerId
+            ? { "login-customer-id": loginCustomerId }
+            : {},
         },
       );
       const c = parseWith(sistema, adsClienteSchema, r).results[0]?.customer;
@@ -331,11 +329,9 @@ export function createGoogleClient(config: GoogleConfig) {
      * filhas de cada MCC (pela MCC, com login-customer-id). Uma conta que
      * falha (cancelada, sem acesso) fica de fora.
      */
-    async contasAds(developerToken: string): Promise<ContaAds[]> {
+    async contasAds(): Promise<ContaAds[]> {
       const base = `https://googleads.googleapis.com/${VERSAO_ADS}/customers`;
-      const r = await chamar(`${base}:listAccessibleCustomers`, {
-        headers: { "developer-token": developerToken },
-      });
+      const r = await chamar(`${base}:listAccessibleCustomers`);
       const raizes = parseWith(sistema, acessiveisSchema, r)
         .resourceNames.map((n) => n.replace(/^customers\//, ""))
         .slice(0, 20);
@@ -347,10 +343,7 @@ export function createGoogleClient(config: GoogleConfig) {
               query:
                 "SELECT customer_client.id, customer_client.descriptive_name, customer_client.manager FROM customer_client WHERE customer_client.level <= 1 AND customer_client.status = 'ENABLED'",
             },
-            headers: {
-              "developer-token": developerToken,
-              "login-customer-id": raiz,
-            },
+            headers: { "login-customer-id": raiz },
           });
           return parseWith(sistema, clientesAdsSchema, c).results.map(
             ({ customerClient: k }) => ({

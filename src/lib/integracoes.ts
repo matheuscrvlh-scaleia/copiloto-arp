@@ -234,13 +234,6 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
         opcional: true,
         gerado: true,
       },
-      {
-        nome: "developer_token",
-        rotulo: "Google Ads: token de desenvolvedor",
-        opcional: true,
-        ajuda:
-          "Só para o Google Ads: Ferramentas › Central de API (acesso básico ou acima)",
-      },
     ],
     parametros: z
       .object({

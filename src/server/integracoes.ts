@@ -315,6 +315,9 @@ function explicar(erro: unknown): string {
     // 7 dias). Só autorizando de novo.
     if (/"error"\s*:\s*"invalid_grant"/.test(erro.detalhe ?? ""))
       return "o acesso expirou ou foi revogado: clique em Conectar de novo";
+    // Google Ads: o nível de acesso é o do projeto do Google Cloud.
+    if (/CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION/.test(erro.detalhe ?? ""))
+      return "o projeto do Google Cloud ainda não tem o nível Exploração da Google Ads API";
     if (erro.status === 401 || erro.status === 403)
       return `acesso recusado (HTTP ${erro.status}): confira usuário, senha ou token${daApi(erro)}`;
     if (erro.status === 404)

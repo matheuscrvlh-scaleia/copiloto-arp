@@ -66,11 +66,8 @@ function testesGoogle(c: Credencial): TesteDeProduto<"mkt_google">[] {
     testes.push({
       produto: "Google Ads",
       async testar() {
-        if (!s("developer_token"))
-          throw new Error("falta o token de desenvolvedor");
         const conta = await api.adsCliente(
           p("customer_id"),
-          s("developer_token"),
           p("login_customer_id") || undefined,
         );
         return `conta “${conta.nome}” (${conta.moeda})`;

@@ -22,6 +22,11 @@ import {
 export type Descobertas = Record<string, Descoberta>;
 
 function porque(erro: unknown): string {
+  if (
+    erro instanceof ConnectorError &&
+    /CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION/.test(erro.detalhe ?? "")
+  )
+    return "o projeto do Google Cloud ainda não tem o nível Exploração da Google Ads API (em Teste, só lê contas de teste)";
   if (erro instanceof ConnectorError && erro.status === 403)
     return "a conta não tem acesso, a API não está ativada no Google Cloud ou ainda aguarda aprovação do Google";
   if (erro instanceof ConnectorError && erro.status === 429)
@@ -45,11 +50,7 @@ export async function descobrirGoogle(c: Credencial): Promise<Descobertas> {
 
   const buscas: Record<string, () => Promise<Opcao[]>> = {
     async customer_id() {
-      if (!s.developer_token)
-        throw new Error(
-          "preencha o token de desenvolvedor e salve para listar as contas",
-        );
-      return (await api.contasAds(s.developer_token)).map((k) => ({
+      return (await api.contasAds()).map((k) => ({
         valor: k.login ? `${k.id}@${k.login}` : k.id,
         rotulo: `${k.nome || "sem nome"} (${formatarAds(k.id)})${k.login ? ` · pela MCC ${formatarAds(k.login)}` : ""}`,
       }));
