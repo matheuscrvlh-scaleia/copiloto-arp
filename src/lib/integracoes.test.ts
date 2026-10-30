@@ -155,3 +155,15 @@ describe("escopos do Google", () => {
     ]);
   });
 });
+
+describe("segredo gerado pelo botão Conectar", () => {
+  it("é opcional e é o que a autorização preenche (fora do formulário)", () => {
+    for (const s of SISTEMAS) {
+      const def = INTEGRACOES[s];
+      for (const sg of def.segredos.filter((x) => x.gerado)) {
+        expect(sg.opcional, `${s}.${sg.nome}`).toBe(true);
+        expect(def.autorizar?.segredo, s).toBe(sg.nome);
+      }
+    }
+  });
+});

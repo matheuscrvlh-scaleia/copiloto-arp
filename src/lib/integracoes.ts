@@ -35,6 +35,8 @@ export interface Segredo {
   rotulo: string;
   ajuda?: string;
   opcional?: boolean;
+  /** Só o botão Conectar preenche: fora do formulário (o salvo continua). */
+  gerado?: boolean;
 }
 
 export interface DefinicaoIntegracao {
@@ -239,8 +241,7 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
         nome: "refresh_token",
         rotulo: "Refresh token",
         opcional: true,
-        ajuda:
-          "Não precisa preencher: o botão Conectar com o Google gera e salva. Entre com uma conta Google que tenha acesso a todos os produtos",
+        gerado: true,
       },
       {
         nome: "developer_token",
@@ -286,7 +287,7 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       campo: "client_id",
       credencial: "client_secret",
       explicacao:
-        "Com o Client ID e o secret preenchidos, este botão salva o que foi digitado e abre a autorização do Google. Depois de autorizar, o sistema gera e salva o refresh token sozinho.",
+        "Com o Client ID e o secret preenchidos, este botão salva o que foi digitado e abre a autorização do Google. Entre com uma conta Google que tenha acesso a todos os produtos. Depois de autorizar, o sistema gera e salva o refresh token sozinho.",
     },
   },
   mkt_meta: {
@@ -413,8 +414,7 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
         nome: "refresh_token",
         rotulo: "Refresh token",
         opcional: true,
-        ajuda:
-          "Não precisa preencher: o botão Conectar com o RD Station gera e salva",
+        gerado: true,
       },
     ],
     parametros: z.object({ client_id: texto }),

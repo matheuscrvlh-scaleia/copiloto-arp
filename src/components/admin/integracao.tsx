@@ -94,6 +94,7 @@ export function CartaoIntegracao({
   const Icone = ICONE[i.sistema];
   const s = situacao(i);
   const salva = i.origem === "tela";
+  const segredos = def.segredos.filter((sg) => !sg.gerado);
 
   return (
     <section
@@ -225,12 +226,12 @@ export function CartaoIntegracao({
               ))}
             </div>
           )}
-          {def.segredos.length > 0 && (
+          {segredos.length > 0 && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {def.segredos.map((sg) => (
+              {segredos.map((sg) => (
                 <label
                   key={sg.nome}
-                  className={`${rotulo} ${def.segredos.length === 1 ? "md:col-span-2" : ""}`}
+                  className={`${rotulo} ${segredos.length === 1 ? "md:col-span-2" : ""}`}
                 >
                   <span className="flex items-center gap-1.5">
                     <KeyRound className="size-3.5" aria-hidden />
