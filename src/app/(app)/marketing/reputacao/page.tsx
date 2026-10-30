@@ -15,6 +15,7 @@ import { SeloStatus } from "@/components/dashboard/indicador";
 import { Secao } from "@/components/dashboard/tabela";
 import { BarraDeFiltros } from "@/components/marketing/filtros";
 import {
+  ComoAdicionarAArp,
   ListaDeAvaliacoes,
   SeloSituacao,
   textoDias,
@@ -804,6 +805,7 @@ function AbaLocatarios({
           Google entrega só a nota, o total e até 5 avaliações, sem garantia de
           serem as mais novas. Sem dados: link inválido ou perfil sem acesso.
         </Fonte>
+        <ComoAdicionarAArp />
       </Secao>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

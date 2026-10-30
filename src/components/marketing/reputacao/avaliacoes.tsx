@@ -1,4 +1,4 @@
-import { Star } from "lucide-react";
+import { Info, Star } from "lucide-react";
 import { SeloStatus } from "@/components/dashboard/indicador";
 import { TabelaMkt } from "@/components/marketing/tabela";
 import { AbrirNaFerramenta } from "@/components/marketing/tela";
@@ -40,6 +40,42 @@ export function EstrelasVisuais({ n }: { n: number }) {
 export function SeloSituacao({ situacao }: { situacao: Situacao }) {
   const s = SITUACOES[situacao];
   return <SeloStatus status={s.status} rotulo={s.rotulo} />;
+}
+
+const PASSOS_GERENTE = [
+  "Entrar no Google com a conta que é proprietária do perfil da loja.",
+  "Pesquisar o nome da loja no Google (ou abrir business.google.com) até aparecer o painel “Seu Perfil da Empresa”.",
+  "Clicar no menu ⋮ (Mais) e em Configurações do perfil › Pessoas e acesso.",
+  "Clicar em Adicionar, digitar o e-mail Google da ARP (o Marketing da ARP informa) e escolher o acesso Gerente, não Proprietário.",
+  "Clicar em Convidar. A ARP aceita o convite e passa a ver todas as avaliações da loja.",
+];
+
+/** Passo a passo para o locatário pôr o perfil dele no Google sob a ARP. */
+export function ComoAdicionarAArp() {
+  return (
+    <details className="group mt-3 rounded-2xl bg-neutral-900/[0.03] px-3 py-2 text-xs">
+      <summary className="flex cursor-pointer list-none items-center gap-2 font-medium text-neutral-600 [&::-webkit-details-marker]:hidden">
+        <span className="grid size-5 place-items-center rounded-full bg-neutral-900 text-white">
+          <Info className="size-3" aria-hidden />
+        </span>
+        Como o locatário coloca o perfil dele sob a ARP (passo a passo)
+      </summary>
+      <p className="mt-2 text-neutral-600">
+        Para a ARP ver todas as avaliações, o dono do perfil da loja no Google
+        adiciona a ARP como gerente. A loja continua proprietária e pode tirar o
+        acesso quando quiser. Passos para enviar ao locatário:
+      </p>
+      <ol className="mt-2 flex list-decimal flex-col gap-1 pl-5 text-neutral-600">
+        {PASSOS_GERENTE.map((p) => (
+          <li key={p}>{p}</li>
+        ))}
+      </ol>
+      <p className="mt-2 text-neutral-500">
+        Depois que a ARP aceitar, mude o acesso do locatário para “Gerente do
+        perfil” em Configurações.
+      </p>
+    </details>
+  );
 }
 
 /** "no mesmo dia", "1 dia", "2,5 dias". */
