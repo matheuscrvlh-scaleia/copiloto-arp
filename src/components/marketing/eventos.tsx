@@ -169,6 +169,31 @@ export function AgendaDeEventos({
         />
       </Cartoes>
 
+      <Secao
+        tom="escuro"
+        titulo="Eventos por mês"
+        descricao="Publicados no site, dos últimos 6 meses aos próximos 5"
+      >
+        <Colunas
+          descricao="Eventos do site por mês"
+          itens={porMes.map((m) => ({
+            chave: m.mes,
+            rotulo: formatarMes(m.mes).slice(0, 3),
+            titulo:
+              m.mes === mesAtual
+                ? `${formatarMes(m.mes)} (mês atual)`
+                : formatarMes(m.mes),
+            valor: m.eventos,
+            texto: formatarNumero(m.eventos),
+            destaque: m.mes === mesAtual,
+          }))}
+        />
+        <Fonte>
+          {FONTE_SITE}. Evento de vários dias conta em cada mês que ele ocupa;
+          os meses à frente só têm o que já foi publicado.
+        </Fonte>
+      </Secao>
+
       <TrocaVisao visao={visao} busca={p.busca} base={BASE_EVENTOS} />
 
       {visao === "lista" ? (
@@ -222,31 +247,6 @@ export function AgendaDeEventos({
           </Fonte>
         </Secao>
       )}
-
-      <Secao
-        tom="escuro"
-        titulo="Eventos por mês"
-        descricao="Publicados no site, dos últimos 6 meses aos próximos 5"
-      >
-        <Colunas
-          descricao="Eventos do site por mês"
-          itens={porMes.map((m) => ({
-            chave: m.mes,
-            rotulo: formatarMes(m.mes).slice(0, 3),
-            titulo:
-              m.mes === mesAtual
-                ? `${formatarMes(m.mes)} (mês atual)`
-                : formatarMes(m.mes),
-            valor: m.eventos,
-            texto: formatarNumero(m.eventos),
-            destaque: m.mes === mesAtual,
-          }))}
-        />
-        <Fonte>
-          {FONTE_SITE}. Evento de vários dias conta em cada mês que ele ocupa;
-          os meses à frente só têm o que já foi publicado.
-        </Fonte>
-      </Secao>
     </>
   );
 }
