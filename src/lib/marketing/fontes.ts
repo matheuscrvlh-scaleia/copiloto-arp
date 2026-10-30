@@ -1,7 +1,7 @@
 // Registros de cada ferramenta com os nomes de campo das APIs oficiais (spec
-// do Marketing, seção 4.1). O mockup monta dados de exemplo nestes formatos;
-// na fase real (V3) cada conector valida a resposta com Zod e devolve estes
-// mesmos tipos. Só o que está aqui pode aparecer em tela.
+// do Marketing, seção 4.1). Cada conector valida a resposta com Zod e
+// devolve estes tipos; as fontes ainda não ligadas (Google e TikTok) têm
+// dados de exemplo nestes mesmos formatos. Só o que está aqui pode aparecer em tela.
 //
 // Datas: "aaaa-mm-dd" (dia do relatório) ou ISO com fuso (instantes).
 // Valores: número (as APIs mandam texto em alguns casos; o conector converte).
@@ -197,15 +197,18 @@ export interface RdLandingPageDia {
 
 export type Rede = "instagram" | "facebook" | "youtube" | "tiktok";
 
+/**
+ * Um dia do Instagram. Seguidores: só nos dias com foto (null antes da
+ * ligação). Métricas: null no dia que ainda não foi lido (hoje).
+ */
 export interface InstagramDia {
   date: string;
-  followers_count: number;
-  media_count: number;
-  reach: number;
-  views: number;
-  accounts_engaged: number;
-  total_interactions: number;
-  profile_links_taps: number;
+  followers_count: number | null;
+  reach: number | null;
+  views: number | null;
+  accounts_engaged: number | null;
+  total_interactions: number | null;
+  profile_links_taps: number | null;
 }
 
 export interface InstagramPost {

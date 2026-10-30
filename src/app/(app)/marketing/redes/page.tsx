@@ -17,6 +17,7 @@ import {
   CartaoMkt,
   Cartoes,
   Fonte,
+  fontesReais,
   TopoDaTela,
   variacaoContra,
 } from "@/components/marketing/tela";
@@ -151,6 +152,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       <TopoDaTela
         dadosDe={ctx.dadosDe}
         filtros={linhaFiltros}
+        reais={fontesReais(dados.metaReal && "Instagram e Facebook")}
+        aviso={dados.avisoMeta}
         acoes={
           exportar ? (
             <BotaoExportar

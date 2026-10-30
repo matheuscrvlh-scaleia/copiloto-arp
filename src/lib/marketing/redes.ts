@@ -48,13 +48,18 @@ export const LISTA_REDES = Object.keys(REDES) as Rede[];
 // ---------------------------------------------------------------------------
 
 /** Última foto com data até `data` (inclusive); null antes do histórico. */
-function fotoAte<T extends { date: string; followers_count: number }>(
+function fotoAte<T extends { date: string; followers_count: number | null }>(
   dias: T[],
   data: string,
 ): number | null {
   let melhor: T | null = null;
   for (const d of dias)
-    if (d.date <= data && (!melhor || d.date > melhor.date)) melhor = d;
+    if (
+      d.followers_count !== null &&
+      d.date <= data &&
+      (!melhor || d.date > melhor.date)
+    )
+      melhor = d;
   return melhor ? melhor.followers_count : null;
 }
 
@@ -110,19 +115,18 @@ export interface RedeLinha {
   base: "alcance" | "visualizações" | null;
 }
 
-function novosPorFoto<T extends { date: string; followers_count: number }>(
-  dias: T[],
-  p: Periodo,
-): { novos: number | null; parcial: boolean } {
+function novosPorFoto<
+  T extends { date: string; followers_count: number | null },
+>(dias: T[], p: Periodo): { novos: number | null; parcial: boolean } {
   const fim = fotoAte(dias, p.ate);
   const inicio = fotoAte(dias, somarDias(p.de, -1));
   if (fim === null) return { novos: null, parcial: false };
   if (inicio !== null) return { novos: fim - inicio, parcial: false };
   // Histórico começou no meio do período: conta desde a primeira foto.
   const primeira = dias
-    .filter((d) => dentro(d.date, p))
+    .filter((d) => d.followers_count !== null && dentro(d.date, p))
     .sort((a, b) => a.date.localeCompare(b.date))[0];
-  return primeira
+  return primeira?.followers_count != null
     ? { novos: fim - primeira.followers_count, parcial: true }
     : { novos: null, parcial: false };
 }
@@ -138,17 +142,22 @@ export function linhaDaRede(f: FontesRedes, rede: Rede, p: Periodo): RedeLinha {
   const seguidores = seguidoresEm(f, rede, p.ate);
   switch (rede) {
     case "instagram": {
-      const dias = f.instagram.dias.filter((d) => dentro(d.date, p));
+      // Só os dias já lidos (hoje ainda não tem métricas).
+      const dias = f.instagram.dias.filter(
+        (d) => d.reach !== null && dentro(d.date, p),
+      );
       const tem = dias.length > 0;
-      const alcance = tem ? soma(dias, (d) => d.reach) : null;
-      const interacoes = tem ? soma(dias, (d) => d.total_interactions) : null;
+      const alcance = tem ? soma(dias, (d) => d.reach ?? 0) : null;
+      const interacoes = tem
+        ? soma(dias, (d) => d.total_interactions ?? 0)
+        : null;
       return {
         rede,
         rotulo,
         seguidores,
         ...novosPorFoto(f.instagram.dias, p),
         alcance,
-        visualizacoes: tem ? soma(dias, (d) => d.views) : null,
+        visualizacoes: tem ? soma(dias, (d) => d.views ?? 0) : null,
         interacoes,
         taxa: taxaDe(interacoes, alcance),
         base: "alcance",

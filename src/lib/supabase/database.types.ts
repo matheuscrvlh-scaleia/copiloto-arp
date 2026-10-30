@@ -1126,6 +1126,42 @@ export type Database = {
         }
         Relationships: []
       }
+      redes_dia: {
+        Row: {
+          alcance: number | null
+          atualizado_em: string
+          contas_engajadas: number | null
+          dia: string
+          interacoes: number | null
+          rede: string
+          seguidores: number | null
+          toques_links: number | null
+          visualizacoes: number | null
+        }
+        Insert: {
+          alcance?: number | null
+          atualizado_em?: string
+          contas_engajadas?: number | null
+          dia: string
+          interacoes?: number | null
+          rede: string
+          seguidores?: number | null
+          toques_links?: number | null
+          visualizacoes?: number | null
+        }
+        Update: {
+          alcance?: number | null
+          atualizado_em?: string
+          contas_engajadas?: number | null
+          dia?: string
+          interacoes?: number | null
+          rede?: string
+          seguidores?: number | null
+          toques_links?: number | null
+          visualizacoes?: number | null
+        }
+        Relationships: []
+      }
       regras_alerta: {
         Row: {
           ativa: boolean

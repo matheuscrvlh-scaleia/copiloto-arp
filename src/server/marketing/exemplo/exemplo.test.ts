@@ -15,38 +15,23 @@ const anuncios = gerarAnuncios(HOJE);
 const rd = gerarRd(HOJE, anuncios);
 
 describe("anúncios e RD", () => {
-  it("12 campanhas: 6 Meta, 4 Google (1 YouTube) e 2 TikTok", () => {
+  it("só Google e TikTok: 4 Google (1 YouTube) e 2 TikTok (a Meta é real)", () => {
     const por = (p: string) =>
       anuncios.campanhas.filter((c) => c.plataforma === p);
-    expect(por("meta")).toHaveLength(6);
+    expect(anuncios.campanhas).toHaveLength(6);
     expect(por("google")).toHaveLength(4);
     expect(por("google").filter((c) => c.tipo === "VIDEO")).toHaveLength(1);
     expect(por("tiktok")).toHaveLength(2);
   });
 
-  it("uma campanha gasta e não traz lead ao RD", () => {
-    const nomes = new Set(rd.conversoes.map((c) => c.traffic_campaign));
-    const semLead = anuncios.campanhas.filter(
-      (c) =>
-        !nomes.has(c.nome) &&
-        anuncios.meta.insights.some(
-          (i) => i.campaign_id === c.id && i.spend > 0,
-        ),
-    );
-    expect(semLead.map((c) => c.nome)).toEqual(["Marca | 108 anos | Alcance"]);
-  });
-
-  it("~60 leads por semana, com lead sem campanha e contato que converte duas vezes", () => {
+  it("dezenas de leads por semana, com lead sem campanha e contato que converte duas vezes", () => {
     const semana = rd.conversoes.filter((c) =>
       dentro(c.created_at, { de: "2026-10-19", ate: "2026-10-25" }),
     );
-    expect(semana.length).toBeGreaterThan(40);
+    expect(semana.length).toBeGreaterThan(25);
     expect(semana.length).toBeLessThan(90);
     const pagasSemUtm = rd.conversoes.filter(
-      (c) =>
-        c.traffic_medium !== "organic" &&
-        c.traffic_campaign === "" &&
-        c.traffic_source === "facebook",
+      (c) => c.traffic_medium === "cpc" && c.traffic_campaign === "",
     );
     expect(pagasSemUtm.length).toBeGreaterThan(0);
     const porContato = new Map<string, Set<string>>();
@@ -69,8 +54,8 @@ describe("anúncios e RD", () => {
   it("o mesmo dia dá os mesmos números amanhã", () => {
     const amanha = gerarAnuncios(somarDias(HOJE, 1));
     const dia = "2026-10-20";
-    const a = anuncios.meta.insights.filter((i) => i.date_start === dia);
-    const b = amanha.meta.insights.filter((i) => i.date_start === dia);
+    const a = anuncios.google.linhas.filter((l) => l.segments.date === dia);
+    const b = amanha.google.linhas.filter((l) => l.segments.date === dia);
     expect(b).toEqual(a);
   });
 });
@@ -82,11 +67,11 @@ describe("site, redes, Asana e reputação", () => {
     expect(site.buscas.some((l) => l.date === "2026-10-28")).toBe(true);
   });
 
-  it("redes trazem foto diária de seguidores das 4 contas", () => {
+  it("redes de exemplo só do YouTube e do TikTok (Instagram e Facebook são reais)", () => {
     const r = gerarRedes(HOJE);
-    expect(r.instagram.dias.at(-1)?.date).toBe("2026-10-28");
-    expect(r.facebook.dias).toHaveLength(r.instagram.dias.length);
-    expect(r.instagram.posts.length).toBeGreaterThan(50);
+    expect(Object.keys(r)).toEqual(["youtube", "tiktok"]);
+    expect(r.tiktok.dias.at(-1)?.date).toBe("2026-10-28");
+    expect(r.youtube.dias).toHaveLength(r.tiktok.dias.length);
   });
 
   it("ronda com 35 sinalizações S e 20 E abertas", () => {

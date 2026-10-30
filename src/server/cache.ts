@@ -50,6 +50,8 @@ export const TAG = {
     metas: "marketing:metas",
     /** Agenda de eventos lida do site (relida a cada hora ou no teste). */
     eventosSite: "marketing:eventos_site",
+    /** Anúncios, posts e demografia lidos da Meta (relidos a cada hora). */
+    meta: "marketing:meta",
   },
 
   rh: {

@@ -1,8 +1,4 @@
 import type {
-  FacebookDia,
-  InstagramDemografia,
-  InstagramDia,
-  InstagramPost,
   TikTokContaDia,
   TikTokVideo,
   YoutubeCanal,
@@ -13,9 +9,9 @@ import { diaDaSemana, somarDias } from "@/lib/marketing/periodo";
 import { JANELA_DIAS } from "./anuncios";
 import { sorteio } from "./sorteio";
 
-// Redes de exemplo: foto diária de seguidores (na fase real o histórico
-// começa no dia da ligação), métricas por dia e posts. O Facebook só entrega
-// seguidores da página de forma estável (spec 4.7).
+// Redes de exemplo do YouTube e do TikTok (Instagram e Facebook são reais:
+// server/marketing/meta.ts): foto diária de seguidores, métricas por dia e
+// vídeos. Saem daqui quando Google e TikTok forem ligados.
 
 const LEGENDAS = [
   "Fim de semana na Rua do Relógio: programação completa",
@@ -34,21 +30,13 @@ const LEGENDAS = [
   "Energia de sexta-feira na Rua do Relógio",
 ];
 
-export interface DadosRedes {
-  instagram: {
-    dias: InstagramDia[];
-    posts: InstagramPost[];
-    demografia: InstagramDemografia[];
-  };
-  facebook: { dias: FacebookDia[] };
+export interface RedesDeExemplo {
   youtube: { canal: YoutubeCanal; dias: YoutubeDia[]; videos: YoutubeVideo[] };
   tiktok: { dias: TikTokContaDia[]; videos: TikTokVideo[] };
 }
 
-export function gerarRedes(hoje: string): DadosRedes {
-  const out: DadosRedes = {
-    instagram: { dias: [], posts: [], demografia: [] },
-    facebook: { dias: [] },
+export function gerarRedes(hoje: string): RedesDeExemplo {
+  const out: RedesDeExemplo = {
     youtube: {
       canal: { subscriberCount: 0, viewCount: 0, videoCount: 0 },
       dias: [],
@@ -57,11 +45,8 @@ export function gerarRedes(hoje: string): DadosRedes {
     tiktok: { dias: [], videos: [] },
   };
   // Seguidores no começo da janela.
-  let ig = 18_420;
-  let fb = 22_130;
   let yt = 1_236;
   let tt = 3_870;
-  let midias = 1_412;
   let ytViews = 186_400;
   let ytVideos = 94;
 
@@ -70,55 +55,6 @@ export function gerarRedes(hoje: string): DadosRedes {
     const d = diaDaSemana(data);
     const fds = d === 0 || d === 6 ? 1.35 : 1;
     const s = sorteio(`redes:${data}`);
-
-    // Instagram: posts do dia primeiro (movem o alcance).
-    const postsHoje = s.chance(d === 1 ? 0.3 : 0.75) ? 1 : 0;
-    let alcancePosts = 0;
-    for (let k = 0; k < postsHoje; k++) {
-      const p = sorteio(`ig-post:${data}:${k}`);
-      const tipo = p.pesada([
-        [["VIDEO", "REELS"], 5],
-        [["CAROUSEL_ALBUM", "FEED"], 3],
-        [["IMAGE", "FEED"], 2],
-      ] as const);
-      const reels = tipo[1] === "REELS";
-      const reach = Math.round(p.perto(reels ? 7_800 : 3_900, 0.55));
-      const like = Math.round(reach * p.perto(reels ? 0.062 : 0.055, 0.35));
-      alcancePosts += reach;
-      midias++;
-      out.instagram.posts.push({
-        id: `ig-${data}-${k}`,
-        media_type: tipo[0],
-        media_product_type: tipo[1],
-        timestamp: `${data}T${String(p.int(11, 20)).padStart(2, "0")}:00:00-03:00`,
-        permalink: `https://www.instagram.com/p/exemplo${data.replaceAll("-", "")}${k}/`,
-        caption: p.escolha(LEGENDAS),
-        like_count: like,
-        comments_count: Math.round(like * p.perto(0.06, 0.5)),
-        saved: Math.round(
-          like * p.perto(tipo[0] === "CAROUSEL_ALBUM" ? 0.22 : 0.09, 0.4),
-        ),
-        shares: Math.round(like * p.perto(reels ? 0.18 : 0.07, 0.4)),
-        reach,
-        views: Math.round(reach * p.perto(reels ? 1.9 : 1.35, 0.2)),
-      });
-    }
-    ig += Math.round(s.perto(24 * fds, 0.6) + alcancePosts / 1400);
-    const reachIg = Math.round(s.perto(5_200 * fds, 0.25) + alcancePosts * 0.6);
-    const interacoes = Math.round(reachIg * s.perto(0.048, 0.2));
-    out.instagram.dias.push({
-      date: data,
-      followers_count: ig,
-      media_count: midias,
-      reach: reachIg,
-      views: Math.round(reachIg * s.perto(2.1, 0.15)),
-      accounts_engaged: Math.round(interacoes * s.perto(0.62, 0.1)),
-      total_interactions: interacoes,
-      profile_links_taps: Math.round(reachIg * s.perto(0.004, 0.3)),
-    });
-
-    fb += Math.round(s.perto(3, 0.9));
-    out.facebook.dias.push({ date: data, followers_count: fb });
 
     // YouTube: um vídeo a cada ~2 semanas.
     if (i % 13 === 4) {
@@ -180,39 +116,5 @@ export function gerarRedes(hoje: string): DadosRedes {
     videoCount: ytVideos,
   };
 
-  const total = ig;
-  const CIDADES = [
-    ["Nova Friburgo", 0.43],
-    ["Rio de Janeiro", 0.12],
-    ["Teresópolis", 0.05],
-    ["Petrópolis", 0.04],
-    ["Niterói", 0.035],
-    ["Cordeiro", 0.025],
-    ["Macaé", 0.02],
-    ["Bom Jardim", 0.018],
-    ["São Paulo", 0.015],
-    ["Juiz de Fora", 0.01],
-  ] as const;
-  for (const [cidade, parte] of CIDADES)
-    out.instagram.demografia.push({
-      breakdown: "city",
-      dimension_value: cidade,
-      value: Math.round(total * parte),
-    });
-  const IDADES = [
-    ["13-17", 0.03],
-    ["18-24", 0.14],
-    ["25-34", 0.33],
-    ["35-44", 0.27],
-    ["45-54", 0.13],
-    ["55-64", 0.07],
-    ["65+", 0.03],
-  ] as const;
-  for (const [faixa, parte] of IDADES)
-    out.instagram.demografia.push({
-      breakdown: "age",
-      dimension_value: faixa,
-      value: Math.round(total * parte),
-    });
   return out;
 }

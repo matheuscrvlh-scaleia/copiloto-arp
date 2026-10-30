@@ -373,8 +373,10 @@ rescisória sem dividir por 12).
 
 ## Módulo Marketing (só consulta)
 
-Mockup (V1) com dados de exemplo nos campos das APIs; a leitura diária é a
-V3, na ordem dos acessos liberados. Campos usados por fonte:
+Dados reais: Meta (anúncios, Instagram e Facebook), RD Station e a agenda do
+site. Ainda de exemplo, nos campos das APIs, até serem ligados: Google (Ads,
+YouTube, GA4, Search Console, Perfil da Empresa), TikTok e Asana; nas telas
+os reais e os de exemplo se somam, e o topo mostra o selo de cada um. Campos usados por fonte:
 `src/lib/marketing/fontes.ts`. Nada é publicado, pausado, respondido ou
 alterado nas ferramentas.
 
@@ -413,9 +415,24 @@ execução continua (quem já está em dia é pulado). A origem de cada convers�
 vem do `traffic_source`, um "encoded_" + base64 com a sessão que converteu
 (UTMs, o site de onde veio ou "(none)"). As landing pages têm uma foto por dia
 pelo analytics (plano Pro: 45 dias para trás, 60 chamadas por hora). Os
-formulários da ARP não pedem cidade: cidade e UF ficam vazias. Custo por lead
-e leads por campanha continuam com o RD de exemplo enquanto os anúncios forem
-de exemplo (`dadosRdDosAnuncios`).
+formulários da ARP não pedem cidade: cidade e UF ficam vazias. No custo por
+lead (`dadosRdDosAnuncios`), os leads reais casam com as campanhas reais da
+Meta pelo `traffic_campaign` (= nome da campanha) e os de exemplo só com as
+campanhas de exemplo do Google e do TikTok.
+
+**Meta (dado real):** anúncios, posts e demografia do Instagram são lidos ao
+vivo (`src/server/marketing/meta.ts`) e ficam no cache por uma hora (tag
+`marketing:meta`, relida ao salvar, testar ou sincronizar a integração).
+Anúncios: insights por campanha e dia das últimas 18 semanas, com as quebras
+por plataforma e por estado, e o nome, objetivo e conjuntos das campanhas que
+gastaram. Seguidores não têm histórico na API: `/api/sync/meta` (Vercel Cron
+às 06h45 e "Sincronizar agora") grava em `marketing.redes_dia` a foto de hoje
+do Instagram e da página do Facebook, e as métricas diárias do Instagram
+(alcance, visualizações, interações) dos dias que faltam nas 18 semanas, uma
+chamada por dia, relendo sempre os 3 últimos. O Facebook só dá seguidores (as
+métricas da página pedem token de página). Hoje as campanhas da ARP são, na
+maioria, posts impulsionados, e as UTMs dos leads do RD não trazem o nome da
+campanha: o custo por lead da Meta fica vazio até isso mudar.
 
 **Agenda do site (dado real, não de exemplo):** a tela Marketing › Eventos
 lê ao vivo o endereço salvo (hoje

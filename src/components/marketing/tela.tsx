@@ -1,4 +1,4 @@
-import { Clock, FlaskConical, PlugZap } from "lucide-react";
+import { Clock, FlaskConical, PlugZap, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { Children, cloneElement, isValidElement } from "react";
 import type { ItemGrafico } from "@/components/dashboard/graficos/base";
@@ -18,6 +18,17 @@ import { variacaoPct } from "@/lib/marketing/periodo";
 // contra o período anterior e a fonte; abas pela URL; e a nota de fonte em
 // letra pequena embaixo de cada tabela.
 
+/** "Meta Ads e leads do RD Station" com as fontes reais da tela; senão undefined. */
+export function fontesReais(
+  ...fontes: (string | false | null | undefined)[]
+): string | undefined {
+  const lista = fontes.filter((f): f is string => !!f);
+  if (!lista.length) return undefined;
+  return lista.length === 1
+    ? lista[0]
+    : `${lista.slice(0, -1).join(", ")} e ${lista.at(-1)}`;
+}
+
 /** Topo: "Dados de dd/mm/aaaa às hh:mm", linha de filtros e exportação. */
 export function TopoDaTela({
   dadosDe,
@@ -25,6 +36,7 @@ export function TopoDaTela({
   acoes,
   exemplo = true,
   reais,
+  aviso,
 }: {
   /** Ex.: "Dados de 29/10/2026 às 06:00" ou "Versão de 12/10/2026, por Ana". */
   dadosDe: string;
@@ -36,6 +48,8 @@ export function TopoDaTela({
   exemplo?: boolean;
   /** Fontes já ligadas de verdade (ex.: "RD Station"): selo verde. */
   reais?: string;
+  /** Fonte real que não respondeu (ex.: a Meta): selo amarelo. */
+  aviso?: string;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -47,7 +61,7 @@ export function TopoDaTela({
           </span>
           {reais && (
             <span
-              title="Lidos da ferramenta pela sincronização diária."
+              title="Lidos da ferramenta (sincronização diária ou leitura de hora em hora)."
               className="inline-flex items-center gap-1 rounded-full bg-green-400/20 px-2 py-0.5 font-medium text-green-800"
             >
               <PlugZap className="size-3" aria-hidden />
@@ -56,11 +70,17 @@ export function TopoDaTela({
           )}
           {exemplo && (
             <span
-              title="Mockup: dados fictícios montados nos campos das APIs. A ligação real entra na V3."
+              title="Dados fictícios nos campos das APIs, até a ferramenta ser ligada."
               className="inline-flex items-center gap-1 rounded-full bg-violet-400/20 px-2 py-0.5 font-medium text-violet-700"
             >
               <FlaskConical className="size-3" aria-hidden />
               {reais ? "O resto, de exemplo" : "Dados de exemplo"}
+            </span>
+          )}
+          {aviso && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 font-medium text-amber-800">
+              <TriangleAlert className="size-3" aria-hidden />
+              {aviso}
             </span>
           )}
         </p>

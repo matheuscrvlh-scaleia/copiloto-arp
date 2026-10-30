@@ -98,7 +98,6 @@ function dia(date: string, followers: number) {
   return {
     date,
     followers_count: followers,
-    media_count: 1,
     reach: 0,
     views: 0,
     accounts_engaged: 0,
@@ -173,5 +172,33 @@ describe("Redes sociais", () => {
     expect(ps[0]?.tipo).toBe("reels");
     expect(postsDoPeriodo(f, P, { tipo: "carrossel" })).toHaveLength(0);
     expect(linhasPorRede(f, P)).toHaveLength(4);
+  });
+
+  it("Instagram real: métricas antes da 1ª foto e foto de hoje sem métricas", () => {
+    const g: FontesRedes = {
+      ...f,
+      instagram: {
+        ...f.instagram,
+        dias: [
+          { ...dia("2026-10-20", 0), followers_count: null, reach: 500 },
+          { ...dia("2026-10-24", 0), followers_count: null, reach: 300 },
+          {
+            date: "2026-10-25",
+            followers_count: 61_212,
+            reach: null,
+            views: null,
+            accounts_engaged: null,
+            total_interactions: null,
+            profile_links_taps: null,
+          },
+        ],
+      },
+    };
+    const l = linhaDaRede(g, "instagram", P);
+    expect(l.seguidores).toBe(61_212);
+    expect(l.alcance).toBe(800);
+    expect(l.novos).toBe(0);
+    expect(l.parcial).toBe(true);
+    expect(seguidoresEm(g, "instagram", "2026-10-24")).toBeNull();
   });
 });

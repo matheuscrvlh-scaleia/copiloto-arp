@@ -20,6 +20,7 @@ import { cifrar, cofreConfigurado } from "@/server/cofre";
 import {
   credencialEmUso,
   credencialSalva,
+  meta,
   podeConfigurar,
   rdStation,
   testarConexao,
@@ -27,6 +28,7 @@ import {
 import { registrarDepois } from "@/server/logs";
 import { iniciarAutorizacaoRd } from "@/server/marketing/autorizacao-rd";
 import { sincronizarCopiloto } from "@/server/sync/copiloto-rh";
+import { sincronizarMeta } from "@/server/sync/meta";
 import { sincronizarRd } from "@/server/sync/rd-station";
 import { sincronizarSecullum } from "@/server/sync/secullum";
 import { sincronizarWps } from "@/server/sync/wps";
@@ -132,6 +134,7 @@ export async function salvarIntegracao(
   });
   if (salvo.error) return erroDoBanco(salvo.error);
   if (sistema === "mkt_site") updateTag(TAG.marketing.eventosSite);
+  if (sistema === "mkt_meta") updateTag(TAG.marketing.meta);
   if (teste) {
     const r = await core.rpc("registrar_teste_integracao", {
       p_sistema: sistema,
@@ -168,6 +171,7 @@ export async function testarIntegracao(
   });
   // Testar a agenda do site também relê os eventos na tela.
   if (sistema === "mkt_site" && teste.ok) updateTag(TAG.marketing.eventosSite);
+  if (sistema === "mkt_meta" && teste.ok) updateTag(TAG.marketing.meta);
   // Só a credencial salva na tela guarda o resultado (a do .env não tem linha).
   if (await credencialSalva(sistema).catch(() => null)) {
     const r = await (await createClient())
@@ -219,6 +223,7 @@ export async function sincronizarAgora(
   if (sistema === "copiloto_rh") return sincronizarCopilotoAgora();
   if (sistema === "wps") return sincronizarWpsAgora();
   if (sistema === "mkt_rd_station") return sincronizarRdAgora();
+  if (sistema === "mkt_meta") return sincronizarMetaAgora();
   if (sistema !== "secullum")
     return { erro: "A sincronização desta integração ainda não existe." };
   try {
@@ -273,6 +278,30 @@ async function sincronizarRdAgora(): Promise<EstadoAcao> {
   });
   return {
     ok: "Leitura do RD iniciada. Leva alguns minutos; as telas do Marketing passam a mostrar os leads reais.",
+  };
+}
+
+/**
+ * Meta: roda depois de responder (a primeira leitura das métricas diárias do
+ * Instagram faz uma chamada por dia). Anúncios e posts são relidos já.
+ */
+async function sincronizarMetaAgora(): Promise<EstadoAcao> {
+  try {
+    await meta();
+  } catch (erro) {
+    return { erro: erro instanceof Error ? erro.message : "Sem credencial." };
+  }
+  updateTag(TAG.marketing.meta);
+  after(async () => {
+    try {
+      await sincronizarMeta();
+    } catch (erro) {
+      // O erro fica registrado em integracao.sync_runs.
+      console.error("sync meta (manual)", erro);
+    }
+  });
+  return {
+    ok: "Leitura da Meta iniciada. Leva um ou dois minutos; as Redes passam a mostrar Instagram e Facebook reais.",
   };
 }
 

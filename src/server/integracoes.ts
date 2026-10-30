@@ -9,6 +9,7 @@ import {
   type DiarioDeObrasConfig,
 } from "@/connectors/diario-de-obras/client";
 import { ConnectorError, mensagemSegura } from "@/connectors/http";
+import { createMetaClient } from "@/connectors/marketing/meta";
 import { createRdStationClient } from "@/connectors/marketing/rd-station";
 import {
   createSecullumClient,
@@ -220,6 +221,25 @@ export async function rdStation() {
     clientSecret: s.client_secret,
     refreshToken: s.refresh_token,
   });
+}
+
+/**
+ * Meta com o acesso salvo em Marketing › Configurações › Integrações, e os
+ * ids preenchidos ("" no que a ARP não usa).
+ */
+export async function meta() {
+  const def = INTEGRACOES.mkt_meta;
+  const c = await credencialEmUso("mkt_meta");
+  const p = def.parametros.parse(c.parametros);
+  const s = separarSegredos(def, c.segredo);
+  if (!s.segredo)
+    throw new IntegracaoNaoConfigurada("mkt_meta", "falta o token de acesso");
+  return {
+    api: createMetaClient({ sistema: "mkt_meta", token: s.segredo }),
+    contaDeAnuncios: String(p.ad_account_id ?? ""),
+    pagina: String(p.page_id ?? ""),
+    instagram: String(p.instagram_id ?? ""),
+  };
 }
 
 // ---------------------------------------------------------------------------

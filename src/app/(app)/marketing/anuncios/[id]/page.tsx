@@ -19,6 +19,7 @@ import {
   CartaoMkt,
   Cartoes,
   Fonte,
+  fontesReais,
   hrefCom,
   TopoDaTela,
   variacaoContra,
@@ -137,6 +138,11 @@ async function Tela({
         <TopoDaTela
           dadosDe={f.ctx.dadosDe}
           filtros={filtros}
+          exemplo={campanha.plataforma !== "meta"}
+          reais={fontesReais(
+            campanha.plataforma === "meta" && "Meta Ads",
+            rd.lidoEm && "leads do RD Station",
+          )}
           acoes={
             <AbrirNaFerramenta
               href={linkNaPlataforma(ref)}

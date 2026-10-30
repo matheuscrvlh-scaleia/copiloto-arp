@@ -135,6 +135,147 @@ describe("meta", () => {
     expect(chamadas[0]?.url).not.toContain("tk");
     expect(chamadas[0]?.headers.get("authorization")).toBe("Bearer tk");
   });
+
+  it("insights: segue o cursor e converte os números que vêm em texto", async () => {
+    const chamadas: Chamada[] = [];
+    const linha = (dia: string) => ({
+      campaign_id: "c1",
+      date_start: dia,
+      date_stop: dia,
+      spend: "9.89",
+      impressions: "2486",
+      reach: "2327",
+      frequency: "1.068",
+      clicks: "135",
+      inline_link_clicks: "0",
+      ctr: "5.43",
+      cpc: "0.07",
+      cpm: "3.97",
+      actions: [{ action_type: "lead", value: "2" }],
+    });
+    const api = createMetaClient({
+      sistema: "mkt_meta",
+      token: "tk",
+      fetch: falso(
+        [
+          {
+            data: [linha("2026-10-01")],
+            paging: { cursors: { after: "AA" }, next: "https://x" },
+          },
+          { data: [linha("2026-10-02")], paging: { cursors: { after: "BB" } } },
+        ],
+        chamadas,
+      ),
+    });
+    const r = await api.insights("1", "2026-10-01", "2026-10-02");
+    expect(r).toHaveLength(2);
+    expect(r[0]?.spend).toBe(9.89);
+    expect(r[0]?.actions).toEqual([{ action_type: "lead", value: 2 }]);
+    expect(r[0]?.cost_per_action_type).toEqual([]);
+    expect(chamadas[1]?.url).toContain("after=AA");
+    expect(chamadas[0]?.url).toContain("time_increment=1");
+  });
+
+  it("estado sem o sufixo (state) e demografia por cidade e idade", async () => {
+    const api = createMetaClient({
+      sistema: "mkt_meta",
+      token: "tk",
+      fetch: falso([
+        {
+          data: [
+            {
+              campaign_id: "c1",
+              date_start: "2026-10-01",
+              region: "Rio de Janeiro (state)",
+              spend: "1",
+              impressions: "10",
+              inline_link_clicks: "1",
+            },
+          ],
+        },
+        {
+          data: [
+            {
+              total_value: {
+                breakdowns: [
+                  {
+                    results: [
+                      {
+                        dimension_values: [
+                          "Nova Friburgo, Rio de Janeiro (state)",
+                        ],
+                        value: 33655,
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          data: [
+            {
+              total_value: {
+                breakdowns: [
+                  { results: [{ dimension_values: ["25-34"], value: 12690 }] },
+                ],
+              },
+            },
+          ],
+        },
+      ]),
+    });
+    const q = await api.quebras("1", "2026-10-01", "2026-10-01", "region");
+    expect(q[0]?.region).toBe("Rio de Janeiro");
+    expect(await api.instagramDemografia("9")).toEqual([
+      {
+        breakdown: "city",
+        dimension_value: "Nova Friburgo, Rio de Janeiro",
+        value: 33655,
+      },
+      { breakdown: "age", dimension_value: "25-34", value: 12690 },
+    ]);
+  });
+
+  it("posts: para no primeiro anterior à janela e lê as métricas aninhadas", async () => {
+    const midia = (id: string, ts: string) => ({
+      id,
+      media_type: "VIDEO",
+      media_product_type: "REELS",
+      timestamp: ts,
+      like_count: 4,
+      comments_count: 1,
+      insights: {
+        data: [
+          { name: "reach", values: [{ value: 1059 }] },
+          { name: "views", values: [{ value: 1554 }] },
+        ],
+      },
+    });
+    const chamadas: Chamada[] = [];
+    const api = createMetaClient({
+      sistema: "mkt_meta",
+      token: "tk",
+      fetch: falso(
+        [
+          {
+            data: [
+              midia("1", "2026-10-29T21:02:55+0000"),
+              midia("2", "2026-06-01T10:00:00+0000"),
+            ],
+            paging: { cursors: { after: "AA" }, next: "https://x" },
+          },
+        ],
+        chamadas,
+      ),
+    });
+    const posts = await api.instagramPosts("9", "2026-06-26");
+    expect(chamadas).toHaveLength(1);
+    expect(posts.map((p) => [p.id, p.reach, p.views, p.saved])).toEqual([
+      ["1", 1059, 1554, 0],
+    ]);
+  });
 });
 
 describe("tiktok", () => {

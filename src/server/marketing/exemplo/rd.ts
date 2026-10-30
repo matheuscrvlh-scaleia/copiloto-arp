@@ -113,7 +113,6 @@ const ORGANICAS: readonly (readonly [readonly [string, string], number])[] = [
 ] as const;
 
 const ORIGEM_PAGA: Record<CampanhaExemplo["plataforma"], [string, string]> = {
-  meta: ["facebook", "paid_social"],
   google: ["google", "cpc"],
   tiktok: ["tiktok", "paid_social"],
 };

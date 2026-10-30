@@ -446,3 +446,39 @@ describe("RD Station com dados reais (20261030140000)", () => {
     expect(await contar("rd_conversoes")).toBe(0);
   });
 });
+
+describe("Instagram e Facebook com dados reais (20261030160000)", () => {
+  beforeAll(async () => {
+    await db.exec(`
+      insert into marketing.redes_dia (rede, dia, seguidores) values ('instagram', '2026-10-30', 61212);
+      insert into marketing.redes_dia (rede, dia, alcance) values ('instagram', '2026-10-29', 14872);
+    `);
+  });
+  const contar = () =>
+    valor<number>("select count(*)::int from marketing.redes_dia");
+
+  it("lê quem tem o módulo; só o servidor grava", async () => {
+    await como(U.painel, async () => {
+      expect(await contar()).toBe(2);
+      expect(
+        await erro(
+          "insert into marketing.redes_dia (rede, dia) values ('facebook', '2026-10-30')",
+        ),
+      ).toMatch(/permission denied/);
+    });
+    await como(U.fora, async () => expect(await contar()).toBe(0));
+  });
+
+  it("só Instagram e Facebook, sem número negativo", async () => {
+    expect(
+      await erro(
+        "insert into marketing.redes_dia (rede, dia) values ('tiktok', '2026-10-30')",
+      ),
+    ).toMatch(/check/);
+    expect(
+      await erro(
+        "insert into marketing.redes_dia (rede, dia, seguidores) values ('facebook', '2026-10-30', -1)",
+      ),
+    ).toMatch(/check/);
+  });
+});

@@ -1,32 +1,29 @@
 import type {
   GoogleLinha,
   GoogleTermo,
-  MetaCampanha,
-  MetaInsight,
-  MetaQuebra,
   TikTokCampanha,
   TikTokLinha,
 } from "@/lib/marketing/fontes";
 import { diaDaSemana, somarDias } from "@/lib/marketing/periodo";
 import { arred, sorteio } from "./sorteio";
 
-// Anúncios de exemplo: 12 campanhas (6 Meta, 4 Google com 1 de YouTube, 2
-// TikTok), dia a dia nas últimas 18 semanas. Cada campanha tem o custo por
-// lead "real" dela, que define quantos leads chegam no RD (rd.ts usa a mesma
-// conta). Casos do spec (etapa 1): uma campanha com gasto e sem lead (a de
-// alcance dos 108 anos) e uma pausada que ainda gastou no começo da janela.
+// Anúncios de exemplo de Google e TikTok (a Meta é real: server/marketing/
+// meta.ts): 6 campanhas (4 Google com 1 de YouTube, 2 TikTok), dia a dia nas
+// últimas 18 semanas. Cada campanha tem o custo por lead "real" dela, que
+// define quantos leads chegam no RD de exemplo (rd.ts usa a mesma conta).
+// Saem daqui quando Google e TikTok forem ligados.
 
 export const JANELA_DIAS = 126;
 
-export type Plataforma = "meta" | "google" | "tiktok";
+export type Plataforma = "google" | "tiktok";
 
 export interface CampanhaExemplo {
   id: string;
   plataforma: Plataforma;
   nome: string;
-  /** objective (Meta), advertising_channel_type (Google), objective_type (TikTok). */
+  /** advertising_channel_type (Google), objective_type (TikTok). */
   tipo: string;
-  /** effective_status / campaign.status; TikTok não entra nos campos usados. */
+  /** campaign.status; TikTok não entra nos campos usados. */
   situacao: string | null;
   /** Gasto médio por dia, em reais. */
   verba: number;
@@ -36,78 +33,9 @@ export interface CampanhaExemplo {
   inflacao: number;
   /** Landing pages para onde a campanha manda, com peso. */
   destinos: (readonly [string, number])[];
-  /** Pausada a partir deste dia (sem gasto depois). */
-  pausadaEm?: number;
 }
 
 const CAMPANHAS: CampanhaExemplo[] = [
-  {
-    id: "120210001",
-    plataforma: "meta",
-    nome: "Locação | Lojas disponíveis | Leads",
-    tipo: "OUTCOME_LEADS",
-    situacao: "ACTIVE",
-    verba: 38,
-    cpl: 38,
-    inflacao: 1.45,
-    destinos: [["lp-lojas-disponiveis", 1]],
-  },
-  {
-    id: "120210002",
-    plataforma: "meta",
-    nome: "Eventos | Casamentos e festas | Leads",
-    tipo: "OUTCOME_LEADS",
-    situacao: "ACTIVE",
-    verba: 48,
-    cpl: 29,
-    inflacao: 1.35,
-    destinos: [["lp-casamentos-e-festas", 1]],
-  },
-  {
-    id: "120210003",
-    plataforma: "meta",
-    nome: "Eventos | Corporativo | Conversas",
-    tipo: "OUTCOME_ENGAGEMENT",
-    situacao: "ACTIVE",
-    verba: 28,
-    cpl: 52,
-    inflacao: 2.1,
-    destinos: [["lp-eventos-corporativos", 1]],
-  },
-  {
-    id: "120210004",
-    plataforma: "meta",
-    nome: "Coworking | Salas | Tráfego",
-    tipo: "OUTCOME_TRAFFIC",
-    situacao: "ACTIVE",
-    verba: 18,
-    cpl: 64,
-    inflacao: 0.6,
-    destinos: [["lp-espacos-coworking", 1]],
-  },
-  {
-    id: "120210005",
-    plataforma: "meta",
-    nome: "Marca | 108 anos | Alcance",
-    tipo: "OUTCOME_AWARENESS",
-    situacao: "ACTIVE",
-    verba: 22,
-    cpl: null,
-    inflacao: 0,
-    destinos: [],
-  },
-  {
-    id: "120210006",
-    plataforma: "meta",
-    nome: "Agenda | Fim de semana | Tráfego",
-    tipo: "OUTCOME_TRAFFIC",
-    situacao: "PAUSED",
-    verba: 16,
-    cpl: 70,
-    inflacao: 0.8,
-    destinos: [["lp-newsletter-agenda", 1]],
-    pausadaEm: 60,
-  },
   {
     id: "2104401",
     plataforma: "google",
@@ -225,20 +153,8 @@ const TERMOS = {
   ],
 } as const;
 
-const ESTADOS = [
-  ["Rio de Janeiro", 82],
-  ["Minas Gerais", 9],
-  ["São Paulo", 5],
-  ["Espírito Santo", 4],
-] as const;
-
 export interface DadosAnuncios {
   campanhas: CampanhaExemplo[];
-  meta: {
-    campanhas: MetaCampanha[];
-    insights: MetaInsight[];
-    quebras: MetaQuebra[];
-  };
   google: { linhas: GoogleLinha[]; termos: GoogleTermo[] };
   tiktok: { campanhas: TikTokCampanha[]; linhas: TikTokLinha[] };
   /** Leads que cada campanha mandou ao RD por dia: id → data → quantidade. */
@@ -259,7 +175,6 @@ export function gerarAnuncios(hoje: string): DadosAnuncios {
   );
   const out: DadosAnuncios = {
     campanhas: CAMPANHAS,
-    meta: { campanhas: [], insights: [], quebras: [] },
     google: { linhas: [], termos: [] },
     tiktok: { campanhas: [], linhas: [] },
     leadsNoRd: new Map(),
@@ -268,23 +183,6 @@ export function gerarAnuncios(hoje: string): DadosAnuncios {
   for (const c of CAMPANHAS) {
     const leads = new Map<string, number>();
     out.leadsNoRd.set(c.id, leads);
-    if (c.plataforma === "meta")
-      out.meta.campanhas.push({
-        campaign_id: c.id,
-        campaign_name: c.nome,
-        objective: c.tipo,
-        effective_status: c.situacao ?? "ACTIVE",
-        conjuntos: [
-          {
-            adset_name: `${c.nome.split(" | ")[1]} | Público amplo RJ`,
-            anuncios: [{ ad_name: "Vídeo 15s" }, { ad_name: "Carrossel" }],
-          },
-          {
-            adset_name: `${c.nome.split(" | ")[1]} | Remarketing site`,
-            anuncios: [{ ad_name: "Imagem única" }],
-          },
-        ],
-      });
     if (c.plataforma === "tiktok")
       out.tiktok.campanhas.push({
         campaign_id: c.id,
@@ -292,9 +190,7 @@ export function gerarAnuncios(hoje: string): DadosAnuncios {
         objective_type: c.tipo,
       });
 
-    dias.forEach((data, i) => {
-      // Pausada: sem gasto a partir do dia da pausa (contado do fim).
-      if (c.pausadaEm !== undefined && i >= JANELA_DIAS - c.pausadaEm) return;
+    for (const data of dias) {
       const s = sorteio(`anuncio:${c.id}:${data}`);
       const spend = arred(s.perto(c.verba * fatorDoDia(data), 0.28));
       const cpm =
@@ -302,16 +198,9 @@ export function gerarAnuncios(hoje: string): DadosAnuncios {
           ? c.tipo === "SEARCH"
             ? s.perto(62, 0.2)
             : s.perto(14, 0.25)
-          : c.plataforma === "tiktok"
-            ? s.perto(9, 0.25)
-            : s.perto(c.tipo === "OUTCOME_AWARENESS" ? 7 : 16, 0.2);
+          : s.perto(9, 0.25);
       const impressions = Math.round((spend / cpm) * 1000);
-      const ctrBase =
-        c.tipo === "SEARCH"
-          ? 0.072
-          : c.tipo === "OUTCOME_AWARENESS"
-            ? 0.004
-            : 0.014;
+      const ctrBase = c.tipo === "SEARCH" ? 0.072 : 0.014;
       const clicks = Math.max(
         1,
         Math.round(impressions * s.perto(ctrBase, 0.3)),
@@ -323,78 +212,7 @@ export function gerarAnuncios(hoje: string): DadosAnuncios {
           ? 0
           : Math.round(rd * c.inflacao + (s.chance(0.3) ? 1 : 0));
 
-      if (c.plataforma === "meta") {
-        const frequency = arred(s.perto(1.25, 0.12));
-        const reach = Math.round(impressions / frequency);
-        const link = Math.round(clicks * s.perto(0.72, 0.1));
-        const conversas = c.tipo === "OUTCOME_ENGAGEMENT" ? conversoes : 0;
-        const leadsMeta = c.tipo === "OUTCOME_ENGAGEMENT" ? 0 : conversoes;
-        const lpv = Math.round(link * s.perto(0.78, 0.1));
-        const actions = [
-          { action_type: "landing_page_view", value: lpv },
-          ...(leadsMeta ? [{ action_type: "lead", value: leadsMeta }] : []),
-          ...(conversas
-            ? [
-                {
-                  action_type:
-                    "onsite_conversion.messaging_conversation_started_7d",
-                  value: conversas,
-                },
-              ]
-            : []),
-        ];
-        out.meta.insights.push({
-          campaign_id: c.id,
-          date_start: data,
-          spend,
-          impressions,
-          reach,
-          frequency,
-          clicks,
-          inline_link_clicks: link,
-          ctr: arred((clicks / impressions) * 100, 4),
-          cpc: arred(spend / clicks, 4),
-          cpm: arred((spend / impressions) * 1000, 4),
-          actions,
-          cost_per_action_type: actions
-            .filter((a) => a.value > 0)
-            .map((a) => ({
-              action_type: a.action_type,
-              value: arred(spend / a.value),
-            })),
-        });
-        // Facebook × Instagram e estado.
-        const ig = s.perto(c.tipo === "OUTCOME_AWARENESS" ? 0.55 : 0.68, 0.08);
-        for (const [plat, parte] of [
-          ["instagram", ig],
-          ["facebook", 1 - ig],
-        ] as const) {
-          out.meta.quebras.push({
-            campaign_id: c.id,
-            date_start: data,
-            publisher_platform: plat,
-            spend: arred(spend * parte),
-            impressions: Math.round(impressions * parte),
-            inline_link_clicks: Math.round(link * parte),
-          });
-        }
-        let resto = 1;
-        ESTADOS.forEach(([estado, peso], k) => {
-          const parte =
-            k === ESTADOS.length - 1
-              ? resto
-              : Math.min(resto, s.perto(peso / 100, 0.2));
-          resto -= parte;
-          out.meta.quebras.push({
-            campaign_id: c.id,
-            date_start: data,
-            region: estado,
-            spend: arred(spend * parte),
-            impressions: Math.round(impressions * parte),
-            inline_link_clicks: Math.round(link * parte),
-          });
-        });
-      } else if (c.plataforma === "google") {
+      if (c.plataforma === "google") {
         const video =
           c.tipo === "VIDEO"
             ? Math.round(impressions * s.perto(0.31, 0.15))
@@ -460,7 +278,7 @@ export function gerarAnuncios(hoje: string): DadosAnuncios {
           video_views_p100: Math.round(plays * s.perto(0.12, 0.25)),
         });
       }
-    });
+    }
   }
   return out;
 }

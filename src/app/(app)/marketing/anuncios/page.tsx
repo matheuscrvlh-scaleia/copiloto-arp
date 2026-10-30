@@ -17,6 +17,7 @@ import {
   CartaoMkt,
   Cartoes,
   Fonte,
+  fontesReais,
   hrefCom,
   TopoDaTela,
   variacaoContra,
@@ -262,6 +263,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         <TopoDaTela
           dadosDe={ctx.dadosDe}
           filtros={linhaFiltros}
+          reais={fontesReais(
+            anuncios.metaReal && "Meta Ads",
+            rd.lidoEm && "leads do RD Station",
+          )}
+          aviso={anuncios.avisoMeta}
           acoes={
             exportar ? (
               <BotaoExportar

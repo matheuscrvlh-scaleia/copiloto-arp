@@ -1,23 +1,24 @@
 import "server-only";
 import { cache } from "react";
+import type { FontesAnuncios, Plataforma } from "@/lib/marketing/anuncios";
+import type { FontesRedes } from "@/lib/marketing/redes";
 import { contextoMkt, locatarios, temasEcodigos } from "./base";
-import { type DadosAnuncios, gerarAnuncios } from "./exemplo/anuncios";
+import { gerarAnuncios } from "./exemplo/anuncios";
 import { type DadosAsana, gerarAsana } from "./exemplo/asana";
 import { type DadosRd, gerarRd } from "./exemplo/rd";
-import { type DadosRedes, gerarRedes } from "./exemplo/redes";
+import { gerarRedes } from "./exemplo/redes";
 import { type DadosReputacao, gerarReputacao } from "./exemplo/reputacao";
 import { type DadosSite, gerarSite } from "./exemplo/site";
 import { memo } from "./exemplo/sorteio";
+import { anunciosMeta, redesMeta } from "./meta";
 import { rdReal } from "./rd";
 
-// Dados das ferramentas. Nesta fase (mockup, spec seção 6) são de exemplo,
-// montados nos campos das APIs (lib/marketing/fontes.ts) e iguais para
-// todos; na V3 cada função passa a ler o que a sincronização diária gravou,
-// com o mesmo formato de saída. As telas conferem a permissão (Protegido)
+// Dados das ferramentas, nos campos das APIs (lib/marketing/fontes.ts).
+// Reais: Meta (anúncios, Instagram e Facebook) e RD Station. Ainda de
+// exemplo (mockup, spec seção 6), até serem ligados: Google (Ads, YouTube,
+// GA4, Search Console, Perfil da Empresa), TikTok e Asana. Nas telas, os
+// reais e os de exemplo se somam. As telas conferem a permissão (Protegido)
 // antes de chamar; nada daqui vai para o navegador sem passar pela tela.
-
-export const FONTE_EXEMPLO =
-  "Dados de exemplo (mockup) nos campos das APIs; a ligação real entra na V3.";
 
 const anunciosDoDia = memo(gerarAnuncios);
 const rdDoDia = memo((hoje) => gerarRd(hoje, anunciosDoDia(hoje)));
@@ -37,10 +38,56 @@ async function hoje() {
   return (await contextoMkt()).hoje;
 }
 
-/** Meta Ads, Google Ads e TikTok Ads, dia a dia. */
-export const dadosAnuncios = cache(
-  async (): Promise<DadosAnuncios> => anunciosDoDia(await hoje()),
-);
+export interface CampanhaRef {
+  id: string;
+  plataforma: Plataforma;
+  nome: string;
+  /** objective, advertising_channel_type ou objective_type. */
+  tipo: string;
+  situacao: string | null;
+}
+
+export interface DadosAnuncios extends FontesAnuncios {
+  /** As campanhas das três plataformas (detalhe da campanha). */
+  campanhas: CampanhaRef[];
+  /** A Meta foi lida da API (senão, Meta fica vazia e avisoMeta diz por quê). */
+  metaReal: boolean;
+  avisoMeta?: string;
+}
+
+/** Meta Ads (real) com Google Ads e TikTok Ads (de exemplo), dia a dia. */
+export const dadosAnuncios = cache(async (): Promise<DadosAnuncios> => {
+  const [exemplo, meta] = await Promise.all([
+    hoje().then(anunciosDoDia),
+    anunciosMeta(),
+  ]);
+  const dadosMeta = meta.ok
+    ? meta.dados
+    : { campanhas: [], insights: [], quebras: [] };
+  return {
+    meta: dadosMeta,
+    google: exemplo.google,
+    tiktok: exemplo.tiktok,
+    campanhas: [
+      ...dadosMeta.campanhas.map((c) => ({
+        id: c.campaign_id,
+        plataforma: "meta" as const,
+        nome: c.campaign_name,
+        tipo: c.objective,
+        situacao: c.effective_status,
+      })),
+      ...exemplo.campanhas.map(({ id, plataforma, nome, tipo, situacao }) => ({
+        id,
+        plataforma,
+        nome,
+        tipo,
+        situacao,
+      })),
+    ],
+    metaReal: meta.ok,
+    ...(meta.ok ? {} : { avisoMeta: meta.aviso }),
+  };
+});
 
 /**
  * RD Station: contatos, conversões e landing pages. Os reais (com lidoEm)
@@ -51,24 +98,58 @@ export const dadosRd = cache(
 );
 
 /**
- * O RD de exemplo que casa com os anúncios de exemplo (traffic_campaign =
- * nome da campanha): custo por lead e leads por campanha continuam de
- * exemplo até os anúncios serem reais. Leads reais com investimento de
- * exemplo dariam um custo por lead que não existe.
+ * Leads para o custo por lead dos anúncios (traffic_campaign = nome da
+ * campanha): os reais do RD casam com as campanhas reais da Meta; os de
+ * exemplo entram só nas campanhas de exemplo do Google e do TikTok. Lead
+ * real com investimento de exemplo daria um custo por lead que não existe.
  */
-export const dadosRdDosAnuncios = cache(
-  async (): Promise<DadosRd> => rdDoDia(await hoje()),
-);
+export const dadosRdDosAnuncios = cache(async (): Promise<DadosRd> => {
+  const h = await hoje();
+  const [real, exemplo] = [await rdReal(), rdDoDia(h)];
+  const deExemplo = new Set(anunciosDoDia(h).campanhas.map((c) => c.nome));
+  const conversoes = exemplo.conversoes.filter((c) =>
+    deExemplo.has(c.traffic_campaign),
+  );
+  if (!real) return { ...exemplo, conversoes };
+  return {
+    ...real,
+    conversoes: [...real.conversoes, ...conversoes].sort((a, b) =>
+      a.created_at.localeCompare(b.created_at),
+    ),
+  };
+});
 
 /** Google Analytics 4 e Search Console. */
 export const dadosSite = cache(
   async (): Promise<DadosSite> => siteDoDia(await hoje()),
 );
 
-/** Instagram, Facebook, YouTube e TikTok (contas da ARP). */
-export const dadosRedes = cache(
-  async (): Promise<DadosRedes> => redesDoDia(await hoje()),
-);
+export interface DadosRedes extends FontesRedes {
+  /** Instagram e Facebook lidos da Meta (senão, vazios e avisoMeta diz por quê). */
+  metaReal: boolean;
+  avisoMeta?: string;
+}
+
+/**
+ * Instagram e Facebook (reais, da Meta) com YouTube e TikTok (de exemplo),
+ * das contas da ARP.
+ */
+export const dadosRedes = cache(async (): Promise<DadosRedes> => {
+  const [exemplo, meta] = await Promise.all([
+    hoje().then(redesDoDia),
+    redesMeta(),
+  ]);
+  return {
+    instagram: meta.ok
+      ? meta.dados.instagram
+      : { dias: [], posts: [], demografia: [] },
+    facebook: meta.ok ? meta.dados.facebook : { dias: [] },
+    youtube: exemplo.youtube,
+    tiktok: exemplo.tiktok,
+    metaReal: meta.ok,
+    ...(meta.aviso ? { avisoMeta: meta.aviso } : {}),
+  };
+});
 
 /** Asana: projetos e tarefas (time, calendário e ronda). */
 export const dadosAsana = cache(

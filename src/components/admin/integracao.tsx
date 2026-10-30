@@ -80,6 +80,7 @@ const SINCRONIZA: Sistema[] = [
   "copiloto_rh",
   "wps",
   "mkt_rd_station",
+  "mkt_meta",
 ];
 
 export function CartaoIntegracao({

@@ -261,8 +261,6 @@ export function gerarSite(hoje: string, anuncios: DadosAnuncios): DadosSite {
 
   // Cliques pagos por dia e campanha.
   const cliques = new Map<string, number>();
-  for (const l of anuncios.meta.insights)
-    cliques.set(`${l.date_start}|${l.campaign_id}`, l.inline_link_clicks);
   for (const l of anuncios.google.linhas)
     cliques.set(`${l.segments.date}|${l.campaign.id}`, l.metrics.clicks);
   for (const l of anuncios.tiktok.linhas)
@@ -301,13 +299,7 @@ export function gerarSite(hoje: string, anuncios: DadosAnuncios): DadosSite {
               : "Cross-network"
           : "Paid Social";
       const origem =
-        c.plataforma === "google"
-          ? "google / cpc"
-          : c.plataforma === "tiktok"
-            ? "tiktok / paid_social"
-            : s.chance(0.68)
-              ? "instagram / paid_social"
-              : "facebook / paid_social";
+        c.plataforma === "google" ? "google / cpc" : "tiktok / paid_social";
       const sessions = Math.round(cl * s.perto(0.82, 0.1));
       linhas.push(
         linha(
