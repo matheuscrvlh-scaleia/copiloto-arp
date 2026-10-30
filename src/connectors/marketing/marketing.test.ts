@@ -11,7 +11,7 @@ import {
 import { createMetaClient } from "./meta";
 import { createRdStationClient, trocarCodigoRd } from "./rd-station";
 import { createSiteClient } from "./site";
-import { createTikTokClient } from "./tiktok";
+import { createTikTokClient, trocarCodigoTikTok } from "./tiktok";
 
 // Respostas montadas com os exemplos da documentação de cada API.
 
@@ -454,6 +454,51 @@ describe("tiktok", () => {
     expect(e).toBeInstanceOf(ConnectorError);
     expect(e.status).toBe(401);
     expect(e.detalhe).toContain("Access token is incorrect");
+  });
+
+  it("troca o auth_code pelo token de Ads e os anunciantes, uma tentativa só", async () => {
+    const chamadas: Chamada[] = [];
+    const r = await trocarCodigoTikTok({
+      appId: "app",
+      secret: "s",
+      authCode: "c0de",
+      fetch: falso(
+        [
+          {
+            code: 0,
+            message: "OK",
+            data: {
+              access_token: "tk",
+              advertiser_ids: [7, "8"],
+              scope: [4],
+            },
+          },
+        ],
+        chamadas,
+      ),
+    });
+    expect(r).toEqual({ token: "tk", anunciantes: ["7", "8"] });
+    expect(chamadas).toHaveLength(1);
+    expect(chamadas[0]?.metodo).toBe("POST");
+    expect(chamadas[0]?.url).toBe(
+      "https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/",
+    );
+    expect(JSON.parse(chamadas[0]?.corpo ?? "")).toEqual({
+      app_id: "app",
+      secret: "s",
+      auth_code: "c0de",
+    });
+
+    await expect(
+      trocarCodigoTikTok({
+        appId: "app",
+        secret: "s",
+        authCode: "velho",
+        fetch: falso([
+          { code: 40002, message: "auth_code is invalid", data: {} },
+        ]),
+      }),
+    ).rejects.toBeInstanceOf(ConnectorError);
   });
 });
 

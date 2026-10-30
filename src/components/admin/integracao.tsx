@@ -281,11 +281,7 @@ export function CartaoIntegracao({
           </div>
           {def.autorizar && (
             <div className="flex flex-col gap-2 rounded-2xl bg-neutral-900/[0.03] p-4 text-xs text-neutral-500">
-              <p>
-                Com o Client ID e o secret preenchidos, este botão salva o que
-                foi digitado e abre a autorização da ferramenta. Depois de
-                autorizar, o sistema gera e salva o refresh token sozinho.
-              </p>
+              <p>{def.autorizar.explicacao}</p>
               <button
                 type="submit"
                 name="autorizar"

@@ -31,6 +31,7 @@ import {
   revogarAutorizacaoGoogle,
 } from "@/server/marketing/autorizacao-google";
 import { iniciarAutorizacaoRd } from "@/server/marketing/autorizacao-rd";
+import { iniciarAutorizacaoTikTok } from "@/server/marketing/autorizacao-tiktok";
 import { sincronizarCopiloto } from "@/server/sync/copiloto-rh";
 import { sincronizarMeta } from "@/server/sync/meta";
 import { sincronizarRd } from "@/server/sync/rd-station";
@@ -108,6 +109,15 @@ export async function salvarIntegracao(
   // "Conectar com …" (OAuth): salva o que foi digitado sem testar (falta o
   // segredo que a autorização gera) e segue para a tela da ferramenta.
   if (def.autorizar && form.get("autorizar") === "1") {
+    const { campo, credencial } = def.autorizar;
+    const app = String(p.data[campo] ?? "");
+    if (!app || !valores[credencial]) {
+      const rotulos = [
+        def.campos.find((c) => c.nome === campo)?.rotulo,
+        def.segredos.find((s) => s.nome === credencial)?.rotulo,
+      ];
+      return { erro: `Preencha ${rotulos.join(" e ")} antes de conectar.` };
+    }
     const salvo = await (await createClient())
       .schema("core")
       .rpc("salvar_integracao", {
@@ -120,8 +130,10 @@ export async function salvarIntegracao(
     const iniciar =
       sistema === "mkt_google"
         ? iniciarAutorizacaoGoogle
-        : iniciarAutorizacaoRd;
-    redirect(await iniciar(String(p.data.client_id)));
+        : sistema === "mkt_tiktok"
+          ? iniciarAutorizacaoTikTok
+          : iniciarAutorizacaoRd;
+    redirect(await iniciar(app));
   }
 
   const ativa = form.get("ativa") === "on";

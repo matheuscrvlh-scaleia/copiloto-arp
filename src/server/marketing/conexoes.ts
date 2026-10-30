@@ -170,6 +170,14 @@ export const TESTES_MARKETING: Record<
 
   async mkt_tiktok(c) {
     const { p, s } = abrir("mkt_tiktok", c);
+    if (!s("segredo"))
+      throw new Error(
+        "falta autorizar: clique em Conectar com o TikTok (gera o token de Ads)",
+      );
+    if (!p("advertiser_id"))
+      throw new Error(
+        "preencha o id do anunciante (o token não trouxe nenhum)",
+      );
     const api = createTikTokClient({ token: s("segredo") });
     const a = await api.anunciante(p("advertiser_id"));
     const partes = [`Conectado ao anunciante “${a.name}” (${a.currency})`];

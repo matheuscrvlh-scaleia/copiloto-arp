@@ -14,6 +14,8 @@ import { Protegido } from "@/components/protegido";
 import {
   RETORNO_GOOGLE,
   RETORNO_RD,
+  RETORNO_TIKTOK,
+  type ResultadoAutorizacao,
   type ResultadoGoogle,
   type ResultadoRd,
   resultadoDoProduto,
@@ -144,13 +146,15 @@ async function Tela({
 }: {
   busca: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { rd, google } = await busca;
+  const { rd, google, tiktok } = await busca;
   const retorno =
     typeof rd === "string" && rd in RETORNO_RD
       ? RETORNO_RD[rd as ResultadoRd]
       : typeof google === "string" && google in RETORNO_GOOGLE
         ? RETORNO_GOOGLE[google as ResultadoGoogle]
-        : null;
+        : typeof tiktok === "string" && tiktok in RETORNO_TIKTOK
+          ? RETORNO_TIKTOK[tiktok as ResultadoAutorizacao]
+          : null;
   const [p, asana, historico, { cofre, integracoes }] = await Promise.all([
     parametros(),
     dadosAsana(),

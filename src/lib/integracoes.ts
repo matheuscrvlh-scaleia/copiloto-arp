@@ -47,9 +47,16 @@ export interface DefinicaoIntegracao {
   parametros: z.ZodType<Record<string, string | number>>;
   /**
    * Botão que leva à tela de autorização da ferramenta (OAuth): ela volta
-   * para o sistema com um code, que vira o segredo `segredo`.
+   * para o sistema com um code, que vira o segredo `segredo`. O app é
+   * identificado pelo campo `campo` e pelo segredo `credencial`.
    */
-  autorizar?: { rotulo: string; segredo: string };
+  autorizar?: {
+    rotulo: string;
+    segredo: string;
+    campo: string;
+    credencial: string;
+    explicacao: string;
+  };
 }
 
 const texto = z.string().trim().min(1, "obrigatório");
@@ -273,7 +280,14 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
           ].some(Boolean),
         "preencha o id de pelo menos um produto",
       ),
-    autorizar: { rotulo: "Conectar com o Google", segredo: "refresh_token" },
+    autorizar: {
+      rotulo: "Conectar com o Google",
+      segredo: "refresh_token",
+      campo: "client_id",
+      credencial: "client_secret",
+      explicacao:
+        "Com o Client ID e o secret preenchidos, este botão salva o que foi digitado e abre a autorização do Google. Depois de autorizar, o sistema gera e salva o refresh token sozinho.",
+    },
   },
   mkt_meta: {
     nome: "Meta",
@@ -329,10 +343,19 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
     modulo: "marketing",
     campos: [
       {
+        nome: "app_id",
+        rotulo: "App ID",
+        tipo: "text",
+        opcional: true,
+        ajuda: "App criado no TikTok for Business Developers (My Apps)",
+      },
+      {
         nome: "advertiser_id",
         rotulo: "Id do anunciante",
         tipo: "text",
-        ajuda: "TikTok Ads Manager, ao lado do nome da conta",
+        opcional: true,
+        ajuda:
+          "TikTok Ads Manager, ao lado do nome da conta; em branco, o Conectar usa o anunciante autorizado",
       },
       {
         nome: "business_id",
@@ -343,11 +366,13 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       },
     ],
     segredos: [
+      { nome: "app_secret", rotulo: "App secret", opcional: true },
       {
         nome: "segredo",
         rotulo: "Token de acesso (Ads)",
+        opcional: true,
         ajuda:
-          "TikTok for Business › app de desenvolvedor, com leitura de relatórios",
+          "Não precisa preencher: o botão Conectar com o TikTok gera e salva",
       },
       {
         nome: "token_conta",
@@ -357,9 +382,18 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       },
     ],
     parametros: z.object({
-      advertiser_id: id(),
+      app_id: z.string().trim().default(""),
+      advertiser_id: idOpcional(),
       business_id: z.string().trim(),
     }),
+    autorizar: {
+      rotulo: "Conectar com o TikTok",
+      segredo: "segredo",
+      campo: "app_id",
+      credencial: "app_secret",
+      explicacao:
+        "Com o App ID e o secret preenchidos, este botão salva os dois e abre a autorização no TikTok. Quem tem acesso à conta de anúncios aprova a leitura, e o sistema gera e salva o token de Ads sozinho.",
+    },
   },
   mkt_rd_station: {
     nome: "RD Station Marketing",
@@ -387,6 +421,10 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
     autorizar: {
       rotulo: "Conectar com o RD Station",
       segredo: "refresh_token",
+      campo: "client_id",
+      credencial: "client_secret",
+      explicacao:
+        "Com o Client ID e o secret preenchidos, este botão salva os dois e abre a autorização no RD. Depois de autorizar, o sistema gera e salva o refresh token sozinho.",
     },
   },
   mkt_asana: {
@@ -561,6 +599,43 @@ export const RETORNO_RD = {
   },
 } as const;
 export type ResultadoRd = keyof typeof RETORNO_RD;
+export type ResultadoAutorizacao = ResultadoRd;
+
+/** A URL de retorno cadastrada no app do TikTok é esta rota, no domínio do sistema. */
+export const AUTORIZACAO_TIKTOK = {
+  retorno: "/api/integracoes/tiktok/retorno",
+} as const;
+
+export const RETORNO_TIKTOK: Record<
+  ResultadoAutorizacao,
+  { ok: boolean; texto: string }
+> = {
+  conectado: {
+    ok: true,
+    texto: "TikTok conectado: o token de Ads foi gerado e salvo.",
+  },
+  teste: {
+    ok: false,
+    texto:
+      "Autorizado e salvo, mas o teste da conexão falhou (veja o cartão do TikTok).",
+  },
+  permissao: RETORNO_RD.permissao,
+  state: {
+    ok: false,
+    texto:
+      "A autorização expirou ou não começou neste navegador. Clique em Conectar com o TikTok de novo.",
+  },
+  credencial: {
+    ok: false,
+    texto: "Salve o App ID e o App secret antes de conectar.",
+  },
+  codigo: {
+    ok: false,
+    texto:
+      "O TikTok recusou o código (expirado, já usado ou de outro app). Clique em Conectar com o TikTok de novo.",
+  },
+  salvar: RETORNO_RD.salvar,
+};
 
 /**
  * Autorização do Google: a URL de callback cadastrada no app do Google Cloud

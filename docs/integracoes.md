@@ -393,7 +393,7 @@ parte, e o resultado vira uma linha ✓/✗ por produto.
 |---|---|---|---|
 | Google (`mkt_google`) | Google Ads (id do cliente, MCC), Analytics 4 (propriedade), Search Console (propriedade), YouTube (canal), Perfil da Empresa (conta) | Client ID e client secret; o refresh token sai do botão **Conectar com o Google**; token de desenvolvedor (só Ads) | Conta Google: e-mail e escopos concedidos (no próprio token); Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; YouTube: `channels.list?mine=true` confere que o canal é da conta; Perfil: lista os locais |
 | Meta (`mkt_meta`) | Meta Ads (conta de anúncios), Facebook (página), Instagram (conta profissional) | Token de usuário do sistema | `GET /act_{id}`, `GET /{página}`, `GET /{instagram}` |
-| TikTok (`mkt_tiktok`) | Anunciante; conta Business opcional | Token de Ads; token da conta (opcional) | `/advertiser/info/`; `/business/get/` se houver conta |
+| TikTok (`mkt_tiktok`) | App ID; anunciante (em branco, vem da autorização); conta Business opcional | App secret; o token de Ads sai do botão **Conectar com o TikTok**; token da conta (opcional) | `/advertiser/info/`; `/business/get/` se houver conta |
 | RD Station (`mkt_rd_station`) | — | Client ID e client secret; o refresh token sai do botão **Conectar com o RD Station** | `/auth/token` e `/marketing/account_info` |
 | Asana (`mkt_asana`) | Workspace | Token de acesso pessoal | `/users/me` e projetos ativos do workspace |
 | Site (`mkt_site`) | Endereço da lista de eventos do WordPress | — (público; grava um vazio cifrado) | Lê todas as páginas e conta os eventos com data |
@@ -416,6 +416,16 @@ vence em 7 dias: o teste mostra "o acesso expirou" e basta conectar de novo.
 Para não vencer, publicar o app (verificação do Google, pelos escopos
 sensíveis). A Google Ads API muda de versão com frequência: a usada fica em
 `src/connectors/marketing/google.ts`.
+
+TikTok: o app é criado uma vez no TikTok for Business Developers, com
+permissão só de leitura de relatórios, e precisa ser aprovado. A URL de
+retorno cadastrada nele é `https://<domínio>/api/integracoes/tiktok/retorno`
+(o TikTok só aceita HTTPS, então o botão não funciona em localhost). O
+**Conectar com o TikTok** salva o App ID e o secret e abre o portal de
+autorização; quem tem acesso à conta de anúncios aprova, e a rota troca o
+`auth_code` (vale 1 hora, uma vez só) pelo token de Ads, que não vence.
+Se o id do anunciante estiver em branco, fica o primeiro que o token
+enxerga. A conta Business (Redes) ainda usa token digitado.
 
 **RD Station (dado real):** `/api/sync/rd-station` (Vercel Cron às 06h15 e
 "Sincronizar agora" no cartão) grava em `marketing.rd_*`. A API não lista

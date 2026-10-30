@@ -33,6 +33,31 @@ const contaSchema = z.object({
   followers_count: z.number().default(0),
 });
 
+const autorizadoSchema = z.object({
+  access_token: z.string().min(1),
+  advertiser_ids: z.array(z.coerce.string()).default([]),
+});
+
+/** Corpo da resposta: code diferente de 0 é erro, mesmo com HTTP 200. */
+function dados<T extends z.ZodType>(r: unknown, schema: T): z.infer<T> {
+  const bruto = parseWith(
+    SISTEMA,
+    z.object({ code: z.number(), message: z.string().default("") }),
+    r,
+  );
+  if (bruto.code !== 0) {
+    // 40001/40100/40105: token inválido ou sem permissão.
+    const acesso = [40001, 40100, 40102, 40105].includes(bruto.code);
+    throw new ConnectorError(
+      `código ${bruto.code}`,
+      SISTEMA,
+      acesso ? 401 : undefined,
+      JSON.stringify({ message: bruto.message }),
+    );
+  }
+  return (parseWith(SISTEMA, envelope(schema), r) as { data: z.infer<T> }).data;
+}
+
 export function createTikTokClient(config: TikTokConfig) {
   async function ler<T extends z.ZodType>(
     caminho: string,
@@ -46,23 +71,7 @@ export function createTikTokClient(config: TikTokConfig) {
       retries: 1,
       fetch: config.fetch,
     });
-    const bruto = parseWith(
-      SISTEMA,
-      z.object({ code: z.number(), message: z.string().default("") }),
-      r,
-    );
-    if (bruto.code !== 0) {
-      // 40001/40100/40105: token inválido ou sem permissão.
-      const acesso = [40001, 40100, 40102, 40105].includes(bruto.code);
-      throw new ConnectorError(
-        `código ${bruto.code}`,
-        SISTEMA,
-        acesso ? 401 : undefined,
-        JSON.stringify({ message: bruto.message }),
-      );
-    }
-    return (parseWith(SISTEMA, envelope(schema), r) as { data: z.infer<T> })
-      .data;
+    return dados(r, schema);
   }
 
   return {
@@ -97,4 +106,28 @@ export function createTikTokClient(config: TikTokConfig) {
       );
     },
   };
+}
+
+/**
+ * Troca o auth_code da autorização do anunciante (vale 1 hora, uma vez só)
+ * pelo token de Ads, que não vence, e os anunciantes que ele enxerga.
+ */
+export async function trocarCodigoTikTok(config: {
+  appId: string;
+  secret: string;
+  authCode: string;
+  fetch?: typeof fetch;
+}): Promise<{ token: string; anunciantes: string[] }> {
+  const r = await requestJson(SISTEMA, `${API_URL}/oauth2/access_token/`, {
+    method: "POST",
+    body: {
+      app_id: config.appId,
+      secret: config.secret,
+      auth_code: config.authCode,
+    },
+    retries: 0,
+    fetch: config.fetch,
+  });
+  const d = dados(r, autorizadoSchema);
+  return { token: d.access_token, anunciantes: d.advertiser_ids };
 }
