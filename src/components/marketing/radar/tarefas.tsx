@@ -222,6 +222,7 @@ export function AbaTarefas({
       />
 
       <TopoDaTela
+        exemplo={false}
         dadosDe={p.dadosDe}
         filtros={linhaFiltros}
         acoes={

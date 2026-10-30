@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dentro, somarDias } from "@/lib/marketing/periodo";
 import { gerarAnuncios } from "./anuncios";
-import { gerarAsana } from "./asana";
 import { gerarRd } from "./rd";
 import { gerarRedes } from "./redes";
 import { gerarReputacao } from "./reputacao";
@@ -72,21 +71,6 @@ describe("site, redes, Asana e reputação", () => {
     expect(Object.keys(r)).toEqual(["youtube", "tiktok"]);
     expect(r.tiktok.dias.at(-1)?.date).toBe("2026-10-28");
     expect(r.youtube.dias).toHaveLength(r.tiktok.dias.length);
-  });
-
-  it("ronda com 35 sinalizações S e 20 E abertas", () => {
-    const { tarefas } = gerarAsana(HOJE);
-    const abertas = (c: string) =>
-      tarefas.filter((t) => t.name.startsWith(`${c} - `) && !t.completed)
-        .length;
-    expect(abertas("S")).toBe(35);
-    expect(abertas("E")).toBe(20);
-    const eventosFuturos = tarefas.filter(
-      (t) =>
-        t.projects[0]?.name === "Calendário de eventos" &&
-        (t.due_on ?? "") >= HOJE,
-    );
-    expect(eventosFuturos).toHaveLength(40);
   });
 
   it("o 1º locatário tem 4 reclamações nos últimos 30 dias", () => {

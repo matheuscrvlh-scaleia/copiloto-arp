@@ -444,6 +444,30 @@ hora). Campos do ACF usados: `evento_tipo` (`date` ou `array`),
 (`início_fim`), `evento_descricao`, `evento_link`; imagem pelo
 `_embed`. Post sem data fica de fora. Regras em `src/lib/marketing/eventos.ts`.
 
+**Asana (dado real, não de exemplo; desde 30/10/2026):** Radar, Painel e a
+conferência de nomes em Configurações leem ao vivo
+(`src/server/marketing/asana.ts`) e guardam no cache por uma hora (tag
+`marketing:asana`; salvar ou testar a integração relê na hora). Lê todos os
+projetos do workspace (para conferir os nomes) e as tarefas só dos projetos
+citados em Configurações (time, calendário e ronda): as abertas e as
+concluídas desde o dia 1º do mesmo mês do ano passado
+(`completed_since`), 100 por página. Medido em 30/10/2026 com 12 projetos:
+2.676 tarefas, cerca de 11 s na primeira leitura e 1,7 MB no cache. Sem
+token salvo, desativada ou com erro, as telas ficam vazias com o aviso (não
+voltam aos dados de exemplo).
+
+- **Ronda real** ("Reporte ambiência 2026"): as tarefas se chamam só pelo
+  código e número (`S14`, `E26`, `L49`); o Radar lê o código nesse formato e
+  no antigo (`S - Placa apagada`). Sem texto depois do código, a descrição é
+  a primeira linha das notas. A abertura vem do campo **Data do Registro**:
+  as tarefas foram importadas em julho, então o `created_at` não serve. O
+  campo **Status** (Aguarda, Em execução, Finalizado) às vezes discorda da
+  conclusão da tarefa; vale a conclusão.
+- **Calendário real** ("Calendário Geral + NF - Espaço Arp"): só tem prazo
+  (`due_on`), sem início. As tags são `Locatários`, `Externo`, `ARP` e
+  `sustentarp` (o campo "Tipo de evento" repete isso). Não há tag de evento
+  pago ou gratuito.
+
 | Fonte | Serve para | Acesso |
 |---|---|---|
 | Meta Ads (Facebook e Instagram) | Performance de anúncios | Com o Pablo (falta confirmar); app com leitura de anúncios, pode exigir verificação da empresa |
@@ -453,7 +477,7 @@ hora). Campos do ACF usados: `evento_tipo` (`date` ou `array`),
 | RD Station Marketing | Leads, landing pages, custo por lead | Com o Daniel; confirmar se o plano libera a API (histórico por exportação única) |
 | Instagram, Facebook e YouTube | Redes sociais (foto diária de seguidores) | Com o Daniel; YouTube na mesma conta Google que autoriza |
 | Google Perfil da Empresa | Reputação | API aprovada pelo Google; cada locatário adiciona a ARP como gerente (opção A) |
-| Asana | Radar operacional | Usuário que veja todos os projetos |
+| Asana | Radar operacional | **Conectado** (30/10/2026) com o token do Daniel Abreu; trocar por um usuário só da integração |
 
 **Público e visitação saiu do módulo** (29/10/2026): a tela precisava de cada
 passagem (placa, entrada, saída e cancela), e a API BI do WPS entrega só a

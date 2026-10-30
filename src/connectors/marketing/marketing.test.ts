@@ -361,6 +361,91 @@ describe("asana", () => {
     });
     expect(chamadas[1]?.url).toContain("archived=false");
   });
+
+  it("segue as páginas dos projetos, arquivados inclusive", async () => {
+    const chamadas: Chamada[] = [];
+    const api = createAsanaClient({
+      token: "pat",
+      fetch: falso(
+        [
+          {
+            data: [{ gid: "p1", name: "Marketing", archived: false }],
+            next_page: { offset: "abc", path: "/projects", uri: "u" },
+          },
+          {
+            data: [{ gid: "p2", name: "Velho", archived: true }],
+            next_page: null,
+          },
+        ],
+        chamadas,
+      ),
+    });
+    expect(await api.todosOsProjetos("10")).toEqual([
+      { gid: "p1", name: "Marketing", archived: false },
+      { gid: "p2", name: "Velho", archived: true },
+    ]);
+    expect(new URL(chamadas[0]?.url ?? "").searchParams.has("archived")).toBe(
+      false,
+    );
+    expect(new URL(chamadas[1]?.url ?? "").searchParams.get("offset")).toBe(
+      "abc",
+    );
+  });
+
+  it("tarefas: seção do projeto lido primeiro, campos vazios fora, notas quando pedidas", async () => {
+    const chamadas: Chamada[] = [];
+    const api = createAsanaClient({
+      token: "pat",
+      fetch: falso(
+        [
+          {
+            data: [
+              {
+                gid: "t1",
+                name: "S14",
+                notes: "Problema: TV desligada",
+                projects: [
+                  { gid: "outro", name: "Outro" },
+                  { gid: "ronda", name: "Reporte ambiência" },
+                ],
+                memberships: [
+                  { project: { gid: "outro" }, section: { name: "A fazer" } },
+                  { project: { gid: "ronda" }, section: { name: "Outubro" } },
+                ],
+                assignee: null,
+                created_at: "2026-07-02T18:42:25.062Z",
+                due_on: "2026-09-02",
+                start_on: null,
+                completed: false,
+                completed_at: null,
+                tags: [],
+                custom_fields: [
+                  { name: "Local", display_value: "BL 11" },
+                  { name: "Orçamento", display_value: null },
+                ],
+                permalink_url: "https://app.asana.com/1/x/task/t1",
+              },
+            ],
+            next_page: null,
+          },
+        ],
+        chamadas,
+      ),
+    });
+    const [t] = await api.tarefas("ronda", "2025-10-01T00:00:00.000Z", true);
+    expect(t?.memberships[0]?.section.name).toBe("Outubro");
+    expect(t?.custom_fields).toEqual([
+      { name: "Local", display_value: "BL 11" },
+    ]);
+    expect(t?.notes).toBe("Problema: TV desligada");
+    const url = new URL(chamadas[0]?.url ?? "");
+    expect(url.pathname).toBe("/api/1.0/projects/ronda/tasks");
+    expect(url.searchParams.get("completed_since")).toBe(
+      "2025-10-01T00:00:00.000Z",
+    );
+    expect(url.searchParams.get("opt_fields")).toContain(",notes");
+    expect(chamadas[0]?.headers.get("authorization")).toBe("Bearer pat");
+  });
 });
 
 describe("site (WordPress)", () => {

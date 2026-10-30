@@ -346,4 +346,6 @@ export interface AsanaTarefa {
   tags: { name: string }[];
   custom_fields: { name: string; display_value: string | null }[];
   permalink_url: string;
+  /** Descrição da tarefa; só lida no projeto da ronda. */
+  notes?: string;
 }

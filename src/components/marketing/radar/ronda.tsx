@@ -135,6 +135,7 @@ export function AbaRonda({
       />
 
       <TopoDaTela
+        exemplo={false}
         dadosDe={p.dadosDe}
         filtros={linhaFiltros}
         acoes={
@@ -330,7 +331,9 @@ export function AbaRonda({
               texto: formatarNumero(idade[i] ?? 0),
             }))}
           />
-          <Fonte>{FONTE_ASANA} (created_at)</Fonte>
+          <Fonte>
+            {FONTE_ASANA} (Data do Registro ou, sem ela, created_at)
+          </Fonte>
         </Secao>
       </div>
     </>

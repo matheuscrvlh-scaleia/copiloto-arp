@@ -37,10 +37,13 @@ export interface RegraCfg {
 }
 
 /**
- * Campo personalizado da ronda com o local (a confirmar com quem usa o
- * Asana). É nome de campo, não de projeto ou tag; se mudar, vira parâmetro.
+ * Campos personalizados da ronda ("Reporte ambiência" da ARP): o local e o
+ * dia em que a ocorrência foi registrada (as tarefas foram importadas depois,
+ * então created_at não serve). São nomes de campo, não de projeto ou tag; se
+ * mudarem, viram parâmetro.
  */
 export const CAMPO_LOCAL = "Local";
+export const CAMPO_DATA_REGISTRO = "Data do Registro";
 
 const norm = (s: string) => s.trim().toLocaleLowerCase("pt-BR");
 
@@ -411,20 +414,35 @@ export function eventosPorDia<T extends { inicio: string; fim: string }>(
 // Sinalizações da ronda
 // ---------------------------------------------------------------------------
 
-/** "S - Placa apagada" → { codigo: "S", descricao: "Placa apagada" }. */
+/**
+ * Código no início do nome: "S14", "S14 - Placa apagada" ou "S - Placa
+ * apagada" → { codigo: "S", descricao: "" | "Placa apagada" }.
+ */
 export function codigoDaRonda(
   nome: string,
 ): { codigo: string; descricao: string } | null {
-  const m = /^\s*([A-Za-z0-9]{1,5})\s*[-–—:]\s*(.*)$/.exec(nome);
-  if (!m) return null;
-  return { codigo: (m[1] as string).toUpperCase(), descricao: m[2] as string };
+  const m = /^\s*([A-Za-z]{1,5})\s*(\d+)?\s*(?:[-–—:]\s*(.*))?$/.exec(nome);
+  if (!m || (m[2] === undefined && m[3] === undefined)) return null;
+  return {
+    codigo: (m[1] as string).toUpperCase(),
+    descricao: (m[3] ?? "").trim(),
+  };
+}
+
+const campo = (t: AsanaTarefa, nome: string) =>
+  t.custom_fields.find((f) => mesmoNome(f.name, nome))?.display_value ?? null;
+
+/** Primeira linha não vazia das notas, sem espaços repetidos. */
+function primeiraLinha(notas: string | undefined): string {
+  const l = notas?.split("\n").find((x) => x.trim()) ?? "";
+  return l.replace(/\s+/g, " ").trim().slice(0, 160);
 }
 
 export interface SinalizacaoLinha {
   gid: string;
   codigo: string;
   descricao: string;
-  /** Dia de abertura (created_at) em Brasília. */
+  /** Dia do campo "Data do Registro" ou, sem ele, created_at em Brasília. */
   abertaEm: string;
   local: string | null;
   /** Aberta: hoje − abertura; concluída: conclusão − abertura. */
@@ -455,17 +473,19 @@ export function sinalizacoesDoMarketing(
     if (!noProjeto(t, projetoRonda)) continue;
     const c = codigoDaRonda(t.name);
     if (!c || !doMkt.has(c.codigo)) continue;
-    const abertaEm = dataBrasilia(t.created_at);
+    const registro = campo(t, CAMPO_DATA_REGISTRO)?.slice(0, 10);
+    const abertaEm =
+      registro && /^\d{4}-\d{2}-\d{2}$/.test(registro)
+        ? registro
+        : dataBrasilia(t.created_at);
     const concluidaEm =
       t.completed && t.completed_at ? dataBrasilia(t.completed_at) : null;
     out.push({
       gid: t.gid,
       codigo: c.codigo,
-      descricao: c.descricao,
+      descricao: c.descricao || primeiraLinha(t.notes) || t.name.trim(),
       abertaEm,
-      local:
-        t.custom_fields.find((f) => mesmoNome(f.name, CAMPO_LOCAL))
-          ?.display_value ?? null,
+      local: campo(t, CAMPO_LOCAL),
       diasEmAberto: Math.max(
         diasDesde(abertaEm, t.completed ? (concluidaEm ?? hoje) : hoje),
         0,

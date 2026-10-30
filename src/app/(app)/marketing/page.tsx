@@ -266,6 +266,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           anuncios.metaReal && "Meta Ads",
           redes.metaReal && "Instagram e Facebook",
           rd.lidoEm && "leads do RD Station",
+          asana.lidoEm && "radar do Asana",
         )}
         aviso={anuncios.avisoMeta ?? redes.avisoMeta}
         acoes={

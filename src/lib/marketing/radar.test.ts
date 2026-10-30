@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { AsanaTarefa } from "./fontes";
 import {
+  codigoDaRonda,
   conferirNomes,
   eventosDoCalendario,
   type ParametrosRadar,
@@ -78,6 +79,52 @@ describe("Sinalizações da ronda", () => {
     const r = resumoRadar({ projetos: [], tarefas }, P, CODIGOS, REGRAS, HOJE);
     expect(r.sinalizacoesAbertas).toBe(35);
     expect(r.sinalizacoesUrgente).toBe(true);
+  });
+
+  it("código com número (S14): descrição das notas e abertura pela Data do Registro", () => {
+    const [s] = sinalizacoesDoMarketing(
+      [
+        tarefa({
+          projeto: "Ronda",
+          name: "S14",
+          notes:
+            "\n    Problema - BLOCO 11:  TV desligada \n    Sugestão: religar",
+          created_at: "2026-07-02T18:42:25.062Z",
+          custom_fields: [
+            {
+              name: "Data do Registro",
+              display_value: "2026-03-08T00:00:00.000Z",
+            },
+            { name: "Local", display_value: "BL 11" },
+          ],
+        }),
+        tarefa({ projeto: "Ronda", name: "E26" }),
+        tarefa({ projeto: "Ronda", name: "Eventos" }),
+      ],
+      "Ronda",
+      CODIGOS,
+      HOJE,
+    ).filter(Boolean);
+    expect(s).toMatchObject({
+      codigo: "S",
+      descricao: "Problema - BLOCO 11: TV desligada",
+      abertaEm: "2026-03-08",
+      local: "BL 11",
+    });
+  });
+
+  it("lê o código no início do nome", () => {
+    expect(codigoDaRonda("S14")).toEqual({ codigo: "S", descricao: "" });
+    expect(codigoDaRonda("s 3 - Placa")).toEqual({
+      codigo: "S",
+      descricao: "Placa",
+    });
+    expect(codigoDaRonda("S - Placa apagada")).toEqual({
+      codigo: "S",
+      descricao: "Placa apagada",
+    });
+    expect(codigoDaRonda("Eventos")).toBeNull();
+    expect(codigoDaRonda("Sugestão de placa")).toBeNull();
   });
 
   it("regra desligada não alerta", () => {

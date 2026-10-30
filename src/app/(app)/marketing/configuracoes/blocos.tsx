@@ -611,7 +611,7 @@ export function BlocoRonda({ codigos }: { codigos: CodigoRonda[] }) {
   return (
     <Secao
       titulo="Códigos da ronda de ambiência"
-      descricao="O código fica no início do nome da tarefa no projeto da ronda (ex.: “S - Placa apagada”). A área diz quem resolve; as do Marketing entram como sinalizações no Radar. Código repetido não salva."
+      descricao="O código fica no início do nome da tarefa no projeto da ronda (ex.: “S14” ou “S - Placa apagada”; sem texto no nome, a descrição vem das notas da tarefa). A área diz quem resolve; as do Marketing entram como sinalizações no Radar. Código repetido não salva."
     >
       <div className={lista}>
         {codigos.map((c) => (

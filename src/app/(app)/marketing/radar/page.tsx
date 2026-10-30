@@ -17,7 +17,7 @@ import { AbaTarefas } from "@/components/marketing/radar/tarefas";
 import { AbasMkt, hrefCom } from "@/components/marketing/tela";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
-
+import { formatarDataHora } from "@/lib/formato";
 import {
   conferirNomes,
   eventosDoCalendario,
@@ -92,7 +92,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     busca: f.busca,
     lembrado: f.lembrado,
     hoje,
-    dadosDe: ctx.dadosDe,
+    dadosDe: asana.lidoEm
+      ? `Asana lido em ${formatarDataHora(asana.lidoEm)}`
+      : "Asana não lido",
     exportar: ctx.pode("marketing.exportar"),
     um: f.um,
   };
@@ -136,7 +138,17 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         </div>
       )}
 
-      <AvisoConferencia c={conferencia} />
+      {asana.aviso ? (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <p>{asana.aviso}</p>
+        </div>
+      ) : (
+        <AvisoConferencia c={conferencia} />
+      )}
 
       {aba === "tarefas" && (
         <AbaTarefas

@@ -4,7 +4,6 @@ import type { FontesAnuncios, Plataforma } from "@/lib/marketing/anuncios";
 import type { FontesRedes } from "@/lib/marketing/redes";
 import { contextoMkt, locatarios, temasEcodigos } from "./base";
 import { gerarAnuncios } from "./exemplo/anuncios";
-import { type DadosAsana, gerarAsana } from "./exemplo/asana";
 import { type DadosRd, gerarRd } from "./exemplo/rd";
 import { gerarRedes } from "./exemplo/redes";
 import { type DadosReputacao, gerarReputacao } from "./exemplo/reputacao";
@@ -14,9 +13,9 @@ import { anunciosMeta, redesMeta } from "./meta";
 import { rdReal } from "./rd";
 
 // Dados das ferramentas, nos campos das APIs (lib/marketing/fontes.ts).
-// Reais: Meta (anúncios, Instagram e Facebook) e RD Station. Ainda de
-// exemplo (mockup, spec seção 6), até serem ligados: Google (Ads, YouTube,
-// GA4, Search Console, Perfil da Empresa), TikTok e Asana. Nas telas, os
+// Reais: Meta (anúncios, Instagram e Facebook), RD Station e Asana. Ainda
+// de exemplo (mockup, spec seção 6), até serem ligados: Google (Ads,
+// YouTube, GA4, Search Console, Perfil da Empresa) e TikTok. Nas telas, os
 // reais e os de exemplo se somam. As telas conferem a permissão (Protegido)
 // antes de chamar; nada daqui vai para o navegador sem passar pela tela.
 
@@ -24,7 +23,6 @@ const anunciosDoDia = memo(gerarAnuncios);
 const rdDoDia = memo((hoje) => gerarRd(hoje, anunciosDoDia(hoje)));
 const siteDoDia = memo((hoje) => gerarSite(hoje, anunciosDoDia(hoje)));
 const redesDoDia = memo(gerarRedes);
-const asanaDoDia = memo(gerarAsana);
 const reputacaoDoDia = memo((chave) => {
   const { hoje, locais, temas } = JSON.parse(chave) as {
     hoje: string;
@@ -151,10 +149,8 @@ export const dadosRedes = cache(async (): Promise<DadosRedes> => {
   };
 });
 
-/** Asana: projetos e tarefas (time, calendário e ronda). */
-export const dadosAsana = cache(
-  async (): Promise<DadosAsana> => asanaDoDia(await hoje()),
-);
+/** Asana: lido ao vivo (asana.ts), não é de exemplo. */
+export { dadosAsana } from "./asana";
 
 /**
  * Google Perfil da Empresa: a ARP e os locatários ativos de Configurações, com

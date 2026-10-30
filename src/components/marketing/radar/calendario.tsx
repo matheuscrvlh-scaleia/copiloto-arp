@@ -172,6 +172,7 @@ export function AbaCalendario({
       />
 
       <TopoDaTela
+        exemplo={false}
         dadosDe={p.dadosDe}
         filtros={linhaFiltros}
         acoes={
