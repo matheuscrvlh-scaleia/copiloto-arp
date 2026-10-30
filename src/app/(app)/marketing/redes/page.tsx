@@ -170,6 +170,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       <Cartoes>
         <CartaoMkt
           titulo="Seguidores"
+          exemplo={
+            redes.some((r) => r === "youtube" || r === "tiktok") &&
+            "seguidores do YouTube e do TikTok (Instagram e Facebook são reais)"
+          }
           valor={formatarNumero(t.seguidores)}
           variacao={variacaoContra(
             t.seguidores,
@@ -185,6 +189,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         />
         <CartaoMkt
           titulo="Novos seguidores no período"
+          exemplo={
+            redes.some((r) => r === "youtube" || r === "tiktok") &&
+            "seguidores do YouTube e do TikTok (Instagram e Facebook são reais)"
+          }
           valor={formatarNumero(t.novos)}
           variacao={variacaoContra(t.novos, ta.novos, f.rotuloAnterior)}
           detalhe={
@@ -197,6 +205,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         />
         <CartaoMkt
           titulo="Alcance e visualizações"
+          exemplo={
+            redes.some((r) => r === "youtube" || r === "tiktok") &&
+            "visualizações do YouTube e do TikTok (Instagram e Facebook são reais)"
+          }
           valor={formatarNumero(t.alcanceEVisualizacoes)}
           variacao={variacaoContra(
             t.alcanceEVisualizacoes,
@@ -209,6 +221,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         />
         <CartaoMkt
           titulo="Interações"
+          exemplo={
+            redes.some((r) => r === "youtube" || r === "tiktok") &&
+            "interações do YouTube e do TikTok (Instagram e Facebook são reais)"
+          }
           valor={formatarNumero(t.interacoes)}
           variacao={variacaoContra(
             t.interacoes,

@@ -135,7 +135,6 @@ export function AbaRonda({
       />
 
       <TopoDaTela
-        exemplo={false}
         dadosDe={p.dadosDe}
         filtros={linhaFiltros}
         acoes={

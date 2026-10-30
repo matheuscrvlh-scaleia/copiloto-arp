@@ -284,6 +284,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         <Cartoes>
           <CartaoMkt
             titulo="Investimento"
+            exemplo={
+              plataforma !== "meta" &&
+              "investimento do Google Ads e do TikTok Ads (os da Meta são reais)"
+            }
             valor={formatarMoeda(t.investimento)}
             variacao={variacaoContra(
               t.investimento,
@@ -297,6 +301,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           />
           <CartaoMkt
             titulo="Leads no RD vindos de anúncio"
+            exemplo={
+              plataforma !== "meta" &&
+              "leads do Google Ads e do TikTok Ads (os da Meta são reais)"
+            }
             valor={formatarNumero(t.leadsRd)}
             variacao={variacaoContra(t.leadsRd, ta.leadsRd, f.rotuloAnterior)}
             detalhe={`Conversões da plataforma: ${formatarNumero(t.conversoesPlataforma)} (contadas do jeito dela, não somam)`}
@@ -307,6 +315,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           />
           <CartaoMkt
             titulo="Custo por lead"
+            exemplo={
+              plataforma !== "meta" &&
+              "investimento e leads do Google Ads e do TikTok Ads (os da Meta são reais)"
+            }
             valor={formatarMoeda(t.custoPorLead)}
             variacao={
               t.custoPorLead !== null && ta.custoPorLead !== null
@@ -336,6 +348,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           />
           <CartaoMkt
             titulo="Cliques no link"
+            exemplo={
+              plataforma !== "meta" &&
+              "cliques do Google Ads e do TikTok Ads (os da Meta são reais)"
+            }
             valor={formatarNumero(t.cliques)}
             variacao={variacaoContra(t.cliques, ta.cliques, f.rotuloAnterior)}
             detalhe={`CTR ${formatarPct(t.ctr)} · CPC ${formatarMoeda(t.cpc)}`}

@@ -138,7 +138,6 @@ async function Tela({
         <TopoDaTela
           dadosDe={f.ctx.dadosDe}
           filtros={filtros}
-          exemplo={campanha.plataforma !== "meta"}
           reais={fontesReais(
             campanha.plataforma === "meta" && "Meta Ads",
             rd.lidoEm && "leads do RD Station",
@@ -160,6 +159,10 @@ async function Tela({
             <Cartoes>
               <CartaoMkt
                 titulo="Investimento"
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `investimento da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
                 valor={formatarMoeda(c.investimento)}
                 variacao={
                   ant
@@ -175,6 +178,10 @@ async function Tela({
               />
               <CartaoMkt
                 titulo="Leads no RD"
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `leads da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
                 valor={formatarNumero(c.leadsRd)}
                 variacao={
                   ant
@@ -186,6 +193,10 @@ async function Tela({
               />
               <CartaoMkt
                 titulo="Custo por lead"
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `investimento e leads da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
                 valor={
                   c.custoPorLead === null
                     ? "sem lead"
@@ -205,6 +216,10 @@ async function Tela({
               />
               <CartaoMkt
                 titulo="Cliques no link"
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `cliques da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
                 valor={formatarNumero(c.cliques)}
                 detalhe={`CTR ${formatarPct(c.ctr, 2)} · CPC ${formatarMoeda(c.cpc)}${c.frequencia ? ` · frequência ${formatarNumero(c.frequencia, 2)}` : ""}`}
                 fonte={PLATAFORMAS[c.plataforma].ferramenta}

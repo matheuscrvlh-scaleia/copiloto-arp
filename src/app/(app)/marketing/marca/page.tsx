@@ -162,7 +162,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     <div className="flex flex-col gap-6">
       <TopoDaTela
         dadosDe={versao}
-        exemplo={false}
         filtros={
           resumo.vazios.length || resumo.itensSemExplicacao
             ? `${resumo.preenchidos} de ${resumo.blocos} blocos preenchidos${resumo.itensSemExplicacao ? ` · ${resumo.itensSemExplicacao} itens ainda sem explicação` : ""}`

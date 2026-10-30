@@ -115,7 +115,6 @@ export function AgendaDeEventos({
       <TopoDaTela
         dadosDe={lidoEm}
         filtros={linhaFiltros}
-        exemplo={false}
         acoes={
           p.exportar ? (
             <BotaoExportar

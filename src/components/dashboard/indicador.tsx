@@ -1,4 +1,4 @@
-import { FlaskConical, Info, Maximize2 } from "lucide-react";
+import { FlaskConical, Info, Maximize2, TriangleAlert } from "lucide-react";
 import { TOM, type Tom } from "@/components/estilos";
 import { type Direcao, rotuloStatus, type Status } from "@/lib/indicadores";
 import { AbreDetalhe, type Detalhe } from "../modal-detalhe";
@@ -66,6 +66,7 @@ export function CartaoIndicador({
   serie,
   origem,
   calculo,
+  exemplo,
   tom = "claro",
   children,
 }: {
@@ -74,6 +75,8 @@ export function CartaoIndicador({
   detalhe?: string;
   /** Como o número é calculado, em uma frase (o "i" ao lado do título). */
   calculo?: string;
+  /** O que é de exemplo (fictício) no número: alerta no canto do cartão. */
+  exemplo?: string | false;
   status?: Status;
   direcao?: Direcao;
   meta?: string;
@@ -91,7 +94,12 @@ export function CartaoIndicador({
       <div
         className={`${TOM[tom]} flutua relative flex h-full flex-col gap-3 rounded-[1.75rem] p-5 hover:z-10`}
       >
-        <Titulo texto={titulo} clicavel={!!origem} calculo={calculo} />
+        <Titulo
+          texto={titulo}
+          clicavel={!!origem}
+          calculo={calculo}
+          exemplo={exemplo}
+        />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <p className="text-3xl font-semibold tracking-tight">{valor}</p>
           {status && <SeloStatus status={status} direcao={direcao} />}
@@ -181,10 +189,12 @@ function Titulo({
   texto,
   clicavel,
   calculo,
+  exemplo,
 }: {
   texto: string;
   clicavel: boolean;
   calculo?: string;
+  exemplo?: string | false;
 }) {
   return (
     <p className="relative flex items-start justify-between gap-2 text-sm font-medium text-neutral-600">
@@ -204,6 +214,20 @@ function Titulo({
           </span>
         )}
       </span>
+      {exemplo && (
+        <span className="group/exemplo ml-auto inline-flex">
+          <TriangleAlert className="size-4 text-amber-500" aria-hidden />
+          <span className="sr-only">
+            Dados de exemplo (fictícios): {exemplo}
+          </span>
+          <span
+            aria-hidden
+            className="pointer-events-none invisible absolute inset-x-0 top-full z-20 mt-1.5 rounded-xl bg-neutral-900/80 px-3 py-2 text-xs font-normal leading-snug text-white opacity-0 backdrop-blur-md transition group-hover/exemplo:visible group-hover/exemplo:opacity-100"
+          >
+            Dados de exemplo (fictícios): {exemplo}
+          </span>
+        </span>
+      )}
       {clicavel && (
         <span
           title="Ver de onde vêm os dados"

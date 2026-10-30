@@ -11,7 +11,7 @@ export function TopoConfiguracoes({ ultima }: { ultima?: AlteracaoMkt }) {
         return `Última alteração em ${d} às ${h}, por ${ultima.autor}`;
       })()
     : "Nenhuma alteração registrada ainda";
-  return <TopoDaTela dadosDe={dadosDe} exemplo={false} />;
+  return <TopoDaTela dadosDe={dadosDe} />;
 }
 
 export function EsqueletoConfiguracoes() {

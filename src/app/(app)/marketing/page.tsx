@@ -286,6 +286,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         {pode("marketing.anuncios") && (
           <CartaoMkt
             titulo="Investimento em anúncios"
+            exemplo={
+              "investimento do Google Ads e do TikTok Ads (o da Meta é real)"
+            }
             valor={formatarMoeda(ads.investimento)}
             variacao={variacaoContra(
               ads.investimento,
@@ -301,6 +304,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         {cartaoLeads && (
           <CartaoMkt
             titulo="Leads no RD"
+            exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             valor={formatarNumero(sit.leadsUnicos)}
             variacao={variacaoContra(
               sit.leadsUnicos,
@@ -316,6 +320,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         {pode("marketing.anuncios") && (
           <CartaoMkt
             titulo="Custo por lead"
+            exemplo={
+              "investimento e leads do Google Ads e do TikTok Ads (os da Meta são reais)"
+            }
             valor={formatarMoeda(ads.custoPorLead)}
             variacao={
               ads.custoPorLead !== null && adsAnt.custoPorLead !== null

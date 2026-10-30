@@ -186,6 +186,9 @@ async function Tela({
             <Cartoes>
               <CartaoMkt
                 titulo="Nota média"
+                exemplo={
+                  "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+                }
                 valor={nota(l.nota)}
                 detalhe={`${formatarNumero(l.total ?? 0)} avaliações no Google`}
                 calculo="Nota que o Google mostra no perfil (averageRating)."
@@ -193,6 +196,9 @@ async function Tela({
               />
               <CartaoMkt
                 titulo="Novas no período"
+                exemplo={
+                  "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+                }
                 valor={formatarNumero(l.periodo.novas)}
                 variacao={variacaoContra(
                   l.periodo.novas,
@@ -204,6 +210,9 @@ async function Tela({
               />
               <CartaoMkt
                 titulo="Reclamações no período"
+                exemplo={
+                  "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+                }
                 valor={formatarNumero(l.periodo.reclamacoes)}
                 variacao={variacaoContra(
                   l.periodo.reclamacoes,
@@ -224,6 +233,9 @@ async function Tela({
               />
               <CartaoMkt
                 titulo="Situação"
+                exemplo={
+                  "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+                }
                 valor={SITUACOES[l.situacao].rotulo}
                 detalhe={`${l.janela.reclamacoes} ${l.janela.reclamacoes === 1 ? "reclamação" : "reclamações"} nos últimos ${p.janela_reputacao_dias} dias · nota das novas ${nota(l.janela.notaDasNovas)}`}
                 calculo={`Alerta: ${p.reclamacoes_alerta} ou mais reclamações em ${p.janela_reputacao_dias} dias; Atenção: de ${p.reclamacoes_atencao} a ${p.reclamacoes_alerta - 1}, ou nota das novas abaixo de ${nota(p.nota_atencao)} (Configurações).`}

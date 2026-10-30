@@ -1,4 +1,4 @@
-import { Clock, FlaskConical, PlugZap, TriangleAlert } from "lucide-react";
+import { Clock, PlugZap, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { Children, cloneElement, isValidElement } from "react";
 import type { ItemGrafico } from "@/components/dashboard/graficos/base";
@@ -34,7 +34,6 @@ export function TopoDaTela({
   dadosDe,
   filtros,
   acoes,
-  exemplo = true,
   reais,
   aviso,
 }: {
@@ -44,8 +43,6 @@ export function TopoDaTela({
   filtros?: string;
   /** Botões de exportar (só para quem tem marketing.exportar). */
   acoes?: React.ReactNode;
-  /** Mostra o selo de dados de exemplo (mockup). */
-  exemplo?: boolean;
   /** Fontes já ligadas de verdade (ex.: "RD Station"): selo verde. */
   reais?: string;
   /** Fonte real que não respondeu (ex.: a Meta): selo amarelo. */
@@ -66,15 +63,6 @@ export function TopoDaTela({
             >
               <PlugZap className="size-3" aria-hidden />
               Dados reais: {reais}
-            </span>
-          )}
-          {exemplo && (
-            <span
-              title="Dados fictícios nos campos das APIs, até a ferramenta ser ligada."
-              className="inline-flex items-center gap-1 rounded-full bg-violet-400/20 px-2 py-0.5 font-medium text-violet-700"
-            >
-              <FlaskConical className="size-3" aria-hidden />
-              {reais ? "O resto, de exemplo" : "Dados de exemplo"}
             </span>
           )}
           {aviso && (
@@ -152,6 +140,7 @@ export function CartaoMkt({
   direcao,
   serie,
   calculo,
+  exemplo,
   origem,
   tom,
 }: {
@@ -167,6 +156,8 @@ export function CartaoMkt({
   direcao?: Direcao;
   serie?: ItemGrafico[];
   calculo?: string;
+  /** O que é de exemplo no número: alerta no canto (só nos cartões com dado fictício). */
+  exemplo?: string | false;
   origem?: Detalhe;
   tom?: Tom;
 }) {
@@ -181,6 +172,7 @@ export function CartaoMkt({
       direcao={direcao}
       serie={serie}
       calculo={calculo}
+      exemplo={exemplo}
       origem={href ? undefined : origem}
       tom={tom}
     >

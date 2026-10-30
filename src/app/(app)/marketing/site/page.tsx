@@ -297,6 +297,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         <Cartoes>
           <CartaoMkt
             titulo="Sessões no site"
+            exemplo={
+              "sessões do Google Analytics 4, até a ferramenta ser ligada"
+            }
             valor={formatarNumero(t.sessoes)}
             variacao={variacaoContra(t.sessoes, ta.sessoes, f.rotuloAnterior)}
             detalhe={`Taxa de engajamento ${formatarPct(t.taxaEngajamento)}`}
@@ -304,6 +307,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           />
           <CartaoMkt
             titulo="Leads no RD (contatos únicos)"
+            exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             valor={formatarNumero(c.unicos)}
             variacao={variacaoContra(c.unicos, ca.unicos, f.rotuloAnterior)}
             detalhe={`${formatarNumero(c.conversoes)} ${c.conversoes === 1 ? "conversão" : "conversões"} (o mesmo contato pode converter em mais de uma landing page)`}
@@ -313,6 +317,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           />
           <CartaoMkt
             titulo="Leads de Locação"
+            exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             valor={formatarNumero(c.locacao)}
             variacao={variacaoContra(c.locacao, ca.locacao, f.rotuloAnterior)}
             calculo="Contatos únicos que converteram numa landing page cadastrada como Locação em Configurações."
@@ -322,6 +327,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           />
           <CartaoMkt
             titulo="Leads de Evento"
+            exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             valor={formatarNumero(c.evento)}
             variacao={variacaoContra(c.evento, ca.evento, f.rotuloAnterior)}
             calculo="Contatos únicos que converteram numa landing page cadastrada como Evento em Configurações."

@@ -308,6 +308,9 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
       <Cartoes>
         <CartaoMkt
           titulo="Nota média"
+          exemplo={
+            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+          }
           valor={nota(notaArp)}
           detalhe={
             local
@@ -326,6 +329,9 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
         />
         <CartaoMkt
           titulo="Avaliações novas no mês"
+          exemplo={
+            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+          }
           valor={formatarNumero(mes.novas)}
           variacao={variacaoContra(
             mes.novas,
@@ -344,6 +350,9 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
         />
         <CartaoMkt
           titulo="Reclamações no mês"
+          exemplo={
+            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+          }
           valor={formatarNumero(mes.reclamacoes)}
           variacao={variacaoContra(
             mes.reclamacoes,
@@ -358,6 +367,9 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
         />
         <CartaoMkt
           titulo="Sem resposta"
+          exemplo={
+            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+          }
           valor={formatarNumero(mes.semResposta)}
           detalhe={`No mês. Taxa de resposta ${formatarPct(mes.taxaResposta)}${mes.tempoMedianoResposta !== null ? ` · tempo mediano ${textoDias(mes.tempoMedianoResposta)}` : ""}`}
           calculo="Avaliações do mês sem resposta do dono (reviewReply). Responder é no Google: o link fica em cada linha."
@@ -697,6 +709,9 @@ function AbaLocatarios({
         />
         <CartaoMkt
           titulo="Nota média geral"
+          exemplo={
+            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+          }
           valor={nota(notaGeral)}
           detalhe={`Média simples de ${comNota.length} ${comNota.length === 1 ? "locatário" : "locatários"} com nota`}
           calculo="Média das notas do Google (averageRating) dos locatários com dados; quem está sem dados fica de fora."
@@ -704,6 +719,9 @@ function AbaLocatarios({
         />
         <CartaoMkt
           titulo="Reclamações no período"
+          exemplo={
+            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+          }
           valor={formatarNumero(reclamacoes)}
           variacao={variacaoContra(
             reclamacoes,
@@ -720,6 +738,9 @@ function AbaLocatarios({
         />
         <CartaoMkt
           titulo="Lojas em alerta"
+          exemplo={
+            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+          }
           valor={formatarNumero(conta("alerta"))}
           detalhe={`${conta("atencao")} em atenção · últimos ${p.janela_reputacao_dias} dias`}
           calculo={`${regra} (Configurações).`}
