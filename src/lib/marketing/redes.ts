@@ -416,13 +416,31 @@ export const DEMOGRAFIA = {
     "Seguidores do Instagram, não visitantes: mostra quem segue a conta, não quem vai ao Espaço ARP.",
 };
 
+/** Rótulo do gênero que a Meta devolve (U = não informado). */
+const GENEROS: Record<string, string> = {
+  F: "Mulheres",
+  M: "Homens",
+  U: "Não informado",
+};
+
 export function demografiaInstagram(f: FontesRedes): {
   cidades: { nome: string; seguidores: number }[];
   idades: { faixa: string; seguidores: number }[];
+  /** pct em % do total de seguidores com gênero lido. */
+  generos: { nome: string; seguidores: number; pct: number }[];
 } {
-  const de = (b: "city" | "age") =>
+  const de = (b: InstagramDemografia["breakdown"]) =>
     f.instagram.demografia.filter((d) => d.breakdown === b);
+  const generos = de("gender");
+  const total = generos.reduce((s, d) => s + d.value, 0);
   return {
+    generos: generos
+      .sort((a, b) => b.value - a.value)
+      .map((d) => ({
+        nome: GENEROS[d.dimension_value] ?? d.dimension_value,
+        seguidores: d.value,
+        pct: total ? (d.value / total) * 100 : 0,
+      })),
     cidades: de("city")
       .sort((a, b) => b.value - a.value)
       .slice(0, 10)

@@ -379,12 +379,12 @@ export function createMetaClient(config: MetaConfig) {
         });
     },
 
-    /** Seguidores por cidade e por faixa de idade (follower_demographics). */
+    /** Seguidores por cidade, faixa de idade e gênero (follower_demographics). */
     async instagramDemografia(
       instagramId: string,
     ): Promise<InstagramDemografia[]> {
       const out: InstagramDemografia[] = [];
-      for (const breakdown of ["city", "age"] as const) {
+      for (const breakdown of ["city", "age", "gender"] as const) {
         const r = parseWith(
           sistema,
           demografiaSchema,

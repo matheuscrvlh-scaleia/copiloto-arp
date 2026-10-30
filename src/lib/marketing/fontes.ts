@@ -228,8 +228,8 @@ export interface InstagramPost {
 }
 
 export interface InstagramDemografia {
-  /** follower_demographics com breakdown=city ou age. */
-  breakdown: "city" | "age";
+  /** follower_demographics com breakdown=city, age ou gender (F, M ou U). */
+  breakdown: "city" | "age" | "gender";
   dimension_value: string;
   value: number;
 }

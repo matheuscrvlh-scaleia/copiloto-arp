@@ -224,6 +224,17 @@ describe("meta", () => {
             },
           ],
         },
+        {
+          data: [
+            {
+              total_value: {
+                breakdowns: [
+                  { results: [{ dimension_values: ["F"], value: 21000 }] },
+                ],
+              },
+            },
+          ],
+        },
       ]),
     });
     const q = await api.quebras("1", "2026-10-01", "2026-10-01", "region");
@@ -235,6 +246,7 @@ describe("meta", () => {
         value: 33655,
       },
       { breakdown: "age", dimension_value: "25-34", value: 12690 },
+      { breakdown: "gender", dimension_value: "F", value: 21000 },
     ]);
   });
 

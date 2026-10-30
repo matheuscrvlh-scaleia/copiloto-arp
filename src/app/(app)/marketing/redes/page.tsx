@@ -379,7 +379,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
       {comInstagram && (
         <Secao titulo={DEMOGRAFIA.titulo} descricao={DEMOGRAFIA.aviso}>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             <div>
               <h3 className="mb-2 text-sm font-medium text-neutral-700">
                 10 cidades com mais seguidores
@@ -410,10 +410,25 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                 }))}
               />
             </div>
+            <div>
+              <h3 className="mb-2 text-sm font-medium text-neutral-700">
+                Gênero dos seguidores
+              </h3>
+              <BarrasHorizontais
+                descricao="Seguidores do Instagram por gênero"
+                vazio="Sem dados de gênero."
+                itens={demografia.generos.map((g) => ({
+                  chave: g.nome,
+                  rotulo: g.nome,
+                  valor: g.seguidores,
+                  texto: `${formatarNumero(g.seguidores)} seguidores (${formatarPct(g.pct, 0)})`,
+                }))}
+              />
+            </div>
           </div>
           <Fonte>
-            Instagram (follower_demographics, breakdown city e age). Retrato de
-            hoje da base de seguidores, não do período.
+            Instagram (follower_demographics, breakdown city, age e gender).
+            Retrato de hoje da base de seguidores, não do período.
           </Fonte>
         </Secao>
       )}

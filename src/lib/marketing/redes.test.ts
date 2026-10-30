@@ -52,6 +52,8 @@ const f: FontesRedes = {
       { breakdown: "city", dimension_value: "Nova Friburgo", value: 400 },
       { breakdown: "age", dimension_value: "25-34", value: 300 },
       { breakdown: "age", dimension_value: "18-24", value: 100 },
+      { breakdown: "gender", dimension_value: "M", value: 100 },
+      { breakdown: "gender", dimension_value: "F", value: 300 },
     ],
   },
   facebook: {
@@ -139,6 +141,10 @@ describe("Redes sociais", () => {
     const d = demografiaInstagram(f);
     expect(d.cidades[0]).toEqual({ nome: "Nova Friburgo", seguidores: 400 });
     expect(d.idades.map((i) => i.faixa)).toEqual(["18-24", "25-34"]);
+    expect(d.generos).toEqual([
+      { nome: "Mulheres", seguidores: 300, pct: 75 },
+      { nome: "Homens", seguidores: 100, pct: 25 },
+    ]);
   });
 
   it("seguidores pela foto diária e novos = fim − início", () => {
