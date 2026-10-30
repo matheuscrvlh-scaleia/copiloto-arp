@@ -391,7 +391,7 @@ parte, e o resultado vira uma linha ✓/✗ por produto.
 
 | Acesso | Produtos (id de cada um, opcional) | Segredos | Teste |
 |---|---|---|---|
-| Google (`mkt_google`) | Google Ads (id do cliente, MCC), Analytics 4 (propriedade), Search Console (propriedade), YouTube (canal), Perfil da Empresa (conta) | Client ID e client secret; o refresh token sai do botão **Conectar com o Google**; token de desenvolvedor (só Ads) | Conta Google: e-mail e escopos concedidos (no próprio token); Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; YouTube: `channels.list?mine=true` confere que o canal é da conta; Perfil: lista os locais |
+| Google (`mkt_google`) | Escolhidos numa lista depois de conectar: conta do Google Ads (com a MCC, se o acesso for por ela), propriedade do Analytics 4 e do Search Console, canal do YouTube, conta do Perfil da Empresa | Client ID e client secret; o refresh token sai do botão **Conectar com o Google**; token de desenvolvedor (só Ads) | Conta Google: e-mail e escopos concedidos (no próprio token); Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; YouTube: `channels.list?mine=true` confere que o canal é da conta; Perfil: lista os locais |
 | Meta (`mkt_meta`) | Meta Ads (conta de anúncios), Facebook (página), Instagram (conta profissional) | Token de usuário do sistema | `GET /act_{id}`, `GET /{página}`, `GET /{instagram}` |
 | TikTok (`mkt_tiktok`) | App ID; o anunciante vem da autorização (fora do formulário) | App secret; o token de Ads sai do botão **Conectar com o TikTok** | `/advertiser/info/` |
 | RD Station (`mkt_rd_station`) | — | Client ID e client secret; o refresh token sai do botão **Conectar com o RD Station** | `/auth/token` e `/marketing/account_info` |
@@ -416,6 +416,16 @@ vence em 7 dias: o teste mostra "o acesso expirou" e basta conectar de novo.
 Para não vencer, publicar o app (verificação do Google, pelos escopos
 sensíveis). A Google Ads API muda de versão com frequência: a usada fica em
 `src/connectors/marketing/google.ts`.
+
+**Descoberta** (`src/server/marketing/descoberta-google.ts`): ninguém digita
+id. Com a conta conectada, o cartão lista o que ela acessa:
+`customers:listAccessibleCustomers` e, em cada uma, `customer_client` (as
+filhas de uma MCC vêm com a MCC como `login-customer-id`; o token de
+desenvolvedor precisa estar salvo); `accountSummaries` do GA4; `sites` do
+Search Console (só verificadas); `channels?mine=true`; `accounts` do Perfil
+da Empresa (403/429 até o Google aprovar o acesso). Ao conectar, o produto com
+uma opção só já fica escolhido; com várias, a pessoa escolhe e salva. Uma
+busca que falha mostra o motivo embaixo da lista e não mexe no que está salvo.
 
 TikTok: o app é criado uma vez no TikTok for Business Developers, com
 permissão só de leitura de relatórios, e precisa ser aprovado. A URL de

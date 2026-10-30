@@ -78,6 +78,54 @@ const locaisSchema = z.object({
   nextPageToken: z.string().optional(),
 });
 
+// Descoberta: o que a conta conectada acessa em cada produto.
+
+const acessiveisSchema = z.object({
+  resourceNames: z.array(z.string()).default([]),
+});
+
+const clientesAdsSchema = z.object({
+  results: z
+    .array(
+      z.object({
+        customerClient: z.object({
+          id: z.coerce.string(),
+          descriptiveName: z.string().default(""),
+          manager: z.boolean().default(false),
+        }),
+      }),
+    )
+    .default([]),
+});
+
+const resumosGa4Schema = z.object({
+  accountSummaries: z
+    .array(
+      z.object({
+        displayName: z.string().default(""),
+        propertySummaries: z
+          .array(z.object({ property: z.string(), displayName: z.string() }))
+          .default([]),
+      }),
+    )
+    .default([]),
+});
+
+const sitesSchema = z.object({ siteEntry: z.array(siteSchema).default([]) });
+
+const contasPerfilSchema = z.object({
+  accounts: z
+    .array(z.object({ name: z.string(), accountName: z.string().default("") }))
+    .default([]),
+});
+
+/** Conta de anúncio que a conta Google alcança; `login` é a MCC, se for por ela. */
+export interface ContaAds {
+  id: string;
+  nome: string;
+  login: string;
+}
+
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 /**
@@ -275,6 +323,92 @@ export function createGoogleClient(config: GoogleConfig) {
         id: c.id,
         nome: c.snippet.title,
         inscritos: c.statistics.subscriberCount,
+      }));
+    },
+
+    /**
+     * Contas de anúncio (não MCC) que a conta alcança: as diretas e as
+     * filhas de cada MCC (pela MCC, com login-customer-id). Uma conta que
+     * falha (cancelada, sem acesso) fica de fora.
+     */
+    async contasAds(developerToken: string): Promise<ContaAds[]> {
+      const base = `https://googleads.googleapis.com/${VERSAO_ADS}/customers`;
+      const r = await chamar(`${base}:listAccessibleCustomers`, {
+        headers: { "developer-token": developerToken },
+      });
+      const raizes = parseWith(sistema, acessiveisSchema, r)
+        .resourceNames.map((n) => n.replace(/^customers\//, ""))
+        .slice(0, 20);
+      const porRaiz = await Promise.allSettled(
+        raizes.map(async (raiz) => {
+          const c = await chamar(`${base}/${raiz}/googleAds:search`, {
+            method: "POST",
+            body: {
+              query:
+                "SELECT customer_client.id, customer_client.descriptive_name, customer_client.manager FROM customer_client WHERE customer_client.level <= 1 AND customer_client.status = 'ENABLED'",
+            },
+            headers: {
+              "developer-token": developerToken,
+              "login-customer-id": raiz,
+            },
+          });
+          return parseWith(sistema, clientesAdsSchema, c).results.map(
+            ({ customerClient: k }) => ({
+              id: k.id,
+              nome: k.descriptiveName,
+              manager: k.manager,
+              login: k.id === raiz ? "" : raiz,
+            }),
+          );
+        }),
+      );
+      // A mesma conta pode vir direta e por uma MCC: fica a direta.
+      const contas = new Map<string, ContaAds>();
+      for (const p of porRaiz) {
+        if (p.status !== "fulfilled") continue;
+        for (const k of p.value) {
+          if (k.manager) continue;
+          const atual = contas.get(k.id);
+          if (!atual || (atual.login && !k.login))
+            contas.set(k.id, { id: k.id, nome: k.nome, login: k.login });
+        }
+      }
+      return [...contas.values()];
+    },
+
+    /** Propriedades do GA4, com o nome da conta do Analytics. */
+    async propriedadesGa4() {
+      const r = await chamar(
+        "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
+        { query: { pageSize: 200 } },
+      );
+      return parseWith(sistema, resumosGa4Schema, r).accountSummaries.flatMap(
+        (conta) =>
+          conta.propertySummaries.map((p) => ({
+            id: p.property.replace(/^properties\//, ""),
+            nome: p.displayName,
+            conta: conta.displayName,
+          })),
+      );
+    },
+
+    /** Propriedades verificadas do Search Console. */
+    async sitesSearchConsole() {
+      const r = await chamar("https://www.googleapis.com/webmasters/v3/sites");
+      return parseWith(sistema, sitesSchema, r)
+        .siteEntry.filter((s) => s.permissionLevel !== "siteUnverifiedUser")
+        .map((s) => s.siteUrl);
+    },
+
+    /** Contas do Perfil da Empresa (exige o acesso aprovado pelo Google). */
+    async contasPerfil() {
+      const r = await chamar(
+        "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+        { query: { pageSize: 20 } },
+      );
+      return parseWith(sistema, contasPerfilSchema, r).accounts.map((a) => ({
+        id: a.name.replace(/^accounts\//, ""),
+        nome: a.accountName,
       }));
     },
 

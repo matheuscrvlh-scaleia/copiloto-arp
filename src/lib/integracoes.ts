@@ -29,6 +29,8 @@ export interface Campo {
   opcional?: boolean;
   /** Só o botão Conectar preenche: fica oculto no formulário, com o salvo. */
   gerado?: boolean;
+  /** Lista com o que a conta conectada acessa, em vez de digitar o id. */
+  escolha?: boolean;
 }
 
 export interface Segredo {
@@ -178,7 +180,7 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
   mkt_google: {
     nome: "Google",
     serve:
-      "Google Ads, Analytics 4, Search Console, YouTube e Perfil da Empresa com um login só. Preencha o id dos produtos que a ARP usa; cada um é testado à parte.",
+      "Google Ads, Analytics 4, Search Console, YouTube e Perfil da Empresa com um login só. Depois de conectar, escolha o que a ARP usa em cada produto; cada um é testado à parte.",
     modulo: "marketing",
     campos: [
       {
@@ -190,51 +192,38 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       },
       {
         nome: "customer_id",
-        rotulo: "Google Ads: id do cliente",
-        tipo: "text",
-        exemplo: "123-456-7890",
-        opcional: true,
-        ajuda: "Número no topo do Google Ads, da conta que anuncia",
-      },
-      {
-        nome: "login_customer_id",
-        rotulo: "Google Ads: id da conta de administrador (MCC)",
+        rotulo: "Google Ads: conta",
         tipo: "text",
         opcional: true,
-        ajuda: "Só se o acesso vier por uma conta de administrador",
+        escolha: true,
       },
       {
         nome: "property_id",
-        rotulo: "Analytics 4: id da propriedade",
+        rotulo: "Analytics 4: propriedade",
         tipo: "text",
-        exemplo: "123456789",
         opcional: true,
-        ajuda: "GA4 › Administrador › Detalhes da propriedade",
+        escolha: true,
       },
       {
         nome: "site_url",
         rotulo: "Search Console: propriedade",
         tipo: "text",
-        exemplo: "sc-domain:espacoarp.com.br",
         opcional: true,
-        ajuda: "Como aparece no Search Console (domínio ou endereço com https)",
+        escolha: true,
       },
       {
         nome: "channel_id",
-        rotulo: "YouTube: id do canal",
+        rotulo: "YouTube: canal",
         tipo: "text",
-        exemplo: "UC…",
         opcional: true,
-        ajuda:
-          "YouTube Studio › Configurações › Canal › Configurações avançadas",
+        escolha: true,
       },
       {
         nome: "account_id",
-        rotulo: "Perfil da Empresa: id da conta",
+        rotulo: "Perfil da Empresa: conta",
         tipo: "text",
-        exemplo: "accounts/123456789",
         opcional: true,
-        ajuda: "Conta (grupo de locais) em que a ARP é proprietária ou gerente",
+        escolha: true,
       },
     ],
     segredos: [
@@ -256,8 +245,12 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
     parametros: z
       .object({
         client_id: texto,
-        customer_id: idOpcional(),
-        login_customer_id: idOpcional(),
+        // A lista manda "conta@mcc" quando o acesso é pela MCC.
+        customer_id: z
+          .string()
+          .trim()
+          .regex(/^(\d+(@\d+)?)?$/, "conta inválida"),
+        login_customer_id: idOpcional().default(""),
         property_id: idOpcional(/^properties\//),
         site_url: z
           .string()
@@ -272,17 +265,12 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
           .regex(/^(|UC[\w-]{22})$/, "começa com UC e tem 24 caracteres"),
         account_id: idOpcional(/^accounts\//),
       })
-      .refine(
-        (p) =>
-          [
-            p.customer_id,
-            p.property_id,
-            p.site_url,
-            p.channel_id,
-            p.account_id,
-          ].some(Boolean),
-        "preencha o id de pelo menos um produto",
-      ),
+      .transform((p) => {
+        const [conta = "", mcc] = p.customer_id.split("@");
+        return mcc === undefined
+          ? p
+          : { ...p, customer_id: conta, login_customer_id: mcc };
+      }),
     autorizar: {
       rotulo: "Conectar com o Google",
       segredo: "refresh_token",
@@ -686,6 +674,36 @@ export const RETORNO_GOOGLE = {
   salvar: RETORNO_RD.salvar,
 } as const;
 export type ResultadoGoogle = keyof typeof RETORNO_GOOGLE;
+
+export interface Opcao {
+  valor: string;
+  rotulo: string;
+}
+
+/** O que a conta conectada acessa num campo de escolha; `erro` se a busca falhou. */
+export interface Descoberta {
+  opcoes: Opcao[];
+  erro?: string;
+}
+
+/** O valor salvo como a lista mostra (a conta do Ads leva a MCC junto). */
+export function valorDaEscolha(
+  nome: string,
+  parametros: Record<string, unknown>,
+): string {
+  const v = String(parametros[nome] ?? "");
+  const mcc = String(parametros.login_customer_id ?? "");
+  return nome === "customer_id" && v && mcc ? `${v}@${mcc}` : v;
+}
+
+/**
+ * Depois de conectar: fica o salvo se a conta ainda o acessa; senão a única
+ * opção; com várias, ninguém escolhe pela pessoa. Busca que falhou não mexe.
+ */
+export function escolhaInicial(atual: string, d: Descoberta): string {
+  if (d.erro || d.opcoes.some((o) => o.valor === atual)) return atual;
+  return d.opcoes.length === 1 ? (d.opcoes[0]?.valor ?? "") : "";
+}
 
 export function ehSistema(valor: unknown): valor is Sistema {
   return SISTEMAS.includes(valor as Sistema);

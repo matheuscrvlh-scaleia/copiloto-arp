@@ -7,11 +7,13 @@ import {
 } from "@/connectors/marketing/google";
 import {
   AUTORIZACAO_GOOGLE,
+  escolhaInicial,
   escoposFaltando,
   INTEGRACOES,
   juntarSegredos,
   type ResultadoGoogle,
   separarSegredos,
+  valorDaEscolha,
 } from "@/lib/integracoes";
 import { aleatorio, desafioPkce, mesmoState } from "@/lib/oauth";
 import type { Json } from "@/lib/supabase/database.types";
@@ -19,6 +21,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cifrar } from "../cofre";
 import { credencialSalva, podeConfigurar, testarConexao } from "../integracoes";
 import { origem } from "./autorizacao-rd";
+import { descobrirGoogle } from "./descoberta-google";
 
 // Autorização do Google (OAuth): "Conectar com o Google" guarda o state e o
 // verificador do PKCE num cookie e manda a pessoa à tela do Google; ele volta
@@ -96,15 +99,31 @@ export async function concluirAutorizacaoGoogle(volta: {
     ...segredos,
     refresh_token: novo.refreshToken,
   });
+
+  // O que a conta acessa: onde há uma opção só, ela já fica escolhida.
+  const achados = await descobrirGoogle({ parametros: p.data, segredo });
+  const parametros = def.parametros.parse({
+    ...p.data,
+    ...Object.fromEntries(
+      def.campos
+        .filter((c) => c.escolha)
+        .map((c) => {
+          const d = achados[c.nome];
+          const atual = valorDaEscolha(c.nome, p.data);
+          return [c.nome, d ? escolhaInicial(atual, d) : atual];
+        }),
+    ),
+  });
+
   const core = (await createClient()).schema("core");
   const salvo = await core.rpc("salvar_integracao", {
     p_sistema: SISTEMA,
-    p_parametros: p.data as Json,
+    p_parametros: parametros as Json,
     p_segredo_cifrado: cifrar(segredo, SISTEMA),
     p_ativa: true,
   });
   if (salvo.error) return "salvar";
-  const teste = await testarConexao(SISTEMA, { parametros: p.data, segredo });
+  const teste = await testarConexao(SISTEMA, { parametros, segredo });
   await core.rpc("registrar_teste_integracao", {
     p_sistema: SISTEMA,
     p_ok: teste.ok,

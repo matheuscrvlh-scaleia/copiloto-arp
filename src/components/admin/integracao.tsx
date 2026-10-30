@@ -12,11 +12,17 @@ import {
   Send,
   Users,
 } from "lucide-react";
+import { Suspense } from "react";
 import { Situacao } from "@/components/admin/ui";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { formatarDataHora } from "@/lib/formato";
-import { INTEGRACOES, type Sistema } from "@/lib/integracoes";
+import {
+  type Descoberta,
+  INTEGRACOES,
+  type Sistema,
+  valorDaEscolha,
+} from "@/lib/integracoes";
 import {
   removerIntegracao,
   salvarIntegracao,
@@ -83,12 +89,62 @@ const SINCRONIZA: Sistema[] = [
   "mkt_meta",
 ];
 
+/**
+ * Lista de um campo de escolha: o que a conta conectada acessa. O salvo fica
+ * na lista mesmo se a busca falhar, para não se perder ao salvar de novo.
+ */
+async function Escolha({
+  id,
+  nome,
+  atual,
+  descobertas,
+}: {
+  id: string;
+  nome: string;
+  atual: string;
+  descobertas: Promise<Record<string, Descoberta> | null>;
+}) {
+  const d = (await descobertas)?.[nome];
+  const opcoes = d?.opcoes ?? [];
+  const lista =
+    atual && !opcoes.some((o) => o.valor === atual)
+      ? [{ valor: atual, rotulo: `${atual} (salvo)` }, ...opcoes]
+      : opcoes;
+  const vazio = !d
+    ? "Conecte com o Google para escolher"
+    : opcoes.length > 0
+      ? "Não usar"
+      : "Nada encontrado nesta conta";
+  return (
+    <>
+      <select
+        id={id}
+        name={nome}
+        defaultValue={atual}
+        disabled={lista.length === 0}
+        className={classeCampo}
+      >
+        <option value="">{vazio}</option>
+        {lista.map((o) => (
+          <option key={o.valor} value={o.valor}>
+            {o.rotulo}
+          </option>
+        ))}
+      </select>
+      {d?.erro && <span className="font-normal text-amber-700">{d.erro}</span>}
+    </>
+  );
+}
+
 export function CartaoIntegracao({
   i,
   cofre,
+  descobertas = Promise.resolve(null),
 }: {
   i: IntegracaoNaTela;
   cofre: boolean;
+  /** Para os campos de escolha (Google): o que a conta conectada acessa. */
+  descobertas?: Promise<Record<string, Descoberta> | null>;
 }) {
   const def = INTEGRACOES[i.sistema];
   const Icone = ICONE[i.sistema];
@@ -206,28 +262,51 @@ export function CartaoIntegracao({
           {campos.length > 0 && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {campos.map((c) => (
-                <label key={c.nome} className={rotulo}>
+                <label
+                  key={c.nome}
+                  className={rotulo}
+                  htmlFor={c.escolha ? `${i.sistema}-${c.nome}` : undefined}
+                >
                   <span>
                     {c.rotulo}
-                    {c.opcional && (
+                    {c.opcional && !c.escolha && (
                       <span className="font-normal text-neutral-400">
                         {" "}
                         (opcional)
                       </span>
                     )}
                   </span>
-                  <input
-                    name={c.nome}
-                    type={c.tipo === "number" ? "text" : c.tipo}
-                    inputMode={c.tipo === "number" ? "numeric" : undefined}
-                    required={!c.opcional}
-                    autoComplete="off"
-                    placeholder={c.exemplo}
-                    defaultValue={
-                      salva ? String(i.parametros[c.nome] ?? "") : undefined
-                    }
-                    className={classeCampo}
-                  />
+                  {c.escolha ? (
+                    <Suspense
+                      fallback={
+                        <select disabled className={classeCampo}>
+                          <option>Buscando na conta…</option>
+                        </select>
+                      }
+                    >
+                      <Escolha
+                        id={`${i.sistema}-${c.nome}`}
+                        nome={c.nome}
+                        atual={
+                          salva ? valorDaEscolha(c.nome, i.parametros) : ""
+                        }
+                        descobertas={descobertas}
+                      />
+                    </Suspense>
+                  ) : (
+                    <input
+                      name={c.nome}
+                      type={c.tipo === "number" ? "text" : c.tipo}
+                      inputMode={c.tipo === "number" ? "numeric" : undefined}
+                      required={!c.opcional}
+                      autoComplete="off"
+                      placeholder={c.exemplo}
+                      defaultValue={
+                        salva ? String(i.parametros[c.nome] ?? "") : undefined
+                      }
+                      className={classeCampo}
+                    />
+                  )}
                   {c.ajuda && (
                     <span className="font-normal text-neutral-400">
                       {c.ajuda}

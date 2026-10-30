@@ -737,3 +737,112 @@ describe("google: só leitura", () => {
     expect(fonte).not.toMatch(/mutate/i);
   });
 });
+
+describe("google: descoberta", () => {
+  const cliente = (respostas: unknown[], chamadas: Chamada[] = []) =>
+    createGoogleClient({
+      sistema: "mkt_google",
+      clientId: "id",
+      clientSecret: "s",
+      refreshToken: "r",
+      fetch: falso([TOKEN, ...respostas], chamadas),
+    });
+
+  it("Ads: contas diretas e filhas da MCC, sem MCC e sem repetir", async () => {
+    const chamadas: Chamada[] = [];
+    const api = cliente(
+      [
+        { resourceNames: ["customers/111", "customers/999"] },
+        {
+          results: [
+            {
+              customerClient: {
+                id: "111",
+                descriptiveName: "ARP",
+                manager: false,
+              },
+            },
+          ],
+        },
+        {
+          results: [
+            {
+              customerClient: {
+                id: "999",
+                descriptiveName: "Agência",
+                manager: true,
+              },
+            },
+            {
+              customerClient: {
+                id: "111",
+                descriptiveName: "ARP",
+                manager: false,
+              },
+            },
+            {
+              customerClient: {
+                id: "222",
+                descriptiveName: "ARP Eventos",
+                manager: false,
+              },
+            },
+          ],
+        },
+      ],
+      chamadas,
+    );
+    expect(await api.contasAds("dev")).toEqual([
+      { id: "111", nome: "ARP", login: "" },
+      { id: "222", nome: "ARP Eventos", login: "999" },
+    ]);
+    expect(chamadas[1]?.url).toMatch(/\/customers:listAccessibleCustomers$/);
+    expect(chamadas[1]?.headers.get("developer-token")).toBe("dev");
+    expect(chamadas[3]?.headers.get("login-customer-id")).toBe("999");
+    expect(chamadas[3]?.corpo).toContain("FROM customer_client");
+  });
+
+  it("Ads: conta que falha fica de fora, as outras seguem", async () => {
+    const api = cliente([
+      { resourceNames: ["customers/1", "customers/2"] },
+      new Response('{"error":{"message":"cancelada"}}', { status: 403 }),
+      {
+        results: [
+          { customerClient: { id: "2", descriptiveName: "B", manager: false } },
+        ],
+      },
+    ]);
+    expect(await api.contasAds("dev")).toEqual([
+      { id: "2", nome: "B", login: "" },
+    ]);
+  });
+
+  it("GA4, Search Console (só verificadas) e Perfil da Empresa", async () => {
+    const api = cliente([
+      {
+        accountSummaries: [
+          {
+            displayName: "ARP",
+            propertySummaries: [
+              { property: "properties/42", displayName: "Site" },
+            ],
+          },
+        ],
+      },
+      {
+        siteEntry: [
+          { siteUrl: "sc-domain:arp.com.br", permissionLevel: "siteOwner" },
+          { siteUrl: "https://x.com/", permissionLevel: "siteUnverifiedUser" },
+        ],
+      },
+      {},
+      { accounts: [{ name: "accounts/7", accountName: "ARP" }] },
+    ]);
+    expect(await api.propriedadesGa4()).toEqual([
+      { id: "42", nome: "Site", conta: "ARP" },
+    ]);
+    expect(await api.sitesSearchConsole()).toEqual(["sc-domain:arp.com.br"]);
+    expect(await api.sitesSearchConsole()).toEqual([]);
+    expect(await api.contasPerfil()).toEqual([{ id: "7", nome: "ARP" }]);
+  });
+});

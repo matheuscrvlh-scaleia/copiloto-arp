@@ -24,6 +24,7 @@ import {
 import { conferirAsana, nomesDoAsana } from "@/lib/marketing/parametros";
 import { type IntegracaoNaTela, integracoesNaTela } from "@/server/admin/dados";
 import { parametros } from "@/server/marketing/base";
+import { descobertasDaTela } from "@/server/marketing/descoberta-google";
 import { dadosAsana } from "@/server/marketing/fontes";
 import { historicoMkt } from "@/server/marketing/parametros";
 import { BlocoAsana } from "../blocos";
@@ -155,6 +156,8 @@ async function Tela({
         : typeof tiktok === "string" && tiktok in RETORNO_TIKTOK
           ? RETORNO_TIKTOK[tiktok as ResultadoAutorizacao]
           : null;
+  // As listas do Google (o que a conta acessa) chegam depois, no cartão.
+  const descobertas = descobertasDaTela();
   const [p, asana, historico, { cofre, integracoes }] = await Promise.all([
     parametros(),
     dadosAsana(),
@@ -258,7 +261,12 @@ async function Tela({
       )}
 
       {integracoes.map((i) => (
-        <CartaoIntegracao key={i.sistema} i={i} cofre={cofre} />
+        <CartaoIntegracao
+          key={i.sistema}
+          i={i}
+          cofre={cofre}
+          descobertas={i.sistema === "mkt_google" ? descobertas : undefined}
+        />
       ))}
 
       <BlocoAsana

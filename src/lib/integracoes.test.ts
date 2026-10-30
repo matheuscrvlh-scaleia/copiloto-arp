@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTORIZACAO_GOOGLE,
+  escolhaInicial,
   escoposFaltando,
   INTEGRACOES,
   juntarSegredos,
@@ -9,6 +10,7 @@ import {
   retornoDoRd,
   SISTEMAS,
   separarSegredos,
+  valorDaEscolha,
 } from "./integracoes";
 
 describe("segredos das integrações", () => {
@@ -68,7 +70,7 @@ describe("Google e Meta: um acesso, vários produtos", () => {
     expect(
       google.parse({
         ...vazioGoogle,
-        customer_id: "123-456-7890",
+        customer_id: "1234567890",
         property_id: "properties/42",
         account_id: "accounts/987",
       }),
@@ -82,8 +84,11 @@ describe("Google e Meta: um acesso, vários produtos", () => {
     ).toEqual({ ad_account_id: "123", page_id: "", instagram_id: "" });
   });
 
-  it("pede pelo menos um produto e recusa formato errado", () => {
-    expect(google.safeParse(vazioGoogle).success).toBe(false);
+  it("Meta pede pelo menos um produto; o Google escolhe depois de conectar", () => {
+    expect(google.safeParse(vazioGoogle).success).toBe(true);
+    expect(
+      google.safeParse({ ...vazioGoogle, customer_id: "123-456" }).success,
+    ).toBe(false);
     expect(
       meta.safeParse({ ad_account_id: "", page_id: "", instagram_id: "" })
         .success,
@@ -165,5 +170,53 @@ describe("segredo gerado pelo botão Conectar", () => {
         expect(def.autorizar?.segredo, s).toBe(sg.nome);
       }
     }
+  });
+});
+
+describe("escolhas do Google (descoberta)", () => {
+  const p = INTEGRACOES.mkt_google.parametros;
+  const base = {
+    client_id: "app",
+    property_id: "",
+    site_url: "",
+    channel_id: "",
+    account_id: "",
+  };
+
+  it("conta do Ads pela MCC vem como conta@mcc e é salva separada", () => {
+    expect(p.parse({ ...base, customer_id: "123@999" })).toMatchObject({
+      customer_id: "123",
+      login_customer_id: "999",
+    });
+    expect(p.parse({ ...base, customer_id: "123" })).toMatchObject({
+      customer_id: "123",
+      login_customer_id: "",
+    });
+  });
+
+  it("parâmetros já salvos (separados) abrem iguais", () => {
+    const salvo = { ...base, customer_id: "123", login_customer_id: "999" };
+    expect(p.parse(salvo)).toMatchObject(salvo);
+    expect(valorDaEscolha("customer_id", salvo)).toBe("123@999");
+    expect(valorDaEscolha("property_id", { property_id: "42" })).toBe("42");
+  });
+
+  it("sem nenhum produto escolhido também salva (escolhe depois de conectar)", () => {
+    expect(p.safeParse({ ...base, customer_id: "" }).success).toBe(true);
+  });
+
+  it("escolha inicial: mantém o salvo, pega a única, não chuta entre várias", () => {
+    const um = { opcoes: [{ valor: "1", rotulo: "A" }] };
+    const dois = {
+      opcoes: [
+        { valor: "1", rotulo: "A" },
+        { valor: "2", rotulo: "B" },
+      ],
+    };
+    expect(escolhaInicial("", um)).toBe("1");
+    expect(escolhaInicial("2", dois)).toBe("2");
+    expect(escolhaInicial("", dois)).toBe("");
+    expect(escolhaInicial("9", dois)).toBe("");
+    expect(escolhaInicial("9", { opcoes: [], erro: "403" })).toBe("9");
   });
 });
