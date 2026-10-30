@@ -48,37 +48,50 @@ function avisoDe(erro: unknown): string {
   return `A Meta não respondeu: ${mensagemSegura(erro).slice(0, 160)}`;
 }
 
-async function lerAnuncios(hoje: string): Promise<AnunciosMeta | null> {
+/**
+ * Em produção, erro lançado dentro de "use cache" sai sem a mensagem (só o
+ * digest). Por isso a falha volta como dado, guardada só por segundos.
+ */
+type Lido<T> = { dados: T } | { aviso: string };
+
+async function lerAnuncios(hoje: string): Promise<Lido<AnunciosMeta | null>> {
   "use cache";
-  cacheLife("hours");
   cacheTag(TAG.marketing.meta);
-  const { api, contaDeAnuncios: conta } = await meta();
-  if (!conta) return null;
-  const de = somarDias(hoje, -JANELA_DIAS);
-  const [insights, plataformas, estados] = await Promise.all([
-    api.insights(conta, de, hoje),
-    api.quebras(conta, de, hoje, "publisher_platform"),
-    api.quebras(conta, de, hoje, "region"),
-  ]);
-  const ids = [...new Set(insights.map((i) => i.campaign_id))];
-  const campanhas = ids.length ? await api.campanhas(conta, ids) : [];
-  return { campanhas, insights, quebras: [...plataformas, ...estados] };
+  try {
+    const { api, contaDeAnuncios: conta } = await meta();
+    if (!conta) {
+      cacheLife("hours");
+      return { dados: null };
+    }
+    const de = somarDias(hoje, -JANELA_DIAS);
+    const [insights, plataformas, estados] = await Promise.all([
+      api.insights(conta, de, hoje),
+      api.quebras(conta, de, hoje, "publisher_platform"),
+      api.quebras(conta, de, hoje, "region"),
+    ]);
+    const ids = [...new Set(insights.map((i) => i.campaign_id))];
+    const campanhas = ids.length ? await api.campanhas(conta, ids) : [];
+    cacheLife("hours");
+    return {
+      dados: { campanhas, insights, quebras: [...plataformas, ...estados] },
+    };
+  } catch (erro) {
+    cacheLife("seconds");
+    return { aviso: avisoDe(erro) };
+  }
 }
 
 /** Meta Ads das últimas 18 semanas. */
 export async function anunciosMeta(): Promise<Leitura<AnunciosMeta>> {
   const { hoje } = await exigirModulo();
-  try {
-    const dados = await lerAnuncios(hoje);
-    if (!dados)
-      return {
-        ok: false,
-        aviso: "Meta: falta o id da conta de anúncios em Integrações.",
-      };
-    return { ok: true, dados, lidoEm: new Date().toISOString() };
-  } catch (erro) {
-    return { ok: false, aviso: avisoDe(erro) };
-  }
+  const lido = await lerAnuncios(hoje);
+  if ("aviso" in lido) return { ok: false, aviso: lido.aviso };
+  if (!lido.dados)
+    return {
+      ok: false,
+      aviso: "Meta: falta o id da conta de anúncios em Integrações.",
+    };
+  return { ok: true, dados: lido.dados, lidoEm: new Date().toISOString() };
 }
 
 export interface RedesMeta {
@@ -90,17 +103,29 @@ export interface RedesMeta {
   facebook: { dias: FacebookDia[] };
 }
 
-async function lerInstagram(hoje: string) {
+async function lerInstagram(
+  hoje: string,
+): Promise<
+  Lido<{ posts: InstagramPost[]; demografia: InstagramDemografia[] }>
+> {
   "use cache";
-  cacheLife("hours");
   cacheTag(TAG.marketing.meta);
-  const { api, instagram } = await meta();
-  if (!instagram) return { posts: [], demografia: [] };
-  const [posts, demografia] = await Promise.all([
-    api.instagramPosts(instagram, somarDias(hoje, -JANELA_DIAS)),
-    api.instagramDemografia(instagram),
-  ]);
-  return { posts, demografia };
+  try {
+    const { api, instagram } = await meta();
+    if (!instagram) {
+      cacheLife("hours");
+      return { dados: { posts: [], demografia: [] } };
+    }
+    const [posts, demografia] = await Promise.all([
+      api.instagramPosts(instagram, somarDias(hoje, -JANELA_DIAS)),
+      api.instagramDemografia(instagram),
+    ]);
+    cacheLife("hours");
+    return { dados: { posts, demografia } };
+  } catch (erro) {
+    cacheLife("seconds");
+    return { aviso: avisoDe(erro) };
+  }
 }
 
 /** Quando a última sincronização da Meta terminou; null se nunca rodou. */
@@ -160,11 +185,9 @@ export async function redesMeta(): Promise<Leitura<RedesMeta>> {
       profile_links_taps: d.toques_links,
     });
   }
-  try {
-    Object.assign(dados.instagram, await lerInstagram(hoje));
-  } catch (erro) {
-    // Seguidores e métricas valem mesmo sem os posts.
-    return { ok: true, dados, lidoEm, aviso: avisoDe(erro) };
-  }
+  const lido = await lerInstagram(hoje);
+  // Seguidores e métricas valem mesmo sem os posts.
+  if ("aviso" in lido) return { ok: true, dados, lidoEm, aviso: lido.aviso };
+  Object.assign(dados.instagram, lido.dados);
   return { ok: true, dados, lidoEm };
 }
