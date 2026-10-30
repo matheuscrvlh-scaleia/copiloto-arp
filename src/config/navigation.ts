@@ -289,7 +289,7 @@ export const navigation: NavSection[] = [
       },
       {
         href: "/marketing/eventos",
-        label: "Eventos do site",
+        label: "Eventos",
         icone: "eventos",
         permissao: "marketing.eventos",
       },

@@ -14,7 +14,7 @@ import { mesesAFrente } from "@/lib/marketing/radar";
 import { agendaDoSite } from "@/server/marketing/eventos";
 import { type Busca, lerFiltros } from "@/server/marketing/filtros";
 
-export const metadata: Metadata = { title: "Eventos do site" };
+export const metadata: Metadata = { title: "Eventos" };
 
 export default function Page({
   searchParams,
@@ -22,7 +22,7 @@ export default function Page({
   return (
     <>
       <PageHeader
-        title="Eventos do site"
+        title="Eventos"
         description="A agenda publicada no site da ARP, lida ao vivo: o que vem nos próximos dias e meses, em cartões ou no calendário, e quantos eventos houve por mês."
       />
       <Suspense fallback={<Esqueleto />}>

@@ -97,7 +97,7 @@ beforeAll(async () => {
 }, 60_000);
 
 describe("permissões e ponto de partida", () => {
-  it("cadastra as 12 permissões (sem Público e visitação, com Eventos do site) e dá todas ao Administrador", async () => {
+  it("cadastra as 12 permissões (sem Público e visitação, com Eventos) e dá todas ao Administrador", async () => {
     expect(
       await valor<number>(
         "select count(*)::int from core.permissoes where codigo like 'marketing.%'",

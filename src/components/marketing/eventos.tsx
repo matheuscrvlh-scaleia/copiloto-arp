@@ -28,7 +28,7 @@ import type { AgendaDoSite } from "@/server/marketing/eventos";
 import { Mes, TrocaVisao } from "./radar/calendario";
 import { type PropsAba, plural } from "./radar/comum";
 
-// Tela "Eventos do site": os eventos publicados no site da ARP (WordPress),
+// Tela "Eventos": os eventos publicados no site da ARP (WordPress),
 // lidos ao vivo pela integração de Configurações › Integrações. Mostra os
 // próximos 6 meses em cartões ou em mês, e quantos eventos houve por mês.
 
@@ -264,7 +264,7 @@ function SemAgenda({
         : "Falta o endereço da agenda de eventos do site.";
   return (
     <Secao
-      titulo="Eventos do site"
+      titulo="Eventos"
       descricao="Os eventos publicados no site da ARP aparecem aqui."
     >
       <p

@@ -417,7 +417,7 @@ formulários da ARP não pedem cidade: cidade e UF ficam vazias. Custo por lead
 e leads por campanha continuam com o RD de exemplo enquanto os anúncios forem
 de exemplo (`dadosRdDosAnuncios`).
 
-**Agenda do site (dado real, não de exemplo):** a tela Marketing › Eventos do site
+**Agenda do site (dado real, não de exemplo):** a tela Marketing › Eventos
 lê ao vivo o endereço salvo (hoje
 `https://www.espacoarp.com.br/wp-json/wp/v2/evento?per_page=100&_embed=wp:featuredmedia`),
 página a página (o sistema troca só o `page=`), e guarda no cache por uma

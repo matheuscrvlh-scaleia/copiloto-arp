@@ -311,7 +311,7 @@ export function TrocaVisao({
 }: {
   visao: "lista" | "mes";
   busca: PropsAba["busca"];
-  /** Tela dos links: o Radar ou Eventos do site. */
+  /** Tela dos links: o Radar ou Eventos. */
   base?: string;
 }) {
   return (
@@ -362,7 +362,7 @@ export function Mes<T extends { inicio: string; fim: string }>({
   hoje: string;
   eventos: T[];
   busca: PropsAba["busca"];
-  /** Tela dos links: o Radar ou Eventos do site. */
+  /** Tela dos links: o Radar ou Eventos. */
   base?: string;
   chave: (e: T) => string;
   /** O evento no dia; `largo` na lista do celular. */
