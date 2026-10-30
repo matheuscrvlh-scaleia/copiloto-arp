@@ -95,6 +95,7 @@ export function CartaoIntegracao({
   const s = situacao(i);
   const salva = i.origem === "tela";
   const segredos = def.segredos.filter((sg) => !sg.gerado);
+  const campos = def.campos.filter((c) => !c.gerado);
 
   return (
     <section
@@ -190,11 +191,21 @@ export function CartaoIntegracao({
         className="flex flex-col gap-4 rounded-3xl border border-neutral-200 bg-white/60 p-5"
       >
         <input type="hidden" name="sistema" value={i.sistema} />
+        {def.campos
+          .filter((c) => c.gerado)
+          .map((c) => (
+            <input
+              key={c.nome}
+              type="hidden"
+              name={c.nome}
+              value={salva ? String(i.parametros[c.nome] ?? "") : ""}
+            />
+          ))}
         <fieldset disabled={!cofre} className="flex flex-col gap-4">
           <legend className="sr-only">Acesso a {def.nome}</legend>
-          {def.campos.length > 0 && (
+          {campos.length > 0 && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {def.campos.map((c) => (
+              {campos.map((c) => (
                 <label key={c.nome} className={rotulo}>
                   <span>
                     {c.rotulo}

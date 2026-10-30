@@ -176,23 +176,12 @@ export const TESTES_MARKETING: Record<
       );
     if (!p("advertiser_id"))
       throw new Error(
-        "preencha o id do anunciante (o token não trouxe nenhum)",
+        "a conta que autorizou não tem acesso a nenhum anunciante: conecte com quem administra os anúncios",
       );
-    const api = createTikTokClient({ token: s("segredo") });
-    const a = await api.anunciante(p("advertiser_id"));
-    const partes = [`Conectado ao anunciante “${a.name}” (${a.currency})`];
-    if (p("business_id")) {
-      const conta = await api.contaBusiness(
-        p("business_id"),
-        s("token_conta") || undefined,
-      );
-      partes.push(
-        `conta “${conta.display_name || conta.username}” com ${formatarNumero(conta.followers_count)} seguidores`,
-      );
-    } else {
-      partes.push("sem conta Business");
-    }
-    return partes.join(" · ");
+    const a = await createTikTokClient({ token: s("segredo") }).anunciante(
+      p("advertiser_id"),
+    );
+    return `Conectado ao anunciante “${a.name}” (${a.currency})`;
   },
 
   async mkt_rd_station(c) {

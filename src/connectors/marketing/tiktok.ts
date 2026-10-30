@@ -27,12 +27,6 @@ const anuncianteSchema = z.object({
     .default([]),
 });
 
-const contaSchema = z.object({
-  display_name: z.string().default(""),
-  username: z.string().default(""),
-  followers_count: z.number().default(0),
-});
-
 const autorizadoSchema = z.object({
   access_token: z.string().min(1),
   advertiser_ids: z.array(z.coerce.string()).default([]),
@@ -63,10 +57,9 @@ export function createTikTokClient(config: TikTokConfig) {
     caminho: string,
     query: Record<string, string>,
     schema: T,
-    token = config.token,
   ): Promise<z.infer<T>> {
     const r = await requestJson(SISTEMA, `${API_URL}${caminho}`, {
-      headers: { "Access-Token": token },
+      headers: { "Access-Token": config.token },
       query,
       retries: 1,
       fetch: config.fetch,
@@ -89,21 +82,6 @@ export function createTikTokClient(config: TikTokConfig) {
           404,
         );
       return a;
-    },
-    async contaBusiness(businessId: string, token?: string) {
-      return ler(
-        "/business/get/",
-        {
-          business_id: businessId,
-          fields: JSON.stringify([
-            "display_name",
-            "username",
-            "followers_count",
-          ]),
-        },
-        contaSchema,
-        token,
-      );
     },
   };
 }

@@ -27,6 +27,8 @@ export interface Campo {
   tipo: "text" | "url" | "number";
   exemplo?: string;
   opcional?: boolean;
+  /** Só o botão Conectar preenche: fica oculto no formulário, com o salvo. */
+  gerado?: boolean;
 }
 
 export interface Segredo {
@@ -340,14 +342,13 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
   },
   mkt_tiktok: {
     nome: "TikTok",
-    serve: "Anúncios e, se houver, a conta Business (seguidores e vídeos).",
+    serve: "Anúncios (gasto, alcance e resultados por campanha).",
     modulo: "marketing",
     campos: [
       {
         nome: "app_id",
         rotulo: "App ID",
         tipo: "text",
-        opcional: true,
         ajuda: "App criado no TikTok for Business Developers (My Apps)",
       },
       {
@@ -355,37 +356,21 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
         rotulo: "Id do anunciante",
         tipo: "text",
         opcional: true,
-        ajuda:
-          "TikTok Ads Manager, ao lado do nome da conta; em branco, o Conectar usa o anunciante autorizado",
-      },
-      {
-        nome: "business_id",
-        rotulo: "Id da conta Business",
-        tipo: "text",
-        opcional: true,
-        ajuda: "open_id da conta Business, devolvido quando a conta autoriza",
+        gerado: true,
       },
     ],
     segredos: [
-      { nome: "app_secret", rotulo: "App secret", opcional: true },
+      { nome: "app_secret", rotulo: "App secret" },
       {
         nome: "segredo",
         rotulo: "Token de acesso (Ads)",
         opcional: true,
-        ajuda:
-          "Não precisa preencher: o botão Conectar com o TikTok gera e salva",
-      },
-      {
-        nome: "token_conta",
-        rotulo: "Token da conta Business",
-        opcional: true,
-        ajuda: "Só para a conta Business; em branco, usa o token de Ads",
+        gerado: true,
       },
     ],
     parametros: z.object({
       app_id: z.string().trim().default(""),
-      advertiser_id: idOpcional(),
-      business_id: z.string().trim(),
+      advertiser_id: idOpcional().default(""),
     }),
     autorizar: {
       rotulo: "Conectar com o TikTok",
@@ -393,7 +378,7 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       campo: "app_id",
       credencial: "app_secret",
       explicacao:
-        "Com o App ID e o secret preenchidos, este botão salva os dois e abre a autorização no TikTok. Quem tem acesso à conta de anúncios aprova a leitura, e o sistema gera e salva o token de Ads sozinho.",
+        "Com o App ID e o secret preenchidos, este botão salva os dois e abre a autorização no TikTok. Quem tem acesso à conta de anúncios aprova a leitura, e o sistema salva sozinho o anunciante e o token de Ads.",
     },
   },
   mkt_rd_station: {

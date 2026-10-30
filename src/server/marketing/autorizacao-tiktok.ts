@@ -19,8 +19,8 @@ import { origem } from "./autorizacao-rd";
 // guarda o state num cookie e abre o portal do TikTok; quem tem acesso à
 // conta de anúncios aprova, e o TikTok volta para a rota de retorno com
 // auth_code e state. O auth_code (vale 1 hora, uma vez só) vira o token de
-// Ads, que não vence, salvo cifrado. Em branco, o id do anunciante passa a
-// ser o primeiro que o token enxerga.
+// Ads, que não vence, salvo cifrado. O id do anunciante (fora do formulário)
+// fica o salvo se o token o enxerga; senão, o primeiro que ele enxerga.
 
 const SISTEMA = "mkt_tiktok";
 const COOKIE = "tiktok_autorizacao";
@@ -79,7 +79,9 @@ export async function concluirAutorizacaoTikTok(
 
   const parametros = {
     ...p.data,
-    advertiser_id: p.data.advertiser_id || (autorizado.anunciantes[0] ?? ""),
+    advertiser_id: autorizado.anunciantes.includes(String(p.data.advertiser_id))
+      ? p.data.advertiser_id
+      : (autorizado.anunciantes[0] ?? ""),
   };
   const segredo = juntarSegredos(def, {
     ...segredos,
