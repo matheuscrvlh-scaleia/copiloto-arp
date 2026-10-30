@@ -38,7 +38,7 @@ export function TopoDaTela({
   aviso,
 }: {
   /** Ex.: "Dados de 29/10/2026 às 06:00" ou "Versão de 12/10/2026, por Ana". */
-  dadosDe: string;
+  dadosDe?: string;
   /** Linha de filtros escrita (sai igual no Excel e no PDF). */
   filtros?: string;
   /** Botões de exportar (só para quem tem marketing.exportar). */
@@ -51,27 +51,31 @@ export function TopoDaTela({
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-1.5">
-        <p className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-          <span className="inline-flex items-center gap-1.5">
-            <Clock className="size-3.5" aria-hidden />
-            {dadosDe}
-          </span>
-          {reais && (
-            <span
-              title="Lidos da ferramenta (sincronização diária ou leitura de hora em hora)."
-              className="inline-flex items-center gap-1 rounded-full bg-green-400/20 px-2 py-0.5 font-medium text-green-800"
-            >
-              <PlugZap className="size-3" aria-hidden />
-              Dados reais: {reais}
-            </span>
-          )}
-          {aviso && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 font-medium text-amber-800">
-              <TriangleAlert className="size-3" aria-hidden />
-              {aviso}
-            </span>
-          )}
-        </p>
+        {(dadosDe || reais || aviso) && (
+          <p className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+            {dadosDe && (
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="size-3.5" aria-hidden />
+                {dadosDe}
+              </span>
+            )}
+            {reais && (
+              <span
+                title="Lidos da ferramenta (sincronização diária ou leitura de hora em hora)."
+                className="inline-flex items-center gap-1 rounded-full bg-green-400/20 px-2 py-0.5 font-medium text-green-800"
+              >
+                <PlugZap className="size-3" aria-hidden />
+                Dados reais: {reais}
+              </span>
+            )}
+            {aviso && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 font-medium text-amber-800">
+                <TriangleAlert className="size-3" aria-hidden />
+                {aviso}
+              </span>
+            )}
+          </p>
+        )}
         {filtros && (
           <p className="text-sm text-neutral-700">
             <span className="sr-only">Filtros em uso: </span>

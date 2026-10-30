@@ -20,7 +20,6 @@ import {
   ABAS_MARCA,
   type AbaDeBlocos,
   type AbaMarca,
-  resumoMarca,
   termosDa,
   textoDoConteudo,
 } from "@/lib/marketing/marca";
@@ -31,7 +30,6 @@ import {
   blocosDaMarca,
   LIMITE_HISTORICO,
   nomesDe,
-  textoDaVersao,
   versoesDaMarca,
 } from "@/server/marketing/marca";
 
@@ -100,9 +98,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   const ctx = await contextoMkt();
   const podeEditar = ctx.pode("marketing.marca.editar");
 
-  const [blocos, versao, versoes, arquivos] = await Promise.all([
+  const [blocos, versoes, arquivos] = await Promise.all([
     blocosDaMarca(),
-    textoDaVersao(),
     aba === "historico" ? versoesDaMarca() : Promise.resolve([]),
     aba === "arquivos" ? arquivosDaMarca() : Promise.resolve([]),
   ]);
@@ -110,7 +107,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     ...versoes.map((v) => v.por),
     ...arquivos.map((a) => a.enviado_por),
   ]);
-  const resumo = resumoMarca(blocos);
   const bloco = (chave: string) => blocos.find((x) => x.chave === chave);
 
   const abas = (Object.keys(ABAS_MARCA) as AbaMarca[]).map((chave) => ({
@@ -161,12 +157,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   return (
     <div className="flex flex-col gap-6">
       <TopoDaTela
-        dadosDe={versao}
-        filtros={
-          resumo.vazios.length || resumo.itensSemExplicacao
-            ? `${resumo.preenchidos} de ${resumo.blocos} blocos preenchidos${resumo.itensSemExplicacao ? ` · ${resumo.itensSemExplicacao} itens ainda sem explicação` : ""}`
-            : `Todos os ${resumo.blocos} blocos preenchidos`
-        }
         acoes={
           <a
             href={`${BASE}/pdf`}
