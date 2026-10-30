@@ -391,7 +391,7 @@ parte, e o resultado vira uma linha ✓/✗ por produto.
 
 | Acesso | Produtos (id de cada um, opcional) | Segredos | Teste |
 |---|---|---|---|
-| Google (`mkt_google`) | Google Ads (id do cliente, MCC), Analytics 4 (propriedade), Search Console (propriedade), YouTube (canal), Perfil da Empresa (conta) | Client ID; client secret e refresh token com os escopos `adwords`, `analytics.readonly`, `webmasters.readonly`, `youtube.readonly`, `yt-analytics.readonly` e `business.manage`; token de desenvolvedor (só Ads) | Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; YouTube: `channels.list?mine=true` confere que o canal é da conta; Perfil: lista os locais |
+| Google (`mkt_google`) | Google Ads (id do cliente, MCC), Analytics 4 (propriedade), Search Console (propriedade), YouTube (canal), Perfil da Empresa (conta) | Client ID e client secret; o refresh token sai do botão **Conectar com o Google**; token de desenvolvedor (só Ads) | Conta Google: e-mail e escopos concedidos (no próprio token); Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; YouTube: `channels.list?mine=true` confere que o canal é da conta; Perfil: lista os locais |
 | Meta (`mkt_meta`) | Meta Ads (conta de anúncios), Facebook (página), Instagram (conta profissional) | Token de usuário do sistema | `GET /act_{id}`, `GET /{página}`, `GET /{instagram}` |
 | TikTok (`mkt_tiktok`) | Anunciante; conta Business opcional | Token de Ads; token da conta (opcional) | `/advertiser/info/`; `/business/get/` se houver conta |
 | RD Station (`mkt_rd_station`) | — | Client ID e client secret; o refresh token sai do botão **Conectar com o RD Station** | `/auth/token` e `/marketing/account_info` |
@@ -400,10 +400,22 @@ parte, e o resultado vira uma linha ✓/✗ por produto.
 
 A conta Google que gera o refresh token precisa ter acesso a todos os
 produtos preenchidos (o canal do YouTube hoje está em outra conta; adicionar
-essa conta como usuária nos demais, ou transferir o canal). O refresh token
-sai do OAuth Playground usando o Client ID e o secret do app do Google Cloud
-(com as APIs ativadas no projeto). A Google Ads API muda de versão com
-frequência: a usada fica em `src/connectors/marketing/google.ts`.
+essa conta como usuária nos demais, ou transferir o canal).
+
+**Conectar com o Google** (OAuth, `src/server/marketing/autorizacao-google.ts`):
+salva o Client ID e o secret, guarda state e verificador do PKCE num cookie
+(10 min, só na rota de volta) e abre o consentimento do Google (offline +
+consent). A volta é `/api/integracoes/google/callback`, que precisa estar
+nas URIs de redirecionamento do cliente Web no Google Cloud (projeto
+`arp-copiloto`) com o domínio de cada ambiente (`http://localhost:3000` e
+`https://arp.copiloto.scaleia.ai`). Escopos: os seis acima mais `openid` e
+`userinfo.email` (para mostrar a conta). Se a pessoa desmarcar algum, a linha
+**Conta Google** do teste diz qual. Remover a credencial revoga o token no
+Google antes. Enquanto o app estiver em modo Teste no Google, o refresh token
+vence em 7 dias: o teste mostra "o acesso expirou" e basta conectar de novo.
+Para não vencer, publicar o app (verificação do Google, pelos escopos
+sensíveis). A Google Ads API muda de versão com frequência: a usada fica em
+`src/connectors/marketing/google.ts`.
 
 **RD Station (dado real):** `/api/sync/rd-station` (Vercel Cron às 06h15 e
 "Sincronizar agora" no cartão) grava em `marketing.rd_*`. A API não lista

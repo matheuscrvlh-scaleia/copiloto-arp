@@ -1,5 +1,5 @@
 import "server-only";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { trocarCodigoRd } from "@/connectors/marketing/rd-station";
 import {
@@ -9,6 +9,7 @@ import {
   type ResultadoRd,
   separarSegredos,
 } from "@/lib/integracoes";
+import { mesmoState } from "@/lib/oauth";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { cifrar } from "../cofre";
@@ -41,19 +42,13 @@ export async function iniciarAutorizacaoRd(clientId: string): Promise<string> {
 }
 
 /** O domínio em que a pessoa está (precisa ser o da URL de callback). */
-async function origem(): Promise<string> {
+export async function origem(): Promise<string> {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const protocolo =
     h.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
   return `${protocolo}://${host}`;
-}
-
-function mesmoState(a: string, b: string): boolean {
-  const x = Buffer.from(a);
-  const y = Buffer.from(b);
-  return x.length === y.length && timingSafeEqual(x, y);
 }
 
 /**

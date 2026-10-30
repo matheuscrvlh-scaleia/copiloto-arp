@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  AUTORIZACAO_GOOGLE,
+  escoposFaltando,
   INTEGRACOES,
   juntarSegredos,
   linhaDoProduto,
@@ -127,5 +129,29 @@ describe("volta da autorização do RD Station", () => {
     expect(retornoDoRd(url("/?code=abc"))).toBeNull();
     expect(retornoDoRd(url("/gestao?code=abc&state=rd.x"))).toBeNull();
     expect(retornoDoRd(url("/?state=rd.x"))).toBeNull();
+  });
+});
+
+describe("escopos do Google", () => {
+  const todos = Object.keys(AUTORIZACAO_GOOGLE.escopos);
+
+  it("todos concedidos: nada falta", () => {
+    expect(escoposFaltando(todos)).toEqual([]);
+  });
+
+  it("desmarcados na tela viram o nome do produto", () => {
+    const sem = todos.filter((e) => !/youtube|business/.test(e));
+    expect(escoposFaltando(sem)).toEqual(["YouTube", "Perfil da Empresa"]);
+    expect(escoposFaltando([])).toHaveLength(todos.length);
+  });
+
+  it("pede só leitura, menos Ads e Perfil da Empresa (sem escopo de leitura)", () => {
+    const escrita = todos.filter(
+      (e) => e.startsWith("https://") && !/readonly|userinfo/.test(e),
+    );
+    expect(escrita).toEqual([
+      "https://www.googleapis.com/auth/adwords",
+      "https://www.googleapis.com/auth/business.manage",
+    ]);
   });
 });

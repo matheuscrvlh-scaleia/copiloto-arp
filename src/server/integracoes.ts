@@ -311,6 +311,10 @@ function daApi(erro: ConnectorError): string {
 
 function explicar(erro: unknown): string {
   if (erro instanceof ConnectorError) {
+    // Refresh token do OAuth vencido ou revogado (Google em modo de teste:
+    // 7 dias). Só autorizando de novo.
+    if (/"error"\s*:\s*"invalid_grant"/.test(erro.detalhe ?? ""))
+      return "o acesso expirou ou foi revogado: clique em Conectar de novo";
     if (erro.status === 401 || erro.status === 403)
       return `acesso recusado (HTTP ${erro.status}): confira usuário, senha ou token${daApi(erro)}`;
     if (erro.status === 404)

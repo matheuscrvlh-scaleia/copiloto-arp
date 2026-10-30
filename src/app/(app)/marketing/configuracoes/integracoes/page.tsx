@@ -12,7 +12,9 @@ import { Secao } from "@/components/dashboard/tabela";
 import { Fonte } from "@/components/marketing/tela";
 import { Protegido } from "@/components/protegido";
 import {
+  RETORNO_GOOGLE,
   RETORNO_RD,
+  type ResultadoGoogle,
   type ResultadoRd,
   resultadoDoProduto,
   type Sistema,
@@ -142,11 +144,13 @@ async function Tela({
 }: {
   busca: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { rd } = await busca;
-  const retornoRd =
+  const { rd, google } = await busca;
+  const retorno =
     typeof rd === "string" && rd in RETORNO_RD
       ? RETORNO_RD[rd as ResultadoRd]
-      : null;
+      : typeof google === "string" && google in RETORNO_GOOGLE
+        ? RETORNO_GOOGLE[google as ResultadoGoogle]
+        : null;
   const [p, asana, historico, { cofre, integracoes }] = await Promise.all([
     parametros(),
     dadosAsana(),
@@ -221,17 +225,17 @@ async function Tela({
         </Fonte>
       </Secao>
 
-      {retornoRd && (
+      {retorno && (
         <p
-          role={retornoRd.ok ? "status" : "alert"}
-          className={`flex items-start gap-3 rounded-[1.75rem] p-5 text-sm ${retornoRd.ok ? "bg-green-50 text-green-800" : "bg-amber-50 text-amber-900"}`}
+          role={retorno.ok ? "status" : "alert"}
+          className={`flex items-start gap-3 rounded-[1.75rem] p-5 text-sm ${retorno.ok ? "bg-green-50 text-green-800" : "bg-amber-50 text-amber-900"}`}
         >
-          {retornoRd.ok ? (
+          {retorno.ok ? (
             <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
           ) : (
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
           )}
-          <span>{retornoRd.texto}</span>
+          <span>{retorno.texto}</span>
         </p>
       )}
 

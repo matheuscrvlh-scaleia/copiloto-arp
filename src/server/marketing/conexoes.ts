@@ -7,6 +7,7 @@ import { createSiteClient } from "@/connectors/marketing/site";
 import { createTikTokClient } from "@/connectors/marketing/tiktok";
 import { formatarData, formatarNumero } from "@/lib/formato";
 import {
+  escoposFaltando,
   INTEGRACOES,
   type PRODUTOS,
   type Sistema,
@@ -45,7 +46,22 @@ function testesGoogle(c: Credencial): TesteDeProduto<"mkt_google">[] {
     clientSecret: s("client_secret"),
     refreshToken: s("refresh_token"),
   });
-  const testes: TesteDeProduto<"mkt_google">[] = [];
+  const testes: TesteDeProduto<"mkt_google">[] = [
+    {
+      produto: "Conta Google",
+      async testar() {
+        if (!s("refresh_token"))
+          throw new Error("falta clicar em Conectar com o Google");
+        const conta = await api.conta();
+        const faltam = escoposFaltando(conta.escopos);
+        if (faltam.length > 0)
+          throw new Error(
+            `${conta.email || "a conta"} não liberou: ${faltam.join(", ")}`,
+          );
+        return conta.email || "todas as permissões liberadas";
+      },
+    },
+  ];
   if (p("customer_id"))
     testes.push({
       produto: "Google Ads",

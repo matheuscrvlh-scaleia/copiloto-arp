@@ -231,8 +231,9 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       {
         nome: "refresh_token",
         rotulo: "Refresh token",
+        opcional: true,
         ajuda:
-          "OAuth Playground com o Client ID acima, os escopos adwords, analytics.readonly, webmasters.readonly, youtube.readonly, yt-analytics.readonly e business.manage, e uma conta Google com acesso a todos os produtos",
+          "Não precisa preencher: o botão Conectar com o Google gera e salva. Entre com uma conta Google que tenha acesso a todos os produtos",
       },
       {
         nome: "developer_token",
@@ -272,6 +273,7 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
           ].some(Boolean),
         "preencha o id de pelo menos um produto",
       ),
+    autorizar: { rotulo: "Conectar com o Google", segredo: "refresh_token" },
   },
   mkt_meta: {
     nome: "Meta",
@@ -438,6 +440,7 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
  */
 export const PRODUTOS = {
   mkt_google: [
+    "Conta Google",
     "Google Ads",
     "Analytics 4",
     "Search Console",
@@ -558,6 +561,71 @@ export const RETORNO_RD = {
   },
 } as const;
 export type ResultadoRd = keyof typeof RETORNO_RD;
+
+/**
+ * Autorização do Google: a URL de callback cadastrada no app do Google Cloud
+ * (por domínio) é esta rota. Escopos: só leitura, menos o do Ads (o Google
+ * não tem um de leitura; o conector só usa search) e o do Perfil da Empresa.
+ */
+export const AUTORIZACAO_GOOGLE = {
+  retorno: "/api/integracoes/google/callback",
+  escopos: {
+    openid: "identificação da conta",
+    "https://www.googleapis.com/auth/userinfo.email": "e-mail da conta",
+    "https://www.googleapis.com/auth/adwords": "Google Ads",
+    "https://www.googleapis.com/auth/analytics.readonly": "Analytics 4",
+    "https://www.googleapis.com/auth/webmasters.readonly": "Search Console",
+    "https://www.googleapis.com/auth/youtube.readonly": "YouTube",
+    "https://www.googleapis.com/auth/yt-analytics.readonly":
+      "YouTube Analytics",
+    "https://www.googleapis.com/auth/business.manage": "Perfil da Empresa",
+  },
+} as const;
+
+/** Nomes dos escopos pedidos que a conta não concedeu (desmarcou na tela). */
+export function escoposFaltando(concedidos: readonly string[]): string[] {
+  return Object.entries(AUTORIZACAO_GOOGLE.escopos)
+    .filter(([escopo]) => !concedidos.includes(escopo))
+    .map(([, nome]) => nome);
+}
+
+export const RETORNO_GOOGLE = {
+  conectado: {
+    ok: true,
+    texto: "Google conectado: o refresh token foi gerado e salvo.",
+  },
+  escopos: {
+    ok: false,
+    texto:
+      "Conectado, mas a conta não liberou todas as permissões (veja a linha Conta Google no cartão). Clique em Conectar com o Google e marque todas.",
+  },
+  teste: {
+    ok: false,
+    texto:
+      "Autorizado e salvo, mas o teste de algum produto falhou (veja o cartão do Google).",
+  },
+  negado: {
+    ok: false,
+    texto: "A autorização foi cancelada na tela do Google. Nada mudou.",
+  },
+  permissao: RETORNO_RD.permissao,
+  state: {
+    ok: false,
+    texto:
+      "A autorização expirou ou não começou neste navegador. Clique em Conectar com o Google de novo.",
+  },
+  credencial: {
+    ok: false,
+    texto: "Salve o Client ID e o Client secret antes de conectar.",
+  },
+  codigo: {
+    ok: false,
+    texto:
+      "O Google recusou o código (expirado, já usado ou endereço de retorno não cadastrado no app). Clique em Conectar com o Google de novo.",
+  },
+  salvar: RETORNO_RD.salvar,
+} as const;
+export type ResultadoGoogle = keyof typeof RETORNO_GOOGLE;
 
 export function ehSistema(valor: unknown): valor is Sistema {
   return SISTEMAS.includes(valor as Sistema);

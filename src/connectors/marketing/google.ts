@@ -6,7 +6,7 @@ import { ConnectorError, parseWith, requestJson } from "../http";
 // por um token de acesso (1 hora) e só faz leituras.
 
 /** Versão da Google Ads API; cada uma vale cerca de um ano. */
-const VERSAO_ADS = "v25";
+const VERSAO_ADS = "v26";
 
 export interface GoogleConfig {
   /** Nome do sistema nos erros (ex.: "mkt_ga4"). */
@@ -17,7 +17,21 @@ export interface GoogleConfig {
   fetch?: typeof fetch;
 }
 
-const tokenSchema = z.object({ access_token: z.string().min(1) });
+const tokenSchema = z.object({
+  access_token: z.string().min(1),
+  /** Escopos que a conta concedeu, separados por espaço. */
+  scope: z.string().default(""),
+  id_token: z.string().optional(),
+});
+
+const codigoSchema = z.object({
+  refresh_token: z.string().min(1),
+  scope: z.string().default(""),
+});
+
+// Só o e-mail do id_token: ele veio direto do Google por HTTPS, então não
+// precisa conferir a assinatura.
+const idTokenSchema = z.object({ email: z.string().optional() });
 
 const numero = z.coerce.number();
 
@@ -64,12 +78,100 @@ const locaisSchema = z.object({
   nextPageToken: z.string().optional(),
 });
 
+const TOKEN_URL = "https://oauth2.googleapis.com/token";
+
+/**
+ * Tela de autorização do Google. offline + consent: sempre volta um refresh
+ * token. PKCE: o `desafio` é o S256 do verificador que só o servidor guarda.
+ */
+export function urlAutorizacaoGoogle(config: {
+  clientId: string;
+  redirectUri: string;
+  escopos: readonly string[];
+  state: string;
+  desafio: string;
+}): string {
+  const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  u.search = new URLSearchParams({
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
+    response_type: "code",
+    scope: config.escopos.join(" "),
+    access_type: "offline",
+    prompt: "consent",
+    include_granted_scopes: "true",
+    state: config.state,
+    code_challenge: config.desafio,
+    code_challenge_method: "S256",
+  }).toString();
+  return u.toString();
+}
+
+/** Troca o code da volta da autorização pelo refresh token. */
+export async function trocarCodigoGoogle(config: {
+  clientId: string;
+  clientSecret: string;
+  code: string;
+  redirectUri: string;
+  verificador: string;
+  fetch?: typeof fetch;
+}): Promise<{ refreshToken: string; escopos: string[] }> {
+  const r = await requestJson("mkt_google", TOKEN_URL, {
+    method: "POST",
+    body: new URLSearchParams({
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      code: config.code,
+      code_verifier: config.verificador,
+      redirect_uri: config.redirectUri,
+      grant_type: "authorization_code",
+    }),
+    retries: 0,
+    fetch: config.fetch,
+  });
+  const t = parseWith("mkt_google", codigoSchema, r);
+  return {
+    refreshToken: t.refresh_token,
+    escopos: t.scope.split(" ").filter(Boolean),
+  };
+}
+
+/** Revoga o acesso no Google (o app some da conta). Já revogado: nada a fazer. */
+export async function revogarGoogle(
+  token: string,
+  f?: typeof fetch,
+): Promise<void> {
+  try {
+    await requestJson("mkt_google", "https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      body: new URLSearchParams({ token }),
+      retries: 1,
+      fetch: f,
+    });
+  } catch (erro) {
+    if (!(erro instanceof ConnectorError && erro.status === 400)) throw erro;
+  }
+}
+
+function emailDoIdToken(idToken: string | undefined): string {
+  const payload = idToken?.split(".")[1];
+  if (!payload) return "";
+  try {
+    const r = idTokenSchema.safeParse(
+      JSON.parse(Buffer.from(payload, "base64url").toString("utf8")),
+    );
+    return r.data?.email ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function createGoogleClient(config: GoogleConfig) {
   const { sistema } = config;
-  let token: Promise<string> | null = null;
+  let token: Promise<z.infer<typeof tokenSchema>> | null = null;
 
-  function acesso(): Promise<string> {
-    token ??= requestJson(sistema, "https://oauth2.googleapis.com/token", {
+  function renovar() {
+    token ??= requestJson(sistema, TOKEN_URL, {
       method: "POST",
       body: new URLSearchParams({
         client_id: config.clientId,
@@ -79,9 +181,11 @@ export function createGoogleClient(config: GoogleConfig) {
       }),
       retries: 1,
       fetch: config.fetch,
-    }).then((r) => parseWith(sistema, tokenSchema, r).access_token);
+    }).then((r) => parseWith(sistema, tokenSchema, r));
     return token;
   }
+
+  const acesso = async () => (await renovar()).access_token;
 
   async function chamar(
     url: string,
@@ -101,6 +205,15 @@ export function createGoogleClient(config: GoogleConfig) {
   }
 
   return {
+    /** Conta que autorizou e os escopos que ela concedeu. */
+    async conta() {
+      const t = await renovar();
+      return {
+        email: emailDoIdToken(t.id_token),
+        escopos: t.scope.split(" ").filter(Boolean),
+      };
+    },
+
     /** Nome e moeda da conta do Google Ads (confirma o token de desenvolvedor). */
     async adsCliente(
       customerId: string,

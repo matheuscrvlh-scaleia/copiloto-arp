@@ -282,9 +282,9 @@ export function CartaoIntegracao({
           {def.autorizar && (
             <div className="flex flex-col gap-2 rounded-2xl bg-neutral-900/[0.03] p-4 text-xs text-neutral-500">
               <p>
-                Com o Client ID e o secret preenchidos, este botão salva os dois
-                e abre a autorização no RD. Depois de autorizar, o sistema gera
-                e salva o refresh token sozinho.
+                Com o Client ID e o secret preenchidos, este botão salva o que
+                foi digitado e abre a autorização da ferramenta. Depois de
+                autorizar, o sistema gera e salva o refresh token sozinho.
               </p>
               <button
                 type="submit"

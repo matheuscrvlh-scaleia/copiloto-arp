@@ -1,7 +1,13 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ConnectorError } from "../http";
 import { createAsanaClient } from "./asana";
-import { createGoogleClient } from "./google";
+import {
+  createGoogleClient,
+  revogarGoogle,
+  trocarCodigoGoogle,
+  urlAutorizacaoGoogle,
+} from "./google";
 import { createMetaClient } from "./meta";
 import { createRdStationClient, trocarCodigoRd } from "./rd-station";
 import { createSiteClient } from "./site";
@@ -112,6 +118,132 @@ describe("google", () => {
     expect(e).toBeInstanceOf(ConnectorError);
     expect(e.status).toBe(400);
     expect(e.detalhe).toContain("expired or revoked");
+  });
+
+  it("conta: e-mail do id_token e escopos concedidos, no mesmo token", async () => {
+    const payload = Buffer.from(
+      JSON.stringify({ email: "marketing@arp.com.br", sub: "1" }),
+    ).toString("base64url");
+    const chamadas: Chamada[] = [];
+    const api = createGoogleClient({
+      sistema: "mkt_google",
+      clientId: "id",
+      clientSecret: "s",
+      refreshToken: "r",
+      fetch: falso(
+        [
+          {
+            ...TOKEN,
+            scope: "openid https://www.googleapis.com/auth/adwords",
+            id_token: `cabecalho.${payload}.assinatura`,
+          },
+          { items: [] },
+        ],
+        chamadas,
+      ),
+    });
+    expect(await api.conta()).toEqual({
+      email: "marketing@arp.com.br",
+      escopos: ["openid", "https://www.googleapis.com/auth/adwords"],
+    });
+    await api.meusCanais();
+    expect(chamadas.filter((c) => c.url.includes("oauth2"))).toHaveLength(1);
+  });
+
+  it("conta sem id_token: e-mail vazio, sem quebrar", async () => {
+    const api = createGoogleClient({
+      sistema: "mkt_google",
+      clientId: "id",
+      clientSecret: "s",
+      refreshToken: "r",
+      fetch: falso([TOKEN]),
+    });
+    expect(await api.conta()).toEqual({ email: "", escopos: [] });
+  });
+});
+
+describe("google: autorização", () => {
+  it("URL pede acesso offline, consent, escopos e PKCE S256", () => {
+    const u = new URL(
+      urlAutorizacaoGoogle({
+        clientId: "app.apps.googleusercontent.com",
+        redirectUri: "http://localhost:3000/api/integracoes/google/callback",
+        escopos: ["openid", "https://www.googleapis.com/auth/adwords"],
+        state: "st",
+        desafio: "dsf",
+      }),
+    );
+    expect(u.origin + u.pathname).toBe(
+      "https://accounts.google.com/o/oauth2/v2/auth",
+    );
+    expect(Object.fromEntries(u.searchParams)).toEqual({
+      client_id: "app.apps.googleusercontent.com",
+      redirect_uri: "http://localhost:3000/api/integracoes/google/callback",
+      response_type: "code",
+      scope: "openid https://www.googleapis.com/auth/adwords",
+      access_type: "offline",
+      prompt: "consent",
+      include_granted_scopes: "true",
+      state: "st",
+      code_challenge: "dsf",
+      code_challenge_method: "S256",
+    });
+  });
+
+  it("troca o code (com o verificador) pelo refresh token e os escopos", async () => {
+    const chamadas: Chamada[] = [];
+    const r = await trocarCodigoGoogle({
+      clientId: "id",
+      clientSecret: "s",
+      code: "4/abc",
+      redirectUri: "http://localhost:3000/api/integracoes/google/callback",
+      verificador: "ver",
+      fetch: falso(
+        [{ ...TOKEN, refresh_token: "1//novo", scope: "openid email" }],
+        chamadas,
+      ),
+    });
+    expect(r).toEqual({
+      refreshToken: "1//novo",
+      escopos: ["openid", "email"],
+    });
+    const corpo = new URLSearchParams(chamadas[0]?.corpo);
+    expect(corpo.get("grant_type")).toBe("authorization_code");
+    expect(corpo.get("code_verifier")).toBe("ver");
+    expect(corpo.get("redirect_uri")).toContain("/api/integracoes/google/");
+  });
+
+  it("sem refresh token na resposta é erro (não salva acesso de 1 hora)", async () => {
+    const e = await trocarCodigoGoogle({
+      clientId: "id",
+      clientSecret: "s",
+      code: "c",
+      redirectUri: "http://localhost:3000/x",
+      verificador: "v",
+      fetch: falso([TOKEN]),
+    }).catch((x) => x);
+    expect(e).toBeInstanceOf(ConnectorError);
+  });
+
+  it("revogar token já revogado (400) não é erro; 500 é", async () => {
+    const chamadas: Chamada[] = [];
+    await revogarGoogle(
+      "1//r",
+      falso(
+        [new Response('{"error":"invalid_token"}', { status: 400 })],
+        chamadas,
+      ),
+    );
+    expect(chamadas[0]?.url).toBe("https://oauth2.googleapis.com/revoke");
+    expect(chamadas[0]?.corpo).toBe("token=1%2F%2Fr");
+    const e = await revogarGoogle(
+      "1//r",
+      falso([
+        new Response("", { status: 500 }),
+        new Response("", { status: 500 }),
+      ]),
+    ).catch((x) => x);
+    expect(e).toBeInstanceOf(ConnectorError);
   });
 });
 
@@ -551,5 +683,12 @@ describe("rd station: autorização", () => {
         ]),
       }),
     ).rejects.toBeInstanceOf(ConnectorError);
+  });
+});
+
+describe("google: só leitura", () => {
+  it("o escopo adwords permite escrita: o conector nunca chama mutate", () => {
+    const fonte = readFileSync(new URL("./google.ts", import.meta.url), "utf8");
+    expect(fonte).not.toMatch(/mutate/i);
   });
 });

@@ -26,6 +26,10 @@ import {
   testarConexao,
 } from "@/server/integracoes";
 import { registrarDepois } from "@/server/logs";
+import {
+  iniciarAutorizacaoGoogle,
+  revogarAutorizacaoGoogle,
+} from "@/server/marketing/autorizacao-google";
 import { iniciarAutorizacaoRd } from "@/server/marketing/autorizacao-rd";
 import { sincronizarCopiloto } from "@/server/sync/copiloto-rh";
 import { sincronizarMeta } from "@/server/sync/meta";
@@ -113,7 +117,11 @@ export async function salvarIntegracao(
         p_ativa: true,
       });
     if (salvo.error) return erroDoBanco(salvo.error);
-    redirect(await iniciarAutorizacaoRd(String(p.data.client_id)));
+    const iniciar =
+      sistema === "mkt_google"
+        ? iniciarAutorizacaoGoogle
+        : iniciarAutorizacaoRd;
+    redirect(await iniciar(String(p.data.client_id)));
   }
 
   const ativa = form.get("ativa") === "on";
@@ -197,6 +205,7 @@ export async function removerIntegracao(
 ): Promise<EstadoAcao> {
   const sistema = await sistemaDoForm(form);
   if (ehErro(sistema)) return sistema;
+  if (sistema === "mkt_google") await revogarAutorizacaoGoogle();
   const { error } = await (await createClient())
     .schema("core")
     .rpc("remover_integracao", { p_sistema: sistema });
