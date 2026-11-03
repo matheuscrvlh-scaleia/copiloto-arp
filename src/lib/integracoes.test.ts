@@ -38,10 +38,11 @@ describe("segredos das integrações", () => {
     expect(separarSegredos(def, "não é json")).toEqual({});
   });
 
-  it("o Marketing tem 6 acessos, todos com prefixo mkt_ (o banco libera por ele)", () => {
+  it("o Marketing tem 7 acessos, todos com prefixo mkt_ (o banco libera por ele)", () => {
     const mkt = SISTEMAS.filter((s) => INTEGRACOES[s].modulo === "marketing");
     expect(mkt).toEqual([
       "mkt_google",
+      "mkt_youtube",
       "mkt_meta",
       "mkt_tiktok",
       "mkt_rd_station",
@@ -62,7 +63,6 @@ describe("Google e Meta: um acesso, vários produtos", () => {
     login_customer_id: "",
     property_id: "",
     site_url: "",
-    channel_id: "",
     account_id: "",
   };
 
@@ -98,14 +98,24 @@ describe("Google e Meta: um acesso, vários produtos", () => {
         .success,
     ).toBe(false);
     expect(
-      google.safeParse({ ...vazioGoogle, channel_id: "canal" }).success,
-    ).toBe(false);
-    expect(
       google.safeParse({
         ...vazioGoogle,
         site_url: "sc-domain:espacoarp.com.br",
       }).success,
     ).toBe(true);
+  });
+
+  it("YouTube: acesso próprio, canal escolhido depois de conectar", () => {
+    const yt = INTEGRACOES.mkt_youtube.parametros;
+    const vazio = { client_id: "x.apps.googleusercontent.com", channel_id: "" };
+    expect(yt.safeParse(vazio).success).toBe(true);
+    expect(yt.safeParse({ ...vazio, channel_id: "canal" }).success).toBe(false);
+    expect(
+      yt.safeParse({ ...vazio, channel_id: `UC${"a".repeat(22)}` }).success,
+    ).toBe(true);
+    expect(INTEGRACOES.mkt_google.campos.map((c) => c.nome)).not.toContain(
+      "channel_id",
+    );
   });
 
   it("lê a situação de cada produto na mensagem do teste", () => {
@@ -138,20 +148,35 @@ describe("volta da autorização do RD Station", () => {
 });
 
 describe("escopos do Google", () => {
-  const todos = Object.keys(AUTORIZACAO_GOOGLE.escopos);
+  const todos = Object.keys(AUTORIZACAO_GOOGLE.escopos.mkt_google);
+  const youtube = Object.keys(AUTORIZACAO_GOOGLE.escopos.mkt_youtube);
 
   it("todos concedidos: nada falta", () => {
-    expect(escoposFaltando(todos)).toEqual([]);
+    expect(escoposFaltando("mkt_google", todos)).toEqual([]);
+    expect(escoposFaltando("mkt_youtube", youtube)).toEqual([]);
   });
 
   it("desmarcados na tela viram o nome do produto", () => {
-    const sem = todos.filter((e) => !/youtube|business/.test(e));
-    expect(escoposFaltando(sem)).toEqual(["YouTube", "Perfil da Empresa"]);
-    expect(escoposFaltando([])).toHaveLength(todos.length);
+    const sem = todos.filter((e) => !/business/.test(e));
+    expect(escoposFaltando("mkt_google", sem)).toEqual(["Perfil da Empresa"]);
+    expect(escoposFaltando("mkt_google", [])).toHaveLength(todos.length);
+    const semAnalytics = youtube.filter((e) => !/yt-analytics/.test(e));
+    expect(escoposFaltando("mkt_youtube", semAnalytics)).toEqual([
+      "YouTube Analytics",
+    ]);
+  });
+
+  it("cada conta só pede o seu: o YouTube não entra no Google", () => {
+    expect(todos.some((e) => /youtube|yt-analytics/.test(e))).toBe(false);
+    expect(youtube.filter((e) => e.startsWith("https://"))).toEqual([
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/yt-analytics.readonly",
+    ]);
   });
 
   it("pede só leitura, menos Ads e Perfil da Empresa (sem escopo de leitura)", () => {
-    const escrita = todos.filter(
+    const escrita = [...todos, ...youtube].filter(
       (e) => e.startsWith("https://") && !/readonly|userinfo/.test(e),
     );
     expect(escrita).toEqual([
@@ -179,7 +204,6 @@ describe("escolhas do Google (descoberta)", () => {
     client_id: "app",
     property_id: "",
     site_url: "",
-    channel_id: "",
     account_id: "",
   };
 

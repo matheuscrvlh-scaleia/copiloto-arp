@@ -374,10 +374,13 @@ describe("acessos das ferramentas (20261029230000, 20261029235000 e 202610301200
       expect(await erro(salvar("mkt_outra"))).toMatch(
         /credenciais_sistema_check/,
       );
-      // Os 9 nomes antigos viraram 5 (20261029235000).
-      expect(await erro(salvar("mkt_youtube"))).toMatch(
+      // Os 9 nomes antigos viraram 5 (20261029235000); o YouTube voltou a
+      // ter acesso próprio, por estar em outra conta Google (20261103120000).
+      expect(await erro(salvar("mkt_ga4"))).toMatch(
         /credenciais_sistema_check/,
       );
+      expect(await erro(salvar("mkt_youtube"))).toBeNull();
+      await db.query("select core.remover_integracao('mkt_youtube')");
       // A agenda do site (20261030120000): só o endereço.
       expect(
         await erro(

@@ -53,7 +53,7 @@ function testesGoogle(c: Credencial): TesteDeProduto<"mkt_google">[] {
         if (!s("refresh_token"))
           throw new Error("falta clicar em Conectar com o Google");
         const conta = await api.conta();
-        const faltam = escoposFaltando(conta.escopos);
+        const faltam = escoposFaltando("mkt_google", conta.escopos);
         if (faltam.length > 0)
           throw new Error(
             `${conta.email || "a conta"} não liberou: ${faltam.join(", ")}`,
@@ -91,21 +91,6 @@ function testesGoogle(c: Credencial): TesteDeProduto<"mkt_google">[] {
             `a conta não tem acesso verificado a ${site.siteUrl}`,
           );
         return site.siteUrl;
-      },
-    });
-  if (p("channel_id"))
-    testes.push({
-      produto: "YouTube",
-      async testar() {
-        const canais = await api.meusCanais();
-        const canal = canais.find((k) => k.id === p("channel_id"));
-        if (!canal) {
-          const lista = canais.map((k) => `${k.nome} (${k.id})`).join(", ");
-          throw new Error(
-            `o canal ${p("channel_id")} não é desta conta Google. Canais da conta: ${lista || "nenhum"}`,
-          );
-        }
-        return `canal “${canal.nome}” · ${formatarNumero(canal.inscritos)} inscritos`;
       },
     });
   if (p("account_id"))
@@ -164,6 +149,37 @@ export const TESTES_MARKETING: Record<
 > = {
   mkt_google: async (c) => testesGoogle(c),
   mkt_meta: async (c) => testesMeta(c),
+
+  // Conta Google à parte (a dona do canal): confere as permissões e que o
+  // canal escolhido é dela.
+  async mkt_youtube(c) {
+    const { p, s } = abrir("mkt_youtube", c);
+    if (!s("refresh_token"))
+      throw new Error("falta autorizar: clique em Conectar com o YouTube");
+    const api = createGoogleClient({
+      sistema: "mkt_youtube",
+      clientId: p("client_id"),
+      clientSecret: s("client_secret"),
+      refreshToken: s("refresh_token"),
+    });
+    const conta = await api.conta();
+    const quem = conta.email || "a conta";
+    const faltam = escoposFaltando("mkt_youtube", conta.escopos);
+    if (faltam.length > 0)
+      throw new Error(`${quem} não liberou: ${faltam.join(", ")}`);
+    const canais = await api.meusCanais();
+    const lista = canais.map((k) => `${k.nome} (${k.id})`).join(", ");
+    if (!p("channel_id"))
+      throw new Error(
+        `${quem} conectada, falta escolher o canal. Canais da conta: ${lista || "nenhum"}`,
+      );
+    const canal = canais.find((k) => k.id === p("channel_id"));
+    if (!canal)
+      throw new Error(
+        `o canal ${p("channel_id")} não é de ${quem}. Canais da conta: ${lista || "nenhum"}`,
+      );
+    return `${quem} · canal “${canal.nome}” · ${formatarNumero(canal.inscritos)} inscritos`;
+  },
 
   async mkt_tiktok(c) {
     const { p, s } = abrir("mkt_tiktok", c);

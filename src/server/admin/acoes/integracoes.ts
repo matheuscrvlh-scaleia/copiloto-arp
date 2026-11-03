@@ -6,6 +6,7 @@ import { after } from "next/server";
 import type { EstadoAcao } from "@/components/form-acao";
 import {
   ehSistema,
+  ehSistemaGoogle,
   INTEGRACOES,
   juntarSegredos,
   type Sistema,
@@ -127,12 +128,11 @@ export async function salvarIntegracao(
         p_ativa: true,
       });
     if (salvo.error) return erroDoBanco(salvo.error);
-    const iniciar =
-      sistema === "mkt_google"
-        ? iniciarAutorizacaoGoogle
-        : sistema === "mkt_tiktok"
-          ? iniciarAutorizacaoTikTok
-          : iniciarAutorizacaoRd;
+    const iniciar = ehSistemaGoogle(sistema)
+      ? (id: string) => iniciarAutorizacaoGoogle(sistema, id)
+      : sistema === "mkt_tiktok"
+        ? iniciarAutorizacaoTikTok
+        : iniciarAutorizacaoRd;
     redirect(await iniciar(app));
   }
 
@@ -217,7 +217,7 @@ export async function removerIntegracao(
 ): Promise<EstadoAcao> {
   const sistema = await sistemaDoForm(form);
   if (ehErro(sistema)) return sistema;
-  if (sistema === "mkt_google") await revogarAutorizacaoGoogle();
+  if (ehSistemaGoogle(sistema)) await revogarAutorizacaoGoogle(sistema);
   const { error } = await (await createClient())
     .schema("core")
     .rpc("remover_integracao", { p_sistema: sistema });

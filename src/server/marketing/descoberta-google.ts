@@ -6,6 +6,7 @@ import {
   type Descoberta,
   INTEGRACOES,
   type Opcao,
+  type SistemaGoogle,
   separarSegredos,
 } from "@/lib/integracoes";
 import {
@@ -15,9 +16,9 @@ import {
 } from "../integracoes";
 
 // Descoberta do Google: com a conta conectada, lista o que ela acessa em cada
-// produto (contas do Ads, propriedades do GA4 e do Search Console, canais e
-// contas do Perfil da Empresa) para a pessoa escolher em vez de digitar ids.
-// Uma busca que falha não derruba as outras.
+// produto (contas do Ads, propriedades do GA4 e do Search Console, contas do
+// Perfil da Empresa; no acesso do YouTube, os canais) para a pessoa escolher
+// em vez de digitar ids. Uma busca que falha não derruba as outras.
 
 export type Descobertas = Record<string, Descoberta>;
 
@@ -37,12 +38,15 @@ function porque(erro: unknown): string {
 const formatarAds = (id: string) =>
   id.replace(/^(\d{3})(\d{3})(\d{4})$/, "$1-$2-$3");
 
-export async function descobrirGoogle(c: Credencial): Promise<Descobertas> {
-  const def = INTEGRACOES.mkt_google;
+export async function descobrirGoogle(
+  sistema: SistemaGoogle,
+  c: Credencial,
+): Promise<Descobertas> {
+  const def = INTEGRACOES[sistema];
   const p = def.parametros.parse(c.parametros);
   const s = separarSegredos(def, c.segredo);
   const api = createGoogleClient({
-    sistema: "mkt_google",
+    sistema,
     clientId: String(p.client_id),
     clientSecret: s.client_secret ?? "",
     refreshToken: s.refresh_token ?? "",
@@ -81,7 +85,10 @@ export async function descobrirGoogle(c: Credencial): Promise<Descobertas> {
     },
   };
 
-  const nomes = Object.keys(buscas);
+  // Só as listas dos campos deste acesso.
+  const nomes = def.campos
+    .filter((k) => k.escolha && k.nome in buscas)
+    .map((k) => k.nome);
   const feitas = await Promise.allSettled(nomes.map((n) => buscas[n]?.()));
   return Object.fromEntries(
     nomes.map((n, i) => {
@@ -101,14 +108,14 @@ export async function descobrirGoogle(c: Credencial): Promise<Descobertas> {
  * credencial ou antes de conectar. Nunca falha (a tela mostra sem as listas).
  */
 export const descobertasDaTela = cache(
-  async (): Promise<Descobertas | null> => {
+  async (sistema: SistemaGoogle): Promise<Descobertas | null> => {
     try {
-      if (!(await podeConfigurar("mkt_google"))) return null;
-      const c = await credencialSalva("mkt_google");
+      if (!(await podeConfigurar(sistema))) return null;
+      const c = await credencialSalva(sistema);
       if (!c?.ativa) return null;
-      const s = separarSegredos(INTEGRACOES.mkt_google, c.segredo);
+      const s = separarSegredos(INTEGRACOES[sistema], c.segredo);
       if (!s.refresh_token) return null;
-      return await descobrirGoogle(c);
+      return await descobrirGoogle(sistema, c);
     } catch {
       return null;
     }

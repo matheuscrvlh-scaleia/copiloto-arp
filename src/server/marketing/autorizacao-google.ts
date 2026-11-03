@@ -7,11 +7,13 @@ import {
 } from "@/connectors/marketing/google";
 import {
   AUTORIZACAO_GOOGLE,
+  ehSistemaGoogle,
   escolhaInicial,
   escoposFaltando,
   INTEGRACOES,
   juntarSegredos,
   type ResultadoGoogle,
+  type SistemaGoogle,
   separarSegredos,
   valorDaEscolha,
 } from "@/lib/integracoes";
@@ -23,12 +25,13 @@ import { credencialSalva, podeConfigurar, testarConexao } from "../integracoes";
 import { origem } from "./autorizacao-rd";
 import { descobrirGoogle } from "./descoberta-google";
 
-// Autorização do Google (OAuth): "Conectar com o Google" guarda o state e o
-// verificador do PKCE num cookie e manda a pessoa à tela do Google; ele volta
-// para a rota de callback com code e state, que confere o state, troca o code
-// pelo refresh token (só com o verificador do cookie) e salva cifrado.
+// Autorização do Google (OAuth): "Conectar com o Google" (ou "com o YouTube",
+// que está em outra conta) guarda o acesso, o state e o verificador do PKCE
+// num cookie e manda a pessoa à tela do Google; ele volta para a mesma rota
+// de callback com code e state, que confere o state, troca o code pelo
+// refresh token (só com o verificador do cookie) e salva cifrado no acesso
+// que começou.
 
-const SISTEMA = "mkt_google";
 const COOKIE = "google_autorizacao";
 
 const redirectUri = async () =>
@@ -36,11 +39,12 @@ const redirectUri = async () =>
 
 /** Endereço da tela de autorização do Google, com state e PKCE no cookie. */
 export async function iniciarAutorizacaoGoogle(
+  sistema: SistemaGoogle,
   clientId: string,
 ): Promise<string> {
   const state = aleatorio();
   const verificador = aleatorio();
-  (await cookies()).set(COOKIE, `${state}.${verificador}`, {
+  (await cookies()).set(COOKIE, `${sistema}.${state}.${verificador}`, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -50,34 +54,46 @@ export async function iniciarAutorizacaoGoogle(
   return urlAutorizacaoGoogle({
     clientId,
     redirectUri: await redirectUri(),
-    escopos: Object.keys(AUTORIZACAO_GOOGLE.escopos),
+    escopos: Object.keys(AUTORIZACAO_GOOGLE.escopos[sistema]),
     state,
     desafio: desafioPkce(verificador),
   });
 }
 
 /**
- * Conclui a autorização. Devolve só a chave do resultado (o texto fica em
- * RETORNO_GOOGLE, na tela). O teste da conexão, com a conta e as permissões
- * que faltaram, fica gravado no cartão.
+ * Conclui a autorização. Devolve o acesso e a chave do resultado (o texto
+ * fica em RETORNO_GOOGLE, na tela). O teste da conexão, com a conta e as
+ * permissões que faltaram, fica gravado no cartão.
  */
 export async function concluirAutorizacaoGoogle(volta: {
   code: string;
   state: string;
   erro: string;
-}): Promise<ResultadoGoogle> {
+}): Promise<{ sistema: SistemaGoogle; resultado: ResultadoGoogle }> {
   const jar = await cookies();
-  const [esperado = "", verificador = ""] = (
+  const [doCookie, esperado = "", verificador = ""] = (
     jar.get(COOKIE)?.value ?? ""
   ).split(".");
   jar.delete({ name: COOKIE, path: AUTORIZACAO_GOOGLE.retorno });
-  if (!(await podeConfigurar(SISTEMA))) return "permissao";
+  // Sem cookie não dá para saber qual começou: a mensagem vai para o Google.
+  const sistema = ehSistemaGoogle(doCookie) ? doCookie : "mkt_google";
+  const resultado = await concluir(sistema, volta, esperado, verificador);
+  return { sistema, resultado };
+}
+
+async function concluir(
+  sistema: SistemaGoogle,
+  volta: { code: string; state: string; erro: string },
+  esperado: string,
+  verificador: string,
+): Promise<ResultadoGoogle> {
+  if (!(await podeConfigurar(sistema))) return "permissao";
   if (!mesmoState(volta.state, esperado) || !verificador) return "state";
   if (volta.erro) return "negado";
   if (!volta.code) return "state";
 
-  const def = INTEGRACOES[SISTEMA];
-  const salva = await credencialSalva(SISTEMA);
+  const def = INTEGRACOES[sistema];
+  const salva = await credencialSalva(sistema);
   const p = def.parametros.safeParse(salva?.parametros ?? {});
   const segredos = salva ? separarSegredos(def, salva.segredo) : {};
   if (!salva || !p.success || !segredos.client_secret) return "credencial";
@@ -101,7 +117,10 @@ export async function concluirAutorizacaoGoogle(volta: {
   });
 
   // O que a conta acessa: onde há uma opção só, ela já fica escolhida.
-  const achados = await descobrirGoogle({ parametros: p.data, segredo });
+  const achados = await descobrirGoogle(sistema, {
+    parametros: p.data,
+    segredo,
+  });
   const parametros = def.parametros.parse({
     ...p.data,
     ...Object.fromEntries(
@@ -117,19 +136,19 @@ export async function concluirAutorizacaoGoogle(volta: {
 
   const core = (await createClient()).schema("core");
   const salvo = await core.rpc("salvar_integracao", {
-    p_sistema: SISTEMA,
+    p_sistema: sistema,
     p_parametros: parametros as Json,
-    p_segredo_cifrado: cifrar(segredo, SISTEMA),
+    p_segredo_cifrado: cifrar(segredo, sistema),
     p_ativa: true,
   });
   if (salvo.error) return "salvar";
-  const teste = await testarConexao(SISTEMA, { parametros, segredo });
+  const teste = await testarConexao(sistema, { parametros, segredo });
   await core.rpc("registrar_teste_integracao", {
-    p_sistema: SISTEMA,
+    p_sistema: sistema,
     p_ok: teste.ok,
     p_mensagem: teste.mensagem,
   });
-  if (escoposFaltando(novo.escopos).length > 0) return "escopos";
+  if (escoposFaltando(sistema, novo.escopos).length > 0) return "escopos";
   return teste.ok ? "conectado" : "teste";
 }
 
@@ -137,10 +156,12 @@ export async function concluirAutorizacaoGoogle(volta: {
  * Antes de remover a credencial: revoga o refresh token no Google, para o
  * app sair da conta. Falha aqui não impede a remoção.
  */
-export async function revogarAutorizacaoGoogle(): Promise<void> {
-  const salva = await credencialSalva(SISTEMA).catch(() => null);
+export async function revogarAutorizacaoGoogle(
+  sistema: SistemaGoogle,
+): Promise<void> {
+  const salva = await credencialSalva(sistema).catch(() => null);
   const token = salva
-    ? separarSegredos(INTEGRACOES[SISTEMA], salva.segredo).refresh_token
+    ? separarSegredos(INTEGRACOES[sistema], salva.segredo).refresh_token
     : undefined;
   if (token) await revogarGoogle(token).catch(() => undefined);
 }

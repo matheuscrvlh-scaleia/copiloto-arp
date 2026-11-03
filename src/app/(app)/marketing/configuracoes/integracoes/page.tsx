@@ -12,6 +12,8 @@ import { Secao } from "@/components/dashboard/tabela";
 import { Fonte } from "@/components/marketing/tela";
 import { Protegido } from "@/components/protegido";
 import {
+  ehSistemaGoogle,
+  INTEGRACOES,
   RETORNO_GOOGLE,
   RETORNO_RD,
   RETORNO_TIKTOK,
@@ -35,9 +37,10 @@ export const metadata: Metadata = { title: "Integrações do Marketing" };
 export const maxDuration = 300;
 
 // Ferramentas que alimentam o módulo (spec 4.1). Só leitura: nada é
-// publicado, pausado ou respondido nelas. São 6 acessos, salvos e testados
+// publicado, pausado ou respondido nelas. São 7 acessos, salvos e testados
 // aqui (cifrados, como em Administração › Integrações): um login do Google e
-// um token da Meta servem a vários produtos, cada um testado à parte. Quem
+// um token da Meta servem a vários produtos, cada um testado à parte; o
+// YouTube tem login próprio (o canal está em outra conta Google). Quem
 // libera cada acesso está em docs/integracoes.md.
 interface Origem {
   sistema: Sistema;
@@ -59,7 +62,7 @@ const FERRAMENTAS: {
   },
   {
     nome: "Google Ads",
-    detalhe: "Inclui YouTube e termos de pesquisa",
+    detalhe: "Inclui anúncios no YouTube e termos de pesquisa",
     fontes: [{ sistema: "mkt_google", produto: "Google Ads" }],
     telas: [["Performance de anúncios", "/marketing/anuncios"]],
   },
@@ -96,7 +99,7 @@ const FERRAMENTAS: {
     fontes: [
       { sistema: "mkt_meta", produto: "Instagram" },
       { sistema: "mkt_meta", produto: "Facebook" },
-      { sistema: "mkt_google", produto: "YouTube" },
+      { sistema: "mkt_youtube" },
     ],
     telas: [["Redes sociais", "/marketing/redes"]],
   },
@@ -147,17 +150,23 @@ async function Tela({
 }: {
   busca: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { rd, google, tiktok } = await busca;
+  const { rd, google, sistema, tiktok } = await busca;
+  const textosGoogle =
+    RETORNO_GOOGLE[ehSistemaGoogle(sistema) ? sistema : "mkt_google"];
   const retorno =
     typeof rd === "string" && rd in RETORNO_RD
       ? RETORNO_RD[rd as ResultadoRd]
-      : typeof google === "string" && google in RETORNO_GOOGLE
-        ? RETORNO_GOOGLE[google as ResultadoGoogle]
+      : typeof google === "string" && google in textosGoogle
+        ? textosGoogle[google as ResultadoGoogle]
         : typeof tiktok === "string" && tiktok in RETORNO_TIKTOK
           ? RETORNO_TIKTOK[tiktok as ResultadoAutorizacao]
           : null;
-  // As listas do Google (o que a conta acessa) chegam depois, no cartão.
-  const descobertas = descobertasDaTela();
+  // As listas do Google e do YouTube (o que cada conta acessa) chegam
+  // depois, no cartão.
+  const descobertas = {
+    mkt_google: descobertasDaTela("mkt_google"),
+    mkt_youtube: descobertasDaTela("mkt_youtube"),
+  };
   const [p, asana, historico, { cofre, integracoes }] = await Promise.all([
     parametros(),
     dadosAsana(),
@@ -205,7 +214,8 @@ async function Tela({
                       className="flex items-center gap-2 text-xs font-medium hover:underline"
                     >
                       <Ponto cor={COR_SITUACAO[s.tipo]} />
-                      {f.fontes.length > 1 && `${produto}: `}
+                      {f.fontes.length > 1 &&
+                        `${produto ?? INTEGRACOES[sistema].nome}: `}
                       {s.texto}
                     </a>
                   );
@@ -265,7 +275,9 @@ async function Tela({
           key={i.sistema}
           i={i}
           cofre={cofre}
-          descobertas={i.sistema === "mkt_google" ? descobertas : undefined}
+          descobertas={
+            ehSistemaGoogle(i.sistema) ? descobertas[i.sistema] : undefined
+          }
         />
       ))}
 

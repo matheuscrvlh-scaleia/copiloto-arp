@@ -381,7 +381,7 @@ os reais e os de exemplo se somam, e o topo mostra o selo de cada um. Campos usa
 alterado nas ferramentas.
 
 **Onde fica o acesso:** Marketing › Configurações › Integrações (quem tem
-`marketing.parametros` ou `admin.integracoes`). São **6 acessos**, salvos em
+`marketing.parametros` ou `admin.integracoes`). São **7 acessos**, salvos em
 `integracao.credenciais` com prefixo `mkt_` (segredos cifrados; quando há
 mais de um, vão juntos num JSON cifrado) e testados ao salvar, só com
 leituras (conectores em `src/connectors/marketing`, testes em
@@ -391,26 +391,33 @@ parte, e o resultado vira uma linha ✓/✗ por produto.
 
 | Acesso | Produtos (id de cada um, opcional) | Segredos | Teste |
 |---|---|---|---|
-| Google (`mkt_google`) | Escolhidos numa lista depois de conectar: conta do Google Ads (com a MCC, se o acesso for por ela), propriedade do Analytics 4 e do Search Console, canal do YouTube, conta do Perfil da Empresa | Client ID e client secret; o refresh token sai do botão **Conectar com o Google** (o Ads não usa mais token de desenvolvedor) | Conta Google: e-mail e escopos concedidos (no próprio token); Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; YouTube: `channels.list?mine=true` confere que o canal é da conta; Perfil: lista os locais |
+| Google (`mkt_google`) | Escolhidos numa lista depois de conectar: conta do Google Ads (com a MCC, se o acesso for por ela), propriedade do Analytics 4 e do Search Console, conta do Perfil da Empresa | Client ID e client secret; o refresh token sai do botão **Conectar com o Google** (o Ads não usa mais token de desenvolvedor) | Conta Google: e-mail e escopos concedidos (no próprio token); Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; Perfil: lista os locais |
+| YouTube (`mkt_youtube`) | Canal, escolhido numa lista depois de conectar | Client ID e client secret (os mesmos do Google); o refresh token sai do botão **Conectar com o YouTube**, com a conta dona do canal | E-mail e escopos concedidos; `channels.list?mine=true` confere que o canal é da conta |
 | Meta (`mkt_meta`) | Meta Ads (conta de anúncios), Facebook (página), Instagram (conta profissional) | Token de usuário do sistema | `GET /act_{id}`, `GET /{página}`, `GET /{instagram}` |
 | TikTok (`mkt_tiktok`) | App ID; o anunciante vem da autorização (fora do formulário) | App secret; o token de Ads sai do botão **Conectar com o TikTok** | `/advertiser/info/` |
 | RD Station (`mkt_rd_station`) | — | Client ID e client secret; o refresh token sai do botão **Conectar com o RD Station** | `/auth/token` e `/marketing/account_info` |
 | Asana (`mkt_asana`) | Workspace | Token de acesso pessoal | `/users/me` e projetos ativos do workspace |
 | Site (`mkt_site`) | Endereço da lista de eventos do WordPress | — (público; grava um vazio cifrado) | Lê todas as páginas e conta os eventos com data |
 
-A conta Google que gera o refresh token precisa ter acesso a todos os
-produtos preenchidos (o canal do YouTube hoje está em outra conta; adicionar
-essa conta como usuária nos demais, ou transferir o canal).
+A conta Google que gera o refresh token do Google precisa ter acesso a todos
+os produtos preenchidos. O canal do YouTube está em outra conta Google, por
+isso tem acesso próprio (`mkt_youtube`): o mesmo app OAuth, outro login, e
+os escopos do YouTube só nessa conta.
 
-**Conectar com o Google** (OAuth, `src/server/marketing/autorizacao-google.ts`):
-salva o Client ID e o secret, guarda state e verificador do PKCE num cookie
-(10 min, só na rota de volta) e abre o consentimento do Google (offline +
-consent). A volta é `/api/integracoes/google/callback`, que precisa estar
+**Conectar com o Google** e **Conectar com o YouTube** (OAuth,
+`src/server/marketing/autorizacao-google.ts`): salva o Client ID e o secret,
+guarda o acesso, o state e o verificador do PKCE num cookie (10 min, só na
+rota de volta) e abre o consentimento do Google (offline + consent). A volta
+dos dois é `/api/integracoes/google/callback`, que precisa estar
 nas URIs de redirecionamento do cliente Web no Google Cloud (projeto
 `arp-copiloto`) com o domínio de cada ambiente (`http://localhost:3000` e
-`https://arp.copiloto.scaleia.ai`). Escopos: os seis acima mais `openid` e
-`userinfo.email` (para mostrar a conta). Se a pessoa desmarcar algum, a linha
-**Conta Google** do teste diz qual. Remover a credencial revoga o token no
+`https://arp.copiloto.scaleia.ai`). Escopos, mais `openid` e `userinfo.email`
+(para mostrar a conta): no Google, `adwords`, `analytics.readonly`,
+`webmasters.readonly` e `business.manage`; no YouTube, `youtube.readonly` e
+`yt-analytics.readonly`. Se a pessoa desmarcar algum, a linha **Conta
+Google** do teste (ou o teste do YouTube) diz qual. Com o app em modo Teste,
+a conta do canal precisa estar entre os usuários de teste da tela de
+consentimento. Remover a credencial revoga o token no
 Google antes. Enquanto o app estiver em modo Teste no Google, o refresh token
 vence em 7 dias: o teste mostra "o acesso expirou" e basta conectar de novo.
 Para não vencer, publicar o app (verificação do Google, pelos escopos
@@ -517,7 +524,7 @@ voltam aos dados de exemplo).
 | TikTok Ads e conta Business | Anúncios e Redes | Com o Daniel; confirmar se anunciam e se a conta é Business |
 | Google Analytics 4 e Search Console | Site e leads | Confirmar se estão instalados no site (WordPress) e quais eventos-chave |
 | RD Station Marketing | Leads, landing pages, custo por lead | Com o Daniel; confirmar se o plano libera a API (histórico por exportação única) |
-| Instagram, Facebook e YouTube | Redes sociais (foto diária de seguidores) | Com o Daniel; YouTube na mesma conta Google que autoriza |
+| Instagram, Facebook e YouTube | Redes sociais (foto diária de seguidores) | Com o Daniel; YouTube em conta Google à parte (acesso `mkt_youtube`) |
 | Google Perfil da Empresa | Reputação | API aprovada pelo Google; cada locatário adiciona a ARP como gerente (opção A) |
 | Asana | Radar operacional | **Conectado** (30/10/2026) com o token do Daniel Abreu; trocar por um usuário só da integração |
 

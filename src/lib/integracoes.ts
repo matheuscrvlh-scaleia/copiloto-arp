@@ -12,6 +12,7 @@ export const SISTEMAS = [
   "diario_de_obras",
   "copiloto_rh",
   "mkt_google",
+  "mkt_youtube",
   "mkt_meta",
   "mkt_tiktok",
   "mkt_rd_station",
@@ -180,7 +181,7 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
   mkt_google: {
     nome: "Google",
     serve:
-      "Google Ads, Analytics 4, Search Console, YouTube e Perfil da Empresa com um login só. Depois de conectar, escolha o que a ARP usa em cada produto; cada um é testado à parte.",
+      "Google Ads, Analytics 4, Search Console e Perfil da Empresa com um login só (o YouTube tem cartão próprio: o canal está em outra conta). Depois de conectar, escolha o que a ARP usa em cada produto; cada um é testado à parte.",
     modulo: "marketing",
     campos: [
       {
@@ -207,13 +208,6 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       {
         nome: "site_url",
         rotulo: "Search Console: propriedade",
-        tipo: "text",
-        opcional: true,
-        escolha: true,
-      },
-      {
-        nome: "channel_id",
-        rotulo: "YouTube: canal",
         tipo: "text",
         opcional: true,
         escolha: true,
@@ -252,10 +246,6 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
             /^(|sc-domain:\S+|https?:\/\/\S+)$/,
             "use sc-domain:… ou https://…",
           ),
-        channel_id: z
-          .string()
-          .trim()
-          .regex(/^(|UC[\w-]{22})$/, "começa com UC e tem 24 caracteres"),
         account_id: idOpcional(/^accounts\//),
       })
       .transform((p) => {
@@ -271,6 +261,52 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       credencial: "client_secret",
       explicacao:
         "Com o Client ID e o secret preenchidos, este botão salva o que foi digitado e abre a autorização do Google. Entre com uma conta Google que tenha acesso a todos os produtos. Depois de autorizar, o sistema gera e salva o refresh token sozinho.",
+    },
+  },
+  mkt_youtube: {
+    nome: "YouTube",
+    serve:
+      "Canal da ARP: inscritos, visualizações e vídeos. Fica à parte do Google porque o canal está em outra conta Google.",
+    modulo: "marketing",
+    campos: [
+      {
+        nome: "client_id",
+        rotulo: "Client ID (OAuth)",
+        tipo: "text",
+        exemplo: "…apps.googleusercontent.com",
+        ajuda: "O mesmo app da Web do cartão do Google (projeto arp-copiloto)",
+      },
+      {
+        nome: "channel_id",
+        rotulo: "Canal",
+        tipo: "text",
+        opcional: true,
+        escolha: true,
+      },
+    ],
+    segredos: [
+      { nome: "client_secret", rotulo: "Client secret (OAuth)" },
+      {
+        nome: "refresh_token",
+        rotulo: "Refresh token",
+        opcional: true,
+        gerado: true,
+      },
+    ],
+    parametros: z.object({
+      client_id: texto,
+      channel_id: z
+        .string()
+        .trim()
+        .regex(/^(|UC[\w-]{22})$/, "começa com UC e tem 24 caracteres"),
+    }),
+    autorizar: {
+      rotulo: "Conectar com o YouTube",
+      segredo: "refresh_token",
+      campo: "client_id",
+      credencial: "client_secret",
+      explicacao:
+        "Com o Client ID e o secret preenchidos (os mesmos do cartão do Google), este botão salva o que foi digitado e abre a autorização do Google. Entre com a conta Google dona do canal, não com a dos outros produtos. Depois de autorizar, o sistema gera e salva o refresh token e lista os canais da conta.",
     },
   },
   mkt_meta: {
@@ -448,7 +484,6 @@ export const PRODUTOS = {
     "Google Ads",
     "Analytics 4",
     "Search Console",
-    "YouTube",
     "Perfil da Empresa",
   ],
   mkt_meta: ["Meta Ads", "Facebook", "Instagram"],
@@ -603,70 +638,93 @@ export const RETORNO_TIKTOK: Record<
   salvar: RETORNO_RD.salvar,
 };
 
+/** Acessos que autorizam numa conta Google (o YouTube está em outra conta). */
+export type SistemaGoogle = "mkt_google" | "mkt_youtube";
+
+export function ehSistemaGoogle(valor: unknown): valor is SistemaGoogle {
+  return valor === "mkt_google" || valor === "mkt_youtube";
+}
+
+const CONTA_GOOGLE = {
+  openid: "identificação da conta",
+  "https://www.googleapis.com/auth/userinfo.email": "e-mail da conta",
+} as const;
+
 /**
  * Autorização do Google: a URL de callback cadastrada no app do Google Cloud
- * (por domínio) é esta rota. Escopos: só leitura, menos o do Ads (o Google
- * não tem um de leitura; o conector só usa search) e o do Perfil da Empresa.
+ * (por domínio) é esta rota, para os dois acessos. Escopos: só leitura, menos
+ * o do Ads (o Google não tem um de leitura; o conector só usa search) e o do
+ * Perfil da Empresa.
  */
 export const AUTORIZACAO_GOOGLE = {
   retorno: "/api/integracoes/google/callback",
   escopos: {
-    openid: "identificação da conta",
-    "https://www.googleapis.com/auth/userinfo.email": "e-mail da conta",
-    "https://www.googleapis.com/auth/adwords": "Google Ads",
-    "https://www.googleapis.com/auth/analytics.readonly": "Analytics 4",
-    "https://www.googleapis.com/auth/webmasters.readonly": "Search Console",
-    "https://www.googleapis.com/auth/youtube.readonly": "YouTube",
-    "https://www.googleapis.com/auth/yt-analytics.readonly":
-      "YouTube Analytics",
-    "https://www.googleapis.com/auth/business.manage": "Perfil da Empresa",
+    mkt_google: {
+      ...CONTA_GOOGLE,
+      "https://www.googleapis.com/auth/adwords": "Google Ads",
+      "https://www.googleapis.com/auth/analytics.readonly": "Analytics 4",
+      "https://www.googleapis.com/auth/webmasters.readonly": "Search Console",
+      "https://www.googleapis.com/auth/business.manage": "Perfil da Empresa",
+    },
+    mkt_youtube: {
+      ...CONTA_GOOGLE,
+      "https://www.googleapis.com/auth/youtube.readonly": "YouTube",
+      "https://www.googleapis.com/auth/yt-analytics.readonly":
+        "YouTube Analytics",
+    },
   },
 } as const;
 
 /** Nomes dos escopos pedidos que a conta não concedeu (desmarcou na tela). */
-export function escoposFaltando(concedidos: readonly string[]): string[] {
-  return Object.entries(AUTORIZACAO_GOOGLE.escopos)
+export function escoposFaltando(
+  sistema: SistemaGoogle,
+  concedidos: readonly string[],
+): string[] {
+  return Object.entries(AUTORIZACAO_GOOGLE.escopos[sistema])
     .filter(([escopo]) => !concedidos.includes(escopo))
     .map(([, nome]) => nome);
 }
 
+function retornoDoGoogle(nome: string) {
+  return {
+    conectado: {
+      ok: true,
+      texto: `${nome} conectado: o refresh token foi gerado e salvo.`,
+    },
+    escopos: {
+      ok: false,
+      texto: `Conectado, mas a conta não liberou todas as permissões (veja o cartão do ${nome}). Clique em Conectar com o ${nome} e marque todas.`,
+    },
+    teste: {
+      ok: false,
+      texto: `Autorizado e salvo, mas o teste falhou (veja o cartão do ${nome}).`,
+    },
+    negado: {
+      ok: false,
+      texto: "A autorização foi cancelada na tela do Google. Nada mudou.",
+    },
+    permissao: RETORNO_RD.permissao,
+    state: {
+      ok: false,
+      texto: `A autorização expirou ou não começou neste navegador. Clique em Conectar com o ${nome} de novo.`,
+    },
+    credencial: {
+      ok: false,
+      texto: "Salve o Client ID e o Client secret antes de conectar.",
+    },
+    codigo: {
+      ok: false,
+      texto: `O Google recusou o código (expirado, já usado ou endereço de retorno não cadastrado no app). Clique em Conectar com o ${nome} de novo.`,
+    },
+    salvar: RETORNO_RD.salvar,
+  } as const;
+}
+
 export const RETORNO_GOOGLE = {
-  conectado: {
-    ok: true,
-    texto: "Google conectado: o refresh token foi gerado e salvo.",
-  },
-  escopos: {
-    ok: false,
-    texto:
-      "Conectado, mas a conta não liberou todas as permissões (veja a linha Conta Google no cartão). Clique em Conectar com o Google e marque todas.",
-  },
-  teste: {
-    ok: false,
-    texto:
-      "Autorizado e salvo, mas o teste de algum produto falhou (veja o cartão do Google).",
-  },
-  negado: {
-    ok: false,
-    texto: "A autorização foi cancelada na tela do Google. Nada mudou.",
-  },
-  permissao: RETORNO_RD.permissao,
-  state: {
-    ok: false,
-    texto:
-      "A autorização expirou ou não começou neste navegador. Clique em Conectar com o Google de novo.",
-  },
-  credencial: {
-    ok: false,
-    texto: "Salve o Client ID e o Client secret antes de conectar.",
-  },
-  codigo: {
-    ok: false,
-    texto:
-      "O Google recusou o código (expirado, já usado ou endereço de retorno não cadastrado no app). Clique em Conectar com o Google de novo.",
-  },
-  salvar: RETORNO_RD.salvar,
+  mkt_google: retornoDoGoogle("Google"),
+  mkt_youtube: retornoDoGoogle("YouTube"),
 } as const;
-export type ResultadoGoogle = keyof typeof RETORNO_GOOGLE;
+export type ResultadoGoogle = keyof typeof RETORNO_GOOGLE.mkt_google;
 
 export interface Opcao {
   valor: string;
