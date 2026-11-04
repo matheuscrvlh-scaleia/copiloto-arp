@@ -16,9 +16,14 @@ nenhum sistema, mesmo quando a API permite.
 | WPS ParkingPlus | Estacionamento: entradas, saídas e pagamentos | API, 1x por dia | **Sincronizando** (homologação; falta o acesso de produção) | `src/connectors/wps` |
 | Diário de Obras | Obras: diários (RDO), mão de obra, atividades, ocorrências | API | Falta o token. Cliente de todas as rotas pronto, sem sincronização (módulo não definido) | `src/connectors/diario-de-obras` |
 | Serviços públicos (BrasilAPI, ViaCEP, Banco Central) | Comercial: CEP, CNPJ, feriados nacionais, IGP-M e IPCA | API pública, na hora (sem cadastro) | **Funcionando**, sem credencial | `src/connectors/publicos` |
+| RD Station CRM | Comercial: oportunidades, funis, etapas, motivos de perda (Funil comercial e leads do Painel) | API v1 (token da instância), lida na hora e guardada por 1 hora | Falta o token (o acesso OAuth do RD Station Marketing não abre o CRM: conferido em 04/11/2026) | `src/connectors/rd-crm.ts` |
 
 **Onde fica o acesso:** Administração › Integrações (Secullum, WPS, Diário
-de Obras e Copiloto RH). Cada credencial é testada ao salvar, só com leituras
+de Obras, Copiloto RH e o RD Station, CRM e Marketing, que o Comercial e o
+Marketing usam juntos). O RD Station CRM é testado com `GET /deal_pipelines` e
+o total de `GET /deals`; o Comercial cruza o e-mail do contato da oportunidade
+com as conversões que a sincronização do RD Station Marketing grava
+(`marketing.rd_conversoes`) para achar a landing page de origem. Cada credencial é testada ao salvar, só com leituras
 (Secullum: lista de bancos e departamentos, sem gastar o limite do /Calcular;
 WPS: entradas do dia; Diário de Obras: `GET /empresa`; Copiloto RH: `GET
 /v1/me`, escopos e total de ativos). O segredo vai cifrado para `integracao.credenciais`; sem credencial
@@ -396,7 +401,7 @@ parte, e o resultado vira uma linha ✓/✗ por produto.
 | YouTube (`mkt_youtube`) | Canal, escolhido numa lista depois de conectar | Só o refresh token, do botão **Conectar com o YouTube** (com a conta dona do canal); o Client ID e o secret são lidos do cartão do Google (`src/server/marketing/app-google.ts`) | E-mail e escopos concedidos; `channels.list?mine=true` confere que o canal é da conta |
 | Meta (`mkt_meta`) | Meta Ads (conta de anúncios), Facebook (página), Instagram (conta profissional) | Token de usuário do sistema | `GET /act_{id}`, `GET /{página}`, `GET /{instagram}` |
 | TikTok (`mkt_tiktok`) | App ID; o anunciante vem da autorização (fora do formulário) | App secret; o token de Ads sai do botão **Conectar com o TikTok** | `/advertiser/info/` |
-| RD Station (`mkt_rd_station`) | — | Client ID e client secret; o refresh token sai do botão **Conectar com o RD Station** | `/auth/token` e `/marketing/account_info` |
+| RD Station Marketing (`mkt_rd_station`, em Administração › Integrações desde 04/11/2026) | — | Client ID e client secret; o refresh token sai do botão **Conectar com o RD Station** | `/auth/token` e `/marketing/account_info` |
 | Asana (`mkt_asana`) | Workspace | Token de acesso pessoal | `/users/me` e projetos ativos do workspace |
 | Site (`mkt_site`) | Endereço da lista de eventos do WordPress | — (público; grava um vazio cifrado) | Lê todas as páginas e conta os eventos com data |
 

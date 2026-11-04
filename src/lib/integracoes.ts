@@ -1,7 +1,8 @@
 import { z } from "zod";
 
-// Integrações configuráveis. As gerais ficam em Administração › Integrações;
-// as do Marketing (prefixo mkt_), em Marketing › Configurações › Integrações.
+// Integrações configuráveis. As gerais (e as que mais de um módulo usa, como
+// o RD Station) ficam em Administração › Integrações; as só do Marketing
+// (prefixo mkt_), em Marketing › Configurações › Integrações.
 // Cada uma tem campos comuns (guardados abertos, para mostrar e editar) e um
 // ou mais segredos (senha, token), que o servidor cifra antes de gravar e
 // nunca devolve. Endereço público (o site) não tem segredo.
@@ -11,6 +12,7 @@ export const SISTEMAS = [
   "wps",
   "diario_de_obras",
   "copiloto_rh",
+  "rd_crm",
   "mkt_google",
   "mkt_youtube",
   "mkt_meta",
@@ -147,6 +149,22 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
         nome: "segredo",
         rotulo: "Token da API",
         ajuda: "Token da empresa, fornecido pelo Diário de Obras",
+      },
+    ],
+    parametros: z.object({}),
+  },
+  rd_crm: {
+    nome: "RD Station CRM",
+    modulo: "admin",
+    serve:
+      "Oportunidades, funis, etapas, motivos de perda e responsáveis. Alimenta o Funil comercial e os leads do Painel comercial.",
+    campos: [],
+    segredos: [
+      {
+        nome: "segredo",
+        rotulo: "Token da instância",
+        ajuda:
+          "No RD Station CRM: Perfil › Integrações › Token da instância (o acesso do RD Station Marketing não abre o CRM)",
       },
     ],
     parametros: z.object({}),
@@ -397,8 +415,9 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
   },
   mkt_rd_station: {
     nome: "RD Station Marketing",
-    serve: "Leads, conversões e landing pages; base do custo por lead.",
-    modulo: "marketing",
+    serve:
+      "Leads, conversões e landing pages. Usado pelo Marketing (custo por lead, site e leads) e pelo Comercial (landing page de origem de cada oportunidade).",
+    modulo: "admin",
     campos: [
       {
         nome: "client_id",

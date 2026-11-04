@@ -1,95 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { diasEntre } from "@/lib/comercial/datas";
-import { ativoEm, campoDa, estadoDa } from "@/lib/comercial/fontes";
+import { ativoEm } from "@/lib/comercial/fontes";
 import { cnpjValido, cpfValido } from "@/lib/documentos";
 import { gerarEnet, INICIO_CONTAS } from "./enet";
-import { FUNIL_COMERCIAL, gerarRd } from "./rd";
 
 // Os dados de exemplo têm o volume da seção 6 e a distribuição da planilha
 // (teste 8), são coerentes entre si e não mudam de um dia para o outro.
 
 const HOJE = "2026-11-04";
-const rd = gerarRd(HOJE);
 const enet = gerarEnet(HOJE);
 
-const pct = (n: number, de: number) => (n / de) * 100;
 const contar = <T>(xs: T[], f: (x: T) => boolean) => xs.filter(f).length;
-
-describe("RD Station CRM", () => {
-  const ano = rd.oportunidades.filter(
-    (o) =>
-      o.created_at.startsWith("2026") &&
-      o.deal_pipeline._id === FUNIL_COMERCIAL._id,
-  );
-
-  it("≈1.850 oportunidades desde nov/2022 e ≈37 por mês em 2026", () => {
-    expect(rd.oportunidades.length).toBeGreaterThan(1700);
-    expect(rd.oportunidades.length).toBeLessThan(2000);
-    expect(rd.oportunidades[0]?.created_at.slice(0, 7)).toBe("2022-11");
-    expect(ano.length / 10).toBeGreaterThan(31);
-    expect(ano.length / 10).toBeLessThan(43);
-  });
-
-  it("distribuição parecida com a da planilha", () => {
-    const perdidas = ano.filter((o) => estadoDa(o) === "Perdida");
-    expect(pct(perdidas.length, ano.length)).toBeGreaterThan(86);
-    const vendidas = contar(ano, (o) => estadoDa(o) === "Vendida");
-    expect(vendidas).toBeGreaterThan(0);
-    expect(pct(vendidas, ano.length)).toBeLessThan(2);
-    expect(contar(ano, (o) => estadoDa(o) === "Em andamento")).toBeGreaterThan(
-      5,
-    );
-    const direto = contar(ano, (o) => o.deal_source?.name === "Tráfego Direto");
-    expect(pct(direto, ano.length)).toBeGreaterThan(30);
-    expect(pct(direto, ano.length)).toBeLessThan(44);
-    const sala = contar(ano, (o) => campoDa(o, "perfil") === "Sala comercial");
-    expect(pct(sala, ano.length)).toBeGreaterThan(36);
-    expect(pct(sala, ano.length)).toBeLessThan(50);
-    const semDisp = contar(
-      perdidas,
-      (o) => o.deal_lost_reason?.name === "Sem disponibilidade no momento",
-    );
-    expect(pct(semDisp, perdidas.length)).toBeGreaterThan(65);
-  });
-
-  it("estado, etapa, valores e datas fecham entre si", () => {
-    const agora = new Date("2026-11-04T09:00:00Z").getTime();
-    for (const o of rd.oportunidades) {
-      const e = estadoDa(o);
-      expect(new Date(o.created_at).getTime()).toBeLessThan(agora);
-      expect(!!o.deal_lost_reason).toBe(e === "Perdida");
-      expect(!!o.closed_at).toBe(e !== "Em andamento");
-      if (e === "Em andamento") expect(o.next_task).not.toBeNull();
-      if (e !== "Vendida") expect(o.amount_unique).toBe(0);
-      if (o.last_activity_at && o.first_activity_at)
-        expect(o.last_activity_at >= o.first_activity_at).toBe(true);
-    }
-    const vendidas = rd.oportunidades.filter((o) => o.win === true);
-    expect(vendidas.some((o) => o.amount_montly > 0)).toBe(true);
-  });
-
-  it("contatos fictícios e conversões ligadas pelo e-mail", () => {
-    const lps = new Set(rd.landingPages.map((l) => l.conversion_identifier));
-    const porEmail = new Set(rd.conversoes.map((c) => c.email));
-    for (const o of rd.oportunidades) {
-      const email = o.contacts[0]?.emails[0]?.email ?? "";
-      expect(email.endsWith("@exemplo.com.br")).toBe(true);
-      expect(o.contacts[0]?.phones[0]?.phone).toMatch(/^\(22\) 90000-\d{4}$/);
-      expect(porEmail.has(email)).toBe(true);
-    }
-    for (const c of rd.conversoes)
-      expect(lps.has(c.conversion_identifier)).toBe(true);
-  });
-
-  it("o mês passado não muda de um dia para o outro", () => {
-    const amanha = gerarRd("2026-11-05");
-    const set = (d: typeof rd) =>
-      d.oportunidades
-        .filter((o) => o.created_at.startsWith("2026-09"))
-        .map((o) => `${o._id} ${o.created_at} ${o.name}`);
-    expect(set(amanha)).toEqual(set(rd));
-  });
-});
 
 describe("ENET", () => {
   const { lucs, contratos, clientes, contasReceber } = enet;

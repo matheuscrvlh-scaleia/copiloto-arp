@@ -1,3 +1,4 @@
+import { createRdCrmClient } from "@/connectors/rd-crm";
 import "server-only";
 import {
   type CopilotoRhConfig,
@@ -199,13 +200,20 @@ export async function diarioDeObras() {
   );
 }
 
+/** RD Station CRM com o token salvo em Administração › Integrações. */
+export async function rdCrm() {
+  return createRdCrmClient({
+    token: (await credencialEmUso("rd_crm")).segredo,
+  });
+}
+
 export async function copilotoRh() {
   return createCopilotoRhClient(
     configCopiloto(await credencialEmUso("copiloto_rh")),
   );
 }
 
-/** RD Station com o acesso salvo em Marketing › Configurações › Integrações. */
+/** RD Station Marketing com o acesso salvo em Administração › Integrações. */
 export async function rdStation() {
   const def = INTEGRACOES.mkt_rd_station;
   const c = await credencialEmUso("mkt_rd_station");
@@ -281,6 +289,12 @@ const TESTES: Record<Sistema, Teste> = {
     const obras =
       e.log === undefined ? "" : ` · ${formatarNumero(e.log.totalObras)} obras`;
     return `Conectado à empresa “${e.nome}”${obras}`;
+  },
+  async rd_crm(c) {
+    const api = createRdCrmClient({ token: c.segredo });
+    const [funis, p] = await Promise.all([api.funis(), api.pagina(1, 1)]);
+    const total = p.total ?? p.deals.length;
+    return `${formatarNumero(funis.length)} funis (${funis.map((f) => f.name).join(", ")}) · ${formatarNumero(total)} oportunidades`;
   },
   async copiloto_rh(c) {
     const api = createCopilotoRhClient(configCopiloto(c));

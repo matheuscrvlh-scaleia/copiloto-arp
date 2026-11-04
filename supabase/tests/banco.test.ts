@@ -887,6 +887,13 @@ describe("administração: credenciais das integrações", () => {
           "select core.salvar_integracao('outro', '{}', 'v1.cifrado', true)",
         ),
       ).toMatch(/credenciais_sistema_check/);
+      // RD Station CRM (20261104170000).
+      expect(
+        await erro(
+          "select core.salvar_integracao('rd_crm', '{}', 'v1.cifrado', true)",
+        ),
+      ).toBeNull();
+      await db.query("select core.remover_integracao('rd_crm')");
       await db.query("select core.remover_integracao('copiloto_rh')");
     });
     expect(await linhas("select * from integracao.credenciais")).toBe(0);

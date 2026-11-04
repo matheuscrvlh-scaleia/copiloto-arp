@@ -28,6 +28,8 @@ import { dadosEnet, dadosRd } from "./fontes";
 export interface DadosPainel {
   linhas: LinhaPainel[];
   exemplo: boolean;
+  /** Por que o RD Station CRM não entregou (leads vazios); null quando leu. */
+  avisoRd: string | null;
   /** false: sem comercial.valores.ver, só as linhas que não são em reais. */
   comValores: boolean;
   /** Algum mês sem foto de ocupação (calculado ou sem histórico). */
@@ -126,7 +128,8 @@ export const dadosDoPainel = cache(
     const ocupacao = linhas.find((l) => l.indicador === "ocupacao");
     return {
       linhas,
-      exemplo: enet.exemplo || rd.exemplo,
+      exemplo: enet.exemplo,
+      avisoRd: rd.aviso,
       comValores,
       semFoto: !!ocupacao?.marcas.some(
         (m) => m === "calculado" || m === "sem_historico",

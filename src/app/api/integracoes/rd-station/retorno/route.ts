@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     q.get("state") ?? "",
   );
   const destino = request.nextUrl.clone();
-  destino.pathname = "/marketing/configuracoes/integracoes";
+  destino.pathname = "/admin/integracoes";
   destino.search = new URLSearchParams({ rd: r }).toString();
   destino.hash = "mkt_rd_station";
   return NextResponse.redirect(destino);

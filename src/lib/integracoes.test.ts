@@ -38,19 +38,21 @@ describe("segredos das integrações", () => {
     expect(separarSegredos(def, "não é json")).toEqual({});
   });
 
-  it("o Marketing tem 7 acessos, todos com prefixo mkt_ (o banco libera por ele)", () => {
+  it("o Marketing tem 6 acessos com prefixo mkt_; o RD Station fica na Administração", () => {
     const mkt = SISTEMAS.filter((s) => INTEGRACOES[s].modulo === "marketing");
     expect(mkt).toEqual([
       "mkt_google",
       "mkt_youtube",
       "mkt_meta",
       "mkt_tiktok",
-      "mkt_rd_station",
       "mkt_asana",
       "mkt_site",
     ]);
+    // O banco libera marketing.parametros pelo prefixo, menos o RD Station.
     for (const s of SISTEMAS)
-      expect(INTEGRACOES[s].modulo === "marketing").toBe(s.startsWith("mkt_"));
+      expect(INTEGRACOES[s].modulo === "marketing").toBe(
+        s.startsWith("mkt_") && s !== "mkt_rd_station",
+      );
   });
 });
 

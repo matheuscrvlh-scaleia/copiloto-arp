@@ -69,6 +69,8 @@ export const TAG = {
     faixasEvento: "comercial:faixas_evento",
     /** Metas do Painel (core.metas comercial.*). */
     metas: "comercial:metas",
+    /** Oportunidades lidas da API do RD Station CRM. */
+    rdCrm: "comercial:rd_crm",
   },
 
   rh: {

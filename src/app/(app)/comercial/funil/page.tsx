@@ -29,7 +29,6 @@ import {
 import {
   CartaoDaTela,
   CartoesComercial,
-  EXEMPLO,
   FiltrosComercial,
   Fonte,
   hrefCom,
@@ -173,7 +172,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   ]);
   const filtrosExportar = `${linhaFiltros} · ${ctx.dadosDe}`;
   const exportar = ctx.pode("comercial.exportar");
-  const exemplo = d.exemplo ? EXEMPLO.rd : false;
   const hrefEstado = (e: Estado | null) =>
     hrefCom(BASE, f.busca, {
       estado: e === null || e === estado ? null : URL_DO_ESTADO[e],
@@ -278,10 +276,17 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           ]}
         />
 
+        {d.aviso && (
+          <p
+            role="alert"
+            className="rounded-[1.75rem] bg-amber-50 p-5 text-sm text-amber-900"
+          >
+            {d.aviso}
+          </p>
+        )}
         <TopoComercial
           dadosDe={ctx.dadosDe}
           filtros={linhaFiltros}
-          exemplo={exemplo || undefined}
           acoes={
             exportar ? (
               <>
@@ -310,7 +315,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             valor={formatarNumero(c.criadas)}
             detalhe="no período, pela data de criação"
             fonte={RD}
-            exemplo={exemplo}
             href={estado ? hrefEstado(null) : undefined}
           />
           <CartaoDaTela
@@ -318,7 +322,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             valor={formatarNumero(c.andamento)}
             detalhe={`${formatarPct(c.andamentoPct, 2)} das criadas`}
             fonte={RD}
-            exemplo={exemplo}
             href={hrefEstado("Em andamento")}
             ativo={estado === "Em andamento"}
           />
@@ -332,7 +335,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             }`}
             calculo="Conversão = vendidas ÷ oportunidades criadas no período. Vendas recorrentes = soma do valor recorrente das vendidas; pontuais = soma do valor único (só com a permissão de valores)."
             fonte={RD}
-            exemplo={exemplo}
             href={hrefEstado("Vendida")}
             ativo={estado === "Vendida"}
           />
@@ -342,7 +344,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             detalhe={`${formatarPct(c.perdidasPct, 2)} das criadas`}
             calculo="Perdidas ÷ oportunidades criadas no período."
             fonte={RD}
-            exemplo={exemplo}
             href={hrefEstado("Perdida")}
             ativo={estado === "Perdida"}
           />
@@ -350,7 +351,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
         <Secao
           titulo="Oportunidades"
-          exemplo={exemplo}
           descricao={`Uma linha por oportunidade, período pela data de criação. Clique na linha para ver o detalhe.${d.podeValores ? "" : " Valores só para quem tem a permissão de valores."}`}
         >
           <TabelaLista
@@ -381,7 +381,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             tom="escuro"
             titulo="Oportunidades por mês"
             descricao="Empilhadas por estado, pela data de criação"
-            exemplo={exemplo}
           >
             <ColunasEmpilhadas
               descricao="Oportunidades por mês de criação, empilhadas por estado"
@@ -402,7 +401,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Secao
             titulo="Motivos de perda"
             descricao="Quantidade de oportunidades perdidas"
-            exemplo={exemplo}
           >
             <BarrasHorizontais
               descricao="Oportunidades perdidas por motivo de perda"
@@ -421,7 +419,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
         <Secao
           titulo="Mês × fonte ajustada"
-          exemplo={exemplo}
           descricao="Mesmo quadro da aba DASHBOARD da planilha, com total do ano, % e média por mês."
         >
           <TabelaMensal quadro={porFonte} rotulo="Fonte ajustada" />
@@ -430,7 +427,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
         <Secao
           titulo="Mês × segmento"
-          exemplo={exemplo}
           descricao="Campo personalizado Segmento do RD CRM."
         >
           <TabelaMensal quadro={porSegmento} rotulo="Segmento" />
@@ -438,21 +434,21 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         </Secao>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-          <Secao titulo="Motivo de perda" exemplo={exemplo}>
+          <Secao titulo="Motivo de perda">
             <TabelaContagem
               rotulo="Motivo"
               linhas={motivos}
               total={perdidas.length}
             />
           </Secao>
-          <Secao titulo="Perfil do imóvel" exemplo={exemplo}>
+          <Secao titulo="Perfil do imóvel">
             <TabelaContagem
               rotulo="Perfil"
               linhas={perfis}
               total={lista.length}
             />
           </Secao>
-          <Secao titulo="Tamanho pretendido" exemplo={exemplo}>
+          <Secao titulo="Tamanho pretendido">
             <TabelaContagem
               rotulo="Tamanho"
               linhas={tamanhos}

@@ -57,7 +57,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   const linhaFiltros = linhaDeFiltros([{ rotulo: "Ano", valor: String(ano) }]);
   const exportar = ctx.pode("comercial.exportar");
   const metas = ctx.pode("comercial.painel.metas");
-  const exemplo = d.exemplo ? EXEMPLO.rdEnet : undefined;
+  const exemplo = d.exemplo ? EXEMPLO.enet : undefined;
 
   return (
     <div className="flex flex-col gap-6">
@@ -115,7 +115,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       <Secao
         titulo={`Mês a mês em ${ano}`}
         exemplo={
-          exemplo && "ENET e RD Station de exemplo; as metas são as cadastradas"
+          exemplo && "ENET de exemplo; o RD Station e as metas são reais"
         }
         descricao="Real vem das APIs; Plan vem das metas cadastradas. % atingido abaixo de 100% em vermelho; em rescindidos e churn, menor é melhor e a cor inverte. Passe o mouse no nome do indicador para ver o cálculo."
       >
@@ -128,6 +128,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       </Secao>
 
       <div className="flex flex-col gap-2">
+        {d.avisoRd && <Nota>{d.avisoRd} Os leads ficam vazios até lá.</Nota>}
         {!d.comValores && (
           <Nota>Valores em reais só com a permissão de valores.</Nota>
         )}

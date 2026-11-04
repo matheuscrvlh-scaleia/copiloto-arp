@@ -1,5 +1,6 @@
 import {
   Building,
+  CircleCheck,
   FileSpreadsheet,
   Megaphone,
   TriangleAlert,
@@ -18,7 +19,7 @@ import { Tabela } from "@/components/dashboard/tabela";
 import { Carregando, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarDataHora, formatarNumero } from "@/lib/formato";
-import { INTEGRACOES } from "@/lib/integracoes";
+import { INTEGRACOES, RETORNO_RD, type ResultadoRd } from "@/lib/integracoes";
 import { type Execucao, integracoesNaTela } from "@/server/admin/dados";
 
 export const metadata: Metadata = { title: "Integrações" };
@@ -26,7 +27,9 @@ export const metadata: Metadata = { title: "Integrações" };
 // "Sincronizar agora" roda depois da resposta, dentro deste limite.
 export const maxDuration = 300;
 
-export default function Page() {
+export default function Page({
+  searchParams,
+}: PageProps<"/admin/integracoes">) {
   return (
     <>
       <PageHeader
@@ -35,14 +38,23 @@ export default function Page() {
       />
       <Suspense fallback={<Carregando />}>
         <Protegido permissao="admin.integracoes">
-          <Integracoes />
+          <Integracoes busca={searchParams} />
         </Protegido>
       </Suspense>
     </>
   );
 }
 
-async function Integracoes() {
+async function Integracoes({
+  busca,
+}: {
+  busca: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { rd } = await busca;
+  const retorno =
+    typeof rd === "string" && rd in RETORNO_RD
+      ? RETORNO_RD[rd as ResultadoRd]
+      : null;
   const { cofre, integracoes, historico } = await integracoesNaTela();
   const conectadas = integracoes.filter(
     (i) => situacao(i).tipo === "ok",
@@ -50,6 +62,19 @@ async function Integracoes() {
 
   return (
     <div className="flex flex-col gap-5">
+      {retorno && (
+        <p
+          role={retorno.ok ? "status" : "alert"}
+          className={`flex items-start gap-3 rounded-[1.75rem] p-5 text-sm ${retorno.ok ? "bg-green-50 text-green-800" : "bg-amber-50 text-amber-900"}`}
+        >
+          {retorno.ok ? (
+            <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
+          ) : (
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+          )}
+          <span>{retorno.texto}</span>
+        </p>
+      )}
       {!cofre && (
         <p
           role="alert"

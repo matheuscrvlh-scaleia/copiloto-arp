@@ -9,9 +9,9 @@ import { formatarNumero } from "@/lib/formato";
 //   e <FiltrosComercial tela="funil" hoje={f.ctx.hoje} lembrado={f.lembrado}
 //   selecoes={[…]} />: uma linha, padrão da tela, "Limpar", lembrados por pessoa.
 // - <TopoComercial dadosDe={f.ctx.dadosDe} filtros={linhaDeFiltros([…])}
-//   exemplo={EXEMPLO.rd} acoes={<BotaoExportar …/>} />: "Dados de…", a linha
+//   exemplo={EXEMPLO.enet} acoes={<BotaoExportar …/>} />: "Dados de…", a linha
 //   de filtros escrita (a mesma vai no Excel e no PDF) e o selo de exemplo.
-// - <CartoesComercial> com até 4 <CartaoDaTela … exemplo={EXEMPLO.rd}>; para
+// - <CartoesComercial> com até 4 <CartaoDaTela … exemplo={EXEMPLO.enet}>; para
 //   filtrar a lista: href={hrefDoCartao(BASE, f.busca, "perdidas")} e
 //   ativo={f.um("cartao") === "perdidas"}.
 // - Lista: <TabelaLista> dentro de <Secao> (busca, ordenação, rodapé e
@@ -29,9 +29,7 @@ export {
 
 /** O que dizer no selo de dado de exemplo de cada fonte sem API. */
 export const EXEMPLO = {
-  rd: "RD Station CRM e Marketing, até a API ser ligada",
   enet: "ENET, até a API ser ligada",
-  rdEnet: "RD Station e ENET, até as APIs serem ligadas",
 } as const;
 
 /** Barra de filtros que lembra os filtros na chave "comercial.filtros.<tela>". */

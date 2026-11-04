@@ -17,7 +17,8 @@ export interface DadosFunil {
   fontesAjustadas: string[];
   landingPages: RdLandingPageComercial[];
   funilPadrao: string;
-  exemplo: boolean;
+  /** Por que o RD Station CRM não entregou; null quando leu. */
+  aviso: string | null;
   podeContato: boolean;
   podeValores: boolean;
 }
@@ -44,7 +45,7 @@ export const dadosDoFunil = cache(async (): Promise<DadosFunil> => {
     ),
     landingPages: rd.landingPages,
     funilPadrao: params.funil_padrao,
-    exemplo: rd.exemplo,
+    aviso: rd.aviso,
     podeContato,
     podeValores,
   };

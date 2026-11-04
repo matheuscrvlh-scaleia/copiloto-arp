@@ -170,6 +170,7 @@ export async function salvarIntegracao(
   if (sistema === "mkt_site") updateTag(TAG.marketing.eventosSite);
   if (sistema === "mkt_meta") updateTag(TAG.marketing.meta);
   if (sistema === "mkt_asana") updateTag(TAG.marketing.asana);
+  if (sistema === "rd_crm") updateTag(TAG.comercial.rdCrm);
   if (teste) {
     const r = await core.rpc("registrar_teste_integracao", {
       p_sistema: sistema,
@@ -208,6 +209,7 @@ export async function testarIntegracao(
   if (sistema === "mkt_site" && teste.ok) updateTag(TAG.marketing.eventosSite);
   if (sistema === "mkt_meta" && teste.ok) updateTag(TAG.marketing.meta);
   if (sistema === "mkt_asana" && teste.ok) updateTag(TAG.marketing.asana);
+  if (sistema === "rd_crm" && teste.ok) updateTag(TAG.comercial.rdCrm);
   // Só a credencial salva na tela guarda o resultado (a do .env não tem linha).
   if (await credencialSalva(sistema).catch(() => null)) {
     const r = await (await createClient())
@@ -236,6 +238,7 @@ export async function removerIntegracao(
     .schema("core")
     .rpc("remover_integracao", { p_sistema: sistema });
   if (error) return erroDoBanco(error);
+  if (sistema === "rd_crm") updateTag(TAG.comercial.rdCrm);
   refresh();
   return { ok: "Credencial removida." };
 }

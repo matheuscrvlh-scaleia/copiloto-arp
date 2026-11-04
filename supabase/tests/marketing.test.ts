@@ -350,6 +350,9 @@ describe("acessos das ferramentas (20261029230000, 20261029235000 e 202610301200
         ),
       ).toBeNull();
       expect(await erro(salvar("secullum"))).toMatch(/sem permissão/);
+      // O RD Station saiu do Marketing para a Administração (20261104170000).
+      expect(await erro(salvar("mkt_rd_station"))).toMatch(/sem permissão/);
+      expect(await erro(salvar("rd_crm"))).toMatch(/sem permissão/);
       expect(
         await valor<string>(
           "select string_agg(sistema, ',') from core.integracoes_configuradas()",

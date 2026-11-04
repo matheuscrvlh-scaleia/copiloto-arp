@@ -15,11 +15,9 @@ import {
   ehSistemaGoogle,
   INTEGRACOES,
   RETORNO_GOOGLE,
-  RETORNO_RD,
   RETORNO_TIKTOK,
   type ResultadoAutorizacao,
   type ResultadoGoogle,
-  type ResultadoRd,
   resultadoDoProduto,
   type Sistema,
 } from "@/lib/integracoes";
@@ -86,9 +84,11 @@ const FERRAMENTAS: {
   },
   {
     nome: "RD Station Marketing",
-    detalhe: "Leads e landing pages; base do custo por lead",
-    fontes: [{ sistema: "mkt_rd_station" }],
+    detalhe:
+      "Leads e landing pages; base do custo por lead. O acesso fica em Administração › Integrações (o Comercial também usa).",
+    fontes: [],
     telas: [
+      ["Acesso em Administração", "/admin/integracoes#mkt_rd_station"],
       ["Site e leads", "/marketing/site"],
       ["Performance de anúncios", "/marketing/anuncios"],
     ],
@@ -150,17 +150,15 @@ async function Tela({
 }: {
   busca: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { rd, google, sistema, tiktok } = await busca;
+  const { google, sistema, tiktok } = await busca;
   const textosGoogle =
     RETORNO_GOOGLE[ehSistemaGoogle(sistema) ? sistema : "mkt_google"];
   const retorno =
-    typeof rd === "string" && rd in RETORNO_RD
-      ? RETORNO_RD[rd as ResultadoRd]
-      : typeof google === "string" && google in textosGoogle
-        ? textosGoogle[google as ResultadoGoogle]
-        : typeof tiktok === "string" && tiktok in RETORNO_TIKTOK
-          ? RETORNO_TIKTOK[tiktok as ResultadoAutorizacao]
-          : null;
+    typeof google === "string" && google in textosGoogle
+      ? textosGoogle[google as ResultadoGoogle]
+      : typeof tiktok === "string" && tiktok in RETORNO_TIKTOK
+        ? RETORNO_TIKTOK[tiktok as ResultadoAutorizacao]
+        : null;
   // As listas do Google e do YouTube (o que cada conta acessa) chegam
   // depois, no cartão.
   const descobertas = {

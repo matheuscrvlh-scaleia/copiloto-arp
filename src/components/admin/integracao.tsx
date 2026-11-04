@@ -1,6 +1,7 @@
 import {
   CalendarClock,
   Car,
+  Filter,
   Globe,
   HardHat,
   KeyRound,
@@ -41,6 +42,7 @@ const ICONE: Record<Sistema, LucideIcon> = {
   wps: Car,
   diario_de_obras: HardHat,
   copiloto_rh: Users,
+  rd_crm: Filter,
   mkt_google: Search,
   mkt_youtube: Play,
   mkt_meta: Megaphone,
