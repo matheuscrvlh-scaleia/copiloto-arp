@@ -14,6 +14,7 @@ import {
   credencialSalva,
   podeConfigurar,
 } from "../integracoes";
+import { appGoogle } from "./app-google";
 
 // Descoberta do Google: com a conta conectada, lista o que ela acessa em cada
 // produto (contas do Ads, propriedades do GA4 e do Search Console, contas do
@@ -43,12 +44,12 @@ export async function descobrirGoogle(
   c: Credencial,
 ): Promise<Descobertas> {
   const def = INTEGRACOES[sistema];
-  const p = def.parametros.parse(c.parametros);
   const s = separarSegredos(def, c.segredo);
+  const app = await appGoogle(sistema, c);
   const api = createGoogleClient({
     sistema,
-    clientId: String(p.client_id),
-    clientSecret: s.client_secret ?? "",
+    clientId: app?.clientId ?? "",
+    clientSecret: app?.clientSecret ?? "",
     refreshToken: s.refresh_token ?? "",
   });
 

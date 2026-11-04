@@ -9,6 +9,7 @@ import {
   ehSistemaGoogle,
   INTEGRACOES,
   juntarSegredos,
+  SEM_APP_GOOGLE,
   type Sistema,
   separarSegredos,
 } from "@/lib/integracoes";
@@ -27,6 +28,7 @@ import {
   testarConexao,
 } from "@/server/integracoes";
 import { registrarDepois } from "@/server/logs";
+import { appGoogle } from "@/server/marketing/app-google";
 import {
   iniciarAutorizacaoGoogle,
   revogarAutorizacaoGoogle,
@@ -106,6 +108,18 @@ export async function salvarIntegracao(
   const falta = def.segredos.find((s) => !s.opcional && !valores[s.nome]);
   if (falta) return { erro: `${falta.rotulo}: obrigatório` };
   const segredo = juntarSegredos(def, valores);
+
+  // App de outro cartão (o YouTube usa o do Google): nada a salvar antes;
+  // a volta da autorização grava tudo.
+  if (
+    def.autorizar?.appDe &&
+    ehSistemaGoogle(sistema) &&
+    form.get("autorizar") === "1"
+  ) {
+    const app = await appGoogle(sistema);
+    if (!app) return { erro: SEM_APP_GOOGLE };
+    redirect(await iniciarAutorizacaoGoogle(sistema, app.clientId));
+  }
 
   // "Conectar com …" (OAuth): salva o que foi digitado sem testar (falta o
   // segredo que a autorização gera) e segue para a tela da ferramenta.

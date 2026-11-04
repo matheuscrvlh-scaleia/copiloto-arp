@@ -22,6 +22,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { cifrar } from "../cofre";
 import { credencialSalva, podeConfigurar, testarConexao } from "../integracoes";
+import { appGoogle } from "./app-google";
 import { origem } from "./autorizacao-rd";
 import { descobrirGoogle } from "./descoberta-google";
 
@@ -93,16 +94,18 @@ async function concluir(
   if (!volta.code) return "state";
 
   const def = INTEGRACOES[sistema];
+  const app = await appGoogle(sistema);
+  // O YouTube pode chegar aqui sem nada salvo: a volta grava tudo.
   const salva = await credencialSalva(sistema);
   const p = def.parametros.safeParse(salva?.parametros ?? {});
   const segredos = salva ? separarSegredos(def, salva.segredo) : {};
-  if (!salva || !p.success || !segredos.client_secret) return "credencial";
+  if (!app || !p.success) return "credencial";
 
   let novo: Awaited<ReturnType<typeof trocarCodigoGoogle>>;
   try {
     novo = await trocarCodigoGoogle({
-      clientId: String(p.data.client_id),
-      clientSecret: segredos.client_secret,
+      clientId: app.clientId,
+      clientSecret: app.clientSecret,
       code: volta.code,
       redirectUri: await redirectUri(),
       verificador,

@@ -55,13 +55,15 @@ export interface DefinicaoIntegracao {
   /**
    * Botão que leva à tela de autorização da ferramenta (OAuth): ela volta
    * para o sistema com um code, que vira o segredo `segredo`. O app é
-   * identificado pelo campo `campo` e pelo segredo `credencial`.
+   * identificado pelo campo `campo` e pelo segredo `credencial`, deste
+   * acesso ou, com `appDe`, do acesso indicado (já salvo).
    */
   autorizar?: {
     rotulo: string;
     segredo: string;
     campo: string;
     credencial: string;
+    appDe?: Sistema;
     explicacao: string;
   };
 }
@@ -268,14 +270,9 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
     serve:
       "Canal da ARP: inscritos, visualizações e vídeos. Fica à parte do Google porque o canal está em outra conta Google.",
     modulo: "marketing",
+    // O app OAuth (Client ID e secret) é o do cartão do Google: aqui só o
+    // login da conta do canal.
     campos: [
-      {
-        nome: "client_id",
-        rotulo: "Client ID (OAuth)",
-        tipo: "text",
-        exemplo: "…apps.googleusercontent.com",
-        ajuda: "O mesmo app da Web do cartão do Google (projeto arp-copiloto)",
-      },
       {
         nome: "channel_id",
         rotulo: "Canal",
@@ -285,7 +282,6 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       },
     ],
     segredos: [
-      { nome: "client_secret", rotulo: "Client secret (OAuth)" },
       {
         nome: "refresh_token",
         rotulo: "Refresh token",
@@ -294,19 +290,20 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       },
     ],
     parametros: z.object({
-      client_id: texto,
       channel_id: z
         .string()
         .trim()
-        .regex(/^(|UC[\w-]{22})$/, "começa com UC e tem 24 caracteres"),
+        .regex(/^(|UC[\w-]{22})$/, "começa com UC e tem 24 caracteres")
+        .default(""),
     }),
     autorizar: {
       rotulo: "Conectar com o YouTube",
       segredo: "refresh_token",
       campo: "client_id",
       credencial: "client_secret",
+      appDe: "mkt_google",
       explicacao:
-        "Com o Client ID e o secret preenchidos (os mesmos do cartão do Google), este botão salva o que foi digitado e abre a autorização do Google. Entre com a conta Google dona do canal, não com a dos outros produtos. Depois de autorizar, o sistema gera e salva o refresh token e lista os canais da conta.",
+        "Usa o Client ID e o secret já salvos no cartão do Google. Entre com a conta Google dona do canal, não com a dos outros produtos. Depois de autorizar, o sistema gera e salva o refresh token e lista os canais da conta.",
     },
   },
   mkt_meta: {
@@ -685,6 +682,10 @@ export function escoposFaltando(
     .map(([, nome]) => nome);
 }
 
+/** Salvar o app antes de conectar: no cartão do Google, para os dois. */
+export const SEM_APP_GOOGLE =
+  "Salve o Client ID e o Client secret no cartão do Google antes de conectar.";
+
 function retornoDoGoogle(nome: string) {
   return {
     conectado: {
@@ -708,10 +709,7 @@ function retornoDoGoogle(nome: string) {
       ok: false,
       texto: `A autorização expirou ou não começou neste navegador. Clique em Conectar com o ${nome} de novo.`,
     },
-    credencial: {
-      ok: false,
-      texto: "Salve o Client ID e o Client secret antes de conectar.",
-    },
+    credencial: { ok: false, texto: SEM_APP_GOOGLE },
     codigo: {
       ok: false,
       texto: `O Google recusou o código (expirado, já usado ou endereço de retorno não cadastrado no app). Clique em Conectar com o ${nome} de novo.`,

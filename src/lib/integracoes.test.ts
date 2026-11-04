@@ -105,10 +105,14 @@ describe("Google e Meta: um acesso, vários produtos", () => {
     ).toBe(true);
   });
 
-  it("YouTube: acesso próprio, canal escolhido depois de conectar", () => {
-    const yt = INTEGRACOES.mkt_youtube.parametros;
-    const vazio = { client_id: "x.apps.googleusercontent.com", channel_id: "" };
-    expect(yt.safeParse(vazio).success).toBe(true);
+  it("YouTube: acesso próprio com o app do Google, canal escolhido depois", () => {
+    const def = INTEGRACOES.mkt_youtube;
+    const yt = def.parametros;
+    const vazio = { channel_id: "" };
+    expect(yt.parse({})).toEqual(vazio);
+    expect(def.autorizar?.appDe).toBe("mkt_google");
+    expect(def.campos.map((c) => c.nome)).toEqual(["channel_id"]);
+    expect(def.segredos.every((s) => s.gerado)).toBe(true);
     expect(yt.safeParse({ ...vazio, channel_id: "canal" }).success).toBe(false);
     expect(
       yt.safeParse({ ...vazio, channel_id: `UC${"a".repeat(22)}` }).success,

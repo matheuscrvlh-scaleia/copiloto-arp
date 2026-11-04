@@ -392,7 +392,7 @@ parte, e o resultado vira uma linha ✓/✗ por produto.
 | Acesso | Produtos (id de cada um, opcional) | Segredos | Teste |
 |---|---|---|---|
 | Google (`mkt_google`) | Escolhidos numa lista depois de conectar: conta do Google Ads (com a MCC, se o acesso for por ela), propriedade do Analytics 4 e do Search Console, conta do Perfil da Empresa | Client ID e client secret; o refresh token sai do botão **Conectar com o Google** (o Ads não usa mais token de desenvolvedor) | Conta Google: e-mail e escopos concedidos (no próprio token); Ads: `googleAds:search` no `customer`; GA4: sessões em 7 dias; Search Console: `sites.get`; Perfil: lista os locais |
-| YouTube (`mkt_youtube`) | Canal, escolhido numa lista depois de conectar | Client ID e client secret (os mesmos do Google); o refresh token sai do botão **Conectar com o YouTube**, com a conta dona do canal | E-mail e escopos concedidos; `channels.list?mine=true` confere que o canal é da conta |
+| YouTube (`mkt_youtube`) | Canal, escolhido numa lista depois de conectar | Só o refresh token, do botão **Conectar com o YouTube** (com a conta dona do canal); o Client ID e o secret são lidos do cartão do Google (`src/server/marketing/app-google.ts`) | E-mail e escopos concedidos; `channels.list?mine=true` confere que o canal é da conta |
 | Meta (`mkt_meta`) | Meta Ads (conta de anúncios), Facebook (página), Instagram (conta profissional) | Token de usuário do sistema | `GET /act_{id}`, `GET /{página}`, `GET /{instagram}` |
 | TikTok (`mkt_tiktok`) | App ID; o anunciante vem da autorização (fora do formulário) | App secret; o token de Ads sai do botão **Conectar com o TikTok** | `/advertiser/info/` |
 | RD Station (`mkt_rd_station`) | — | Client ID e client secret; o refresh token sai do botão **Conectar com o RD Station** | `/auth/token` e `/marketing/account_info` |
@@ -405,8 +405,9 @@ isso tem acesso próprio (`mkt_youtube`): o mesmo app OAuth, outro login, e
 os escopos do YouTube só nessa conta.
 
 **Conectar com o Google** e **Conectar com o YouTube** (OAuth,
-`src/server/marketing/autorizacao-google.ts`): salva o Client ID e o secret,
-guarda o acesso, o state e o verificador do PKCE num cookie (10 min, só na
+`src/server/marketing/autorizacao-google.ts`): o do Google salva o Client ID
+e o secret; o do YouTube não salva nada antes (usa o app já salvo no Google).
+Os dois guardam o acesso, o state e o verificador do PKCE num cookie (10 min, só na
 rota de volta) e abre o consentimento do Google (offline + consent). A volta
 dos dois é `/api/integracoes/google/callback`, que precisa estar
 nas URIs de redirecionamento do cliente Web no Google Cloud (projeto

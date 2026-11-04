@@ -10,6 +10,7 @@ import {
   escoposFaltando,
   INTEGRACOES,
   type PRODUTOS,
+  SEM_APP_GOOGLE,
   type Sistema,
   separarSegredos,
 } from "@/lib/integracoes";
@@ -17,6 +18,7 @@ import { eventosDoSite } from "@/lib/marketing/eventos";
 import { somarDias } from "@/lib/marketing/periodo";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import type { Credencial } from "../integracoes";
+import { appGoogle } from "./app-google";
 
 // Teste de conexão de cada ferramenta do Marketing: uma ou duas leituras
 // pequenas que provam que o acesso abre o que o módulo vai ler. Nada é
@@ -150,16 +152,17 @@ export const TESTES_MARKETING: Record<
   mkt_google: async (c) => testesGoogle(c),
   mkt_meta: async (c) => testesMeta(c),
 
-  // Conta Google à parte (a dona do canal): confere as permissões e que o
-  // canal escolhido é dela.
+  // Conta Google à parte (a dona do canal), com o app do cartão do Google:
+  // confere as permissões e que o canal escolhido é dela.
   async mkt_youtube(c) {
     const { p, s } = abrir("mkt_youtube", c);
     if (!s("refresh_token"))
       throw new Error("falta autorizar: clique em Conectar com o YouTube");
+    const app = await appGoogle("mkt_youtube");
+    if (!app) throw new Error(SEM_APP_GOOGLE);
     const api = createGoogleClient({
       sistema: "mkt_youtube",
-      clientId: p("client_id"),
-      clientSecret: s("client_secret"),
+      ...app,
       refreshToken: s("refresh_token"),
     });
     const conta = await api.conta();
