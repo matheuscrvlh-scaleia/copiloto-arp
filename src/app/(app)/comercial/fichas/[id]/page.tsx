@@ -31,6 +31,7 @@ import {
 } from "@/lib/comercial/ficha";
 import { formatarDocumento } from "@/lib/documentos";
 import { formatarData, formatarDataHora, formatarNumero } from "@/lib/formato";
+import { paraBrasilia } from "@/lib/os/tempo";
 import {
   cancelarLinkFicha,
   reenviarLinkFicha,
@@ -66,6 +67,10 @@ export default function Page({ params }: PageProps<"/comercial/fichas/[id]">) {
     </Suspense>
   );
 }
+
+/** Instante (UTC) → dd/mm/aaaa no dia de Brasília. */
+const diaDe = (iso: string | null) =>
+  iso ? formatarData(paraBrasilia(new Date(iso)).data) : "—";
 
 async function Tela({
   params,
@@ -107,11 +112,11 @@ async function Tela({
               ? `Enviada em ${formatarDataHora(ficha.recebida_em)}`
               : `Link gerado em ${formatarDataHora(ficha.gerada_em)}`
           }
-          exemplo={ficha.exemplo ? "ficha do mockup" : undefined}
+          exemplo={ficha.exemplo ? "ficha de demonstração" : undefined}
         />
 
         <div className="flex flex-wrap gap-2">
-          {contrato && !aberta && (
+          {contrato && !aberta && ficha.tipo !== "fiador" && (
             <Link
               href={`/comercial/contratos/novo?ficha=${ficha.id}`}
               className={BOTAO_PRIMARIO}
@@ -156,7 +161,7 @@ async function Tela({
                     </Link>{" "}
                     ·{" "}
                     {ROTULO_SITUACAO[m.situacao as SituacaoFicha] ?? m.situacao}{" "}
-                    · {formatarData(m.gerada_em)}
+                    · {diaDe(m.gerada_em)}
                   </li>
                 ))}
               </ul>
@@ -172,20 +177,20 @@ async function Tela({
             titulo="Link da ficha"
             descricao={
               ficha.cancelada_em
-                ? `Cancelado em ${formatarDataHora(ficha.cancelada_em)}. Reenviar volta a valer o mesmo link.`
+                ? `Cancelado em ${formatarDataHora(ficha.cancelada_em)}. Reenviar gera um link novo; o anterior não abre mais.`
                 : vencida
-                  ? `Venceu em ${formatarData(ficha.expira_em)}. Reenviar renova a validade; o que o interessado salvou continua.`
+                  ? `Venceu em ${diaDe(ficha.expira_em)}. Reenviar renova a validade; o que o interessado salvou continua.`
                   : ficha.expira_em
-                    ? `Vale até ${formatarData(ficha.expira_em)}. ${ficha.iniciada_em ? "O interessado já começou a preencher." : "Ainda não preenchido."}`
+                    ? `Vale até ${diaDe(ficha.expira_em)}. ${ficha.iniciada_em ? "O interessado já começou a preencher." : "Ainda não preenchido."}`
                     : "Sem validade."
             }
           >
             <div className="flex flex-col gap-4">
-              {!ficha.cancelada_em && !vencida && (
+              {ficha.token && !ficha.cancelada_em && !vencida && (
                 <LinkParaEnviar
                   link={linkDaFicha(ficha.token)}
                   validoAte={
-                    ficha.expira_em ? formatarData(ficha.expira_em) : undefined
+                    ficha.expira_em ? diaDe(ficha.expira_em) : undefined
                   }
                 />
               )}
@@ -213,7 +218,7 @@ async function Tela({
                     <input type="hidden" name="id" value={ficha.id} />
                   </FormAcao>
                 )}
-                {!ficha.cancelada_em && !vencida && (
+                {ficha.token && !ficha.cancelada_em && !vencida && (
                   <a
                     href={linkDaFicha(ficha.token)}
                     target="_blank"

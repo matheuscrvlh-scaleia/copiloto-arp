@@ -162,9 +162,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         filtros={linhaFiltros}
         exemplo={
           exemplo
-            ? "imóveis pesquisados de exemplo (endereços inventados) e o valor por m² da ARP, até a importação e a API do ENET"
+            ? "imóveis pesquisados de exemplo (endereços inventados) e o valor por m² da ARP, até o ENET ser ligado ao sistema"
             : arp.exemplo
-              ? "valor por m² da ARP (ENET), até a API ser ligada"
+              ? "valor por m² da ARP (ENET), até o ENET ser ligado ao sistema"
               : undefined
         }
         acoes={

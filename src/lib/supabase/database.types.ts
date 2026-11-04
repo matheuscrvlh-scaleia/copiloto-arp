@@ -1016,6 +1016,7 @@ export type Database = {
           abl_locada: number
           abl_total: number
           clientes_ativos: number | null
+          exemplo: boolean
           gravada_em: string
           lucs: number
           lucs_locados: number
@@ -1027,6 +1028,7 @@ export type Database = {
           abl_locada: number
           abl_total: number
           clientes_ativos?: number | null
+          exemplo?: boolean
           gravada_em?: string
           lucs: number
           lucs_locados: number
@@ -1038,6 +1040,7 @@ export type Database = {
           abl_locada?: number
           abl_total?: number
           clientes_ativos?: number | null
+          exemplo?: boolean
           gravada_em?: string
           lucs?: number
           lucs_locados?: number
@@ -1399,18 +1402,21 @@ export type Database = {
           atualizado_em: string
           conta_ocupacao: boolean
           ordem: number
+          receita: string | null
           tipo: string
         }
         Insert: {
           atualizado_em?: string
           conta_ocupacao?: boolean
           ordem?: number
+          receita?: string | null
           tipo: string
         }
         Update: {
           atualizado_em?: string
           conta_ocupacao?: boolean
           ordem?: number
+          receita?: string | null
           tipo?: string
         }
         Relationships: []
@@ -1421,6 +1427,19 @@ export type Database = {
     }
     Functions: {
       desfazer_importacao: { Args: { p_id: string }; Returns: number }
+      gravar_ficha_pelo_link: {
+        Args: {
+          p_assinatura: string | null
+          p_documento: string | null
+          p_enviar: boolean
+          p_luc: string | null
+          p_nome: string | null
+          p_respostas: Json
+          p_tipo: string | null
+          p_token: string
+        }
+        Returns: string
+      }
       pode_importar: { Args: { p_tipo: string }; Returns: boolean }
       remover_exemplos: { Args: never; Returns: Json }
     }

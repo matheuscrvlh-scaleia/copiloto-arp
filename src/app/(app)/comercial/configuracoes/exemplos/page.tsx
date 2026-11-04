@@ -20,13 +20,14 @@ export default function Page() {
       <Protegido permissao="comercial.parametros.editar">
         <Secao
           titulo="Remover dados de exemplo"
-          descricao="Apaga os registros que vieram de exemplo para o mockup: respostas, convites, rodadas e temas do Censo, contatos com locatários, contratos e rascunhos, fichas cadastrais, propostas de evento e imóveis da pesquisa. O que foi criado ou importado de verdade fica."
+          descricao="Apaga os registros de exemplo que vieram com o sistema para demonstração: respostas, convites, rodadas e temas do Censo, contatos com locatários, contratos e rascunhos, fichas cadastrais, propostas de evento e imóveis da pesquisa. O que foi criado ou importado de verdade fica."
         >
           <div className="flex flex-col gap-4">
             <Nota>
               Não apaga parâmetros, listas, faixas, feriados, metas nem o kit de
               entrega. Os dados do RD Station e do ENET continuam de exemplo até
-              as APIs serem ligadas: eles não ficam no banco.
+              esses sistemas serem ligados ao Centralizador: eles não ficam
+              guardados aqui.
             </Nota>
             <FormAcao
               acao={removerExemplos}

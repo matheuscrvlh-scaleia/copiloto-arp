@@ -28,10 +28,26 @@ export interface Aniversario {
   locatario: string;
   /** Nome do sócio (só no tipo sócio). */
   socio: string | null;
-  /** Contrato do LUC (no sócio, o primeiro contrato ativo do locatário). */
+  /** Contrato do LUC (no sócio, o primeiro contrato ativo do locatário; "" sem contrato no ENET). */
   contrato: string;
   luc: string;
   bloco: string;
+  /** De onde veio a data: ENET ou a ficha cadastral feita no sistema. */
+  origem: "enet" | "ficha";
+}
+
+/** Rótulo fixo do aniversário de sócio que vem da ficha (spec 4.7). */
+export const ROTULO_SOCIO_FICHA =
+  "Aniversário de sócio: só cadastros feitos no sistema";
+
+/** Ficha cadastral usada em contrato: só nome e nascimento de cada pessoa. */
+export interface FichaComSocios {
+  id: string;
+  /** Razão social ou nome da ficha. */
+  nome: string;
+  /** LUC do contrato que usou a ficha (ou o pretendido). */
+  luc: string | null;
+  socios: { nome: string; nascimento: string }[];
 }
 
 export interface EntradaAniversarios {
@@ -39,7 +55,17 @@ export interface EntradaAniversarios {
   clientes: EnetCliente[];
   lucs: Pick<EnetLuc, "numero" | "local">[];
   hoje: string;
+  /** Fichas usadas em contrato: data de nascimento quando o ENET não tem. */
+  fichas?: FichaComSocios[];
 }
+
+const normalizar = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
 
 /** Todos os aniversários do ano (contrato ativo hoje; sócio de locatário ativo). */
 export function aniversariosDoAno(
@@ -65,6 +91,7 @@ export function aniversariosDoAno(
       contrato: c.codigo,
       luc: c.luc,
       bloco: local.get(c.luc) ?? "",
+      origem: "enet",
     });
   }
   const primeiro = new Map<string, EnetContrato>();
@@ -86,6 +113,35 @@ export function aniversariosDoAno(
         contrato: c.codigo,
         luc: c.luc,
         bloco: local.get(c.luc) ?? "",
+        origem: "enet",
+      });
+    });
+  }
+  // Da ficha, só quando o ENET não tem: locatário sem sócio com data no
+  // ENET, ou sócio da ficha que o ENET não tem com data (pelo nome).
+  const porLuc = new Map(ativos.map((c) => [c.luc, c]));
+  const doEnet = new Map(e.clientes.map((cl) => [cl.codigo, cl]));
+  for (const f of e.fichas ?? []) {
+    const c = f.luc ? porLuc.get(f.luc) : undefined;
+    const socios = (c && doEnet.get(c.cliente)?.socios) || [];
+    if (socios.length && socios.every((s) => s.data_nascimento)) continue;
+    const jaTem = new Set(
+      socios.filter((s) => s.data_nascimento).map((s) => normalizar(s.nome)),
+    );
+    f.socios.forEach((s, i) => {
+      if (!s.nascimento || jaTem.has(normalizar(s.nome))) return;
+      lista.push({
+        chave: `ficha:${f.id}:${i}`,
+        tipo: "socio",
+        data: aniversarioEm(s.nascimento, ano),
+        anos: null,
+        cliente: c?.cliente ?? `ficha:${f.id}`,
+        locatario: c?.locatario ?? f.nome,
+        socio: s.nome,
+        contrato: c?.codigo ?? "",
+        luc: c?.luc ?? f.luc ?? "",
+        bloco: local.get(c?.luc ?? f.luc ?? "") ?? "",
+        origem: "ficha",
       });
     });
   }

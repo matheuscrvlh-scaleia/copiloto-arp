@@ -23,7 +23,8 @@ import {
   type SugestaoFeedback,
   VAZIO,
 } from "@/lib/comercial/censo";
-import { dadosDe, linhaDeFiltros } from "@/lib/comercial/formato";
+import { diaEmBrasilia } from "@/lib/comercial/datas";
+import { linhaDeFiltros } from "@/lib/comercial/formato";
 import { formatarData, formatarNumero } from "@/lib/formato";
 import { moverSugestao, salvarTema } from "@/server/comercial/acoes/censo";
 import {
@@ -35,8 +36,13 @@ import {
 } from "@/server/comercial/censo";
 import type { FiltrosCom } from "@/server/comercial/filtros";
 import { dadosEnet } from "@/server/comercial/fontes";
-import { nomesDeUsuarios } from "@/server/comercial/importacoes";
-import { EXEMPLO_CENSO, filtrosDoCenso, selecoesDoCenso } from "./indicadores";
+import { nomesDeUsuarios } from "@/server/comercial/usuarios";
+import {
+  EXEMPLO_CENSO,
+  filtrosDoCenso,
+  selecoesDoCenso,
+  TELA_FILTROS,
+} from "./indicadores";
 
 const BASE = "/comercial/censo";
 const ORIGENS = { censo: "Censo", contato: "Registro de contato" } as const;
@@ -76,7 +82,8 @@ export async function Feedbacks({
     contatos.map((c) => c.id),
   );
   const nomes = await nomesDeUsuarios(
-    vinculos.map((v) => v.movido_por).filter((x): x is string => !!x),
+    vinculos.map((v) => v.movido_por),
+    ["comercial.censo.ver"],
   );
   const temasDe = (coluna: "resposta_id" | "contato_id", id: string) =>
     vinculos
@@ -189,7 +196,7 @@ export async function Feedbacks({
   return (
     <>
       <FiltrosComercial
-        tela="censo"
+        tela={TELA_FILTROS.feedbacks}
         hoje={ctx.hoje}
         lembrado={f.lembrado}
         selecoes={[
@@ -227,14 +234,14 @@ export async function Feedbacks({
       />
 
       <TopoComercial
-        dadosDe={dadosDe(new Date())}
+        dadosDe={f.ctx.dadosDe}
         filtros={linhaFiltros}
         exemplo={exemplo}
         acoes={
           ctx.pode("comercial.exportar") ? (
             <BotaoExportar
               titulo={`Censo — Feedbacks · ${rodada.nome}`}
-              filtros={linhaFiltros}
+              filtros={`${linhaFiltros} · ${f.ctx.dadosDe}`}
               nomeArquivo="censo-feedbacks"
               colunas={[
                 { titulo: "Tema" },
@@ -351,7 +358,7 @@ export async function Feedbacks({
                 ? vinculos.find((x) => x.id === vinculo.vinculo)
                 : undefined;
               const movida = v?.movido_por
-                ? `${nomes.get(v.movido_por) ?? "Usuário removido"}${v.movido_em ? ` em ${formatarData(v.movido_em.slice(0, 10))}` : ""}`
+                ? `${nomes.get(v.movido_por) ?? "Usuário removido"}${v.movido_em ? ` em ${formatarData(diaEmBrasilia(v.movido_em))}` : ""}`
                 : "—";
               const texto = exemploDa(s, null);
               return {

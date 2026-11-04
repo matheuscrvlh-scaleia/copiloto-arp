@@ -30,7 +30,7 @@ import {
   TabelaLista,
   TopoComercial,
 } from "@/components/comercial/tela";
-import { Secao } from "@/components/dashboard/tabela";
+import { Nota, Secao } from "@/components/dashboard/tabela";
 import { type Detalhe, ProvedorDetalhe } from "@/components/modal-detalhe";
 import { BotaoExportar } from "@/components/os/exportar";
 import { PageHeader } from "@/components/page-header";
@@ -42,6 +42,7 @@ import {
   inicioDoPeriodo,
   PERIODOS_CONTATO,
   type PeriodoContato,
+  ROTULO_SOCIO_FICHA,
   sociosSemNascimento,
   TIPOS_DATA,
   type TipoData,
@@ -49,6 +50,7 @@ import {
 import { NOMES_DOS_MESES } from "@/lib/comercial/vencimentos";
 import { formatarData, formatarNumero } from "@/lib/formato";
 import { registrarContato } from "@/server/comercial/acoes/contatos";
+import { sociosDasFichas } from "@/server/comercial/aniversarios";
 import { type Busca, lerFiltros } from "@/server/comercial/filtros";
 import { dadosEnet } from "@/server/comercial/fontes";
 import {
@@ -181,6 +183,13 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         <TopoComercial
           dadosDe={ctx.dadosDe}
           filtros={linha}
+          exemplo={
+            contatos.some((c) => c.exemplo)
+              ? "registros de contato de exemplo e locatários do ENET de exemplo"
+              : enet.exemplo
+                ? EXEMPLO.enet
+                : undefined
+          }
           acoes={
             <div className="flex flex-wrap items-center gap-2">
               {exportar && (
@@ -220,7 +229,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   const mes = mesUrl >= 1 && mesUrl <= 12 ? mesUrl : mesAtual;
   const ano = Number(ctx.hoje.slice(0, 4));
   const tipoData = f.um("data") in TIPOS_DATA ? (f.um("data") as TipoData) : "";
-  const entrada = { ...enet, hoje: ctx.hoje };
+  const entrada = { ...enet, hoje: ctx.hoje, fichas: await sociosDasFichas() };
   const doMes = aniversariosDoMes(entrada, ano, mes).filter(
     (a) => !bloco || a.bloco === bloco,
   );
@@ -228,6 +237,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   const contratos = doMes.filter((a) => a.tipo === "contrato").length;
   const socios = doMes.length - contratos;
   const semData = sociosSemNascimento(entrada);
+  const daFicha = doMes.some((a) => a.origem === "ficha");
   const nomeMes = NOMES_DOS_MESES[mes - 1] ?? "";
   const linha = linhaDeFiltros([
     { rotulo: "Mês", valor: `${nomeMes}/${ano}` },
@@ -254,7 +264,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         ? [{ rotulo: "Anos de ARP", valor: String(a.anos) }]
         : []),
       { rotulo: "Locatário", valor: a.locatario },
-      { rotulo: "Contrato", valor: a.contrato },
+      { rotulo: "Contrato", valor: a.contrato || "—" },
     ],
     fontes: [
       {
@@ -262,16 +272,19 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         valor:
           a.tipo === "contrato"
             ? "ENET — Contratos (data de início)"
-            : "ENET — Clientes (data de nascimento do sócio; a idade não aparece)",
+            : a.origem === "ficha"
+              ? `${ROTULO_SOCIO_FICHA} (ficha cadastral usada em contrato; a idade não aparece)`
+              : "ENET — Clientes (data de nascimento do sócio; a idade não aparece)",
       },
     ],
     tabelas: [],
-    link: registra
-      ? {
-          href: `${BASE}/contatos/novo?contrato=${encodeURIComponent(a.contrato)}`,
-          rotulo: "Registrar contato",
-        }
-      : undefined,
+    link:
+      registra && a.contrato
+        ? {
+            href: `${BASE}/contatos/novo?contrato=${encodeURIComponent(a.contrato)}`,
+            rotulo: "Registrar contato",
+          }
+        : undefined,
   });
 
   return (
@@ -336,7 +349,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                     TIPOS_DATA[a.tipo],
                     a.anos,
                     a.locatario,
-                    a.socio ?? "",
+                    a.socio
+                      ? `${a.socio}${a.origem === "ficha" ? ` (${ROTULO_SOCIO_FICHA})` : ""}`
+                      : "",
                     a.luc,
                     a.bloco,
                   ])}
@@ -406,6 +421,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                 a.anos === null ? "" : formatarNumero(a.anos),
                 <span key="l" className="font-medium">
                   {nomeDe(a)}
+                  {a.origem === "ficha" && (
+                    <span className="block text-xs font-normal text-neutral-500">
+                      {ROTULO_SOCIO_FICHA}
+                    </span>
+                  )}
                 </span>,
                 <span key="u" className="font-mono text-xs">
                   {a.luc}
@@ -419,8 +439,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Fonte>
             ENET — Contratos (data de início; só contratos ativos com 1 ano ou
             mais) e Clientes (data de nascimento dos sócios de locatários
-            ativos).
+            ativos). Sem a data no ENET, ela vem da ficha cadastral usada em
+            contrato.
           </Fonte>
+          {daFicha && <Nota>{ROTULO_SOCIO_FICHA}.</Nota>}
         </Secao>
       </div>
     </ProvedorDetalhe>

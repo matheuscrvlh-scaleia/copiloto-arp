@@ -4,9 +4,10 @@ import { randomBytes } from "node:crypto";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import { BYTES_DO_TIPO, tipoPeloConteudo } from "@/lib/os/tipo-arquivo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { podeAgora } from "@/server/auth";
-import { com, valoresDaLista } from "@/server/comercial/base";
+import { com, comAdmin, valoresDaLista } from "@/server/comercial/base";
 import { BUCKET_COMERCIAL } from "@/server/comercial/kit";
 
 // Gravações do Kit de entrega (spec 4.14). Cadastro e metadados vão com a
@@ -162,6 +163,22 @@ export async function prepararEnvioKit(entrada: {
   return { ok: true, url: data.signedUrl, path: data.path };
 }
 
+type Bucket = ReturnType<
+  ReturnType<typeof createAdminClient>["storage"]["from"]
+>;
+
+/** O arquivo no bucket começa com a assinatura de PDF? Lê só o começo; null se não deu para ler. */
+async function ehPdf(storage: Bucket, path: string): Promise<boolean | null> {
+  const link = await storage.createSignedUrl(path, 60);
+  if (link.error || !link.data) return null;
+  const r = await fetch(link.data.signedUrl, {
+    headers: { Range: `bytes=0-${BYTES_DO_TIPO - 1}` },
+  }).catch(() => null);
+  if (!r?.ok) return null;
+  const inicio = new Uint8Array(await r.arrayBuffer()).slice(0, BYTES_DO_TIPO);
+  return tipoPeloConteudo(inicio) === "application/pdf";
+}
+
 /**
  * Depois do envio: confere o arquivo no bucket e grava. Com `versaoId`, o
  * arquivo entra na versão que ainda não tinha arquivo; com `versao`, vira
@@ -194,6 +211,14 @@ export async function registrarArquivoKit(entrada: {
   )
     return { erro: "Arquivo inválido." };
 
+  // Caminho que já é de alguma versão não veio deste envio: nunca se apaga.
+  const emUso = await comAdmin()
+    .from("kit_versoes")
+    .select("id")
+    .eq("arquivo_path", path)
+    .limit(1);
+  if (emUso.error || emUso.data.length) return { erro: "Arquivo inválido." };
+
   const storage = createAdminClient().storage.from(BUCKET_COMERCIAL);
   const descartar = async (erro: string): Promise<EstadoAcao> => {
     await storage.remove([path]);
@@ -203,7 +228,12 @@ export async function registrarArquivoKit(entrada: {
   if (info.error || !info.data)
     return { erro: "O arquivo não chegou. Tente enviar de novo." };
   const tamanho = info.data.size ?? 0;
+  if (tamanho <= 0) return descartar("O arquivo chegou vazio.");
   if (tamanho > ARQUIVO_MAX_BYTES) return descartar("Arquivo maior que 25 MB.");
+  const pdf = await ehPdf(storage, path);
+  if (pdf === null)
+    return descartar("Não foi possível conferir o arquivo. Envie de novo.");
+  if (!pdf) return descartar("O arquivo não é um PDF. Envie o arquivo em PDF.");
   const arquivo = { arquivo_path: path, arquivo_nome: nome, tamanho };
   const db = await com();
 

@@ -86,7 +86,9 @@ export function avisosDoKit(
     if (situacaoDaValidade(i.validade, hoje, 0) === "vencido")
       avisos.push(`${i.nome}: vencido. Suba a versão nova antes de entregar.`);
     if (!i.arquivo)
-      avisos.push(`${i.nome}: ainda sem arquivo; não entra no PDF do kit.`);
+      avisos.push(
+        `${i.nome}: sem arquivo ainda — suba o PDF. Até lá, fica fora do kit e aparece na capa como faltando.`,
+      );
   }
   return avisos;
 }

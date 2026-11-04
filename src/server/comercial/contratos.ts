@@ -21,13 +21,21 @@ import {
 import { ativoEm } from "@/lib/comercial/fontes";
 import { blocoDoLuc } from "@/lib/comercial/kit";
 import { rotaVistoria } from "@/lib/os/rotas";
+import { paraBrasilia } from "@/lib/os/tempo";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/database.types";
 import { podeAgora } from "@/server/auth";
 import { lerTudo } from "@/server/supabase-paginas";
-import { com, contextoCom, type Parametros, parametros } from "./base";
+import {
+  com,
+  comAdmin,
+  contextoCom,
+  type Parametros,
+  parametros,
+} from "./base";
 import { dadosEnet } from "./fontes";
 import { type ItemDoKit, kitDoBloco } from "./kit";
+import { nomesDeUsuarios } from "./usuarios";
 
 // Contratos e distratos (spec 4.11): lista, o contrato do assistente, o
 // histórico de versões, os anexos, o kit do LUC, as fichas para a etapa
@@ -76,41 +84,43 @@ export async function contextoDaRevisao(
   return { obrigatorios: lerObrigatorios(p.obrigatorios_garantia), anexos };
 }
 
+/** Nome de quem alterou (ids que a pessoa já vê nos contratos). */
+const nomesDe = (ids: (string | null)[]) =>
+  nomesDeUsuarios(ids, [
+    "comercial.contratos.ver",
+    "comercial.contratos.editar",
+  ]);
+
 /**
- * Nome de quem alterou. Pela sessão; os que o RLS de core.usuarios esconde
- * vêm pela service role, só para ids que a pessoa já vê nos contratos e
- * depois de conferir a permissão no banco.
+ * Aluguel e dados (com os valores) dos contratos. O banco não deixa a sessão
+ * ler essas colunas: a service role lê só ids que a sessão acabou de ver pelo
+ * RLS do contrato, depois de conferir a permissão agora. Quem chama tira os
+ * valores sem comercial.valores.ver.
  */
-export async function nomesDe(
-  ids: (string | null)[],
-): Promise<Map<string, string>> {
-  const unicos = [...new Set(ids.filter((i): i is string => Boolean(i)))];
-  const nomes = new Map<string, string>();
-  if (!unicos.length) return nomes;
-  const sessao = await (await createClient())
-    .schema("core")
-    .from("usuarios")
-    .select("id, nome")
-    .in("id", unicos);
-  falhar(sessao.error);
-  for (const u of sessao.data ?? []) nomes.set(u.id, u.nome);
-  const faltam = unicos.filter((i) => !nomes.has(i));
+export async function dadosGuardados(
+  ids: string[],
+): Promise<Map<string, { aluguel: number | null; dados: Json }>> {
+  const mapa = new Map<string, { aluguel: number | null; dados: Json }>();
+  const unicos = [...new Set(ids)];
+  if (!unicos.length) return mapa;
   if (
-    !faltam.length ||
     !(
       (await podeAgora("comercial.contratos.ver")) ||
-      (await podeAgora("comercial.contratos.editar"))
+      (await podeAgora("comercial.contratos.editar")) ||
+      (await podeAgora("comercial.contratos.gerar"))
     )
   )
-    return nomes;
-  const admin = await createAdminClient()
-    .schema("core")
-    .from("usuarios")
-    .select("id, nome")
-    .in("id", faltam);
-  falhar(admin.error);
-  for (const u of admin.data ?? []) nomes.set(u.id, u.nome);
-  return nomes;
+    return mapa;
+  for (let i = 0; i < unicos.length; i += 150) {
+    const { data, error } = await comAdmin()
+      .from("contratos")
+      .select("id, aluguel, dados")
+      .in("id", unicos.slice(i, i + 150));
+    falhar(error);
+    for (const c of data ?? [])
+      mapa.set(c.id, { aluguel: c.aluguel, dados: c.dados });
+  }
+  return mapa;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,7 +154,7 @@ export const listaDeContratos = cache(
       const q = db
         .from("contratos")
         .select(
-          `id, tipo, status, versao, lucs, bloco, locatario_nome, parte_tipo, garantia, atualizado_em, atualizado_por, gerado_em, exemplo${valores ? ", aluguel" : ""}`,
+          "id, tipo, status, versao, lucs, bloco, locatario_nome, parte_tipo, garantia, atualizado_em, atualizado_por, gerado_em, exemplo",
         );
       return (desde ? q.gte("atualizado_em", desde) : q)
         .order("atualizado_em", { ascending: false })
@@ -164,9 +174,11 @@ export const listaDeContratos = cache(
       atualizado_por: string | null;
       gerado_em: string | null;
       exemplo: boolean;
-      aluguel?: number | null;
     }[];
-    const nomes = await nomesDe(brutas.map((l) => l.atualizado_por));
+    const [nomes, guardados] = await Promise.all([
+      nomesDe(brutas.map((l) => l.atualizado_por)),
+      valores ? dadosGuardados(brutas.map((l) => l.id)) : null,
+    ]);
     return brutas.map((l) => ({
       id: l.id,
       tipo: l.tipo as TipoContrato,
@@ -177,7 +189,7 @@ export const listaDeContratos = cache(
       locatario: l.locatario_nome,
       parte: l.parte_tipo as TipoParte | null,
       garantia: l.garantia as Garantia | null,
-      aluguel: valores ? (l.aluguel ?? null) : null,
+      aluguel: guardados?.get(l.id)?.aluguel ?? null,
       atualizadoEm: l.atualizado_em,
       atualizadoPor: l.atualizado_por
         ? (nomes.get(l.atualizado_por) ?? null)
@@ -216,14 +228,18 @@ export const contratoComDados = cache(
     const { data, error } = await db
       .from("contratos")
       .select(
-        "id, tipo, status, versao, etapa_atual, dados, atualizado_em, atualizado_por, exemplo, contrato_enet_id",
+        "id, tipo, status, versao, etapa_atual, atualizado_em, atualizado_por, exemplo, contrato_enet_id",
       )
       .eq("id", id)
       .maybeSingle();
     falhar(error);
     if (!data) return null;
     const valores = ctx.pode("comercial.valores.ver");
-    const nomes = await nomesDe([data.atualizado_por]);
+    const [nomes, guardados] = await Promise.all([
+      nomesDe([data.atualizado_por]),
+      dadosGuardados([data.id]),
+    ]);
+    const dados = guardados.get(data.id)?.dados ?? {};
     const base: ContratoEditado = {
       id: data.id,
       tipo: data.tipo as TipoContrato,
@@ -238,14 +254,14 @@ export const contratoComDados = cache(
       contratoEnet: data.contrato_enet_id,
     };
     if (data.tipo === "distrato") {
-      const d = lerDistrato(data.dados);
+      const d = lerDistrato(dados);
       return {
         ...base,
         tipo: "distrato",
         dados: valores ? d : distratoSemValores(d),
       };
     }
-    const d = lerDados(data.dados);
+    const d = lerDados(dados);
     return { ...base, tipo: "contrato", dados: valores ? d : semValores(d) };
   },
 );
@@ -458,7 +474,7 @@ export async function fichasParaContrato(): Promise<FichaParaContrato[]> {
     tipo: f.tipo as FichaParaContrato["tipo"],
     nome: f.nome ?? "(sem nome)",
     luc: f.luc,
-    data: (f.recebida_em ?? f.gerada_em).slice(0, 10),
+    data: paraBrasilia(new Date(f.recebida_em ?? f.gerada_em)).data,
     situacao: f.situacao,
   }));
 }
@@ -485,13 +501,11 @@ export async function vistoriaDoLuc(
   // Vai num filtro .or() do PostgREST: só o formato do código do LUC.
   lucs = lucs.filter((l) => /^[A-Za-z0-9_-]{1,30}$/.test(l));
   if (!lucs.length) return null;
-  if (
-    !(
-      (await podeAgora("comercial.contratos.editar")) ||
-      (await podeAgora("comercial.contratos.ver"))
-    )
-  )
-    return null;
+  const acesso = await Promise.all([
+    podeAgora("comercial.contratos.editar"),
+    podeAgora("comercial.contratos.ver"),
+  ]);
+  if (!acesso.some(Boolean)) return null;
   const os = createAdminClient().schema("os");
   const lojas = await os.from("lojas").select("id").in("luc", lucs);
   falhar(lojas.error);

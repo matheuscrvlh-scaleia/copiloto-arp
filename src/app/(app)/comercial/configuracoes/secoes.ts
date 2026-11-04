@@ -40,7 +40,7 @@ const ABAS: (AbaConfiguracao & { permissao: Permissao | "importar" })[] = [
   {
     href: `${BASE}/exemplos`,
     rotulo: "Dados de exemplo",
-    descricao: "Remover os registros de exemplo do mockup",
+    descricao: "Remover os registros de exemplo da demonstração",
     permissao: "comercial.parametros.editar",
   },
 ];

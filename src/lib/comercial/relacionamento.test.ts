@@ -86,6 +86,44 @@ describe("aniversários", () => {
   it("conta os sócios sem data de nascimento", () => {
     expect(sociosSemNascimento(e)).toBe(1);
   });
+
+  it("sócio da ficha usada em contrato só quando o ENET não tem a data", () => {
+    const fichas = [
+      // C1 (LUC 01_A): Sócio 1 já tem data no ENET; Sócio 2, não.
+      {
+        id: "f1",
+        nome: "Ficha C1",
+        luc: "01_A",
+        socios: [
+          { nome: "sócio 1", nascimento: "1980-11-20" },
+          { nome: "Sócio 2", nascimento: "1982-11-21" },
+        ],
+      },
+      // C2 já tem todos os sócios com data: a ficha não entra.
+      {
+        id: "f2",
+        nome: "Ficha C2",
+        luc: "01_B",
+        socios: [{ nome: "Outro", nascimento: "1990-11-22" }],
+      },
+      // Locatário novo, ainda sem contrato no ENET.
+      {
+        id: "f3",
+        nome: "Loja Nova",
+        luc: "02_X",
+        socios: [{ nome: "Ana", nascimento: "1991-11-23" }],
+      },
+    ];
+    const nov = aniversariosDoMes({ ...e, fichas }, 2026, 11).filter(
+      (a) => a.origem === "ficha",
+    );
+    expect(
+      nov.map((a) => [a.data, a.locatario, a.socio, a.contrato, a.luc]),
+    ).toEqual([
+      ["2026-11-21", "Loja C1", "Sócio 2", "A", "01_A"],
+      ["2026-11-23", "Loja Nova", "Ana", "", "02_X"],
+    ]);
+  });
 });
 
 describe("lembretes", () => {

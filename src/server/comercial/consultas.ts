@@ -9,11 +9,21 @@ import {
   type Endereco,
 } from "@/connectors/publicos";
 import { cnpjValido, soDigitos } from "@/lib/documentos";
+import { createClient } from "@/lib/supabase/server";
+import { fichaPeloToken } from "@/server/comercial/fichas";
 import { ipDaRequisicao } from "@/server/os/portal-publico";
 
-// Consultas de CEP e CNPJ para os formulários (internos e os públicos da
-// ficha cadastral, por isso sem exigir login). Falha, entrada errada ou
-// limite estourado devolvem null: a pessoa digita normalmente e segue.
+// Consultas de CEP e CNPJ para os formulários internos (com sessão) e para a
+// ficha cadastral pública (com o token de um link que ainda vale). Falha,
+// entrada errada, sem acesso ou limite estourado devolvem null: a pessoa
+// digita normalmente e segue.
+
+async function temAcesso(token?: string | null): Promise<boolean> {
+  if (typeof token === "string" && token)
+    return (await fichaPeloToken(token)).ok;
+  const { data } = await (await createClient()).auth.getClaims();
+  return !!data?.claims?.sub;
+}
 
 const LIMITE = { consultas: 30, janelaMs: 10 * 60_000 };
 
@@ -45,9 +55,13 @@ const cnpj = z
   .pipe(z.string().length(14).refine(cnpjValido, "CNPJ inválido"));
 
 /** Rua, bairro, cidade e UF do CEP; null se não achou ou o serviço caiu. */
-export async function consultarCep(valor: string): Promise<Endereco | null> {
+export async function consultarCep(
+  valor: string,
+  token?: string | null,
+): Promise<Endereco | null> {
   const ok = cep.safeParse(valor);
-  if (!ok.success || !(await dentroDoLimite())) return null;
+  if (!ok.success || !(await temAcesso(token)) || !(await dentroDoLimite()))
+    return null;
   try {
     return await buscarCep(ok.data);
   } catch (erro) {
@@ -60,9 +74,13 @@ export async function consultarCep(valor: string): Promise<Endereco | null> {
  * Razão social, nome fantasia, natureza jurídica, CNAE, capital, endereço e
  * sócios do CNPJ (dígitos conferidos antes); null se não achou ou caiu.
  */
-export async function consultarCnpj(valor: string): Promise<Empresa | null> {
+export async function consultarCnpj(
+  valor: string,
+  token?: string | null,
+): Promise<Empresa | null> {
   const ok = cnpj.safeParse(valor);
-  if (!ok.success || !(await dentroDoLimite())) return null;
+  if (!ok.success || !(await temAcesso(token)) || !(await dentroDoLimite()))
+    return null;
   try {
     return await buscarCnpj(ok.data);
   } catch (erro) {

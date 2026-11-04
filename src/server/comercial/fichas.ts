@@ -14,10 +14,12 @@ import {
 } from "@/lib/comercial/ficha";
 import type { EnetLuc } from "@/lib/comercial/fontes";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { podeAgora } from "@/server/auth";
 import { TAG } from "@/server/cache";
 import { urlDoSistema } from "@/server/os/base";
 import { com, comAdmin, contextoCom, listas, parametros } from "./base";
 import { dadosEnet, dadosEnetSemSessao } from "./fontes";
+import { nomesDeUsuarios } from "./usuarios";
 
 // Leituras das fichas cadastrais (4.12). A tela interna lê com a sessão
 // (RLS: a lista para quem vê fichas, gera link ou monta contrato; dados,
@@ -310,7 +312,8 @@ export const listaDeFichas = cache(
 
 export interface DetalheDaFicha {
   ficha: FichaDaLista & {
-    token: string;
+    /** Só com comercial.formulario.link e ficha em preenchimento. */
+    token: string | null;
     rd_oportunidade: string | null;
     consentimento_em: string | null;
     usada_em: string | null;
@@ -349,7 +352,7 @@ export const detalheDaFicha = cache(
       sb
         .from("fichas")
         .select(
-          `${COLUNAS_LISTA}, token, rd_oportunidade, consentimento_em, usada_em, ultimo_acesso_em`,
+          `${COLUNAS_LISTA}, rd_oportunidade, consentimento_em, usada_em, ultimo_acesso_em`,
         )
         .eq("id", id)
         .maybeSingle(),
@@ -362,8 +365,23 @@ export const detalheDaFicha = cache(
     falhar(f.error);
     falhar(fiadores.error);
     if (!f.data) return null;
+    // O banco não deixa a sessão ler o token: o servidor lê para quem gera link.
+    const token =
+      f.data.situacao === "em_preenchimento" &&
+      (await podeAgora("comercial.formulario.link"))
+        ? await comAdmin()
+            .from("fichas")
+            .select("token")
+            .eq("id", id)
+            .maybeSingle()
+            .then((r) => {
+              falhar(r.error);
+              return r.data?.token ?? null;
+            })
+        : null;
     const ficha = {
       ...f.data,
+      token,
       tipo: ehTipo(f.data.tipo) ? f.data.tipo : null,
       situacao: f.data.situacao as SituacaoFicha,
     };
@@ -427,7 +445,10 @@ export const detalheDaFicha = cache(
               return data ?? [];
             })
         : Promise.resolve([]),
-      nomesDeUsuarios((acessos.data ?? []).map((a) => a.usuario_id)),
+      nomesDeUsuarios(
+        (acessos.data ?? []).map((a) => a.usuario_id),
+        ["comercial.formulario.ver"],
+      ),
     ]);
     return {
       ...base,
@@ -448,20 +469,6 @@ export const detalheDaFicha = cache(
     };
   },
 );
-
-// Os acessos já vieram pelo RLS (só quem vê fichas os lê): os nomes de
-// quem abriu saem da service role, só desses ids.
-async function nomesDeUsuarios(ids: string[]): Promise<Map<string, string>> {
-  const unicos = [...new Set(ids)];
-  if (!unicos.length) return new Map();
-  const { data, error } = await createAdminClient()
-    .schema("core")
-    .from("usuarios")
-    .select("id, nome")
-    .in("id", unicos);
-  if (error) console.error("nomes de quem abriu a ficha", error);
-  return new Map((data ?? []).map((u) => [u.id, u.nome ?? "—"]));
-}
 
 /**
  * Registra quem abriu a ficha, viu o PDF ou baixou um documento (LGPD).

@@ -285,7 +285,9 @@ export function EtapaGeracao({
             <dd className="mt-1 font-semibold">
               Word (.docx) e PDF, mais a ficha cadastral em PDF
             </dd>
-            <dd className="mt-1 text-xs text-neutral-500">A partir da V2</dd>
+            <dd className="mt-1 text-xs text-neutral-500">
+              Na próxima fase do sistema
+            </dd>
           </div>
         </dl>
         <div className="flex flex-wrap gap-2">
@@ -306,18 +308,18 @@ export function EtapaGeracao({
             disabled
             title={
               podeGerar
-                ? "A geração do Word e do PDF chega na V2"
-                : "Gerar pede comercial.contratos.gerar (a partir da V2)"
+                ? "A geração do Word e do PDF chega na próxima fase do sistema"
+                : "Sem permissão para gerar contratos"
             }
           >
             <Lock className="size-4" aria-hidden />
-            Gerar Word e PDF (a partir da V2)
+            Gerar Word e PDF (próxima fase)
           </button>
         </div>
       </Bloco>
       <Bloco
         titulo="Modelo escolhido pelo sistema"
-        dica="Os modelos têm o mesmo texto base e mudam só em blocos, conforme as escolhas do assistente (V2)."
+        dica="Os modelos têm o mesmo texto base e mudam só em blocos, conforme as escolhas do assistente."
       >
         <ul className="divide-y divide-neutral-200/70">
           {blocos.map((b) => (

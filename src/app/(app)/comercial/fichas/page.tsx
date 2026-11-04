@@ -37,6 +37,7 @@ import {
 } from "@/lib/comercial/ficha";
 import { dadosDe, linhaDeFiltros } from "@/lib/comercial/formato";
 import { formatarData, formatarNumero } from "@/lib/formato";
+import { paraBrasilia } from "@/lib/os/tempo";
 import {
   type FichaDaLista,
   listaDeFichas,
@@ -89,15 +90,16 @@ export default function Page({ searchParams }: PageProps<"/comercial/fichas">) {
   );
 }
 
+/** Instante (UTC) → dd/mm/aaaa no dia de Brasília. */
+const diaDe = (iso: string) => formatarData(paraBrasilia(new Date(iso)).data);
+
 /** Situação com o estado do link (vencido, cancelado, vence em). */
 function estadoDoLink(f: FichaDaLista, agora: number): string | undefined {
   if (f.situacao !== "em_preenchimento") return undefined;
   if (f.cancelada_em) return "link cancelado";
   if (f.expira_em && new Date(f.expira_em).getTime() <= agora)
     return "link vencido";
-  return f.expira_em
-    ? `vence ${formatarData(f.expira_em).slice(0, 5)}`
-    : undefined;
+  return f.expira_em ? `vence ${diaDe(f.expira_em).slice(0, 5)}` : undefined;
 }
 
 async function Tela({ busca }: { busca: Promise<Busca> }) {
@@ -214,7 +216,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         filtros={linhaFiltros}
         exemplo={
           exemplo
-            ? "fichas do mockup (Configurações › Remover dados de exemplo)"
+            ? "fichas de demonstração (Configurações › Remover dados de exemplo)"
             : undefined
         }
         acoes={
@@ -225,7 +227,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
               nomeArquivo="fichas-cadastrais"
               colunas={colunas}
               linhas={lista.map((x) => [
-                x.recebida_em ? formatarData(x.recebida_em) : "",
+                x.recebida_em ? diaDe(x.recebida_em) : "",
                 x.nome ?? "",
                 x.tipo ? ROTULO_TIPO_CURTO[x.tipo] : "",
                 x.luc ?? "Ainda não sei",
@@ -287,12 +289,12 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
               ],
               celulas: [
                 x.recebida_em ? (
-                  formatarData(x.recebida_em)
+                  diaDe(x.recebida_em)
                 ) : (
                   <span key="envio" className="text-neutral-400">
                     —{" "}
                     <span className="text-xs">
-                      (link de {formatarData(x.gerada_em).slice(0, 5)})
+                      (link de {diaDe(x.gerada_em).slice(0, 5)})
                     </span>
                   </span>
                 ),

@@ -8,8 +8,6 @@ import {
 } from "@/lib/comercial/kit";
 import { formatarData } from "@/lib/formato";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-import { podeAgora } from "@/server/auth";
 import {
   novaPagina,
   prepararPapel,
@@ -20,6 +18,7 @@ import {
 } from "@/server/os/pdf/papel-timbrado";
 import { com, type KitDocumento, type KitVersao } from "./base";
 import { dadosEnet } from "./fontes";
+import { nomesDeUsuarios } from "./usuarios";
 
 // Kit de entrega (spec 4.14): documentos com a versão atual, histórico de
 // versões, o kit de um bloco/LUC (que a etapa Documentos do contrato usa)
@@ -111,31 +110,9 @@ export async function documentoDoKit(id: string): Promise<{
   };
 }
 
-/** Nome de quem enviou cada versão (o RLS de usuários vale primeiro). */
-export async function nomesDoKit(
-  ids: (string | null)[],
-): Promise<Map<string, string>> {
-  const unicos = [...new Set(ids.filter((i): i is string => Boolean(i)))];
-  const nomes = new Map<string, string>();
-  if (!unicos.length) return nomes;
-  const sessao = await (await createClient())
-    .schema("core")
-    .from("usuarios")
-    .select("id, nome")
-    .in("id", unicos);
-  falhar(sessao.error);
-  for (const u of sessao.data ?? []) nomes.set(u.id, u.nome);
-  const faltam = unicos.filter((i) => !nomes.has(i));
-  if (!faltam.length || !(await podeAgora("comercial.kit.ver"))) return nomes;
-  const admin = await createAdminClient()
-    .schema("core")
-    .from("usuarios")
-    .select("id, nome")
-    .in("id", faltam);
-  falhar(admin.error);
-  for (const u of admin.data ?? []) nomes.set(u.id, u.nome);
-  return nomes;
-}
+/** Nome de quem enviou cada versão. */
+export const nomesDoKit = (ids: (string | null)[]) =>
+  nomesDeUsuarios(ids, ["comercial.kit.ver"]);
 
 // ---------------------------------------------------------------------------
 // Kit de um bloco ou LUC (etapa Documentos do contrato)
@@ -285,6 +262,14 @@ export async function pdfDoKit(opcoes: {
   escrever(titulo, 16, negrito);
   topo += 2;
   escrever(`Gerado em ${formatarData(hoje)}. ${itens.length} documentos.`, 9);
+  const faltam = itens.filter((_, i) => !arquivos[i]).length;
+  if (faltam)
+    escrever(
+      `${faltam} de ${itens.length} ainda sem arquivo (marcados abaixo): falta subir o PDF no Kit de entrega.`,
+      9,
+      normal,
+      rgb(0.73, 0.11, 0.11),
+    );
   topo += 4;
   itens.forEach((item, i) => {
     const situacao = situacaoDaValidade(item.validade, hoje, 0);
@@ -295,7 +280,9 @@ export async function pdfDoKit(opcoes: {
         ? `validade ${formatarData(item.validade)}`
         : "sem validade",
       situacao === "vencido" ? "VENCIDO" : null,
-      falta ? "sem arquivo: não está neste PDF" : null,
+      falta
+        ? "sem arquivo ainda: falta subir o PDF (não está neste kit)"
+        : null,
     ].filter(Boolean);
     escrever(`${i + 1}. ${item.nome}`, 10, negrito);
     escrever(

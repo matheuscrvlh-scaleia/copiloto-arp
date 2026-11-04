@@ -1,4 +1,5 @@
-import { Building2, CalendarRange, FileDown, Shapes } from "lucide-react";
+import { Building2, CalendarRange, Eye, FileDown, Shapes } from "lucide-react";
+import Link from "next/link";
 import {
   CartaoDaTela,
   CartoesComercial,
@@ -12,6 +13,7 @@ import {
 import { BarrasHorizontais } from "@/components/dashboard/graficos/barras-horizontais";
 import type { ItemGrafico } from "@/components/dashboard/graficos/base";
 import { Nota, Secao } from "@/components/dashboard/tabela";
+import { FormAcao } from "@/components/form-acao";
 import { BotaoExportar } from "@/components/os/exportar";
 import {
   filtrarRespostas,
@@ -22,13 +24,15 @@ import {
   ROTULO_ESTIMADO,
   VAZIO,
 } from "@/lib/comercial/censo";
-import { dadosDe, linhaDeFiltros } from "@/lib/comercial/formato";
+import { diaEmBrasilia } from "@/lib/comercial/datas";
+import { linhaDeFiltros } from "@/lib/comercial/formato";
 import {
   formatarData,
   formatarMoeda,
   formatarNumero,
   formatarPct,
 } from "@/lib/formato";
+import { encerrarRodada } from "@/server/comercial/acoes/censo";
 import { valoresDaLista } from "@/server/comercial/base";
 import {
   contagemDasRodadas,
@@ -39,6 +43,12 @@ import type { FiltrosCom } from "@/server/comercial/filtros";
 
 const BASE = "/comercial/censo";
 const FONTE = "Questionário do Censo";
+/** Cada aba lembra os próprios filtros. */
+export const TELA_FILTROS = {
+  indicadores: "censo_indicadores",
+  feedbacks: "censo_feedbacks",
+  rodadas: "censo_rodadas",
+} as const;
 /** Selo das rodadas de exemplo (migration do mockup). */
 export const EXEMPLO_CENSO =
   "respostas do Censo de exemplo, até a rodada de verdade";
@@ -230,6 +240,7 @@ export async function Indicadores({
   ]);
   const indicadores = linhasDeIndicadores(i);
   const exportar = ctx.pode("comercial.exportar");
+  const aplicar = ctx.pode("comercial.censo.aplicar");
   const consulta = new URLSearchParams(
     Object.entries({
       rodada: rodada.id,
@@ -244,78 +255,113 @@ export async function Indicadores({
   return (
     <>
       <FiltrosComercial
-        tela="censo"
+        tela={TELA_FILTROS.indicadores}
         hoje={ctx.hoje}
         lembrado={f.lembrado}
         selecoes={selecoesDoCenso(rodadas, rodada, d)}
       />
 
       <TopoComercial
-        dadosDe={dadosDe(new Date())}
+        dadosDe={f.ctx.dadosDe}
         exemplo={rodada.exemplo ? EXEMPLO_CENSO : undefined}
         filtros={linhaFiltros}
         acoes={
-          exportar ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <a
-                href={`${BASE}/panorama${consulta ? `?${consulta}` : ""}`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition hover:border-neutral-400"
-                title="Panorama do Censo em PDF de uma página, no lugar do mapa mental"
-              >
-                <FileDown className="size-3.5" aria-hidden />
-                Panorama em PDF
-              </a>
-              <BotaoExportar
-                titulo={`Censo — Indicadores · ${rodada.nome}`}
-                filtros={`${linhaFiltros} · ${ROTULO_ESTIMADO}`}
-                nomeArquivo="censo-indicadores"
-                colunas={[
-                  { titulo: "Quadro" },
-                  { titulo: "Item" },
-                  { titulo: "Empresas", numero: true },
-                  { titulo: "Valor" },
-                ]}
-                linhas={[
-                  ...indicadores.map(([k, v]) => ["Indicadores", k, null, v]),
-                  ...segmentos.map((g) => [
-                    "Visitantes por dia, por segmento",
-                    g.grupo,
-                    g.empresas,
-                    formatarNumero(g.visitantes),
-                  ]),
-                  ...blocos.map((g) => [
-                    "Visitantes por dia, por bloco",
-                    rotuloBloco(g.grupo),
-                    g.empresas,
-                    formatarNumero(g.visitantes),
-                  ]),
-                  ...segmentos.map((g) => [
-                    "Movimentação diária por segmento",
-                    g.grupo,
-                    g.empresas,
-                    formatarMoeda(g.movimentacao),
-                  ]),
-                  ...i.expectativas.map((e) => [
-                    "Expectativas para o ano",
-                    e.opcao,
-                    e.empresas,
-                    formatarPct(e.pct, 0),
-                  ]),
-                ]}
-              />
-            </div>
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`${BASE}/demonstracao`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition hover:border-neutral-400"
+              title="O questionário como a empresa vê pelo link; nada é gravado"
+            >
+              <Eye className="size-3.5" aria-hidden />
+              Ver questionário (link)
+            </Link>
+            {exportar && (
+              <>
+                <a
+                  href={`${BASE}/panorama${consulta ? `?${consulta}` : ""}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition hover:border-neutral-400"
+                  title="Panorama do Censo em PDF de uma página, no lugar do mapa mental"
+                >
+                  <FileDown className="size-3.5" aria-hidden />
+                  Panorama em PDF
+                </a>
+                <BotaoExportar
+                  titulo={`Censo — Indicadores · ${rodada.nome}`}
+                  filtros={`${linhaFiltros} · ${f.ctx.dadosDe} · ${ROTULO_ESTIMADO}`}
+                  nomeArquivo="censo-indicadores"
+                  colunas={[
+                    { titulo: "Quadro" },
+                    { titulo: "Item" },
+                    { titulo: "Empresas", numero: true },
+                    { titulo: "Valor" },
+                  ]}
+                  linhas={[
+                    ...indicadores.map(([k, v]) => ["Indicadores", k, null, v]),
+                    ...segmentos.map((g) => [
+                      "Visitantes por dia, por segmento",
+                      g.grupo,
+                      g.empresas,
+                      formatarNumero(g.visitantes),
+                    ]),
+                    ...blocos.map((g) => [
+                      "Visitantes por dia, por bloco",
+                      rotuloBloco(g.grupo),
+                      g.empresas,
+                      formatarNumero(g.visitantes),
+                    ]),
+                    ...segmentos.map((g) => [
+                      "Movimentação diária por segmento",
+                      g.grupo,
+                      g.empresas,
+                      formatarMoeda(g.movimentacao),
+                    ]),
+                    ...i.expectativas.map((e) => [
+                      "Expectativas para o ano",
+                      e.opcao,
+                      e.empresas,
+                      formatarPct(e.pct, 0),
+                    ]),
+                  ]}
+                />
+              </>
+            )}
+          </div>
         }
       />
 
       {rodada.situacao === "aberta" ? (
-        <Nota>
-          Rodada aberta de {formatarData(rodada.inicio)} a{" "}
-          {formatarData(rodada.fim)}
-          {n?.convites
-            ? `: ${formatarNumero(n.respostas)} de ${formatarNumero(n.convites)} empresas responderam (${formatarPct((n.respostas / n.convites) * 100, 0)}). Quem falta está na aba Rodadas.`
-            : `: ${formatarNumero(n?.respostas ?? 0)} respostas até agora.`}
-        </Nota>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Nota>
+            Rodada aberta de {formatarData(rodada.inicio)} a{" "}
+            {formatarData(rodada.fim)}
+            {n?.convites
+              ? `: ${formatarNumero(n.respostas)} de ${formatarNumero(n.convites)} empresas responderam (${formatarPct((n.respostas / n.convites) * 100, 0)}).`
+              : `: ${formatarNumero(n?.respostas ?? 0)} respostas até agora.`}
+            {aplicar && (
+              <>
+                {" "}
+                <Link
+                  href={`${BASE}?aba=rodadas&rodada=${rodada.id}`}
+                  className="font-medium text-neutral-900 underline underline-offset-2"
+                >
+                  Quem falta está na aba Rodadas
+                </Link>
+                .
+              </>
+            )}
+          </Nota>
+          {aplicar && (
+            <FormAcao
+              acao={encerrarRodada}
+              rotulo="Encerrar rodada"
+              rotuloEnviando="Encerrando…"
+              variante="perigo"
+              confirmar={`Encerrar a rodada ${rodada.nome}? Os links deixam de aceitar respostas e ninguém mais corrige.`}
+            >
+              <input type="hidden" name="rodada" value={rodada.id} />
+            </FormAcao>
+          )}
+        </div>
       ) : importada ? (
         <Nota>
           Rodada fechada. Veio do Google Forms por importação
@@ -326,7 +372,7 @@ export async function Indicadores({
         <Nota>
           Rodada fechada em{" "}
           {rodada.encerrada_em
-            ? formatarData(rodada.encerrada_em.slice(0, 10))
+            ? formatarData(diaEmBrasilia(rodada.encerrada_em))
             : formatarData(rodada.fim)}
           .
         </Nota>

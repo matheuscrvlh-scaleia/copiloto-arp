@@ -3,12 +3,10 @@
 import { X } from "lucide-react";
 import { Selecao } from "@/components/selecao";
 import {
-  areaDosLucs,
   type DadosContrato,
   enderecoPadrao,
+  imovelDosLucs,
   type ParametrosContrato,
-  pavimentoDoContrato,
-  unidadesDosLucs,
 } from "@/lib/comercial/contrato";
 import { idCampo } from "@/lib/comercial/contrato-revisao";
 import { areaPorExtenso } from "@/lib/comercial/extenso";
@@ -43,22 +41,8 @@ export function EtapaImovel({
     .map((n) => doEnet.get(n))
     .filter((l): l is LucParaContrato => Boolean(l));
 
-  function definirLucs(lista: string[]) {
-    const ls = lista
-      .map((n) => doEnet.get(n))
-      .filter((l): l is LucParaContrato => Boolean(l));
-    const primeiro = ls[0];
-    const area = ls.length ? areaDosLucs(ls) : null;
-    const tipo = primeiro?.tipo.startsWith("Sala") ? "Sala" : "Loja";
-    up({
-      lucs: lista,
-      bloco: primeiro ? primeiro.local.toLocaleUpperCase("pt-BR") : "",
-      pavimento: primeiro ? pavimentoDoContrato(primeiro.piso) : "",
-      unidade: unidadesDosLucs(lista, tipo),
-      area,
-      area_enet: area,
-    });
-  }
+  const definirLucs = (lista: string[]) =>
+    aoMudar(imovelDosLucs(valor, lista, doEnet));
 
   const areaCorrigida =
     valor.area !== null &&

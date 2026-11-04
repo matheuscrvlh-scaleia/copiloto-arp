@@ -291,7 +291,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
               <span key="n" className="flex flex-col">
                 <span className="font-medium">{d.nome}</span>
                 {!d.atual?.temArquivo && (
-                  <span className="text-xs text-red-700">sem arquivo</span>
+                  <span className="text-xs text-red-700">
+                    sem arquivo ainda — suba o PDF
+                  </span>
                 )}
               </span>,
               d.categoria,

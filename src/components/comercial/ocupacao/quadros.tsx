@@ -10,6 +10,7 @@ import {
   type LinhaCarteira,
   porAtividade,
   type Resumo,
+  resumoPorFaixa,
   rotuloDaFaixa,
 } from "@/lib/comercial/carteira";
 import {
@@ -491,8 +492,44 @@ export function TabelasCarteira({
   limites: LimitesCurva;
 }) {
   const atividades = porAtividade(linhas);
+  const faixas = resumoPorFaixa(linhas);
   return (
     <>
+      <Secao
+        titulo="Resumo por faixa"
+        descricao="Locatários ordenados pelo aluguel em contrato; a faixa vem do % acumulado (limites nos parâmetros)."
+      >
+        <TabelaLista
+          colunas={[
+            { titulo: "Faixa" },
+            { titulo: "Clientes", numero: true },
+            { titulo: "Valor", numero: true },
+            { titulo: "m²", numero: true },
+          ]}
+          semBusca
+          linhas={FAIXAS.map((fx) => ({
+            chave: fx,
+            busca: fx,
+            celulas: [
+              <span key="f" className="inline-flex items-center gap-2">
+                <SeloFaixa faixa={fx} />
+                {rotuloDaFaixa(fx, limites)}
+              </span>,
+              formatarNumero(faixas[fx].clientes),
+              m2(faixas[fx].aluguel),
+              m2(faixas[fx].m2),
+            ],
+            ordem: [fx, faixas[fx].clientes, faixas[fx].aluguel, faixas[fx].m2],
+          }))}
+          rodape={[
+            "Total",
+            formatarNumero(total.clientes),
+            m2(total.aluguel),
+            m2(total.m2),
+          ]}
+        />
+        <Fonte>ENET — Contratos ativos (aluguel) e LUCs (m²).</Fonte>
+      </Secao>
       <Secao
         titulo="Locatários pelo aluguel em contrato"
         descricao={`Uma linha por locatário (soma todos os LUCs dele), do maior aluguel para o menor. Faixas: ${FAIXAS.map((f) => `${f} ${rotuloDaFaixa(f, limites)}`).join(" · ")} (parâmetros).`}

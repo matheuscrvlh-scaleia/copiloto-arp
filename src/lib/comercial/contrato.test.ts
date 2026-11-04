@@ -7,6 +7,7 @@ import {
   esquemaContrato,
   fiadoresNaQuantidade,
   fisicaDaVistoria,
+  imovelDosLucs,
   lerDados,
   lerDistrato,
   manterValores,
@@ -126,6 +127,34 @@ describe("regras", () => {
     expect(areaDosLucs([{ abl: 50.01 }, { abl: 33.11 }])).toBe(83.12);
     expect(unidadesDosLucs(["11_129", "11_130"])).toBe("LOJAS 129 E 130");
     expect(unidadesDosLucs(["11_131"])).toBe("131");
+  });
+
+  it("LUC escolhido (ou vindo da Ocupação) preenche bloco, pavimento, unidade e área", () => {
+    const doEnet = new Map([
+      [
+        "11_131",
+        {
+          numero: "11_131",
+          local: "Bloco 11",
+          piso: "Piso 1",
+          tipo: "Loja",
+          abl: 42.5,
+        },
+      ],
+    ]);
+    const i = imovelDosLucs(
+      dadosIniciais(PARAMETROS).imovel,
+      ["11_131"],
+      doEnet,
+    );
+    expect(i).toMatchObject({
+      lucs: ["11_131"],
+      bloco: "BLOCO 11",
+      pavimento: "1º PAVIMENTO (TÉRREO)",
+      unidade: "131",
+      area: 42.5,
+      area_enet: 42.5,
+    });
   });
 
   it("valor e área por extenso", () => {

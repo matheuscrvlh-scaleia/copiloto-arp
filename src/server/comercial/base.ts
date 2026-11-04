@@ -2,6 +2,7 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { connection } from "next/server";
 import { cache } from "react";
+import { dadosDe } from "@/lib/comercial/formato";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import type { Permissao } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -78,8 +79,8 @@ export interface ContextoCom {
   /** "aaaa-mm-dd" de hoje em Brasília. */
   hoje: string;
   /**
-   * Quando os dados foram atualizados ("Dados de dd/mm/aaaa às hh:mm"). No
-   * mockup, a sincronização diária das 06h de hoje.
+   * Quando os dados foram lidos ("Dados de dd/mm/aaaa às hh:mm", hora de
+   * Brasília): a leitura desta página.
    */
   dadosDe: string;
 }
@@ -88,13 +89,13 @@ export interface ContextoCom {
 export const contextoCom = cache(async (): Promise<ContextoCom> => {
   const usuario = await usuarioAtual();
   await connection();
-  const hoje = hojeEmBrasilia(new Date());
-  const [a, m, d] = hoje.split("-");
+  const agora = new Date();
+  const hoje = hojeEmBrasilia(agora);
   return {
     usuario,
     pode: (p) => usuario.permissoes.includes(p),
     hoje,
-    dadosDe: `Dados de ${d}/${m}/${a} às 06:00`,
+    dadosDe: dadosDe(agora),
   };
 });
 

@@ -703,6 +703,11 @@ describe("contratos", () => {
   });
 
   it("gerar exige a permissão; gerar e editar de novo abre a V02", async () => {
+    await como("contratos", () =>
+      db.query(
+        `update comercial.contratos set status = 'pronto' where id = '${contrato}'`,
+      ),
+    );
     expect(
       await como("contratos", () =>
         erro(
@@ -710,11 +715,6 @@ describe("contratos", () => {
         ),
       ),
     ).toMatch(/row-level security/);
-    await como("contratos", () =>
-      db.query(
-        `update comercial.contratos set status = 'pronto' where id = '${contrato}'`,
-      ),
-    );
     await como("gerar", () =>
       db.query(
         `update comercial.contratos set status = 'gerado' where id = '${contrato}'`,

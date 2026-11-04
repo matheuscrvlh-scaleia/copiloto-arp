@@ -28,7 +28,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { usuarioAtual } from "@/server/auth";
-import type { Importacao } from "@/server/comercial/base";
+import { nomesDeUsuarios } from "@/server/comercial/usuarios";
 import { registrarDepois } from "@/server/logs";
 
 // Importações do histórico (spec 4.13): a leitura do histórico da aba e o
@@ -122,8 +122,8 @@ async function confirmadaComMesmoArquivo(
     .eq("status", "confirmada")
     .maybeSingle();
   if (!data) return null;
-  const nomes = await nomesDeUsuarios(
-    [data.confirmado_por].filter((x): x is string => !!x),
+  const nomes = await nomesDeUsuarios([data.confirmado_por], () =>
+    podeImportar(tipo),
   );
   return {
     importacaoId: data.id,
@@ -258,7 +258,7 @@ export async function confirmarImportacao<T>(
   const com = supabase.schema("comercial");
   const { data: imp } = await com
     .from("importacoes")
-    .select("*")
+    .select("id, status, arquivo_path, arquivo_nome, arquivo_sha256")
     .eq("id", id)
     .eq("tipo", tipo)
     .maybeSingle();
@@ -298,11 +298,30 @@ export async function confirmarImportacao<T>(
   const entram = linhas.filter((l) => l.entra);
   const usuario = await usuarioAtual();
 
+  // Reserva a prévia: um segundo clique (ou outra aba) não grava de novo.
+  const reserva = await com
+    .from("importacoes")
+    .update({ status: "confirmando" })
+    .eq("id", id)
+    .eq("status", "previa")
+    .select("id");
+  if (reserva.error)
+    return erroDoBanco(reserva.error, "confirmar a importação");
+  if (!reserva.data?.length)
+    return { erro: "Esta prévia já foi usada. Envie o arquivo de novo." };
+
   if (anterior) {
     const { error } = await com.rpc("desfazer_importacao", {
       p_id: anterior.importacaoId,
     });
-    if (error) return erroDoBanco(error, "desfazer a importação anterior");
+    if (error) {
+      await com
+        .from("importacoes")
+        .update({ status: "previa" })
+        .eq("id", id)
+        .eq("status", "confirmando");
+      return erroDoBanco(error, "desfazer a importação anterior");
+    }
   }
 
   let gravadas: number;
@@ -335,7 +354,8 @@ export async function confirmarImportacao<T>(
       confirmado_por: usuario.id,
       confirmado_em: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", "confirmando");
   if (error) {
     await limparGravacaoParcial(id);
     return erroDoBanco(error, "confirmar a importação");
@@ -350,20 +370,52 @@ export async function confirmarImportacao<T>(
   };
 }
 
+// atalho: prazo técnico de guarda da prévia não confirmada (não é regra de negócio).
+const PREVIA_ABANDONADA_MS = 86_400_000;
+
+/**
+ * Apaga as prévias não confirmadas há mais de um dia (a linha e o arquivo no
+ * bucket). Só da rotina diária, que já conferiu o CRON_SECRET.
+ */
+export async function limparPreviasAbandonadas(): Promise<number> {
+  const admin = createAdminClient();
+  const antes = new Date(Date.now() - PREVIA_ABANDONADA_MS).toISOString();
+  const { data, error } = await admin
+    .schema("comercial")
+    .from("importacoes")
+    .select("id, arquivo_path")
+    .eq("status", "previa")
+    .lt("criado_em", antes)
+    .limit(500);
+  if (error) throw new Error(`Prévias abandonadas: ${error.message}`);
+  if (!data?.length) return 0;
+  const arquivos = data.flatMap((d) =>
+    d.arquivo_path ? [d.arquivo_path] : [],
+  );
+  if (arquivos.length) {
+    const r = await admin.storage.from(BUCKET).remove(arquivos);
+    if (r.error) throw new Error(`Prévias abandonadas: ${r.error.message}`);
+  }
+  const apagadas = await admin
+    .schema("comercial")
+    .from("importacoes")
+    .delete()
+    .in(
+      "id",
+      data.map((d) => d.id),
+    )
+    .eq("status", "previa");
+  if (apagadas.error)
+    throw new Error(`Prévias abandonadas: ${apagadas.error.message}`);
+  return data.length;
+}
+
 const comAnterior = (msg: string, desfeita: boolean) =>
   desfeita ? `${msg} A importação anterior foi desfeita.` : msg;
 
-// Marca como confirmada só para o desfazer_importacao apagar o que entrou.
+// O desfazer_importacao apaga o que entrou da importação reservada.
 async function limparGravacaoParcial(id: string): Promise<void> {
   const com = (await createClient()).schema("comercial");
-  const marcada = await com
-    .from("importacoes")
-    .update({ status: "confirmada" })
-    .eq("id", id);
-  if (marcada.error) {
-    console.error("limpeza da importação", marcada.error);
-    return;
-  }
   const { error } = await com.rpc("desfazer_importacao", { p_id: id });
   if (error) console.error("limpeza da importação", error);
 }
@@ -429,22 +481,18 @@ export const historicoImportacoes = cache(
     const { data, error } = await (await createClient())
       .schema("comercial")
       .from("importacoes")
-      .select("*")
-      .neq("status", "previa")
+      .select(
+        "id, tipo, arquivo_nome, status, linhas, duplicadas, com_aviso, enviado_por, criado_em, confirmado_por, confirmado_em, desfeito_por, desfeito_em",
+      )
+      .in("status", ["confirmada", "desfeita"])
       .order("criado_em", { ascending: false })
       .limit(LIMITE_IMPORTACOES);
     if (error) throw new Error(`Falha ao ler as importações: ${error.message}`);
-    const linhas = (data ?? []) as Importacao[];
+    const linhas = data ?? [];
     // Service role só para quem importa algum tipo (a mesma regra do RLS).
-    const pode = linhas.length > 0 && (await tiposQuePodeImportar()).length > 0;
     const nomes = await nomesDeUsuarios(
-      !pode
-        ? []
-        : linhas.flatMap((l) =>
-            [l.enviado_por, l.confirmado_por, l.desfeito_por].filter(
-              (x): x is string => !!x,
-            ),
-          ),
+      linhas.flatMap((l) => [l.enviado_por, l.confirmado_por, l.desfeito_por]),
+      async () => (await tiposQuePodeImportar()).length > 0,
     );
     const nome = (id: string | null) =>
       id ? (nomes.get(id) ?? "Usuário removido") : null;
@@ -465,24 +513,3 @@ export const historicoImportacoes = cache(
     }));
   },
 );
-
-/**
- * Nomes de quem enviou, confirmou ou alterou. O RLS de core.usuarios só
- * mostra o próprio nome: lê pela service role só os ids que a pessoa já viu
- * pelo RLS (das importações ou do histórico do módulo).
- */
-export async function nomesDeUsuarios(
-  ids: string[],
-): Promise<Map<string, string>> {
-  const unicos = [...new Set(ids)];
-  const nomes = new Map<string, string>();
-  if (!unicos.length) return nomes;
-  const { data, error } = await createAdminClient()
-    .schema("core")
-    .from("usuarios")
-    .select("id, nome")
-    .in("id", unicos);
-  if (error) console.error("nomes de usuários do comercial", error);
-  for (const u of data ?? []) nomes.set(u.id, u.nome);
-  return nomes;
-}

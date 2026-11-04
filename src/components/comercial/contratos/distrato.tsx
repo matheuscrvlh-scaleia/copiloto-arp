@@ -305,10 +305,10 @@ export function EditorDistrato({
             type="button"
             className={BOTAO_SEC}
             disabled
-            title="A geração do Word e do PDF chega na V2"
+            title="A geração do Word e do PDF chega na próxima fase do sistema"
           >
             <Lock className="size-4" aria-hidden />
-            Gerar Word e PDF (V2)
+            Gerar Word e PDF (próxima fase)
           </button>
         </div>
       </div>

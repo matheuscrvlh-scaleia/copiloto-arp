@@ -164,14 +164,20 @@ export function EtapaPartes({
   aoMudar,
   fichas,
   podeFichas,
+  quadros,
+  aoMudarQuadros: setQuadros,
+  carregandoFicha,
 }: {
   valor: Partes;
   aoMudar: (v: Partes) => void;
   fichas: FichaParaContrato[];
   podeFichas: boolean;
+  /** Quadros da ficha importada (ficam no assistente: a ficha pode vir pelo link). */
+  quadros: QuadrosDaFicha | null;
+  aoMudarQuadros: (q: QuadrosDaFicha) => void;
+  carregandoFicha: boolean;
 }) {
   const up = (m: Partial<Partes>) => aoMudar({ ...valor, ...m });
-  const [quadros, setQuadros] = useState<QuadrosDaFicha | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [consultando, setConsultando] = useState(false);
 
@@ -288,7 +294,7 @@ export function EtapaPartes({
               fichas={fichas}
               valor={valor.ficha_id}
               aoEscolher={(f) => void escolher(f)}
-              carregando={carregando}
+              carregando={carregando || carregandoFicha}
             />
           ) : (
             <Aviso tom="atencao">

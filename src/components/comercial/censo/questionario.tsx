@@ -94,7 +94,8 @@ export function Questionario({
   inicial,
   corrigindo,
 }: {
-  modo: "link" | "presencial";
+  /** demonstracao: prévia da equipe, confere sem gravar. */
+  modo: "link" | "presencial" | "demonstracao";
   token?: string;
   convite?: string;
   opcoes: OpcoesQuestionario;
@@ -431,9 +432,11 @@ export function Questionario({
           ? "Enviando…"
           : corrigindo
             ? "Corrigir respostas"
-            : modo === "presencial"
-              ? "Lançar em nome da empresa"
-              : "Enviar respostas"}
+            : modo === "demonstracao"
+              ? "Conferir respostas (nada é gravado)"
+              : modo === "presencial"
+                ? "Lançar em nome da empresa"
+                : "Enviar respostas"}
       </button>
     </form>
   );

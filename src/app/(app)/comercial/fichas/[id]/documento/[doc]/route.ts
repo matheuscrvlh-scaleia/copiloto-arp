@@ -19,7 +19,7 @@ export async function GET(
     return new Response("Documento não encontrado.", { status: 404 });
   if (r === "sem_arquivo")
     return new Response(
-      "O arquivo não está no armazenamento (ficha de exemplo do mockup ou arquivo removido).",
+      "O arquivo não está guardado no sistema (ficha de demonstração ou arquivo removido).",
       { status: 404 },
     );
   return Response.redirect(r, 302);

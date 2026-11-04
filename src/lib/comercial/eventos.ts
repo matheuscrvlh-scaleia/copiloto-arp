@@ -1,5 +1,6 @@
 import {
   type CalendarioUtil,
+  diaEmBrasilia,
   ehDiaUtil,
   somarDias,
 } from "@/lib/comercial/datas";
@@ -154,8 +155,9 @@ export function resumoDasPropostas(
 ): { noMes: number; fechadas: number; valorFechado: number } {
   const fechadas = propostas.filter((p) => p.status === "fechada");
   return {
-    noMes: propostas.filter((p) => p.criado_em.slice(0, 7) === mes.slice(0, 7))
-      .length,
+    noMes: propostas.filter(
+      (p) => diaEmBrasilia(p.criado_em).slice(0, 7) === mes.slice(0, 7),
+    ).length,
     fechadas: fechadas.length,
     valorFechado: centavos(fechadas.reduce((s, p) => s + p.valor_final, 0)),
   };

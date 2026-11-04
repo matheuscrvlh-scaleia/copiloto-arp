@@ -332,8 +332,27 @@ export function totalMovimentos(
 }
 
 // ---------------------------------------------------------------------------
-// Foto do fim do mês (Painel, spec 4.10)
+// Ocupação num dia: tela, Painel, foto do fim do mês e Pesquisa de mercado
 // ---------------------------------------------------------------------------
+
+/**
+ * Critério único: de hoje em diante, o status do LUC no ENET (o mesmo da
+ * tela); num dia passado, LUC com contrato em vigor naquele dia, porque o
+ * ENET só tem o status de hoje.
+ */
+export function locadosNoDia(
+  enet: Pick<FontesEnet, "lucs" | "contratos">,
+  dia: string,
+  hoje: string,
+): Set<string> {
+  if (dia >= hoje)
+    return new Set(
+      enet.lucs.filter((l) => l.status === "Locado").map((l) => l.numero),
+    );
+  return new Set(
+    enet.contratos.filter((c) => ativoEm(c, dia)).map((c) => c.luc),
+  );
+}
 
 interface Parcial {
   lucs: number;
@@ -345,22 +364,23 @@ interface Parcial {
 export interface FotoOcupacao extends Parcial {
   /** "aaaa-mm-01". */
   mes: string;
+  /** Locatários com contrato em vigor no dia (todos os tipos de LUC). */
   clientes_ativos: number;
   por_bloco: Record<string, Parcial>;
   por_tipo: Record<string, Parcial>;
 }
 
 /**
- * Ocupação no dia (o último do mês), pela regra da tela: só os tipos que
- * contam, status pelo contrato em vigor naquele dia (não pelo de hoje).
+ * Ocupação no dia pelo critério de `locadosNoDia`, só com os tipos que
+ * contam: a foto que a rotina guarda e o número do Painel e da Pesquisa.
  */
 export function fotoDaOcupacao(
   enet: Pick<FontesEnet, "lucs" | "contratos">,
   dia: string,
+  hoje: string,
   contamNaOcupacao: ReadonlySet<string>,
 ): FotoOcupacao {
-  const ativo = new Map<string, EnetContrato>();
-  for (const c of enet.contratos) if (ativoEm(c, dia)) ativo.set(c.luc, c);
+  const locados = locadosNoDia(enet, dia, hoje);
   const vazio = (): Parcial => ({
     lucs: 0,
     lucs_locados: 0,
@@ -370,11 +390,9 @@ export function fotoDaOcupacao(
   const total = vazio();
   const porBloco: Record<string, Parcial> = {};
   const porTipo: Record<string, Parcial> = {};
-  const clientes = new Set<string>();
   for (const l of enet.lucs) {
     if (!contamNaOcupacao.has(l.tipo_loja)) continue;
-    const c = ativo.get(l.numero);
-    if (c) clientes.add(c.cliente);
+    const locado = locados.has(l.numero);
     porBloco[l.local] ??= vazio();
     porTipo[l.tipo_loja] ??= vazio();
     for (const p of [
@@ -384,12 +402,15 @@ export function fotoDaOcupacao(
     ] as Parcial[]) {
       p.lucs++;
       p.abl_total += l.abl;
-      if (c) {
+      if (locado) {
         p.lucs_locados++;
         p.abl_locada += l.abl;
       }
     }
   }
+  const clientes = new Set(
+    enet.contratos.filter((c) => ativoEm(c, dia)).map((c) => c.cliente),
+  );
   const arredondar = (p: Parcial): Parcial => ({
     ...p,
     abl_total: r2(p.abl_total),

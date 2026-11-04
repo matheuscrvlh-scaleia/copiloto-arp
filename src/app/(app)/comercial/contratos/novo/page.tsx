@@ -21,11 +21,21 @@ export default async function Page({
   );
 }
 
+const um = (v: string | string[] | undefined) =>
+  (Array.isArray(v) ? v[0] : v)?.trim() || undefined;
+
 async function Etapa({
   busca,
 }: {
   busca: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const e = Number((await busca).etapa) || 1;
-  return <TelaDoAssistente id={null} etapa={e} />;
+  const b = await busca;
+  // ?luc= vem de "Novo contrato" na Ocupação; ?ficha= de "Usar em contrato".
+  return (
+    <TelaDoAssistente
+      id={null}
+      etapa={Number(um(b.etapa)) || 0}
+      previa={{ luc: um(b.luc), ficha: um(b.ficha) }}
+    />
+  );
 }

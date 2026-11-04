@@ -23,6 +23,7 @@ import { Secao } from "@/components/dashboard/tabela";
 import { BotaoExportar } from "@/components/os/exportar";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
+import { diaEmBrasilia } from "@/lib/comercial/datas";
 import {
   resumoDasPropostas,
   STATUS_PROPOSTA,
@@ -89,7 +90,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   const anos = [
     ...new Set([
       ctx.hoje.slice(0, 4),
-      ...propostas.map((x) => x.criado_em.slice(0, 4)),
+      ...propostas.map((x) => diaEmBrasilia(x.criado_em).slice(0, 4)),
     ]),
   ].sort((a, b) => b.localeCompare(a));
   const ano = anos.includes(f.um("ano")) ? f.um("ano") : "";
@@ -102,18 +103,19 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
   const base = propostas.filter(
     (x) =>
-      (!ano || x.criado_em.startsWith(ano)) && (!status || x.status === status),
+      (!ano || diaEmBrasilia(x.criado_em).startsWith(ano)) &&
+      (!status || x.status === status),
   );
   const resumo = resumoDasPropostas(base, mes);
   const lista = base.filter((x) =>
     cartao === "mes"
-      ? x.criado_em.slice(0, 7) === mes.slice(0, 7)
+      ? diaEmBrasilia(x.criado_em).slice(0, 7) === mes.slice(0, 7)
       : cartao === "fechadas"
         ? x.status === "fechada"
         : true,
   );
   const exemplo = propostas.some((x) => x.exemplo)
-    ? "propostas de exemplo da migration, até as primeiras de verdade"
+    ? "propostas de exemplo, até as primeiras de verdade"
     : undefined;
 
   const linhaFiltros = linhaDeFiltros([
@@ -130,6 +132,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   ]);
   const regras = regrasDe(p);
   const podeEditar = ctx.pode("comercial.eventos.editar");
+  const podeParametros = ctx.pode("comercial.parametros.editar");
   const total = lista.reduce((s, x) => s + x.valor_final, 0);
 
   return (
@@ -148,8 +151,18 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
       <Secao
         titulo="Tabela de preços vigente"
-        descricao="Por m² por dia; até a área da faixa fixa, o valor do dia. Muda em Configurações › Parâmetros."
+        descricao={`Por m² por dia; até a área da faixa fixa, o valor do dia.${podeParametros ? "" : " Muda em Configurações › Parâmetros."}`}
       >
+        {podeParametros && (
+          <div className="mb-3 flex justify-end">
+            <Link
+              href="/comercial/configuracoes/parametros?bloco=eventos"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 transition hover:border-neutral-400"
+            >
+              Tabela de preços
+            </Link>
+          </div>
+        )}
         <TabelaLista
           semBusca
           colunas={[
@@ -244,7 +257,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                     { titulo: "Oportunidade no RD" },
                   ]}
                   linhas={lista.map((x) => [
-                    formatarData(x.criado_em.slice(0, 10)),
+                    formatarData(diaEmBrasilia(x.criado_em)),
                     x.cliente,
                     periodoDe(x),
                     x.area_m2,
@@ -324,7 +337,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                 x.validade,
               ],
               celulas: [
-                formatarData(x.criado_em.slice(0, 10)),
+                formatarData(diaEmBrasilia(x.criado_em)),
                 <span key="c" className="font-medium">
                   {x.cliente}
                 </span>,

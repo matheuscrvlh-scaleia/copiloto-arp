@@ -23,11 +23,8 @@ import {
   situacaoDoLink,
   VAZIO,
 } from "@/lib/comercial/censo";
-import {
-  dadosDe,
-  formatarValor,
-  linhaDeFiltros,
-} from "@/lib/comercial/formato";
+import { diaEmBrasilia } from "@/lib/comercial/datas";
+import { formatarValor, linhaDeFiltros } from "@/lib/comercial/formato";
 import {
   formatarData,
   formatarDataHora,
@@ -48,7 +45,7 @@ import {
   respostasDaRodada,
 } from "@/server/comercial/censo";
 import type { FiltrosCom } from "@/server/comercial/filtros";
-import { nomesDeUsuarios } from "@/server/comercial/importacoes";
+import { nomesDeUsuarios } from "@/server/comercial/usuarios";
 
 const BASE = "/comercial/censo";
 const CARTOES = {
@@ -141,7 +138,8 @@ export async function Rodadas({
     valoresDaLista("censo_bloco"),
   ]);
   const nomes = await nomesDeUsuarios(
-    respostas.map((r) => r.lancada_por).filter((x): x is string => !!x),
+    respostas.map((r) => r.lancada_por),
+    ["comercial.censo.ver"],
   );
   const porConvite = new Map(
     respostas
@@ -175,8 +173,8 @@ export async function Rodadas({
     const r = porConvite.get(id);
     if (r)
       return r.origem === "presencial"
-        ? `Respondeu presencialmente em ${formatarData(r.respondida_em.slice(0, 10))}`
-        : `Respondeu pelo link em ${formatarData(r.respondida_em.slice(0, 10))}`;
+        ? `Respondeu presencialmente em ${formatarData(diaEmBrasilia(r.respondida_em))}`
+        : `Respondeu pelo link em ${formatarData(diaEmBrasilia(r.respondida_em))}`;
     return enviado ? "Enviado, sem resposta" : "Link ainda não enviado";
   };
 
@@ -185,13 +183,13 @@ export async function Rodadas({
       <div className="flex flex-col gap-6">
         {rodada && (
           <TopoComercial
-            dadosDe={dadosDe(new Date())}
+            dadosDe={f.ctx.dadosDe}
             filtros={linhaFiltros}
             acoes={
               exportar && convites.length ? (
                 <BotaoExportar
                   titulo={`Censo — Convites · ${rodada.nome}`}
-                  filtros={linhaFiltros}
+                  filtros={`${linhaFiltros} · ${f.ctx.dadosDe}`}
                   nomeArquivo="censo-convites"
                   colunas={[
                     { titulo: "Empresa" },
@@ -541,7 +539,7 @@ export async function Rodadas({
                     <Valor key="t" valor={r.ticket_ajustado} />,
                     numero(r.conversoes_dia),
                     ORIGEM[r.origem] ?? r.origem,
-                    formatarData(r.respondida_em.slice(0, 10)),
+                    formatarData(diaEmBrasilia(r.respondida_em)),
                   ],
                   ordem: [
                     r.empresa_nome,

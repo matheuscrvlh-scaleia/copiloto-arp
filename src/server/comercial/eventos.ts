@@ -2,13 +2,14 @@ import "server-only";
 import { cache } from "react";
 import type { CalendarioUtil } from "@/lib/comercial/datas";
 import type { FaixaPreco, RegrasEvento } from "@/lib/comercial/eventos";
-import { createClient } from "@/lib/supabase/server";
+import { lerTudo } from "@/server/supabase-paginas";
 import {
   com,
   type FaixaEvento,
   type Parametros,
   type PropostaEvento,
 } from "./base";
+import { feriadosCadastrados } from "./parametros";
 import { feriadosNacionais } from "./publicos";
 
 // Simulador e propostas de eventos (spec 4.15). Propostas lidas com a
@@ -56,16 +57,17 @@ export type PropostaNaLista = Pick<
 
 /** Propostas, das mais novas para as mais antigas. */
 export const propostasEvento = cache(async (): Promise<PropostaNaLista[]> => {
-  const { data, error } = await (await com())
-    .from("propostas_evento")
-    .select(
-      "id, criado_em, cliente, data_evento, data_evento_fim, area_m2, valor_final, status, validade, oportunidade_rd, exemplo",
-    )
-    .order("criado_em", { ascending: false })
-    // atalho: até 1.000 propostas (o limite do PostgREST); passa disso em anos.
-    .limit(1000);
-  falhar(error);
-  return (data ?? []).map((p) => ({
+  const db = await com();
+  const data = await lerTudo(() =>
+    db
+      .from("propostas_evento")
+      .select(
+        "id, criado_em, cliente, data_evento, data_evento_fim, area_m2, valor_final, status, validade, oportunidade_rd, exemplo",
+      )
+      .order("criado_em", { ascending: false })
+      .order("id"),
+  );
+  return data.map((p) => ({
     ...p,
     area_m2: Number(p.area_m2),
     valor_final: Number(p.valor_final),
@@ -94,19 +96,17 @@ export async function feriadosDosAnos(
   const unicos = [...new Set(anos)].filter((a) => a >= 2000 && a <= 2100);
   const [nacionais, locais] = await Promise.all([
     feriadosNacionais(unicos),
-    (await createClient())
-      .schema("os")
-      .from("feriados")
-      .select("data")
-      .gte("data", `${Math.min(...unicos)}-01-01`)
-      .lte("data", `${Math.max(...unicos)}-12-31`),
+    feriadosCadastrados().catch((erro) => {
+      console.error("feriados de Nova Friburgo", erro);
+      return [];
+    }),
   ]);
-  if (locais.error) console.error("feriados de Nova Friburgo", locais.error);
+  const doAno = (data: string) => unicos.includes(Number(data.slice(0, 4)));
   return {
     feriados: [
       ...new Set([
         ...(nacionais ?? []).map((f) => f.data),
-        ...(locais.data ?? []).map((f) => f.data),
+        ...locais.map((f) => f.data).filter(doAno),
       ]),
     ].sort(),
     semNacionais: nacionais === null,

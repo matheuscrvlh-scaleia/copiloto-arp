@@ -3,11 +3,13 @@ import { cache } from "react";
 import {
   type CarenciaContrato,
   carenciaDoContrato,
+  INDICADORES_PAINEL,
   type LinhaPainel,
   montarPainel,
 } from "@/lib/comercial/painel";
 import { paraBrasilia } from "@/lib/os/tempo";
 import { podeAgora } from "@/server/auth";
+import { lerTudo } from "@/server/supabase-paginas";
 import {
   com,
   comAdmin,
@@ -20,11 +22,14 @@ import { dadosEnet, dadosRd } from "./fontes";
 
 // Leitura do Painel de indicadores (spec 4.10): Real do ENET e do RD, Plan
 // das metas (core.metas comercial.*), ocupação pelas fotos do fim do mês e o
-// faturamento em carência dos contratos feitos no assistente.
+// faturamento em carência dos contratos feitos no assistente. Sem
+// comercial.valores.ver, as linhas em reais nem saem do servidor.
 
 export interface DadosPainel {
   linhas: LinhaPainel[];
   exemplo: boolean;
+  /** false: sem comercial.valores.ver, só as linhas que não são em reais. */
+  comValores: boolean;
   /** Algum mês sem foto de ocupação (calculado ou sem histórico). */
   semFoto: boolean;
   /** Contratos do sistema com carência (o número é parcial). */
@@ -57,13 +62,16 @@ async function fotosDoAno(ano: number) {
 async function carencias(): Promise<CarenciaContrato[]> {
   if (!(await podeAgora("comercial.painel.ver")))
     throw new Error("Sem acesso ao Painel comercial.");
-  const { data, error } = await comAdmin()
-    .from("contratos")
-    .select("aluguel, condicoes:dados->condicoes")
-    .eq("tipo", "contrato")
-    .neq("status", "rascunho");
-  falhar(error);
-  return (data ?? [])
+  const db = comAdmin();
+  const linhas = await lerTudo(() =>
+    db
+      .from("contratos")
+      .select("id, aluguel, condicoes:dados->condicoes")
+      .eq("tipo", "contrato")
+      .neq("status", "rascunho")
+      .order("id"),
+  );
+  return linhas
     .map((c) => carenciaDoContrato(c.aluguel, c.condicoes))
     .filter((c): c is CarenciaContrato => c !== null);
 }
@@ -73,6 +81,7 @@ export const dadosDoPainel = cache(
     const { pode, hoje } = await contextoCom();
     if (!pode("comercial.painel.ver"))
       throw new Error("Sem acesso ao Painel comercial.");
+    const comValores = pode("comercial.valores.ver");
     const [enet, rd, tipos, metas, params, fotos, comCarencia] =
       await Promise.all([
         dadosEnet(),
@@ -81,18 +90,20 @@ export const dadosDoPainel = cache(
         metasCom(),
         parametros(),
         fotosDoAno(ano),
-        carencias(),
+        comValores ? carencias() : [],
       ]);
     const doAno = (m: string) => m.startsWith(`${ano}-`);
-    const linhas = montarPainel({
+    const tiposCom = (f: (t: (typeof tipos)[number]) => boolean) =>
+      new Set(tipos.filter(f).map((t) => t.tipo));
+    const todas = montarPainel({
       ano,
       hoje,
       contas: enet.contasReceber.filter((c) => doAno(c.competencia)),
       contratos: enet.contratos,
       lucs: enet.lucs,
-      tiposOcupacao: new Set(
-        tipos.filter((t) => t.conta_ocupacao).map((t) => t.tipo),
-      ),
+      tiposOcupacao: tiposCom((t) => t.conta_ocupacao),
+      tiposMidia: tiposCom((t) => t.receita === "midia"),
+      tiposEventos: tiposCom((t) => t.receita === "eventos"),
       leads: rd.oportunidades
         .filter((o) => o.deal_pipeline.name === params.funil_padrao)
         .map((o) => paraBrasilia(new Date(o.created_at)).data),
@@ -106,10 +117,17 @@ export const dadosDoPainel = cache(
       exemplo: enet.exemplo,
       metas: metas.filter((m) => doAno(m.vigente_desde)),
     });
+    // Sem a permissão de valores: fica leads, % ocupação, % churn e clientes.
+    const linhas = comValores
+      ? todas
+      : todas.filter(
+          (l) => INDICADORES_PAINEL[l.indicador].formato !== "moeda",
+        );
     const ocupacao = linhas.find((l) => l.indicador === "ocupacao");
     return {
       linhas,
       exemplo: enet.exemplo || rd.exemplo,
+      comValores,
       semFoto: !!ocupacao?.marcas.some(
         (m) => m === "calculado" || m === "sem_historico",
       ),

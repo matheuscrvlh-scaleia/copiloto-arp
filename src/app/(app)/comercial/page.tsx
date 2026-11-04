@@ -98,7 +98,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
               {exportar && (
                 <BotaoExportar
                   titulo={`Painel de indicadores comerciais ${ano}`}
-                  filtros={`${linhaFiltros} · ${ctx.dadosDe}`}
+                  filtros={`${linhaFiltros} · ${ctx.dadosDe}${d.comValores ? "" : " · Valores em reais só com a permissão de valores"}`}
                   nomeArquivo={`painel-comercial-${ano}`}
                   colunas={COLUNAS_EXPORTAR_PAINEL}
                   linhas={linhasExportarPainel(d.linhas)}
@@ -125,21 +125,27 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       </Secao>
 
       <div className="flex flex-col gap-2">
+        {!d.comValores && (
+          <Nota>Valores em reais só com a permissão de valores.</Nota>
+        )}
         <Nota>
-          % Ocupação e valor por m² usam a foto do último dia de cada mês.
+          % Ocupação{d.comValores ? " e valor por m² usam" : " usa"} a foto do
+          último dia de cada mês.
           {d.semFoto &&
             (d.exemplo
               ? " Meses sem foto guardada (*) são calculados pelos contratos do ENET de exemplo ativos no fim do mês."
               : " Meses antes das fotos ficam vazios, com o rótulo “sem histórico”.")}{" "}
           No mês corrente (h), a ocupação de hoje no ENET.
         </Nota>
-        <Nota>
-          Faturamento em carência: número parcial, só contratos feitos no
-          sistema
-          {d.contratosComCarencia
-            ? ` (${d.contratosComCarencia} com carência).`
-            : " (ainda nenhum contrato com carência)."}
-        </Nota>
+        {d.comValores && (
+          <Nota>
+            Faturamento em carência: número parcial, só contratos feitos no
+            sistema
+            {d.contratosComCarencia
+              ? ` (${d.contratosComCarencia} com carência).`
+              : " (ainda nenhum contrato com carência)."}
+          </Nota>
+        )}
         <Nota>
           Ficam fora do painel: estoque disponível e estoque em obra em reais
           (dependem do preço de tabela, que não vem do ENET) e faturamento em

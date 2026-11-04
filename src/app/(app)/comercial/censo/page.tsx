@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import {
   CartaoCarregando,
@@ -12,7 +13,7 @@ import { Protegido } from "@/components/protegido";
 import { rodadasCenso } from "@/server/comercial/censo";
 import { type Busca, lerFiltros } from "@/server/comercial/filtros";
 import { Feedbacks } from "./feedbacks";
-import { Indicadores } from "./indicadores";
+import { Indicadores, TELA_FILTROS } from "./indicadores";
 import { Rodadas } from "./rodadas";
 
 export const metadata: Metadata = { title: "Censo" };
@@ -42,12 +43,27 @@ export default function Page({ searchParams }: PageProps<"/comercial/censo">) {
 }
 
 async function Tela({ busca }: { busca: Promise<Busca> }) {
-  const [f, rodadas] = await Promise.all([
-    busca.then((b) => lerFiltros("censo", b)),
+  // Cada aba lembra os próprios filtros: a aba da URL escolhe a chave e não
+  // conta como filtro (só "?aba=feedbacks" ainda traz os lembrados dela).
+  const { aba: abaUrl, ...semAba } = await busca;
+  const pedida = (Array.isArray(abaUrl) ? abaUrl[0] : abaUrl) as Aba;
+  const chave = pedida in ABAS ? pedida : "indicadores";
+  const [lidos, rodadas] = await Promise.all([
+    lerFiltros(TELA_FILTROS[chave], semAba),
     rodadasCenso(),
   ]);
+  const lembrado = new URLSearchParams(lidos.lembrado ?? "");
+  lembrado.delete("aba");
+  if (lembrado.size && chave !== "indicadores") {
+    lembrado.set("aba", chave);
+    redirect(`${BASE}?${lembrado}`);
+  }
+  const f = {
+    ...lidos,
+    busca:
+      chave === "indicadores" ? lidos.busca : { ...lidos.busca, aba: chave },
+  };
   const aplicar = f.ctx.pode("comercial.censo.aplicar");
-  const pedida = f.um("aba") as Aba;
   const aba: Aba =
     pedida in ABAS && (pedida !== "rodadas" || aplicar)
       ? pedida
@@ -60,11 +76,15 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     .map((chave) => ({
       chave,
       rotulo: ABAS[chave],
-      href: hrefCom(BASE, f.busca, {
-        aba: chave === "indicadores" ? null : chave,
-        tema: null,
-        cartao: null,
-      }),
+      href: hrefCom(
+        BASE,
+        {},
+        {
+          aba: chave === "indicadores" ? null : chave,
+          tema: null,
+          cartao: null,
+        },
+      ),
     }));
 
   return (

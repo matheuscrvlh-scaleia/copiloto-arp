@@ -1,10 +1,19 @@
-import { diaDaSemana, somarDias, ultimoDiaDoMes } from "@/lib/os/tempo";
+import {
+  diaDaSemana,
+  paraBrasilia,
+  somarDias,
+  ultimoDiaDoMes,
+} from "@/lib/os/tempo";
 
 // Datas do Comercial ("aaaa-mm-dd", horário de Brasília): meses de contrato,
 // aniversários e dias úteis. Os feriados (nacionais da BrasilAPI e os de
 // Nova Friburgo dos parâmetros) e os dias da semana úteis chegam de fora.
 
 export { diasEntre, somarDias } from "@/lib/os/tempo";
+
+/** Timestamp do banco (UTC) → "aaaa-mm-dd" em Brasília (31 às 22h é dia 31). */
+export const diaEmBrasilia = (instante: string): string =>
+  paraBrasilia(new Date(instante)).data;
 
 const partes = (data: string) =>
   data.split("-").map(Number) as [number, number, number];

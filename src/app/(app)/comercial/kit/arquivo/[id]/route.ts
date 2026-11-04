@@ -12,8 +12,11 @@ export async function GET(
     return new Response("Documento não encontrado.", { status: 404 });
   const link = await linkDaVersao(id);
   if (!link)
-    return new Response("Documento sem arquivo ou sem acesso.", {
-      status: 404,
-    });
+    return new Response(
+      "Este documento ainda não tem arquivo (ou você não tem acesso a ele). Suba o PDF na tela do Kit de entrega.",
+      {
+        status: 404,
+      },
+    );
   return Response.redirect(link, 302);
 }

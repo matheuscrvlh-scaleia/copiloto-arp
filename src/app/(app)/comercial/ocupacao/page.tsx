@@ -41,13 +41,7 @@ import {
 import { BotaoExportar } from "@/components/os/exportar";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
-import {
-  curvaDaCarteira,
-  FAIXAS,
-  resumoPorFaixa,
-  rotuloDaFaixa,
-  totalDaCarteira,
-} from "@/lib/comercial/carteira";
+import { curvaDaCarteira, totalDaCarteira } from "@/lib/comercial/carteira";
 import { ativoEm } from "@/lib/comercial/fontes";
 import { linhaDeFiltros } from "@/lib/comercial/formato";
 import {
@@ -220,7 +214,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           curva,
         )
       : [];
-  const resumoFaixas = resumoPorFaixa(carteira);
   const totalCarteira = totalDaCarteira(carteira);
 
   const exportarAba = (() => {
@@ -474,26 +467,11 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       )}
 
       {aba === "carteira" && comValores && (
-        <>
-          <CartoesComercial>
-            {FAIXAS.map((fx) => (
-              <CartaoDaTela
-                key={fx}
-                titulo={`Faixa ${fx} · ${rotuloDaFaixa(fx, curva)}`}
-                valor={`${formatarNumero(resumoFaixas[fx].clientes)} clientes`}
-                detalhe={`${formatarNumero(resumoFaixas[fx].aluguel, 2)} · ${m2(resumoFaixas[fx].m2)}`}
-                calculo="Locatários ordenados pelo aluguel em contrato; a faixa vem do % acumulado (limites nos parâmetros)."
-                fonte="ENET — Contratos ativos"
-                exemplo={EXEMPLO.enet}
-              />
-            ))}
-          </CartoesComercial>
-          <TabelasCarteira
-            linhas={carteira}
-            total={totalCarteira}
-            limites={curva}
-          />
-        </>
+        <TabelasCarteira
+          linhas={carteira}
+          total={totalCarteira}
+          limites={curva}
+        />
       )}
     </div>
   );

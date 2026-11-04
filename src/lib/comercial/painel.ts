@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { diasEntre, fimDoMesDe } from "./datas";
-import {
-  ativoEm,
-  type EnetContaReceber,
-  type EnetContrato,
-  type EnetLuc,
-} from "./fontes";
+import type { EnetContaReceber, EnetContrato, EnetLuc } from "./fontes";
+import { fotoDaOcupacao } from "./ocupacao";
 
 // Painel de indicadores comerciais (spec 4.10): a aba "Painel de Indicadores
 // Anual" da planilha. Uma linha por indicador com Plan (core.metas
@@ -29,10 +25,6 @@ interface DefIndicador {
   /** Número parcial: rótulo do que cobre (spec 4.3). */
   parcial?: string;
 }
-
-/** Tipos de LUC do ENET das receitas de mídia e de eventos (spec 4.10). */
-export const TIPO_LUC_MIDIA = "Área Publicitária";
-export const TIPO_LUC_EVENTOS = "Eventos";
 
 export const INDICADORES_PAINEL = {
   faturamento: {
@@ -110,7 +102,8 @@ export const INDICADORES_PAINEL = {
     direcao: "maior_melhor",
     acumulo: "soma",
     meta: true,
-    calculo: `Faturamento do mês dos LUCs do tipo ${TIPO_LUC_MIDIA} (ENET).`,
+    calculo:
+      "Faturamento do mês dos LUCs dos tipos marcados como receita de mídia nos parâmetros (tipos de LUC; ENET).",
   },
   receita_eventos: {
     nome: "Receita com eventos",
@@ -118,7 +111,8 @@ export const INDICADORES_PAINEL = {
     direcao: "maior_melhor",
     acumulo: "soma",
     meta: true,
-    calculo: `Faturamento do mês dos LUCs do tipo ${TIPO_LUC_EVENTOS} (ENET).`,
+    calculo:
+      "Faturamento do mês dos LUCs dos tipos marcados como receita de eventos nos parâmetros (tipos de LUC; ENET).",
   },
   clientes: {
     nome: "Quantidade de clientes",
@@ -286,7 +280,8 @@ export function faturamentoEmCarencia(
 // Ocupação no fim do mês
 // ---------------------------------------------------------------------------
 
-export interface FotoOcupacao {
+/** Foto guardada pela rotina (comercial.ocupacao_fotos). */
+export interface FotoGuardada {
   /** "aaaa-mm-01". */
   mes: string;
   abl_total: number;
@@ -306,41 +301,6 @@ export interface OcupacaoMes {
   origem: OrigemOcupacao;
 }
 
-/** ABL total e locada no dia, pelos contratos ativos (só tipos que contam). */
-export function ocupacaoPelosContratos(
-  lucs: EnetLuc[],
-  contratos: EnetContrato[],
-  contam: ReadonlySet<string>,
-  dia: string,
-): { ablTotal: number; ablLocada: number } {
-  const locados = new Set(
-    contratos.filter((c) => ativoEm(c, dia)).map((c) => c.luc),
-  );
-  let ablTotal = 0;
-  let ablLocada = 0;
-  for (const l of lucs) {
-    if (!contam.has(l.tipo_loja)) continue;
-    ablTotal += l.abl;
-    if (locados.has(l.numero)) ablLocada += l.abl;
-  }
-  return { ablTotal, ablLocada };
-}
-
-/** Pelo status de hoje no ENET (o mês corrente ainda não tem foto). */
-export function ocupacaoDeHoje(
-  lucs: EnetLuc[],
-  contam: ReadonlySet<string>,
-): { ablTotal: number; ablLocada: number } {
-  let ablTotal = 0;
-  let ablLocada = 0;
-  for (const l of lucs) {
-    if (!contam.has(l.tipo_loja)) continue;
-    ablTotal += l.abl;
-    if (l.status === "Locado") ablLocada += l.abl;
-  }
-  return { ablTotal, ablLocada };
-}
-
 // ---------------------------------------------------------------------------
 // Montagem do painel
 // ---------------------------------------------------------------------------
@@ -352,11 +312,13 @@ export interface EntradaPainel {
   contas: EnetContaReceber[];
   contratos: EnetContrato[];
   lucs: EnetLuc[];
-  /** Tipos de LUC que contam na ocupação (parâmetros). */
+  /** Tipos de LUC que contam na ocupação e os das receitas (parâmetros). */
   tiposOcupacao: ReadonlySet<string>;
+  tiposMidia: ReadonlySet<string>;
+  tiposEventos: ReadonlySet<string>;
   /** Data de criação ("aaaa-mm-dd") de cada oportunidade do funil padrão. */
   leads: string[];
-  fotos: FotoOcupacao[];
+  fotos: FotoGuardada[];
   carencias: CarenciaContrato[];
   /** Dados de exemplo: sem foto, a ocupação é calculada pelos contratos. */
   exemplo: boolean;
@@ -403,13 +365,13 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
   const porMes = <T>(f: (i: number, mes: string) => T): (T | null)[] =>
     comp.map((c, i) => (temReal(i) ? f(i, c) : null));
 
-  const somaContas = (mes: string, tipo?: string) =>
+  const somaContas = (mes: string, tipos?: ReadonlySet<string>) =>
     arred(
       e.contas
         .filter(
           (c) =>
             c.competencia === mes &&
-            (tipo === undefined || c.tipo_luc === tipo),
+            (tipos === undefined || tipos.has(c.tipo_luc)),
         )
         .reduce((t, c) => t + c.valor_faturado, 0),
     );
@@ -424,6 +386,10 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
   const fechados = porMes((_, m) => somaAluguel(m, "data_inicio"));
   const rescindidos = porMes((_, m) => somaAluguel(m, "data_rescisao"));
   const fotos = new Map(e.fotos.map((f) => [f.mes, f]));
+  // Mesmo critério da tela e da rotina (lib/comercial/ocupacao).
+  const noDia = porMes((i) =>
+    fotoDaOcupacao(e, fimOuHoje(i), e.hoje, e.tiposOcupacao),
+  );
   const ocupacao: (OcupacaoMes | null)[] = porMes((i, m) => {
     const foto = fotos.get(m);
     if (foto)
@@ -432,20 +398,12 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
         ablLocada: foto.abl_locada,
         origem: "foto" as const,
       };
-    if (mesCorrente(i))
+    const calc = noDia[i];
+    if (calc && (mesCorrente(i) || e.exemplo))
       return {
-        ...ocupacaoDeHoje(e.lucs, e.tiposOcupacao),
-        origem: "hoje" as const,
-      };
-    if (e.exemplo)
-      return {
-        ...ocupacaoPelosContratos(
-          e.lucs,
-          e.contratos,
-          e.tiposOcupacao,
-          fimOuHoje(i),
-        ),
-        origem: "calculado" as const,
+        ablTotal: calc.abl_total,
+        ablLocada: calc.abl_locada,
+        origem: mesCorrente(i) ? ("hoje" as const) : ("calculado" as const),
       };
     return {
       ablTotal: null,
@@ -470,16 +428,12 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
     ),
     valor_m2: porMes((i) => valorPorM2(faturamento[i] ?? null, ablLocada(i))),
     churn: porMes((i) => churn(rescindidos[i] ?? null, faturamento[i] ?? null)),
-    receita_midia: porMes((_, m) => somaContas(m, TIPO_LUC_MIDIA)),
-    receita_eventos: porMes((_, m) => somaContas(m, TIPO_LUC_EVENTOS)),
-    clientes: porMes((i, m) => {
-      const foto = fotos.get(m);
-      if (foto?.clientes_ativos != null) return foto.clientes_ativos;
-      const dia = fimOuHoje(i);
-      return new Set(
-        e.contratos.filter((c) => ativoEm(c, dia)).map((c) => c.cliente),
-      ).size;
-    }),
+    receita_midia: porMes((_, m) => somaContas(m, e.tiposMidia)),
+    receita_eventos: porMes((_, m) => somaContas(m, e.tiposEventos)),
+    clientes: porMes(
+      (i, m) =>
+        fotos.get(m)?.clientes_ativos ?? noDia[i]?.clientes_ativos ?? null,
+    ),
     // Nenhum contrato com carência no sistema: vazio (não zero).
     carencia: e.carencias.length
       ? porMes((_, m) => faturamentoEmCarencia(e.carencias, m))

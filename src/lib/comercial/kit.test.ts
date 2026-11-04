@@ -110,7 +110,7 @@ describe("validade", () => {
       ),
     ).toEqual([
       "IPTU: vencido. Suba a versão nova antes de entregar.",
-      "Fachada 5: ainda sem arquivo; não entra no PDF do kit.",
+      "Fachada 5: sem arquivo ainda — suba o PDF. Até lá, fica fora do kit e aparece na capa como faltando.",
     ]);
   });
 });

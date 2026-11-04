@@ -1,9 +1,6 @@
 import "server-only";
 import { cache } from "react";
 import { ativoEm } from "@/lib/comercial/fontes";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-import { podeAgora } from "@/server/auth";
 import { lerTudo } from "@/server/supabase-paginas";
 import {
   type Contato,
@@ -14,6 +11,7 @@ import {
   valoresDaLista,
 } from "./base";
 import { dadosEnet } from "./fontes";
+import { nomesDeUsuarios } from "./usuarios";
 
 // Relacionamento (spec 4.7): aniversários (ENET) e o registro de contatos
 // com locatários (comercial.contatos, lido com a sessão: o RLS mostra todos
@@ -83,36 +81,9 @@ export const contatoPorId = cache(
   },
 );
 
-/**
- * Nome de quem registrou. Pela sessão primeiro; os que o RLS de
- * core.usuarios esconde vêm pela service role, só para ids que já estão nos
- * contatos que a pessoa vê, depois de conferir Relacionamento no banco.
- */
-export async function nomesDe(
-  ids: (string | null)[],
-): Promise<Map<string, string>> {
-  const unicos = [...new Set(ids.filter((i): i is string => Boolean(i)))];
-  const nomes = new Map<string, string>();
-  if (!unicos.length) return nomes;
-  const sessao = await (await createClient())
-    .schema("core")
-    .from("usuarios")
-    .select("id, nome")
-    .in("id", unicos);
-  falhar(sessao.error);
-  for (const u of sessao.data ?? []) nomes.set(u.id, u.nome);
-  const faltam = unicos.filter((i) => !nomes.has(i));
-  if (!faltam.length || !(await podeAgora("comercial.relacionamento.ver")))
-    return nomes;
-  const admin = await createAdminClient()
-    .schema("core")
-    .from("usuarios")
-    .select("id, nome")
-    .in("id", faltam);
-  falhar(admin.error);
-  for (const u of admin.data ?? []) nomes.set(u.id, u.nome);
-  return nomes;
-}
+/** Nome de quem registrou (ids dos contatos que a pessoa já vê). */
+export const nomesDe = (ids: (string | null)[]) =>
+  nomesDeUsuarios(ids, ["comercial.relacionamento.ver"]);
 
 export interface OpcaoLocatario {
   /** Código do contrato no ENET. */

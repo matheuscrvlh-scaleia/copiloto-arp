@@ -8,9 +8,9 @@ import {
 import { EVENTOS } from "@/lib/historico";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
-import { podeAgora } from "@/server/auth";
-import { nomesDeUsuarios } from "@/server/comercial/importacoes";
+import { nomesDeUsuarios } from "@/server/comercial/usuarios";
 import { registrarDepois } from "@/server/logs";
+import { feriados } from "@/server/os/configuracoes";
 
 // Leituras extras de Comercial › Configurações: feriados cadastrados
 // (os.feriados, o mesmo do Tickets) e o histórico das alterações
@@ -70,14 +70,10 @@ export const historicoCom = cache(
       .flatMap((r) => r.data ?? [])
       .sort((a, b) => b.em.localeCompare(a.em) || b.id - a.id)
       .slice(0, limite);
-    const pode =
-      (await podeAgora("comercial.parametros.editar")) ||
-      (await podeAgora("comercial.painel.metas"));
-    const nomes = pode
-      ? await nomesDeUsuarios(
-          linhas.map((l) => l.usuario_id).filter((id): id is string => !!id),
-        )
-      : new Map<string, string>();
+    const nomes = await nomesDeUsuarios(
+      linhas.map((l) => l.usuario_id),
+      ["comercial.parametros.editar", "comercial.painel.metas"],
+    );
     return linhas.map((l) => ({
       ...l,
       antes: objeto(l.antes),
@@ -89,17 +85,11 @@ export const historicoCom = cache(
   },
 );
 
-/** Feriados cadastrados (os.feriados), por data. */
+/** Feriados de Nova Friburgo (os.feriados, o leitor do Tickets), por data. */
 export async function feriadosCadastrados(): Promise<
   { data: string; nome: string }[]
 > {
-  const { data, error } = await (await createClient())
-    .schema("os")
-    .from("feriados")
-    .select("data, nome")
-    .order("data");
-  if (error) throw new Error(`Falha ao ler os feriados: ${error.message}`);
-  return data ?? [];
+  return (await feriados()).map((f) => ({ data: f.data, nome: f.nome }));
 }
 
 const O_QUE_MUDOU: Record<string, string> = {

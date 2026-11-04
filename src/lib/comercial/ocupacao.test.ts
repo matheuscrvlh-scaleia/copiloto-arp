@@ -6,6 +6,7 @@ import {
   filtrarLucs,
   fotoDaOcupacao,
   linhasDeLucs,
+  locadosNoDia,
   movimentos,
   quadroMovPorBloco,
   quadroPor,
@@ -252,28 +253,31 @@ describe("com o ENET de exemplo", () => {
   });
 });
 
-describe("foto do fim do mês", () => {
-  it("só os tipos que contam, com o contrato em vigor naquele dia", () => {
-    const enet = {
-      lucs: [
-        luc("01_101", { abl: 100 }),
-        luc("01_102", { abl: 40, local: "Bloco 02" }),
-        luc("OOH_01", { tipo_loja: "Área Publicitária", abl: 0 }),
-      ],
-      contratos: [
-        contrato("CT1", "01_101", "C1", { data_inicio: "2026-01-10" }),
-        contrato("CT2", "01_102", "C2", { data_inicio: "2026-11-01" }),
-        contrato("CT3", "OOH_01", "C3", { data_inicio: "2020-01-01" }),
-      ],
-    };
-    const f = fotoDaOcupacao(enet, "2026-10-31", new Set(["Loja Comercial"]));
+describe("ocupação num dia (critério único)", () => {
+  const enet = {
+    lucs: [
+      luc("01_101", { abl: 100, status: "Locado" }),
+      luc("01_102", { abl: 40, local: "Bloco 02" }),
+      luc("OOH_01", { tipo_loja: "Área Publicitária", abl: 0 }),
+    ],
+    contratos: [
+      contrato("CT1", "01_101", "C1", { data_inicio: "2026-01-10" }),
+      contrato("CT2", "01_102", "C2", { data_inicio: "2026-11-01" }),
+      contrato("CT3", "OOH_01", "C3", { data_inicio: "2020-01-01" }),
+    ],
+  };
+  const contam = new Set(["Loja Comercial"]);
+
+  it("dia passado: só os tipos que contam, com o contrato em vigor naquele dia", () => {
+    const f = fotoDaOcupacao(enet, "2026-10-31", "2026-11-04", contam);
     expect(f).toMatchObject({
       mes: "2026-10-01",
       lucs: 2,
       lucs_locados: 1,
       abl_total: 140,
       abl_locada: 100,
-      clientes_ativos: 1,
+      // Locatários com contrato em vigor, de qualquer tipo de LUC.
+      clientes_ativos: 2,
     });
     expect(f.por_bloco["Bloco 02"]).toEqual({
       lucs: 1,
@@ -282,5 +286,26 @@ describe("foto do fim do mês", () => {
       abl_locada: 0,
     });
     expect(Object.keys(f.por_tipo)).toEqual(["Loja Comercial"]);
+  });
+
+  it("hoje: o status do LUC no ENET, igual à tela", () => {
+    // 01_102 tem contrato desde 01/11, mas o ENET ainda o mostra vago.
+    const f = fotoDaOcupacao(enet, "2026-11-04", "2026-11-04", contam);
+    const tela = totais(
+      comStatus(
+        filtrarLucs(
+          linhasDeLucs(enet, "2026-11-04", false),
+          { bloco: "", tipo: "", rua: "" },
+          contam,
+        ),
+        "",
+      ),
+    );
+    expect(f.abl_locada).toBe(100);
+    expect(f.abl_locada).toBe(tela.ablLocada);
+    expect(f.abl_total).toBe(tela.ablTotal);
+    expect([...locadosNoDia(enet, "2026-11-04", "2026-11-04")]).toEqual([
+      "01_101",
+    ]);
   });
 });

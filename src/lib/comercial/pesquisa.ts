@@ -1,6 +1,7 @@
 import { fimDoMesDe, somarMeses } from "@/lib/comercial/datas";
 import type { FontesEnet } from "@/lib/comercial/fontes";
-import { ocupacaoPelosContratos, valorPorM2 } from "@/lib/comercial/painel";
+import { fotoDaOcupacao } from "@/lib/comercial/ocupacao";
+import { valorPorM2 } from "@/lib/comercial/painel";
 import { formatarNumero } from "@/lib/formato";
 
 // Pesquisa de mercado (spec 4.16): faixa de tamanho, o resumo por bairro
@@ -126,7 +127,8 @@ export interface ValorM2Arp {
 /**
  * Mesma regra do Painel (lib/comercial/painel): faturamento do último mês
  * fechado (contas a receber do ENET) ÷ ABL locada no fim dele, pelos
- * contratos em vigor nos tipos de LUC que contam na ocupação.
+ * contratos em vigor nos tipos de LUC que contam na ocupação (o critério
+ * de lib/comercial/ocupacao).
  */
 export function valorM2DoPainel(
   enet: Pick<FontesEnet, "lucs" | "contratos" | "contasReceber">,
@@ -137,12 +139,12 @@ export function valorM2DoPainel(
   const faturamento = enet.contasReceber
     .filter((c) => c.competencia === mes)
     .reduce((s, c) => s + c.valor_faturado, 0);
-  const { ablLocada } = ocupacaoPelosContratos(
-    enet.lucs,
-    enet.contratos,
-    tiposQueContam,
+  const ablLocada = fotoDaOcupacao(
+    enet,
     fimDoMesDe(mes),
-  );
+    hoje,
+    tiposQueContam,
+  ).abl_locada;
   return {
     mes,
     faturamento,

@@ -391,6 +391,7 @@ export function BaixarKitDoLuc({
     })),
     hoje,
   );
+  const semArquivo = itens.filter((i) => !i.temArquivo).length;
   async function baixar(): Promise<EstadoAcao> {
     if (!escolhido) return { erro: "Escolha o LUC." };
     window.location.assign(
@@ -447,13 +448,20 @@ export function BaixarKitDoLuc({
               ) : null}
               {!i.temArquivo && (
                 <span className="text-xs font-medium text-red-700">
-                  sem arquivo
+                  sem arquivo ainda
                 </span>
               )}
             </li>
           );
         })}
       </ul>
+      {semArquivo > 0 && (
+        <p className="text-sm text-neutral-600">
+          {semArquivo === itens.length
+            ? "Nenhum documento deste kit tem arquivo ainda: o PDF sai só com a capa, que lista o que falta."
+            : `O PDF sai com os ${itens.length - semArquivo} que têm arquivo; a capa lista os ${semArquivo} que ainda faltam.`}
+        </p>
+      )}
       {avisos.length > 0 && (
         <ul className="flex flex-col gap-1 rounded-xl bg-red-500/[0.06] p-3 text-xs text-red-800">
           {avisos.map((a) => (

@@ -36,6 +36,7 @@ import { com, comAdmin } from "@/server/comercial/base";
 import {
   blocoDosLucs,
   contextoDaRevisao,
+  dadosGuardados,
   kitDosLucs,
   vistoriaDoLuc,
 } from "@/server/comercial/contratos";
@@ -156,19 +157,39 @@ export async function salvarContrato(
   const valores = await pode("comercial.valores.ver");
 
   let statusAtual: StatusContrato = "rascunho";
+  let fichaAtual: string | null = null;
   if (contratoId) {
     const atual = await db
       .from("contratos")
-      .select("tipo, status, dados, atualizado_em")
+      .select("tipo, status, ficha_id, atualizado_em")
       .eq("id", contratoId)
       .maybeSingle();
     if (atual.error) return { erro: erroDoBanco(atual.error, "ler contrato") };
     if (!atual.data || atual.data.tipo !== "contrato")
       return { erro: "Contrato não encontrado." };
-    if (lido && atual.data.atualizado_em !== lido)
+    if (!lido || atual.data.atualizado_em !== lido)
       return { erro: OUTRA_PESSOA };
     statusAtual = atual.data.status as StatusContrato;
-    if (!valores) dados = manterValores(dados, lerDados(atual.data.dados));
+    fichaAtual = atual.data.ficha_id;
+    if (!valores)
+      dados = manterValores(
+        dados,
+        lerDados((await dadosGuardados([contratoId])).get(contratoId)?.dados),
+      );
+  }
+  // A ficha escolhida tem que já ter sido recebida e ser visível (o gatilho a marca como usada).
+  const fichaId = dados.partes.ficha_id;
+  if (fichaId && fichaId !== fichaAtual) {
+    const ficha = await db
+      .from("fichas")
+      .select("situacao")
+      .eq("id", fichaId)
+      .maybeSingle();
+    if (ficha.error) return { erro: erroDoBanco(ficha.error, "ler ficha") };
+    if (ficha.data?.situacao !== "recebida" && ficha.data?.situacao !== "usada")
+      return {
+        erro: "A ficha escolhida não foi encontrada ou ainda não foi recebida. Escolha outra na etapa Partes.",
+      };
   }
 
   const bloco = await blocoDosLucs(dados.imovel.lucs);
@@ -234,7 +255,7 @@ export async function marcarPronto(entrada: {
   const db = await com();
   const atual = await db
     .from("contratos")
-    .select("tipo, status, dados, lucs, atualizado_em")
+    .select("tipo, status, lucs, atualizado_em")
     .eq("id", e.data.id)
     .maybeSingle();
   if (atual.error) return { erro: erroDoBanco(atual.error, "ler contrato") };
@@ -243,7 +264,9 @@ export async function marcarPronto(entrada: {
   if (atual.data.atualizado_em !== e.data.lido) return { erro: OUTRA_PESSOA };
   if (atual.data.status !== "rascunho")
     return { erro: "Este contrato já está pronto para gerar." };
-  const dados = lerDados(atual.data.dados);
+  const dados = lerDados(
+    (await dadosGuardados([e.data.id])).get(e.data.id)?.dados,
+  );
   const faltam = pendencias(
     dados,
     await contextoDaRevisao(await tiposDosAnexos(e.data.id)),
@@ -252,7 +275,6 @@ export async function marcarPronto(entrada: {
     return {
       erro: `Geração bloqueada — faltam: ${resumoDasPendencias(faltam)}.`,
     };
-  await guardarKit(e.data.id, atual.data.lucs);
   const { data, error } = await db
     .from("contratos")
     .update({ status: "pronto", etapa_atual: TOTAL_ETAPAS })
@@ -262,6 +284,7 @@ export async function marcarPronto(entrada: {
   if (error) return { erro: erroDoBanco(error, "marcar pronto") };
   const r = data?.[0];
   if (!r) return { erro: OUTRA_PESSOA };
+  await guardarKit(e.data.id, atual.data.lucs);
   const { id: quem } = await usuarioAtual();
   registrar("contrato_pronto", { contrato: r.id, por: quem });
   refresh();
@@ -300,18 +323,20 @@ export async function salvarDistrato(
   if (distratoId) {
     const atual = await db
       .from("contratos")
-      .select("tipo, dados, atualizado_em")
+      .select("tipo, atualizado_em")
       .eq("id", distratoId)
       .maybeSingle();
     if (atual.error) return { erro: erroDoBanco(atual.error, "ler distrato") };
     if (!atual.data || atual.data.tipo !== "distrato")
       return { erro: "Distrato não encontrado." };
-    if (lido && atual.data.atualizado_em !== lido)
+    if (!lido || atual.data.atualizado_em !== lido)
       return { erro: OUTRA_PESSOA };
     if (!(await pode("comercial.valores.ver")))
       dados = {
         ...dados,
-        pendencias: lerDistrato(atual.data.dados).pendencias,
+        pendencias: lerDistrato(
+          (await dadosGuardados([distratoId])).get(distratoId)?.dados,
+        ).pendencias,
       };
   }
   const linha = {
@@ -373,7 +398,7 @@ export async function carregarFicha(fichaId: string): Promise<FichaCarregada> {
   if (!(await pode("comercial.formulario.ver")))
     return {
       ok: false,
-      erro: "Para puxar os dados da ficha é preciso a permissão de fichas cadastrais (comercial.formulario.ver). Peça a quem tem ou preencha manualmente.",
+      erro: "Para puxar os dados da ficha é preciso a permissão de ver fichas cadastrais. Peça a quem tem ou preencha manualmente.",
     };
   const db = await com();
   const [ficha, dados] = await Promise.all([

@@ -118,7 +118,7 @@ async function Detalhe({ params }: { params: Promise<{ id: string }> }) {
               {atual?.temArquivo ? (
                 (atual.arquivo_nome ?? "PDF")
               ) : (
-                <span className="text-red-700">Sem arquivo</span>
+                <span className="text-red-700">Sem arquivo ainda</span>
               )}
             </Item>
             <Item rotulo="Atualizado por">
@@ -131,6 +131,17 @@ async function Detalhe({ params }: { params: Promise<{ id: string }> }) {
           {situacao === "vencido" && d.ativo && (
             <p className="mt-4 rounded-xl bg-red-500/[0.06] p-3 text-sm text-red-800">
               Documento vencido: suba a versão nova antes do próximo contrato.
+            </p>
+          )}
+          {!atual?.temArquivo && (
+            <p className="mt-4 rounded-xl bg-red-500/[0.06] p-3 text-sm text-red-800">
+              Sem arquivo ainda — suba o PDF
+              {!podeEditar
+                ? " (quem edita o kit faz isso)"
+                : atual
+                  ? " em “Enviar o PDF”"
+                  : " em “Subir nova versão”"}
+              . Até lá, ele não entra no kit baixado.
             </p>
           )}
           <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -220,7 +231,7 @@ async function Detalhe({ params }: { params: Promise<{ id: string }> }) {
                   </a>
                 ) : (
                   <span key="s" className="text-red-700">
-                    sem arquivo
+                    sem arquivo ainda
                   </span>
                 ),
               ],

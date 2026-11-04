@@ -184,3 +184,17 @@ describe("cartões das propostas", () => {
     ).toEqual({ noMes: 2, fechadas: 2, valorFechado: 3810.5 });
   });
 });
+
+describe("propostas no mês, no horário de Brasília", () => {
+  it("a do dia 31 às 22h conta no próprio mês, não no seguinte", () => {
+    const de = (criado_em: string) => ({
+      criado_em,
+      status: "rascunho",
+      valor_final: 0,
+    });
+    // 31/10 22h em Brasília = 01/11 01h UTC.
+    const propostas = [de("2026-11-01T01:00:00Z"), de("2026-11-01T03:00:00Z")];
+    expect(resumoDasPropostas(propostas, "2026-10-01").noMes).toBe(1);
+    expect(resumoDasPropostas(propostas, "2026-11-01").noMes).toBe(1);
+  });
+});

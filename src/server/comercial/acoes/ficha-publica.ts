@@ -137,41 +137,24 @@ export async function salvarFichaPeloLink(
     if (avisos.length && form.get("confirmar") !== "1") return { avisos };
   }
 
-  const agora = new Date().toISOString();
   const doc = documentoDaFicha(r);
-  const { error: e1 } = await comAdmin()
-    .from("ficha_dados")
-    .upsert({
-      ficha_id: ficha.id,
-      documento: doc.length === 11 || doc.length === 14 ? doc : null,
-      respostas: r,
-      assinatura_nome: r.assinatura || null,
-    });
-  if (e1) {
-    console.error("ficha pelo link (dados)", ficha.id, e1);
+  const nome = nomeDaFicha(r) || ficha.nome;
+  // Ficha e respostas numa transação, com o token conferido de novo no banco.
+  const { data, error } = await comAdmin().rpc("gravar_ficha_pelo_link", {
+    p_token: ficha.token,
+    p_tipo: r.tipo || null,
+    p_luc: lucDaFicha(r),
+    p_nome: nome,
+    p_documento: doc.length === 11 || doc.length === 14 ? doc : null,
+    p_respostas: r,
+    p_assinatura: r.assinatura || null,
+    p_enviar: enviar,
+  });
+  if (error) {
+    console.error("ficha pelo link", ficha.id, error);
     return FALHOU;
   }
-  const nome = nomeDaFicha(r) || ficha.nome;
-  const { data, error } = await comAdmin()
-    .from("fichas")
-    .update({
-      tipo: r.tipo || null,
-      luc: lucDaFicha(r),
-      nome,
-      iniciada_em: ficha.iniciada ? undefined : agora,
-      consentimento_em: ficha.consentimentoEm ?? agora,
-      ultimo_acesso_em: agora,
-      ...(enviar ? { situacao: "recebida", recebida_em: agora } : {}),
-    })
-    .eq("id", ficha.id)
-    .eq("token", ficha.token)
-    .eq("situacao", "em_preenchimento")
-    .is("cancelada_em", null)
-    .select("id");
-  if (error || !data?.length) {
-    if (error) console.error("ficha pelo link", ficha.id, error);
-    return error ? FALHOU : inativo("enviada");
-  }
+  if (data !== "ok") return inativo(data as MotivoInativo);
 
   if (!enviar)
     return {

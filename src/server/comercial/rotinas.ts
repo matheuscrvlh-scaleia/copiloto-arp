@@ -8,12 +8,14 @@ import {
 } from "@/lib/comercial/relacionamento";
 import { formatarData } from "@/lib/formato";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
-import type { Permissao } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { registrarDepois } from "@/server/logs";
+import { sociosDasFichasSemSessao } from "./aniversarios";
 import { comAdmin } from "./base";
 import { dadosEnetSemSessao } from "./fontes";
+import { limparPreviasAbandonadas } from "./importacoes";
+import { usuariosComPermissao } from "./usuarios";
 
 // Lembretes do Comercial, uma vez por dia (/api/cron/comercial, service
 // role), só dentro do sistema (nada vai para o locatário): aniversário de
@@ -38,29 +40,6 @@ interface Aviso {
   texto: string;
   href: string;
   chave: string;
-}
-
-/** Usuários ativos com a permissão (individual ou do cargo ativo), como core.pode. */
-async function quemTem(p: Permissao): Promise<string[]> {
-  const core = createAdminClient().schema("core");
-  const [usuarios, individuais, doCargo] = await Promise.all([
-    core.from("usuarios").select("id, cargo_id").eq("ativo", true),
-    core.from("usuario_permissoes").select("usuario_id").eq("permissao", p),
-    core
-      .from("cargo_permissoes")
-      .select("cargo_id, cargos!inner(ativo)")
-      .eq("permissao", p)
-      .eq("cargos.ativo", true),
-  ]);
-  for (const r of [usuarios, individuais, doCargo])
-    if (r.error) throw new Error(`Permissões: ${r.error.message}`);
-  const sim = new Set((individuais.data ?? []).map((x) => x.usuario_id));
-  const cargos = new Set((doCargo.data ?? []).map((x) => x.cargo_id));
-  return (usuarios.data ?? [])
-    .filter(
-      (u) => sim.has(u.id) || (u.cargo_id !== null && cargos.has(u.cargo_id)),
-    )
-    .map((u) => u.id);
 }
 
 /** Grava os avisos para cada pessoa; devolve quantos eram novos. */
@@ -104,9 +83,16 @@ async function lerParametros() {
 type Params = Awaited<ReturnType<typeof lerParametros>>;
 
 async function rotinaAniversarios(hoje: string, p: Params): Promise<number> {
-  const enet = await dadosEnetSemSessao(hoje);
+  const [enet, fichas] = await Promise.all([
+    dadosEnetSemSessao(hoje),
+    sociosDasFichasSemSessao(),
+  ]);
+  // Locatário de exemplo não vai para o sino: com o ENET de exemplo, só os
+  // sócios das fichas reais (sem ligar a contrato fictício).
   const lista = aniversariosParaLembrar(
-    { ...enet, hoje },
+    enet.exemplo
+      ? { lucs: enet.lucs, contratos: [], clientes: [], fichas, hoje }
+      : { ...enet, fichas, hoje },
     p.lembrete_aniversario_dias,
   );
   if (!lista.length) return 0;
@@ -122,12 +108,23 @@ async function rotinaAniversarios(hoje: string, p: Params): Promise<number> {
       texto:
         a.tipo === "contrato"
           ? `${a.anos} ${a.anos === 1 ? "ano" : "anos"} de ARP em ${dia} (${quando}).`
-          : `Dia ${dia} (${quando}). ${a.luc}, ${a.bloco}.`,
+          : [
+              `Dia ${dia} (${quando}).`,
+              [a.luc, a.bloco].filter(Boolean).join(", ").replace(/.+/, "$&."),
+              a.origem === "ficha"
+                ? "Data da ficha cadastral feita no sistema."
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" "),
       href: `/comercial/relacionamento?aba=aniversarios&mes=${Number(a.data.slice(5, 7))}`,
       chave: chaveDoLembrete(a),
     };
   });
-  return avisar(await quemTem("comercial.relacionamento.ver"), avisos);
+  return avisar(
+    await usuariosComPermissao("comercial.relacionamento.ver"),
+    avisos,
+  );
 }
 
 async function rotinaKit(hoje: string, p: Params): Promise<number> {
@@ -159,7 +156,7 @@ async function rotinaKit(hoje: string, p: Params): Promise<number> {
     });
   }
   if (!avisos.length) return 0;
-  return avisar(await quemTem("comercial.kit.editar"), avisos);
+  return avisar(await usuariosComPermissao("comercial.kit.editar"), avisos);
 }
 
 /**
@@ -177,13 +174,24 @@ async function rotinaFotoOcupacao(hoje: string): Promise<number> {
   const enet = await dadosEnetSemSessao(hoje);
   const dias = [somarDias(`${hoje.slice(0, 7)}-01`, -1)];
   if (fimDoMesDe(hoje) === hoje) dias.push(hoje);
-  const fotos = dias.map((d) => fotoDaOcupacao(enet, d, contam));
+  // Foto de dado de exemplo sai marcada (Remover dados de exemplo apaga).
+  const fotos = dias.map((d) => ({
+    ...fotoDaOcupacao(enet, d, hoje, contam),
+    exemplo: enet.exemplo,
+  }));
   const { data, error } = await db
     .from("ocupacao_fotos")
-    .upsert(fotos as (FotoOcupacao & { por_bloco: Json; por_tipo: Json })[], {
-      onConflict: "mes",
-      ignoreDuplicates: true,
-    })
+    .upsert(
+      fotos as (FotoOcupacao & {
+        por_bloco: Json;
+        por_tipo: Json;
+        exemplo: boolean;
+      })[],
+      {
+        onConflict: "mes",
+        ignoreDuplicates: true,
+      },
+    )
     .select("mes");
   if (error) throw new Error(`Foto da ocupação: ${error.message}`);
   return data?.length ?? 0;
@@ -241,6 +249,10 @@ export async function rodarRotinasComercial(
       });
     }
   }
+  // Limpeza, fora da contagem de avisos.
+  await limparPreviasAbandonadas().catch((e) =>
+    console.error("prévias de importação abandonadas", e),
+  );
   const total = resultados.reduce((t, r) => t + r.registros, 0);
   const falhas = resultados.filter((r) => !r.ok);
   if (total > 0 || falhas.length > 0)

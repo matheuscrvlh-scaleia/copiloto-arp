@@ -107,6 +107,8 @@ const entrada: EntradaPainel = {
     luc("AP_01", 0, "Área Publicitária"),
   ],
   tiposOcupacao: new Set(["Loja Comercial"]),
+  tiposMidia: new Set(["Área Publicitária"]),
+  tiposEventos: new Set(["Eventos"]),
   leads: [
     ...Array.from(
       { length: 31 },

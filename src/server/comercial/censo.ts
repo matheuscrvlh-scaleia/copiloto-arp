@@ -280,6 +280,7 @@ export interface ConviteDoLink {
     | "luc"
     | "bloco"
     | "locatario_enet_id"
+    | "exemplo"
   >;
   rodada: Pick<CensoRodada, "id" | "nome" | "inicio" | "fim" | "situacao">;
   resposta: CensoResposta | null;
@@ -288,8 +289,11 @@ export interface ConviteDoLink {
   hoje: string;
 }
 
-/** Opções das listas do Censo e o dia padrão de mensalidade (service role). */
-async function opcoesDoQuestionario(): Promise<{
+/**
+ * Opções das listas do Censo e o dia padrão de mensalidade (service role:
+ * quem chama já conferiu o token ou a permissão).
+ */
+export async function opcoesDoQuestionario(): Promise<{
   opcoes: OpcoesQuestionario;
   diasPadrao: number;
 }> {
@@ -329,7 +333,7 @@ async function montarConvite(
   let q = db
     .from("censo_convites")
     .select(
-      "id, rodada_id, token, empresa_nome, luc, bloco, locatario_enet_id, censo_rodadas!inner(id, nome, inicio, fim, situacao)",
+      "id, rodada_id, token, empresa_nome, luc, bloco, locatario_enet_id, exemplo, censo_rodadas!inner(id, nome, inicio, fim, situacao)",
     );
   q = "token" in filtro ? q.eq("token", filtro.token) : q.eq("id", filtro.id);
   const { data, error } = await q.maybeSingle();

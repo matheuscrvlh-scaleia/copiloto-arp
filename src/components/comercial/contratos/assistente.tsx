@@ -15,6 +15,7 @@ import {
   type StatusContrato,
   TOTAL_ETAPAS,
 } from "@/lib/comercial/contrato";
+import { partesDaFicha } from "@/lib/comercial/contrato-ficha";
 import {
   pendencias as calcularPendencias,
   checklist,
@@ -24,6 +25,7 @@ import {
 import { blocoDoLuc, codigoDoBloco } from "@/lib/comercial/kit";
 import { formatarDataHora } from "@/lib/formato";
 import {
+  carregarFicha,
   marcarPronto,
   salvarContrato,
 } from "@/server/comercial/acoes/contratos";
@@ -43,7 +45,7 @@ import {
 } from "./etapa-final";
 import { EtapaGarantia } from "./etapa-garantia";
 import { EtapaImovel } from "./etapa-imovel";
-import { EtapaPartes } from "./etapa-partes";
+import { EtapaPartes, type QuadrosDaFicha } from "./etapa-partes";
 
 // Assistente de 8 etapas (spec 4.11), no jeito do protótipo: menu de etapas
 // numeradas (✓ nas concluídas, clique leva direto), topo com o título da
@@ -85,6 +87,7 @@ export function Assistente({
   anexos,
   hoje,
   pode,
+  fichaInicial = null,
   children,
 }: {
   inicial: InicialDoContrato;
@@ -96,6 +99,8 @@ export function Assistente({
   anexos: AnexoDoContrato[];
   hoje: string;
   pode: { editar: boolean; valores: boolean; fichas: boolean; gerar: boolean };
+  /** Ficha a importar ao abrir ("Usar em contrato" na ficha), já conferida no servidor. */
+  fichaInicial?: FichaParaContrato | null;
   /** Histórico de versões (montado no servidor). */
   children?: React.ReactNode;
 }) {
@@ -115,6 +120,35 @@ export function Assistente({
   const [salvando, iniciar] = useTransition();
   const foco = useRef<string | null>(null);
   const editar = pode.editar;
+  const [quadros, setQuadros] = useState<QuadrosDaFicha | null>(null);
+  const [carregandoFicha, setCarregandoFicha] = useState(false);
+  const fichaPuxada = useRef(false);
+
+  // "Usar em contrato": importa a ficha uma vez, como se escolhida na etapa 2.
+  useEffect(() => {
+    if (!fichaInicial || !editar || fichaPuxada.current) return;
+    fichaPuxada.current = true;
+    setCarregandoFicha(true);
+    void carregarFicha(fichaInicial.id)
+      .catch(() => ({
+        ok: false as const,
+        erro: "Não foi possível ler a ficha. Tente de novo.",
+      }))
+      .then((r) => {
+        setCarregandoFicha(false);
+        if (!r.ok) return notificar("erro", r.erro);
+        setD((x) => ({
+          ...x,
+          partes: partesDaFicha(r.ficha, x.partes, r.nome),
+        }));
+        setQuadros({
+          preenchidos: r.ficha.preenchidos,
+          conferencias: r.ficha.conferencias,
+        });
+        setSujo(true);
+        notificar("ok", "Ficha importada. Confira os dados antes de avançar.");
+      });
+  }, [fichaInicial, editar]);
 
   useEffect(() => {
     if (!sujo) return;
@@ -341,6 +375,9 @@ export function Assistente({
                 aoMudar={(v) => mudar("partes", v)}
                 fichas={fichas}
                 podeFichas={pode.fichas}
+                quadros={quadros}
+                aoMudarQuadros={setQuadros}
+                carregandoFicha={carregandoFicha}
               />
             )}
             {etapa === 3 && (

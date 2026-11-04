@@ -1,6 +1,6 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
@@ -28,6 +28,8 @@ import {
 } from "@/lib/comercial/importacao";
 import { formatarDocumento } from "@/lib/documentos";
 import { formatarData, formatarDataHora } from "@/lib/formato";
+import { paraBrasilia } from "@/lib/os/tempo";
+import { podeAgora } from "@/server/auth";
 import { com, comAdmin, contextoCom } from "@/server/comercial/base";
 import {
   linkDaFicha,
@@ -69,6 +71,13 @@ function venceEm(dias: number): string {
   return new Date(Date.now() + dias * 86_400_000).toISOString();
 }
 
+/** Validade em dd/mm/aaaa no dia de Brasília (o instante está em UTC). */
+const diaDe = (iso: string) => formatarData(paraBrasilia(new Date(iso)).data);
+
+// O token não sai pela API (o banco não deixa a sessão ler a coluna): nasce
+// aqui e só volta para quem tem comercial.formulario.link.
+const novoToken = () => randomBytes(32).toString("hex");
+
 /** "Gerar link": link único, com a validade dos parâmetros. */
 export async function gerarLinkFicha(
   _: EstadoDoLink,
@@ -86,18 +95,16 @@ export async function gerarLinkFicha(
   if (!pode("comercial.formulario.link"))
     return { erro: "Você não tem permissão para gerar o link da ficha." };
   const expira = venceEm(await validadeDoLink());
-  const { data, error } = await (await com())
-    .from("fichas")
-    .insert({
-      luc: d.data.luc && d.data.luc !== LUC_NAO_SEI ? d.data.luc : null,
-      tipo: d.data.tipo,
-      nome: d.data.nome ? caixaAlta(d.data.nome) : null,
-      rd_oportunidade: d.data.rd || null,
-      expira_em: expira,
-      gerada_por: usuario.id,
-    })
-    .select("token")
-    .single();
+  const token = novoToken();
+  const { error } = await (await com()).from("fichas").insert({
+    token,
+    luc: d.data.luc && d.data.luc !== LUC_NAO_SEI ? d.data.luc : null,
+    tipo: d.data.tipo,
+    nome: d.data.nome ? caixaAlta(d.data.nome) : null,
+    rd_oportunidade: d.data.rd || null,
+    expira_em: expira,
+    gerada_por: usuario.id,
+  });
   if (error) {
     console.error("gerar link da ficha", error);
     return { erro: "Não foi possível gerar o link. Tente de novo." };
@@ -105,14 +112,18 @@ export async function gerarLinkFicha(
   refresh();
   return {
     ok: "Link gerado. Copie e envie ao interessado.",
-    link: linkDaFicha(data.token),
-    validoAte: formatarData(expira),
+    link: linkDaFicha(token),
+    validoAte: diaDe(expira),
   };
 }
 
 const umaFicha = z.object({ id: z.uuid() });
 
-/** "Reenviar": o mesmo link volta a valer pela validade dos parâmetros. */
+/**
+ * "Reenviar": o link volta a valer pela validade dos parâmetros. Link
+ * cancelado volta com token novo (quem tinha o antigo não abre mais o que
+ * foi salvo); vencido ou ainda valendo continua o mesmo.
+ */
 export async function reenviarLinkFicha(
   _: EstadoDoLink,
   form: FormData,
@@ -123,24 +134,53 @@ export async function reenviarLinkFicha(
   if (!pode("comercial.formulario.link"))
     return { erro: "Você não tem permissão para reenviar o link." };
   const expira = venceEm(await validadeDoLink());
-  const { data, error } = await (await com())
+  const db = await com();
+  const FALHOU = { erro: "Não foi possível reenviar. Tente de novo." };
+  let token = novoToken();
+  const cancelada = await db
     .from("fichas")
-    .update({ expira_em: expira, cancelada_em: null })
+    .update({ expira_em: expira, cancelada_em: null, token })
     .eq("id", d.data.id)
     .eq("situacao", "em_preenchimento")
-    .select("token");
-  if (error) {
-    console.error("reenviar link da ficha", error);
-    return { erro: "Não foi possível reenviar. Tente de novo." };
+    .not("cancelada_em", "is", null)
+    .select("id");
+  if (cancelada.error) {
+    console.error("reenviar link da ficha", cancelada.error);
+    return FALHOU;
   }
-  const token = data?.[0]?.token;
-  if (!token)
-    return { erro: "Só o link de ficha ainda não enviada pode ser reenviado." };
+  if (!cancelada.data?.length) {
+    const { data, error } = await db
+      .from("fichas")
+      .update({ expira_em: expira })
+      .eq("id", d.data.id)
+      .eq("situacao", "em_preenchimento")
+      .select("id");
+    if (error) {
+      console.error("reenviar link da ficha", error);
+      return FALHOU;
+    }
+    if (!data?.length)
+      return {
+        erro: "Só o link de ficha ainda não enviada pode ser reenviado.",
+      };
+    if (!(await podeAgora("comercial.formulario.link")))
+      return { erro: "Você não tem permissão para reenviar o link." };
+    const atual = await comAdmin()
+      .from("fichas")
+      .select("token")
+      .eq("id", d.data.id)
+      .single();
+    if (atual.error) {
+      console.error("token da ficha", atual.error);
+      return FALHOU;
+    }
+    token = atual.data.token;
+  }
   refresh();
   return {
-    ok: `Link valendo até ${formatarData(expira)}. Copie e envie de novo.`,
+    ok: `Link valendo até ${diaDe(expira)}. Copie e envie de novo.`,
     link: linkDaFicha(token),
-    validoAte: formatarData(expira),
+    validoAte: diaDe(expira),
   };
 }
 

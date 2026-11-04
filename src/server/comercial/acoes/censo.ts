@@ -33,6 +33,7 @@ import {
   type ConviteDoLink,
   conviteDoLink,
   conviteParaLancar,
+  opcoesDoQuestionario,
 } from "@/server/comercial/censo";
 import { dadosEnet } from "@/server/comercial/fontes";
 import {
@@ -86,6 +87,7 @@ const envelope = z.discriminatedUnion("modo", [
     token: z.string().regex(/^[A-Za-z0-9]{32,64}$/),
   }),
   z.object({ modo: z.literal("presencial"), convite: uuid }),
+  z.object({ modo: z.literal("demonstracao") }),
 ]);
 
 function camposDoForm(form: FormData): Record<string, string | string[]> {
@@ -128,6 +130,20 @@ export async function enviarRespostaCenso(
     convite: form.get("convite") ?? undefined,
   });
   if (!e.success) return LINK_INATIVO;
+  // Prévia da equipe: confere as respostas como no envio, sem gravar nada.
+  if (e.data.modo === "demonstracao") {
+    if (!(await podeAgora("comercial.censo.ver"))) return SEM_PERMISSAO;
+    const { opcoes } = await opcoesDoQuestionario();
+    const v = validarQuestionario(camposDoForm(form), opcoes);
+    return v.ok
+      ? {
+          ok: "Demonstração: as respostas passaram na conferência. Nada foi gravado.",
+        }
+      : {
+          erro: "Confira as respostas marcadas antes de enviar.",
+          erros: v.erros,
+        };
+  }
 
   let c: ConviteDoLink | null;
   let lancadaPor: string | null = null;
@@ -168,6 +184,7 @@ export async function enviarRespostaCenso(
     : await db.from("censo_respostas").insert({
         ...linha,
         origem: lancadaPor ? "presencial" : "link",
+        exemplo: c.convite.exemplo,
         lancada_por: lancadaPor,
       });
   if (error) {
@@ -229,7 +246,8 @@ async function convitesQueFaltam(rodada: string): Promise<number> {
   const { data, error } = await (await com())
     .from("censo_convites")
     .upsert(
-      novos.map((n) => ({ ...n, rodada_id: rodada })),
+      // Empresa do ENET de exemplo: convite marcado (Remover dados de exemplo apaga).
+      novos.map((n) => ({ ...n, rodada_id: rodada, exemplo: enet.exemplo })),
       { onConflict: "rodada_id,locatario_enet_id", ignoreDuplicates: true },
     )
     .select("id");
