@@ -727,6 +727,7 @@ export type Database = {
       fichas: {
         Row: {
           atualizado_em: string
+          cancelada_em: string | null
           consentimento_em: string | null
           exemplo: boolean
           expira_em: string | null
@@ -739,6 +740,7 @@ export type Database = {
           luc: string | null
           nome: string | null
           origem: string
+          rd_oportunidade: string | null
           recebida_em: string | null
           situacao: string
           tipo: string | null
@@ -748,6 +750,7 @@ export type Database = {
         }
         Insert: {
           atualizado_em?: string
+          cancelada_em?: string | null
           consentimento_em?: string | null
           exemplo?: boolean
           expira_em?: string | null
@@ -760,6 +763,7 @@ export type Database = {
           luc?: string | null
           nome?: string | null
           origem?: string
+          rd_oportunidade?: string | null
           recebida_em?: string | null
           situacao?: string
           tipo?: string | null
@@ -769,6 +773,7 @@ export type Database = {
         }
         Update: {
           atualizado_em?: string
+          cancelada_em?: string | null
           consentimento_em?: string | null
           exemplo?: boolean
           expira_em?: string | null
@@ -781,6 +786,7 @@ export type Database = {
           luc?: string | null
           nome?: string | null
           origem?: string
+          rd_oportunidade?: string | null
           recebida_em?: string | null
           situacao?: string
           tipo?: string | null

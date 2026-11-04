@@ -1,0 +1,490 @@
+import "server-only";
+import { createHash, randomUUID } from "node:crypto";
+import { refresh } from "next/cache";
+import { after } from "next/server";
+import { cache } from "react";
+import { z } from "zod";
+import {
+  type Aba,
+  aplicarEscolhas,
+  CAMPO_ARQUIVO,
+  CAMPO_IMPORTACAO,
+  CAMPO_SUBSTITUIR,
+  contarPrevia,
+  type EstadoConfirmacao,
+  type EstadoPrevia,
+  escolhasDoForm,
+  type ImportacaoAnterior,
+  juntarAvisos,
+  LIMITE_ARQUIVO_MB,
+  type LinhaLida,
+  type ResultadoLeitura,
+  TIPOS_IMPORTACAO,
+  TIPOS_ORDEM,
+  type TipoImportacao,
+} from "@/lib/comercial/importacao";
+import { decodificarTexto, lerCsv } from "@/lib/marketing/parametros";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { Json } from "@/lib/supabase/database.types";
+import { createClient } from "@/lib/supabase/server";
+import { usuarioAtual } from "@/server/auth";
+import type { Importacao } from "@/server/comercial/base";
+
+// Importações do histórico (spec 4.13): a leitura do histórico da aba e o
+// trabalho comum de prévia e confirmação. Cada tipo (Censo, Fichas, Pesquisa,
+// Feedbacks) só passa o leitor e a gravação:
+//
+//   export async function previaImportacaoX(_: EstadoPrevia, form: FormData) {
+//     return prepararPrevia("x", form, lerX);
+//   }
+//   export async function confirmarImportacaoX(_: EstadoConfirmacao, form: FormData) {
+//     return confirmarImportacao("x", form, lerX, gravarX);
+//   }
+//
+// Tudo com a sessão: o RLS de comercial.importacoes e do bucket confere a
+// permissão do tipo (comercial.pode_importar) de novo.
+
+const BUCKET = "comercial";
+
+/** Erro com mensagem para a tela (o leitor ou a gravação lançam). */
+export class ErroImportacao extends Error {
+  constructor(mensagem: string) {
+    super(mensagem);
+    this.name = "ErroImportacao";
+  }
+}
+
+export type Leitor<T> = (
+  abas: Aba[],
+  arquivo: { nome: string },
+) => ResultadoLeitura<T> | Promise<ResultadoLeitura<T>>;
+
+export interface ContextoGravacao {
+  importacaoId: string;
+  usuarioId: string;
+}
+
+/** Grava as linhas que entram (com importacao_id) e devolve quantas gravou. */
+export type Gravacao<T> = (
+  linhas: LinhaLida<T>[],
+  ctx: ContextoGravacao,
+) => Promise<number>;
+
+export const sha256 = (bytes: Uint8Array) =>
+  createHash("sha256").update(bytes).digest("hex");
+
+/** Permissão do tipo conferida agora no banco (a mesma regra do RLS). */
+export async function podeImportar(tipo: TipoImportacao): Promise<boolean> {
+  const { data, error } = await (await createClient())
+    .schema("comercial")
+    .rpc("pode_importar", { p_tipo: tipo });
+  if (error) throw error;
+  return data === true;
+}
+
+/** Tipos que a pessoa pode importar (para as abas e o seletor). */
+export const tiposQuePodeImportar = cache(
+  async (): Promise<TipoImportacao[]> => {
+    const ok = await Promise.all(TIPOS_ORDEM.map((t) => podeImportar(t)));
+    return TIPOS_ORDEM.filter((_, i) => ok[i]);
+  },
+);
+
+/** Abas de um .xlsx ou de um .csv (uma aba só). */
+export async function lerAbas(bytes: Uint8Array, nome: string): Promise<Aba[]> {
+  if (/\.csv$/i.test(nome))
+    return [{ nome, linhas: lerCsv(decodificarTexto(bytes)) }];
+  const { default: readXlsxFile } = await import("read-excel-file/node");
+  const abas = (await readXlsxFile(Buffer.from(bytes))) as {
+    sheet: string;
+    data: Aba["linhas"];
+  }[];
+  return abas.map((a) => ({ nome: a.sheet, linhas: a.data }));
+}
+
+const nomeSeguro = (nome: string) =>
+  nome
+    .normalize("NFD")
+    .replace(/[^\w.-]+/g, "_")
+    .slice(-80) || "arquivo";
+
+async function confirmadaComMesmoArquivo(
+  tipo: TipoImportacao,
+  hash: string,
+): Promise<ImportacaoAnterior | null> {
+  const { data } = await (await createClient())
+    .schema("comercial")
+    .from("importacoes")
+    .select("id, confirmado_em, confirmado_por, linhas")
+    .eq("tipo", tipo)
+    .eq("arquivo_sha256", hash)
+    .eq("status", "confirmada")
+    .maybeSingle();
+  if (!data) return null;
+  const nomes = await nomesDeUsuarios(
+    [data.confirmado_por].filter((x): x is string => !!x),
+  );
+  return {
+    importacaoId: data.id,
+    em: data.confirmado_em ?? "",
+    por: data.confirmado_por
+      ? (nomes.get(data.confirmado_por) ?? "Usuário removido")
+      : "—",
+    linhas: data.linhas,
+  };
+}
+
+const LIMITE_AVISOS_GUARDADOS = 500;
+
+/**
+ * Prévia: confere a permissão do tipo, lê o arquivo com o leitor do tipo,
+ * guarda o arquivo no bucket e registra a importação como "prévia". Nada do
+ * dado é gravado aqui.
+ */
+export async function prepararPrevia<T>(
+  tipo: TipoImportacao,
+  form: FormData,
+  ler: Leitor<T>,
+): Promise<EstadoPrevia> {
+  if (!(await podeImportar(tipo)))
+    return { erro: "Você não tem permissão para importar este tipo." };
+  const arquivo = form.get(CAMPO_ARQUIVO);
+  if (!(arquivo instanceof File) || arquivo.size === 0)
+    return { erro: "Escolha o arquivo." };
+  if (arquivo.size > LIMITE_ARQUIVO_MB * 1024 * 1024)
+    return { erro: `O arquivo passa de ${LIMITE_ARQUIVO_MB} MB.` };
+  const nome = arquivo.name.slice(0, 200);
+  if (!/\.(xlsx|csv)$/i.test(nome))
+    return { erro: "Envie a planilha em Excel (.xlsx) ou CSV." };
+
+  const bytes = new Uint8Array(await arquivo.arrayBuffer());
+  let resultado: ResultadoLeitura<T>;
+  try {
+    resultado = await ler(await lerAbas(bytes, nome), { nome });
+  } catch (erro) {
+    if (erro instanceof ErroImportacao) return { erro: erro.message };
+    console.error(`prévia da importação ${tipo}`, erro);
+    return {
+      erro: `Não consegui ler o arquivo. Confira se é a ${TIPOS_IMPORTACAO[tipo].arquivo.toLowerCase()}.`,
+    };
+  }
+  if ("erro" in resultado) return { erro: resultado.erro };
+  if ("cabecalho" in resultado) return { cabecalho: resultado.cabecalho };
+
+  const { colunas, linhas, avisos: gerais } = resultado.ok;
+  const hash = sha256(bytes);
+  const [usuario, jaImportado, supabase] = await Promise.all([
+    usuarioAtual(),
+    confirmadaComMesmoArquivo(tipo, hash),
+    createClient(),
+  ]);
+  const id = randomUUID();
+  const caminho = `importacoes/${tipo}/${id}/${nomeSeguro(nome)}`;
+  const envio = await supabase.storage.from(BUCKET).upload(caminho, bytes, {
+    contentType: arquivo.type || "application/octet-stream",
+    upsert: false,
+  });
+  if (envio.error) {
+    console.error("upload da importação", envio.error);
+    return { erro: "Não foi possível guardar o arquivo. Tente de novo." };
+  }
+
+  const itens = linhas.map(({ dados: _, ...l }) => l);
+  const contagem = contarPrevia(itens);
+  const avisos = juntarAvisos(gerais, linhas);
+  const { error } = await supabase
+    .schema("comercial")
+    .from("importacoes")
+    .insert({
+      id,
+      tipo,
+      arquivo_nome: nome,
+      arquivo_path: caminho,
+      arquivo_sha256: hash,
+      linhas: contagem.linhas,
+      duplicadas: contagem.duplicadas,
+      com_aviso: contagem.comAviso,
+      avisos: avisos.slice(0, LIMITE_AVISOS_GUARDADOS) as unknown as Json,
+      enviado_por: usuario.id,
+    });
+  if (error) {
+    console.error("registro da importação", error);
+    return { erro: "Não foi possível registrar a importação. Tente de novo." };
+  }
+  return {
+    previa: {
+      importacaoId: id,
+      tipo,
+      arquivo: nome,
+      ...contagem,
+      colunas,
+      itens,
+      avisos,
+      jaImportado,
+    },
+  };
+}
+
+const confirmacao = z.object({
+  [CAMPO_IMPORTACAO]: z.uuid(),
+  [CAMPO_SUBSTITUIR]: z.preprocess((v) => v === "on", z.boolean()),
+});
+
+/**
+ * Confirmação: relê o arquivo guardado, aplica as escolhas da prévia, desfaz
+ * a importação anterior do mesmo arquivo se a pessoa aceitou substituir,
+ * grava pelo `gravar` do tipo e marca a importação como confirmada. Se a
+ * gravação falhar no meio, o que entrou é desfeito.
+ */
+export async function confirmarImportacao<T>(
+  tipo: TipoImportacao,
+  form: FormData,
+  ler: Leitor<T>,
+  gravar: Gravacao<T>,
+): Promise<EstadoConfirmacao> {
+  if (!(await podeImportar(tipo)))
+    return { erro: "Você não tem permissão para importar este tipo." };
+  const campos = confirmacao.safeParse({
+    [CAMPO_IMPORTACAO]: form.get(CAMPO_IMPORTACAO),
+    [CAMPO_SUBSTITUIR]: form.get(CAMPO_SUBSTITUIR),
+  });
+  if (!campos.success)
+    return { erro: "Prévia inválida. Envie o arquivo de novo." };
+  const id = campos.data[CAMPO_IMPORTACAO];
+  const substituir = campos.data[CAMPO_SUBSTITUIR];
+
+  const supabase = await createClient();
+  const com = supabase.schema("comercial");
+  const { data: imp } = await com
+    .from("importacoes")
+    .select("*")
+    .eq("id", id)
+    .eq("tipo", tipo)
+    .maybeSingle();
+  if (!imp || !imp.arquivo_path)
+    return { erro: "Importação não encontrada. Envie o arquivo de novo." };
+  if (imp.status !== "previa")
+    return { erro: "Esta prévia já foi usada. Envie o arquivo de novo." };
+
+  const anterior = await confirmadaComMesmoArquivo(tipo, imp.arquivo_sha256);
+  if (anterior && !substituir)
+    return {
+      erro: "Este arquivo já foi importado. Marque “Substituir” para trocar a importação anterior.",
+    };
+
+  const baixado = await supabase.storage
+    .from(BUCKET)
+    .download(imp.arquivo_path);
+  if (baixado.error)
+    return { erro: "Não encontrei o arquivo enviado. Envie de novo." };
+  const bytes = new Uint8Array(await baixado.data.arrayBuffer());
+  let resultado: ResultadoLeitura<T>;
+  try {
+    resultado = await ler(await lerAbas(bytes, imp.arquivo_nome), {
+      nome: imp.arquivo_nome,
+    });
+  } catch (erro) {
+    if (erro instanceof ErroImportacao) return { erro: erro.message };
+    console.error(`confirmação da importação ${tipo}`, erro);
+    return { erro: "Não consegui ler o arquivo de novo. Envie outra vez." };
+  }
+  if (!("ok" in resultado))
+    return {
+      erro: "erro" in resultado ? resultado.erro : "Cabeçalho diferente.",
+    };
+
+  const linhas = aplicarEscolhas(resultado.ok.linhas, escolhasDoForm(form));
+  const entram = linhas.filter((l) => l.entra);
+  const usuario = await usuarioAtual();
+
+  if (anterior) {
+    const { error } = await com.rpc("desfazer_importacao", {
+      p_id: anterior.importacaoId,
+    });
+    if (error) return erroDoBanco(error, "desfazer a importação anterior");
+  }
+
+  let gravadas: number;
+  try {
+    gravadas = await gravar(entram, {
+      importacaoId: id,
+      usuarioId: usuario.id,
+    });
+  } catch (erro) {
+    await limparGravacaoParcial(id);
+    if (erro instanceof ErroImportacao)
+      return { erro: comAnterior(erro.message, !!anterior) };
+    console.error(`gravação da importação ${tipo}`, erro);
+    return {
+      erro: comAnterior(
+        "Não foi possível gravar a importação. Nada deste arquivo ficou gravado.",
+        !!anterior,
+      ),
+    };
+  }
+
+  const contagem = contarPrevia(linhas);
+  const { error } = await com
+    .from("importacoes")
+    .update({
+      status: "confirmada",
+      linhas: contagem.linhas,
+      duplicadas: contagem.duplicadas,
+      com_aviso: contagem.comAviso,
+      confirmado_por: usuario.id,
+      confirmado_em: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) {
+    await limparGravacaoParcial(id);
+    return erroDoBanco(error, "confirmar a importação");
+  }
+
+  logImportacao("confirmada", tipo, id, usuario.id, { gravadas });
+  refresh();
+  return {
+    ok: `${gravadas} registro(s) importado(s).`,
+    importacaoId: id,
+    gravadas,
+  };
+}
+
+const comAnterior = (msg: string, desfeita: boolean) =>
+  desfeita ? `${msg} A importação anterior foi desfeita.` : msg;
+
+// Marca como confirmada só para o desfazer_importacao apagar o que entrou.
+async function limparGravacaoParcial(id: string): Promise<void> {
+  const com = (await createClient()).schema("comercial");
+  const marcada = await com
+    .from("importacoes")
+    .update({ status: "confirmada" })
+    .eq("id", id);
+  if (marcada.error) {
+    console.error("limpeza da importação", marcada.error);
+    return;
+  }
+  const { error } = await com.rpc("desfazer_importacao", { p_id: id });
+  if (error) console.error("limpeza da importação", error);
+}
+
+export function erroDoBanco(
+  error: { message: string; code?: string },
+  oQue: string,
+): EstadoConfirmacao {
+  if (error.code === "42501")
+    return { erro: "Você não tem permissão para importar este tipo." };
+  if (error.code === "23505")
+    return { erro: "Este arquivo já foi importado. Recarregue a tela." };
+  console.error(oQue, error);
+  return { erro: `Não foi possível ${oQue}. Tente de novo.` };
+}
+
+/** Registro no log do servidor, depois de responder. */
+export function logImportacao(
+  acao: "confirmada" | "desfeita",
+  tipo: TipoImportacao,
+  id: string,
+  usuarioId: string,
+  detalhes: Record<string, unknown> = {},
+): void {
+  after(() =>
+    console.info(
+      JSON.stringify({
+        evento: `comercial_importacao_${acao}`,
+        tipo,
+        importacao: id,
+        usuario: usuarioId,
+        ...detalhes,
+      }),
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Leitura: histórico da aba Importações
+// ---------------------------------------------------------------------------
+
+export interface ImportacaoNoHistorico {
+  id: string;
+  tipo: TipoImportacao;
+  arquivo: string;
+  status: "previa" | "confirmada" | "desfeita";
+  linhas: number;
+  duplicadas: number;
+  comAviso: number;
+  enviadoPor: string;
+  enviadoEm: string;
+  confirmadoPor: string | null;
+  confirmadoEm: string | null;
+  desfeitoPor: string | null;
+  desfeitoEm: string | null;
+}
+
+export const LIMITE_IMPORTACOES = 100;
+
+/**
+ * Importações que a pessoa pode ver (o RLS filtra por tipo), da mais nova
+ * para a mais antiga, sem as prévias abandonadas.
+ */
+export const historicoImportacoes = cache(
+  async (): Promise<ImportacaoNoHistorico[]> => {
+    const { data, error } = await (await createClient())
+      .schema("comercial")
+      .from("importacoes")
+      .select("*")
+      .neq("status", "previa")
+      .order("criado_em", { ascending: false })
+      .limit(LIMITE_IMPORTACOES);
+    if (error) throw new Error(`Falha ao ler as importações: ${error.message}`);
+    const linhas = (data ?? []) as Importacao[];
+    // Service role só para quem importa algum tipo (a mesma regra do RLS).
+    const pode = linhas.length > 0 && (await tiposQuePodeImportar()).length > 0;
+    const nomes = await nomesDeUsuarios(
+      !pode
+        ? []
+        : linhas.flatMap((l) =>
+            [l.enviado_por, l.confirmado_por, l.desfeito_por].filter(
+              (x): x is string => !!x,
+            ),
+          ),
+    );
+    const nome = (id: string | null) =>
+      id ? (nomes.get(id) ?? "Usuário removido") : null;
+    return linhas.map((l) => ({
+      id: l.id,
+      tipo: l.tipo as TipoImportacao,
+      arquivo: l.arquivo_nome,
+      status: l.status as ImportacaoNoHistorico["status"],
+      linhas: l.linhas,
+      duplicadas: l.duplicadas,
+      comAviso: l.com_aviso,
+      enviadoPor: nome(l.enviado_por) ?? "—",
+      enviadoEm: l.criado_em,
+      confirmadoPor: nome(l.confirmado_por),
+      confirmadoEm: l.confirmado_em,
+      desfeitoPor: nome(l.desfeito_por),
+      desfeitoEm: l.desfeito_em,
+    }));
+  },
+);
+
+/**
+ * Nomes de quem enviou, confirmou ou alterou. O RLS de core.usuarios só
+ * mostra o próprio nome: lê pela service role só os ids que a pessoa já viu
+ * pelo RLS (das importações ou do histórico do módulo).
+ */
+export async function nomesDeUsuarios(
+  ids: string[],
+): Promise<Map<string, string>> {
+  const unicos = [...new Set(ids)];
+  const nomes = new Map<string, string>();
+  if (!unicos.length) return nomes;
+  const { data, error } = await createAdminClient()
+    .schema("core")
+    .from("usuarios")
+    .select("id, nome")
+    .in("id", unicos);
+  if (error) console.error("nomes de usuários do comercial", error);
+  for (const u of data ?? []) nomes.set(u.id, u.nome);
+  return nomes;
+}
