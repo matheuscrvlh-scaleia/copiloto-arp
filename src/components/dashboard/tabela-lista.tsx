@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation";
 import { Fragment, useMemo, useState } from "react";
 import { type Detalhe, useAbrirDetalhe } from "@/components/modal-detalhe";
 
-// Lista do padrão do Marketing (spec 4.3): busca por texto, ordenação
+// Lista do padrão das telas de consulta (spec 4.3): busca por texto, ordenação
 // clicando na coluna, total no rodapé, subtotal por grupo que a pessoa liga
 // e desliga, e clicar na linha abre o detalhe (página ou modal). A tabela
 // larga rola dentro do quadro, nunca a página. As células chegam prontas do
 // servidor; `ordem` traz o valor cru de cada coluna para ordenar.
 
-export interface ColunaMkt {
+export interface ColunaLista {
   titulo: string;
   numero?: boolean;
   /** Dica no cabeçalho (ex.: "não informado pela plataforma"). */
@@ -21,7 +21,7 @@ export interface ColunaMkt {
   classe?: string;
 }
 
-export interface LinhaMkt {
+export interface LinhaLista {
   chave: string;
   celulas: React.ReactNode[];
   /** Valor para ordenar, coluna a coluna (null vai para o fim). */
@@ -40,7 +40,7 @@ export interface LinhaMkt {
 
 const sem = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export function TabelaMkt({
+export function TabelaLista({
   colunas,
   linhas,
   rodape,
@@ -53,8 +53,8 @@ export function TabelaMkt({
   alturaMax,
   caber = false,
 }: {
-  colunas: ColunaMkt[];
-  linhas: LinhaMkt[];
+  colunas: ColunaLista[];
+  linhas: LinhaLista[];
   /** Total de todas as linhas (não muda com a busca: é o total do período). */
   rodape?: React.ReactNode[];
   /** Subtotal de cada grupo, pela chave do grupo. */
@@ -99,7 +99,7 @@ export function TabelaMkt({
 
   const grupos = useMemo(() => {
     if (!agrupar || !subtotais) return null;
-    const mapa = new Map<string, LinhaMkt[]>();
+    const mapa = new Map<string, LinhaLista[]>();
     for (const l of visiveis) {
       const g = l.grupo ?? "";
       mapa.set(g, [...(mapa.get(g) ?? []), l]);
@@ -115,10 +115,10 @@ export function TabelaMkt({
     );
   }
 
-  const alinhar = (c?: ColunaMkt) =>
+  const alinhar = (c?: ColunaLista) =>
     `${c?.numero ? "text-right tabular-nums whitespace-nowrap" : "text-left"} ${c?.classe ?? ""}`;
 
-  const linha = (l: LinhaMkt) => {
+  const linha = (l: LinhaLista) => {
     const clicavel = Boolean(l.href || (l.detalhe && abrir));
     const conteudo = l.celulas.map((c, i) => (
       <td

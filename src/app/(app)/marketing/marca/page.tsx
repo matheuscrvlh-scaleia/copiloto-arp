@@ -2,18 +2,18 @@ import { FileDown } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
+import {
+  AbasDaTela,
+  Fonte,
+  hrefCom,
+  TopoDaTela,
+} from "@/components/dashboard/tela";
 import { TOM } from "@/components/estilos";
 import { Arquivos } from "@/components/marketing/marca/arquivos";
 import { BlocoEditavel } from "@/components/marketing/marca/bloco-editavel";
 import { ConteudoBloco } from "@/components/marketing/marca/conteudo";
 import { Historico } from "@/components/marketing/marca/historico";
 import { Revisor } from "@/components/marketing/marca/revisor";
-import {
-  AbasMkt,
-  Fonte,
-  hrefCom,
-  TopoDaTela,
-} from "@/components/marketing/tela";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
@@ -169,7 +169,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         }
       />
 
-      <AbasMkt abas={abas} ativa={aba} rotulo="Partes da base da marca" />
+      <AbasDaTela abas={abas} ativa={aba} rotulo="Partes da base da marca" />
 
       {(aba === "plataforma" || aba === "publico" || aba === "identidade") && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

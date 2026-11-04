@@ -1,7 +1,7 @@
 import { Info, Star } from "lucide-react";
 import { SeloStatus } from "@/components/dashboard/indicador";
-import { TabelaMkt } from "@/components/marketing/tabela";
-import { AbrirNaFerramenta } from "@/components/marketing/tela";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
+import { AbrirNaFerramenta } from "@/components/dashboard/tela";
 import { formatarData, formatarNumero } from "@/lib/formato";
 import {
   type AvaliacaoLinha,
@@ -111,7 +111,7 @@ export function ListaDeAvaliacoes({
     : null;
   const respondidas = avaliacoes.filter((a) => a.respondida).length;
   return (
-    <TabelaMkt
+    <TabelaLista
       colunas={COLUNAS}
       ordemInicial={{ coluna: 0, desc: true }}
       placeholder="Buscar no comentário, autor ou tema…"

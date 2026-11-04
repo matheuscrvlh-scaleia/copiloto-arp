@@ -1,7 +1,7 @@
 import type { BuscaLinha, Ga4Linha } from "@/lib/marketing/fontes";
 import { diaDaSemana, somarDias } from "@/lib/marketing/periodo";
+import { arred, sorteio } from "@/lib/sorteio";
 import { type DadosAnuncios, JANELA_DIAS } from "./anuncios";
-import { arred, sorteio } from "./sorteio";
 
 // Site de exemplo: GA4 por dia × canal × origem/mídia × campanha ×
 // dispositivo, e Search Console por dia × busca. O tráfego pago acompanha os

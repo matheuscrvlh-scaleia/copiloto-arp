@@ -2,13 +2,13 @@ import "server-only";
 import { cache } from "react";
 import type { FontesAnuncios, Plataforma } from "@/lib/marketing/anuncios";
 import type { FontesRedes } from "@/lib/marketing/redes";
+import { memo } from "@/lib/sorteio";
 import { contextoMkt, locatarios, temasEcodigos } from "./base";
 import { gerarAnuncios } from "./exemplo/anuncios";
 import { type DadosRd, gerarRd } from "./exemplo/rd";
 import { gerarRedes } from "./exemplo/redes";
 import { type DadosReputacao, gerarReputacao } from "./exemplo/reputacao";
 import { type DadosSite, gerarSite } from "./exemplo/site";
-import { memo } from "./exemplo/sorteio";
 import { anunciosMeta, redesMeta } from "./meta";
 import { rdReal } from "./rd";
 

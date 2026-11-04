@@ -16,9 +16,10 @@ import {
   dataMktValida,
   diasEntre,
 } from "@/lib/marketing/periodo";
-import { lembrarFiltros } from "@/server/marketing/acoes/filtros";
+import { lembrarFiltros } from "@/server/preferencias/acoes";
+import type { ModuloComFiltros } from "@/server/preferencias/filtros";
 
-// Barra de filtros das telas do Marketing (spec 4.3): uma linha só, já
+// Barra de filtros das telas do Marketing e do Comercial (spec 4.3): uma linha só, já
 // preenchida com o padrão da tela, e "Limpar". Tudo fica na URL (o link leva
 // os filtros) e o sistema lembra os últimos de cada pessoa por tela: abrir a
 // tela sem filtros na URL volta aos últimos usados.
@@ -40,6 +41,7 @@ export interface FiltroSelecao {
 }
 
 export function BarraDeFiltros({
+  modulo,
   tela,
   periodo,
   hoje,
@@ -48,7 +50,8 @@ export function BarraDeFiltros({
   busca,
   lembrado,
 }: {
-  /** Chave da tela para lembrar os filtros (ex.: "anuncios"). */
+  /** Módulo e chave da tela para lembrar os filtros (ex.: "anuncios"). */
+  modulo: ModuloComFiltros;
   tela: string;
   /** Sem período (ex.: Marca), a barra mostra só as seleções. */
   periodo?: { de: string; ate: string; atalho: AtalhoMkt | null };
@@ -81,13 +84,13 @@ export function BarraDeFiltros({
     novos.delete("limpar");
     muda(novos);
     const q = novos.toString();
-    void lembrarFiltros(tela, q);
+    void lembrarFiltros(modulo, tela, q);
     iniciar(() => router.replace(`${pathname}?${q}`, { scroll: false }));
   }
 
   // A aba não é filtro: Limpar fica nela.
   function limpar() {
-    void lembrarFiltros(tela, "");
+    void lembrarFiltros(modulo, tela, "");
     setTexto("");
     const aba = params.get("aba");
     const q = aba ? `aba=${encodeURIComponent(aba)}&limpar=1` : "limpar=1";

@@ -79,6 +79,43 @@ export const PERMISSOES = {
   "marketing.parametros":
     "Editar as configurações do Marketing: locatários, landing pages, metas, regras de alerta, ronda e integrações",
   "marketing.exportar": "Baixar Excel e PDF das telas do Marketing que já vê",
+
+  "comercial.funil.ver": "Abrir a tela Funil comercial",
+  "comercial.funil.ver_contato":
+    "Ver nome, e-mail e telefone do contato da oportunidade",
+  "comercial.ocupacao.ver": "Abrir a tela Ocupação e estoque",
+  "comercial.vencimentos.ver": "Abrir a tela Vencimentos de contrato",
+  "comercial.valores.ver":
+    "Ver valores de aluguel, contrato e carteira nas telas (sem ela, as colunas de valor ficam ocultas)",
+  "comercial.relacionamento.ver":
+    "Abrir a tela Relacionamento e receber os lembretes",
+  "comercial.relacionamento.registrar":
+    "Registrar contato ou feedback de locatário",
+  "comercial.censo.ver": "Abrir as telas do Censo (indicadores e feedbacks)",
+  "comercial.censo.aplicar":
+    "Abrir rodada do Censo, gerar o link do questionário, lançar resposta em nome da empresa e encerrar rodada",
+  "comercial.censo.importar":
+    "Importar o histórico do Censo e desfazer importações",
+  "comercial.painel.ver": "Abrir o Painel de indicadores comerciais",
+  "comercial.painel.metas": "Cadastrar e alterar as metas do painel",
+  "comercial.contratos.ver": "Ver contratos, distratos e rascunhos",
+  "comercial.contratos.editar":
+    "Criar e editar rascunhos de contrato e de distrato",
+  "comercial.contratos.gerar":
+    "Gerar a versão final do contrato ou do distrato (Word e PDF, a partir da V2)",
+  "comercial.formulario.ver":
+    "Ver as fichas cadastrais recebidas (dados pessoais e renda)",
+  "comercial.formulario.link": "Gerar e enviar o link da ficha cadastral",
+  "comercial.kit.ver": "Ver e baixar os documentos do kit de entrega",
+  "comercial.kit.editar":
+    "Subir nova versão de documento do kit e mudar validade",
+  "comercial.eventos.ver": "Abrir o simulador e as propostas de eventos",
+  "comercial.eventos.editar": "Criar simulação e gerar proposta de evento",
+  "comercial.pesquisa.ver": "Abrir a Pesquisa de mercado",
+  "comercial.pesquisa.editar": "Cadastrar e corrigir imóveis pesquisados",
+  "comercial.parametros.editar":
+    "Alterar as tabelas de apoio (de-para de fontes, faixas, preços de eventos, modelos)",
+  "comercial.exportar": "Exportar Excel e PDF em qualquer tela do módulo",
 } as const;
 
 export type Permissao = keyof typeof PERMISSOES;

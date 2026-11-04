@@ -7,21 +7,21 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
+import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
 import { BarrasHorizontais } from "@/components/dashboard/graficos/barras-horizontais";
 import { ColunasEmpilhadas } from "@/components/dashboard/graficos/colunas-empilhadas";
 import { Funil } from "@/components/dashboard/graficos/funil";
 import type { CorSerie } from "@/components/dashboard/graficos/series";
 import { Secao } from "@/components/dashboard/tabela";
-import { BarraDeFiltros } from "@/components/marketing/filtros";
-import { TabelaMkt } from "@/components/marketing/tabela";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import {
-  CartaoMkt,
+  CartaoDaTela,
   Cartoes,
   Fonte,
   hrefCom,
   TopoDaTela,
   variacaoContra,
-} from "@/components/marketing/tela";
+} from "@/components/dashboard/tela";
 import { type Detalhe, ProvedorDetalhe } from "@/components/modal-detalhe";
 import { BotaoExportar } from "@/components/os/exportar";
 import { PageHeader } from "@/components/page-header";
@@ -223,6 +223,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     <ProvedorDetalhe exportar={exportar}>
       <div className="flex flex-col gap-6">
         <BarraDeFiltros
+          modulo="marketing"
           tela="site"
           periodo={periodo}
           hoje={ctx.hoje}
@@ -294,8 +295,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           }
         />
 
-        <Cartoes>
-          <CartaoMkt
+        <Cartoes modulo="marketing">
+          <CartaoDaTela
             titulo="Sessões no site"
             exemplo={
               "sessões do Google Analytics 4, até a ferramenta ser ligada"
@@ -305,7 +306,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             detalhe={`Taxa de engajamento ${formatarPct(t.taxaEngajamento)}`}
             fonte={GA4}
           />
-          <CartaoMkt
+          <CartaoDaTela
             titulo="Leads no RD (contatos únicos)"
             exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             valor={formatarNumero(c.unicos)}
@@ -315,7 +316,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             fonte={RD}
             href={cartao ? hrefCom(BASE, f.busca, { cartao: null }) : undefined}
           />
-          <CartaoMkt
+          <CartaoDaTela
             titulo="Leads de Locação"
             exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             valor={formatarNumero(c.locacao)}
@@ -325,7 +326,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             href={hrefCartao("locacao")}
             ativo={cartao === "locacao"}
           />
-          <CartaoMkt
+          <CartaoDaTela
             titulo="Leads de Evento"
             exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             valor={formatarNumero(c.evento)}
@@ -341,7 +342,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           titulo="Tráfego por canal"
           descricao={`${f.rotulo} · clique no canal para ver a quebra por origem/mídia e campanha.`}
         >
-          <TabelaMkt
+          <TabelaLista
             colunas={COLUNAS_CANAL}
             ordemInicial={{ coluna: 1, desc: true }}
             placeholder="Buscar canal…"
@@ -380,7 +381,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           titulo="Landing pages do RD"
           descricao={`${f.rotulo} · o interesse vem do cadastro em Configurações; landing page sem cadastro aparece como "Sem tipo".`}
         >
-          <TabelaMkt
+          <TabelaLista
             colunas={COLUNAS_LP}
             ordemInicial={{ coluna: 3, desc: true }}
             placeholder="Buscar landing page…"
@@ -432,7 +433,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           titulo="Leads do período"
           descricao={`${f.rotulo} · uma linha por conversão, a mais recente primeiro${cartao ? ` · só ${INTERESSES[cartao]}` : ""}.${comContato ? "" : " Nome, e-mail e telefone só para quem tem a permissão de ver dados do lead."}`}
         >
-          <TabelaMkt
+          <TabelaLista
             colunas={colsLeads}
             ordemInicial={{ coluna: 0, desc: true }}
             placeholder="Buscar nos leads…"
@@ -470,7 +471,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           titulo="Buscas no Google que trazem ao site"
           descricao={`${f.rotulo} · os 20 termos com mais cliques. "Oportunidade": já na 1ª página (posição 4 a 10), aparece bastante e quase ninguém clica.`}
         >
-          <TabelaMkt
+          <TabelaLista
             colunas={COLUNAS_BUSCA}
             ordemInicial={{ coluna: 1, desc: true }}
             placeholder="Buscar termo…"

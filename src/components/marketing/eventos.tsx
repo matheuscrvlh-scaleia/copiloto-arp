@@ -1,15 +1,15 @@
 import { CalendarDays, Clock, ExternalLink, Globe } from "lucide-react";
 import Link from "next/link";
+import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
 import { Colunas } from "@/components/dashboard/graficos/colunas";
 import { Secao } from "@/components/dashboard/tabela";
-import { BarraDeFiltros } from "@/components/marketing/filtros";
 import {
-  CartaoMkt,
+  CartaoDaTela,
   Cartoes,
   Fonte,
   hrefCom,
   TopoDaTela,
-} from "@/components/marketing/tela";
+} from "@/components/dashboard/tela";
 import { BotaoExportar } from "@/components/os/exportar";
 import {
   formatarData,
@@ -102,6 +102,7 @@ export function AgendaDeEventos({
   return (
     <>
       <BarraDeFiltros
+        modulo="marketing"
         tela="eventos"
         hoje={hoje}
         lembrado={p.lembrado}
@@ -135,8 +136,8 @@ export function AgendaDeEventos({
         }
       />
 
-      <Cartoes>
-        <CartaoMkt
+      <Cartoes modulo="marketing">
+        <CartaoDaTela
           titulo="Próximos 7 dias"
           valor={formatarNumero(em7.length)}
           detalhe={proximoTexto(em7[0])}
@@ -144,7 +145,7 @@ export function AgendaDeEventos({
           href={hrefCartao("semana")}
           ativo={cartao === "semana"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Próximos 30 dias"
           valor={formatarNumero(em30.length)}
           detalhe={`${plural(futuros.length, "evento", "eventos")} nos próximos 6 meses`}
@@ -152,7 +153,7 @@ export function AgendaDeEventos({
           href={hrefCartao("proximos30")}
           ativo={cartao === "proximos30"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo={`Em ${formatarMes(mesAtual)}`}
           valor={formatarNumero(noMes.length)}
           detalhe={`${noMes.filter((e) => e.fim < hoje).length} já passaram`}
@@ -160,7 +161,7 @@ export function AgendaDeEventos({
           href={hrefCartao("mes")}
           ativo={cartao === "mes"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Publicados no site"
           valor={formatarNumero(todos.length)}
           detalhe={`${formatarNumero(passados)} já aconteceram`}

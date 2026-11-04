@@ -5,7 +5,7 @@ import type {
   TemaDaAvaliacao,
 } from "@/lib/marketing/fontes";
 import { somarDias } from "@/lib/marketing/periodo";
-import { arred, sorteio } from "./sorteio";
+import { arred, sorteio } from "@/lib/sorteio";
 
 // Avaliações de exemplo (Google Perfil da Empresa) da ARP e dos locatários
 // cadastrados em Configurações, nos últimos 13 meses. Quem é "gerente" traz

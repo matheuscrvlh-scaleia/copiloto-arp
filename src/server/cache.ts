@@ -56,6 +56,21 @@ export const TAG = {
     asana: "marketing:asana",
   },
 
+  comercial: {
+    /** Parâmetros do módulo (linha única de comercial.parametros). */
+    parametros: "comercial:parametros",
+    /** Listas editáveis (tipos de contato, canais, Censo, pesquisa...). */
+    listas: "comercial:listas",
+    /** De-para de fontes do RD para a fonte ajustada. */
+    fontesDePara: "comercial:fontes_de_para",
+    /** Tipos de LUC e se contam na ocupação. */
+    tiposLuc: "comercial:tipos_luc",
+    /** Tabela de preço de eventos. */
+    faixasEvento: "comercial:faixas_evento",
+    /** Metas do Painel (core.metas comercial.*). */
+    metas: "comercial:metas",
+  },
+
   rh: {
     /** Departamentos (nome, código da folha, id no ponto, ativo). */
     departamentos: "rh:departamentos",

@@ -6,8 +6,8 @@ import type {
   YoutubeVideo,
 } from "@/lib/marketing/fontes";
 import { diaDaSemana, somarDias } from "@/lib/marketing/periodo";
+import { sorteio } from "@/lib/sorteio";
 import { JANELA_DIAS } from "./anuncios";
-import { sorteio } from "./sorteio";
 
 // Redes de exemplo do YouTube e do TikTok (Instagram e Facebook são reais:
 // server/marketing/meta.ts): foto diária de seguidores, métricas por dia e

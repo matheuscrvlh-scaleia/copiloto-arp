@@ -7,21 +7,21 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
+import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
 import { ColunasEmpilhadas } from "@/components/dashboard/graficos/colunas-empilhadas";
 import { Dispersao } from "@/components/dashboard/graficos/dispersao";
 import { Linhas } from "@/components/dashboard/graficos/linhas";
 import { Secao } from "@/components/dashboard/tabela";
-import { BarraDeFiltros } from "@/components/marketing/filtros";
-import { TabelaMkt } from "@/components/marketing/tabela";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import {
-  CartaoMkt,
+  CartaoDaTela,
   Cartoes,
   Fonte,
   fontesReais,
   hrefCom,
   TopoDaTela,
   variacaoContra,
-} from "@/components/marketing/tela";
+} from "@/components/dashboard/tela";
 import { ProvedorDetalhe } from "@/components/modal-detalhe";
 import { BotaoExportar } from "@/components/os/exportar";
 import { PageHeader } from "@/components/page-header";
@@ -206,6 +206,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     <ProvedorDetalhe>
       <div className="flex flex-col gap-6">
         <BarraDeFiltros
+          modulo="marketing"
           tela="anuncios"
           periodo={periodo}
           hoje={ctx.hoje}
@@ -281,8 +282,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           }
         />
 
-        <Cartoes>
-          <CartaoMkt
+        <Cartoes modulo="marketing">
+          <CartaoDaTela
             titulo="Investimento"
             exemplo={
               plataforma !== "meta" &&
@@ -299,7 +300,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             fonte="Meta Ads, Google Ads e TikTok Ads"
             href={cartao ? hrefCom(BASE, f.busca, { cartao: null }) : undefined}
           />
-          <CartaoMkt
+          <CartaoDaTela
             titulo="Leads no RD vindos de anúncio"
             exemplo={
               plataforma !== "meta" &&
@@ -313,7 +314,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             href={hrefCartao("com_lead")}
             ativo={cartao === "com_lead"}
           />
-          <CartaoMkt
+          <CartaoDaTela
             titulo="Custo por lead"
             exemplo={
               plataforma !== "meta" &&
@@ -346,7 +347,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             href={hrefCartao("acima_meta")}
             ativo={cartao === "acima_meta"}
           />
-          <CartaoMkt
+          <CartaoDaTela
             titulo="Cliques no link"
             exemplo={
               plataforma !== "meta" &&
@@ -363,7 +364,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           titulo="Campanhas"
           descricao={`${f.rotulo} · uma linha por campanha, da que mais investiu para a que menos investiu. Clique para ver o dia a dia.`}
         >
-          <TabelaMkt
+          <TabelaLista
             colunas={COLUNAS}
             ordemInicial={{ coluna: 4, desc: true }}
             placeholder="Buscar nesta lista…"

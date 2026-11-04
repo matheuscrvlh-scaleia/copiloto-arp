@@ -5,7 +5,7 @@ import type {
   TikTokLinha,
 } from "@/lib/marketing/fontes";
 import { diaDaSemana, somarDias } from "@/lib/marketing/periodo";
-import { arred, sorteio } from "./sorteio";
+import { arred, sorteio } from "@/lib/sorteio";
 
 // Anúncios de exemplo de Google e TikTok (a Meta é real: server/marketing/
 // meta.ts): 6 campanhas (4 Google com 1 de YouTube, 2 TikTok), dia a dia nas

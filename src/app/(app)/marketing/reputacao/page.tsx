@@ -7,29 +7,29 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
+import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
 import { BarrasHorizontais } from "@/components/dashboard/graficos/barras-horizontais";
 import { Colunas } from "@/components/dashboard/graficos/colunas";
 import { Linhas } from "@/components/dashboard/graficos/linhas";
 import { MapaDeCalor } from "@/components/dashboard/graficos/mapa-calor";
 import { SeloStatus } from "@/components/dashboard/indicador";
 import { Secao } from "@/components/dashboard/tabela";
-import { BarraDeFiltros } from "@/components/marketing/filtros";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
+import {
+  AbasDaTela,
+  CartaoDaTela,
+  Cartoes,
+  Fonte,
+  hrefCom,
+  TopoDaTela,
+  variacaoContra,
+} from "@/components/dashboard/tela";
 import {
   ComoAdicionarAArp,
   ListaDeAvaliacoes,
   SeloSituacao,
   textoDias,
 } from "@/components/marketing/reputacao/avaliacoes";
-import { TabelaMkt } from "@/components/marketing/tabela";
-import {
-  AbasMkt,
-  CartaoMkt,
-  Cartoes,
-  Fonte,
-  hrefCom,
-  TopoDaTela,
-  variacaoContra,
-} from "@/components/marketing/tela";
 import { BotaoExportar } from "@/components/os/exportar";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
@@ -138,7 +138,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <AbasMkt
+      <AbasDaTela
         rotulo="Abas da Reputação"
         ativa={aba}
         abas={[
@@ -271,6 +271,7 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
   return (
     <>
       <BarraDeFiltros
+        modulo="marketing"
         tela="reputacao"
         periodo={periodo}
         hoje={hoje}
@@ -306,8 +307,8 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
         }
       />
 
-      <Cartoes>
-        <CartaoMkt
+      <Cartoes modulo="marketing">
+        <CartaoDaTela
           titulo="Nota média"
           exemplo={
             "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
@@ -328,7 +329,7 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
           calculo="Nota que o Google mostra no perfil (averageRating), de todas as avaliações desde sempre."
           fonte={GOOGLE}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Avaliações novas no mês"
           exemplo={
             "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
@@ -349,7 +350,7 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
           calculo="Avaliações criadas do dia 1 até hoje. A situação compara com a meta proporcional aos dias que já passaram."
           fonte={GOOGLE}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Reclamações no mês"
           exemplo={
             "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
@@ -366,7 +367,7 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
           href={hrefCartao("reclamacoes")}
           ativo={cartao === "reclamacoes"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Sem resposta"
           exemplo={
             "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
@@ -655,6 +656,7 @@ function AbaLocatarios({
   return (
     <>
       <BarraDeFiltros
+        modulo="marketing"
         tela="reputacao"
         periodo={periodo}
         hoje={hoje}
@@ -700,15 +702,15 @@ function AbaLocatarios({
         }
       />
 
-      <Cartoes>
-        <CartaoMkt
+      <Cartoes modulo="marketing">
+        <CartaoDaTela
           titulo="Locatários monitorados"
           valor={formatarNumero(base.length)}
           detalhe={`${parciais} com dados parciais · ${semDados} sem dados`}
           calculo="Locatários ativos cadastrados em Configurações, nos filtros da barra."
           fonte="Configurações (locatários monitorados)"
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Nota média geral"
           exemplo={
             "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
@@ -718,7 +720,7 @@ function AbaLocatarios({
           calculo="Média das notas do Google (averageRating) dos locatários com dados; quem está sem dados fica de fora."
           fonte={GOOGLE}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Reclamações no período"
           exemplo={
             "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
@@ -737,7 +739,7 @@ function AbaLocatarios({
           })}
           ativo={cartao === "com_reclamacao"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Lojas em alerta"
           exemplo={
             "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
@@ -757,7 +759,7 @@ function AbaLocatarios({
         titulo="Locatários-chave"
         descricao={`${f.rotulo} · uma linha por locatário, primeiro os em alerta e depois os com mais reclamações. Clique para ver as avaliações.`}
       >
-        <TabelaMkt
+        <TabelaLista
           colunas={COLUNAS_LOCATARIOS}
           placeholder="Buscar nesta lista…"
           vazio="Nenhum locatário nesse filtro."

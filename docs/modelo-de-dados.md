@@ -8,6 +8,7 @@ de verdade das colunas; este documento explica o desenho.
 | 1 | `core`, `integracao`, `rh` | **Criado** (8 migrations, testadas em `supabase/tests`) |
 | 2 | `financeiro` | Começou pelo estacionamento (WPS); o resto é proposta abaixo |
 | 3 | `os` | **Criado**: Tickets (chamados, OS e ativos) (3 migrations de 23/10/2026, testadas em `supabase/tests/os.test.ts`) |
+| 4 | `comercial` | **Escrito e testado no PGlite** (`20261104120000_comercial.sql`, `supabase/tests/comercial.test.ts`); falta aplicar no Supabase |
 
 ## Decisões gerais
 
@@ -300,6 +301,68 @@ grava em tabelas próprias e `src/server/marketing/fontes.ts` passa a lê-las.
   ARP, leads do mês, custo por lead), editadas com `marketing.parametros`.
 - Histórico dos parâmetros: `core.auditoria` (`marketing.*`), visível para
   `marketing.parametros` e `admin.historico`.
+
+## comercial — o que o Comercial cria e edita
+
+Migration `20261104120000_comercial.sql` (testada no PGlite em
+`supabase/tests/comercial.test.ts`; aplicar no Supabase e expor o schema
+`comercial` na API, incluindo-o também em `pgrst.db_schemas` do papel
+`authenticator`). RD Station e ENET **não** moram aqui nesta fase: as telas
+leem dados de exemplo gerados no servidor (`src/server/comercial/fontes.ts`).
+O que o sistema cria fica nas tabelas abaixo. Linhas com `exemplo = true` são
+do mockup e saem com `comercial.remover_exemplos()`.
+
+| Tabela | O quê | RLS |
+|---|---|---|
+| `parametros` | Linha única, uma coluna por campo de 4.13: funil padrão; dias de transferência e faixas A/B da curva; faixas de vencimento, lembrete, janela do reajuste previsto; empreendimento, endereço, índice, dia de vencimento, caução (aluguéis e prazo), capitalização, NC004, prazos da cláusula de obras, multa, vaga, água, padrão de entrega, `obrigatorios_garantia` (`{garantia: [campos]}`); boas-vindas e termo LGPD da ficha, validade do link; dias de uso do Censo; aviso do kit; eventos (reajuste, desconto, pessoas por segurança, m² por agente, fechamento em dias úteis, validade e textos padrão da proposta); faixas de tamanho da pesquisa | lê quem tem alguma `comercial.*`; grava `comercial.parametros.editar` |
+| `listas` | `lista` + `valor` + `ordem` + `ativo` + `extra` (`fonte_ajustada`, `tipo_contato` com `{feedback: true}` nos que vão para Feedbacks, `canal_contato`, `censo_bloco`, `censo_segmento`, `censo_expectativa`, `pesquisa_bairro`, `pesquisa_tipo`, `ficha_documento_pf/pj/fiador` com `{obrigatorio}`, `evento_observacao`, `kit_categoria`) | idem |
+| `fontes_de_para` | Fonte do RD → fonte ajustada (valor de `listas.fonte_ajustada`) | idem |
+| `tipos_luc` | Tipo de LUC do ENET e se conta na ocupação (Área Publicitária, Vaga de Garagem e Eventos não contam) | idem |
+| `faixas_evento` | Tabela de preço: de/até m², `fixo` (por dia) ou por m², valor comum e sazonal (valores já reajustados; o % fica em `parametros`) | idem |
+| `importacoes` | Tipo (`censo`, `fichas`, `pesquisa`, `contatos`), arquivo e sha256 (único quando confirmada), linhas, duplicadas, avisos, status (`previa`, `confirmada`, `desfeita`), quem e quando | cada tipo com a permissão de quem grava aquele dado (`censo.importar`, `formulario.ver`, `pesquisa.editar`, `relacionamento.registrar`) |
+| `contatos` | Registro de contatos (4.7): data, locatário e contrato do ENET, LUC e bloco (filtro), tipo, canal, descrição, precisa de outro setor, quem registrou | lê `relacionamento.ver` (todos) ou `censo.ver` (só os tipos de feedback); grava `relacionamento.registrar`, só os próprios |
+| `censo_rodadas` | Nome, início, fim, situação (`aberta`/`encerrada`), quem abriu e encerrou | lê `censo.ver`/`aplicar`/`importar`; grava `censo.aplicar` |
+| `censo_convites` | Link único (token) por empresa e rodada (`locatario_enet_id` único na rodada), LUC, bloco, enviado em | só `censo.aplicar` (tem o token) |
+| `censo_respostas` | Perguntas 1 a 10 e 7a em colunas, `ticket_ajustado` gravado pelo servidor, `considerada` (repetida na rodada: só uma conta), origem (`link`, `presencial`, `importacao`), quem lançou | lê `censo.ver`/`aplicar`/`importar`; lança presencial `censo.aplicar`; o link grava pelo servidor |
+| `censo_temas`, `censo_sugestao_temas` | Temas e a sugestão (resposta ou contato) em cada tema, com trecho; mover troca `tema_id` e grava `movido_por`/`movido_em` | lê `censo.ver`; grava `censo.aplicar` |
+| `fichas` | Ficha cadastral (4.12): token, tipo (`pj`, `pf`, `fiador`), situação (`em_preenchimento`, `recebida`, `usada`), LUC pretendido, nome, ficha principal (fiador/cônjuge), origem (`sistema`, `google_forms`), gerada por/em, expira, consentimento, recebida, usada | lê `formulario.ver`, `formulario.link` ou `contratos.editar`; gera `formulario.link`; o interessado grava pelo servidor |
+| `ficha_dados` 🔒 | CPF/CNPJ (só dígitos), as 48 respostas (jsonb validado por Zod) e o nome da pergunta 48 | só `formulario.ver` |
+| `ficha_documentos` 🔒 | Documentos comprobatórios (bucket `comercial`, `fichas/<id>/…`) | só `formulario.ver`; o interessado envia pelo servidor |
+| `ficha_acessos` | Quem abriu cada ficha, gerou o PDF ou baixou documento (LGPD) | `formulario.ver` lê e registra o próprio |
+| `kit_documentos` | Documento do kit: nome, categoria, ordem, `blocos` (só mapas), vai em todo contrato | lê `kit.ver` ou contratos; grava `kit.editar` |
+| `kit_versoes` | Versões de cada documento: rótulo, data, validade, páginas, arquivo; `atual` (uma por documento; a nova desmarca a anterior) | idem (sem apagar) |
+| `contratos` | Contrato ou distrato: status (`rascunho`, `pronto`, `gerado`), versão, etapa, `lucs` (array), bloco, área, locatário, parte (`pf`/`pj`), garantia, aluguel, início/término, `dados` por etapa (jsonb validado por Zod), ficha usada, contrato do ENET (distrato), criado/atualizado/gerado por e em | lê `contratos.ver`/`editar`/`gerar`; grava `contratos.editar`; `gerado` só com `contratos.gerar`; apaga só rascunho |
+| `contrato_versoes` | Cada gravação do contrato (trigger): versão, status, etapa, a linha inteira, quem e quando | lê quem vê o contrato |
+| `contrato_kit` | Versão do kit entregue com o contrato (a versão usada não se apaga) | lê quem vê o contrato; grava `contratos.editar` |
+| `contrato_anexos` | Planta, vistoria, comprovantes, apólice e outros (bucket `comercial`, `contratos/<id>/…`) | idem |
+| `propostas_evento` | Cliente, data, tipo de data, área, dias, pessoas, desconto, valores (original, parceria, 1ª edição, final), seguranças e agentes, textos da proposta, observações marcadas, validade, status, oportunidade no RD, `calculo` (faixa e parâmetros usados) | lê `eventos.ver`/`editar`; grava `eventos.editar` |
+| `pesquisa_imoveis` | Imóvel pesquisado (só locação); `valor_m2`, `custo_total` e `custo_m2` calculados no banco (a faixa de tamanho vem de `parametros`) | lê `pesquisa.ver`/`editar`; grava `pesquisa.editar` |
+| `ocupacao_fotos` | Foto da ocupação no último dia do mês (LUCs, ABL, clientes ativos, por bloco e por tipo) | lê `ocupacao.ver` ou `painel.ver`; só o servidor grava |
+
+- `comercial.desfazer_importacao(id)`: apaga as linhas com aquele
+  `importacao_id` (rodada, respostas, contatos, fichas, pesquisa) e marca a
+  importação como desfeita; confere a permissão do tipo.
+- `comercial.remover_exemplos()`: apaga as linhas `exemplo` e devolve quantas
+  saíram de cada tabela; só com `comercial.parametros.editar`.
+- Regras no banco: a resposta do Censo não entra nem muda depois de a rodada
+  fechar (só `considerada`), salvo a importação; contrato `gerado` editado de
+  novo abre a versão seguinte; escolher a ficha no contrato a marca como
+  usada; sem aceite da LGPD a ficha não fica recebida.
+- Metas do Painel: `core.metas` com indicador `comercial.*`, uma linha por
+  mês (`vigente_desde`); lê `comercial.painel.ver`, grava `comercial.painel.metas`.
+- Feriados de Nova Friburgo: `os.feriados` (o Comercial lê; edita com
+  `comercial.parametros.editar`).
+- Histórico: `core.auditoria` de parâmetros, listas, de-para, tipos de LUC,
+  faixas, kit, temas, sugestões, pesquisa e importações, visível com
+  `comercial.parametros.editar`. Fichas, respostas e contatos ficam fora
+  (dado pessoal); contratos têm `contrato_versoes`.
+- Bucket privado `comercial`: `kit/`, `fichas/`, `contratos/`,
+  `importacoes/<tipo>/`, cada pasta com a permissão do assunto.
+- Formulários públicos (ficha e Censo por token): o servidor confere o token
+  e grava pela service role. Nada é aberto para `anon`.
+- Valores (`comercial.valores.ver`) e contato não são separados no banco:
+  `contratos.aluguel` e `dados` chegam a quem vê o contrato; é o servidor que
+  tira os valores antes de mandar para a tela.
 
 ## Fase 2: financeiro (proposta, não criada)
 

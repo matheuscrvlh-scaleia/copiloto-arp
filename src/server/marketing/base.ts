@@ -238,39 +238,4 @@ export async function metaMkt(
   return metaVigente(await metasMkt(), indicador, mes);
 }
 
-// ---------------------------------------------------------------------------
-// Filtros lembrados (core.preferencias, chave "marketing.filtros.<tela>")
-// ---------------------------------------------------------------------------
-
-type Busca = Record<string, string | string[] | undefined>;
-
-/**
- * Filtros que valem na tela: os da URL; sem nenhum, os últimos que a pessoa
- * usou (a barra os coloca na URL). "?limpar=1" volta ao padrão.
- */
-export async function filtrosDaTela(
-  tela: string,
-  busca: Busca,
-): Promise<{ busca: Busca; lembrado: string | null }> {
-  const chaves = Object.keys(busca).filter((k) => busca[k] !== undefined);
-  if (chaves.length > 0) return { busca, lembrado: null };
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .schema("core")
-    .from("preferencias")
-    .select("valor")
-    .eq("chave", `marketing.filtros.${tela}`)
-    .maybeSingle();
-  if (error) {
-    console.error("preferências do marketing", error);
-    return { busca, lembrado: null };
-  }
-  const texto = typeof data?.valor === "string" ? data.valor : "";
-  if (!texto) return { busca, lembrado: null };
-  return {
-    busca: Object.fromEntries(new URLSearchParams(texto)),
-    lembrado: texto,
-  };
-}
-
 export type { Json };

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { AbasMkt, hrefCom } from "@/components/marketing/tela";
+import { AbasDaTela, hrefCom } from "@/components/dashboard/tela";
 import { Protegido } from "@/components/protegido";
 import {
   avisoSemDados,
@@ -101,7 +101,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   return (
     <div className="flex flex-col gap-6">
       <TopoConfiguracoes ultima={historico[0]} />
-      <AbasMkt
+      <AbasDaTela
         rotulo="Cadastros e regras"
         ativa={bloco}
         abas={CADASTROS.map((k) => ({

@@ -8,20 +8,20 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
+import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
 import { ColunasEmpilhadas } from "@/components/dashboard/graficos/colunas-empilhadas";
 import { Linhas } from "@/components/dashboard/graficos/linhas";
 import { SeloStatus } from "@/components/dashboard/indicador";
 import { Secao } from "@/components/dashboard/tabela";
-import { BarraDeFiltros } from "@/components/marketing/filtros";
-import { TabelaMkt } from "@/components/marketing/tabela";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import {
-  CartaoMkt,
+  CartaoDaTela,
   Cartoes,
   Fonte,
   fontesReais,
   TopoDaTela,
   variacaoContra,
-} from "@/components/marketing/tela";
+} from "@/components/dashboard/tela";
 import { BotaoExportar } from "@/components/os/exportar";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
@@ -251,6 +251,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   return (
     <div className="flex flex-col gap-6">
       <BarraDeFiltros
+        modulo="marketing"
         tela="painel"
         periodo={periodo}
         hoje={hoje}
@@ -282,9 +283,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         }
       />
 
-      <Cartoes>
+      <Cartoes modulo="marketing">
         {pode("marketing.anuncios") && (
-          <CartaoMkt
+          <CartaoDaTela
             titulo="Investimento em anúncios"
             exemplo={
               "investimento do Google Ads e do TikTok Ads (o da Meta é real)"
@@ -302,7 +303,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           />
         )}
         {cartaoLeads && (
-          <CartaoMkt
+          <CartaoDaTela
             titulo="Leads no RD"
             exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
             valor={formatarNumero(sit.leadsUnicos)}
@@ -318,7 +319,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           />
         )}
         {pode("marketing.anuncios") && (
-          <CartaoMkt
+          <CartaoDaTela
             titulo="Custo por lead"
             exemplo={
               "investimento e leads do Google Ads e do TikTok Ads (os da Meta são reais)"
@@ -358,7 +359,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           titulo="Resumo por frente"
           descricao={`${f.rotulo} contra a ${f.rotuloAnterior}. Clique numa linha para abrir a tela no mesmo período.`}
         >
-          <TabelaMkt
+          <TabelaLista
             colunas={COLUNAS}
             semBusca
             caber

@@ -8,20 +8,20 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Fragment } from "react";
+import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
 import { Legenda } from "@/components/dashboard/graficos/colunas-empilhadas";
 import { type CorSerie, corDa } from "@/components/dashboard/graficos/series";
 import { SeloStatus } from "@/components/dashboard/indicador";
 import { Secao } from "@/components/dashboard/tabela";
-import { BarraDeFiltros } from "@/components/marketing/filtros";
-import { TabelaMkt } from "@/components/marketing/tabela";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import {
   AbrirNaFerramenta,
-  CartaoMkt,
+  CartaoDaTela,
   Cartoes,
   Fonte,
   hrefCom,
   TopoDaTela,
-} from "@/components/marketing/tela";
+} from "@/components/dashboard/tela";
 import { BotaoExportar } from "@/components/os/exportar";
 import { formatarData, formatarMes, formatarNumero } from "@/lib/formato";
 import {
@@ -138,6 +138,7 @@ export function AbaCalendario({
   return (
     <>
       <BarraDeFiltros
+        modulo="marketing"
         tela="radar"
         hoje={hoje}
         lembrado={p.lembrado}
@@ -196,8 +197,8 @@ export function AbaCalendario({
         }
       />
 
-      <Cartoes>
-        <CartaoMkt
+      <Cartoes modulo="marketing">
+        <CartaoDaTela
           titulo="Eventos nos próximos 30 dias"
           valor={formatarNumero(em30.length)}
           detalhe={`${plural(futuros.length, "evento", "eventos")} nos próximos 6 meses`}
@@ -205,7 +206,7 @@ export function AbaCalendario({
           href={hrefCartao("proximos30")}
           ativo={cartao === "proximos30"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="De locatário"
           valor={formatarNumero(
             em30.filter((e) => e.tipo === "locatario").length,
@@ -215,7 +216,7 @@ export function AbaCalendario({
           href={hrefCartao("locatario")}
           ativo={cartao === "locatario"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="De terceiro"
           valor={formatarNumero(
             em30.filter((e) => e.tipo === "terceiro").length,
@@ -225,7 +226,7 @@ export function AbaCalendario({
           href={hrefCartao("terceiro")}
           ativo={cartao === "terceiro"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Pagos"
           valor={formatarNumero(
             em30.filter((e) => e.cobranca === "paga").length,
@@ -244,7 +245,7 @@ export function AbaCalendario({
           titulo="Eventos"
           descricao="Uma linha por evento do calendário, do mais próximo ao mais distante."
         >
-          <TabelaMkt
+          <TabelaLista
             colunas={COLUNAS}
             ordemInicial={{ coluna: 0, desc: false }}
             placeholder="Buscar nesta lista…"

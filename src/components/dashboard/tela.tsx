@@ -13,7 +13,7 @@ import { formatarNumero } from "@/lib/formato";
 import type { Direcao, Status } from "@/lib/indicadores";
 import { variacaoPct } from "@/lib/marketing/periodo";
 
-// Peças do padrão das telas do Marketing (spec 4.3): topo com "Dados de…",
+// Peças do padrão das telas de consulta do Marketing e do Comercial (spec 4.3): topo com "Dados de…",
 // a linha de filtros escrita e os botões de exportar; cartão com variação
 // contra o período anterior e a fonte; abas pela URL; e a nota de fonte em
 // letra pequena embaixo de cada tabela.
@@ -36,22 +36,25 @@ export function TopoDaTela({
   acoes,
   reais,
   aviso,
+  exemplo,
 }: {
   /** Ex.: "Dados de 29/10/2026 às 06:00" ou "Versão de 12/10/2026, por Ana". */
   dadosDe?: string;
   /** Linha de filtros escrita (sai igual no Excel e no PDF). */
   filtros?: string;
-  /** Botões de exportar (só para quem tem marketing.exportar). */
+  /** Botões de exportar (só para quem tem a permissão de exportar do módulo). */
   acoes?: React.ReactNode;
   /** Fontes já ligadas de verdade (ex.: "RD Station"): selo verde. */
   reais?: string;
   /** Fonte real que não respondeu (ex.: a Meta): selo amarelo. */
   aviso?: string;
+  /** Fontes ainda de exemplo (ex.: "RD Station CRM"): selo de dado fictício. */
+  exemplo?: string;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-1.5">
-        {(dadosDe || reais || aviso) && (
+        {(dadosDe || reais || aviso || exemplo) && (
           <p className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
             {dadosDe && (
               <span className="inline-flex items-center gap-1.5">
@@ -66,6 +69,15 @@ export function TopoDaTela({
               >
                 <PlugZap className="size-3" aria-hidden />
                 Dados reais: {reais}
+              </span>
+            )}
+            {exemplo && (
+              <span
+                title="Gerados no sistema nos campos da API, até a integração ser ligada."
+                className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 font-medium text-amber-800"
+              >
+                <TriangleAlert className="size-3" aria-hidden />
+                Dados de exemplo (fictícios): {exemplo}
               </span>
             )}
             {aviso && (
@@ -126,12 +138,12 @@ export function variacaoContra(
 }
 
 /**
- * Cartão do Marketing: o cartão de indicador do sistema com a fonte em letra
+ * Cartão da tela: o cartão de indicador do sistema com a fonte em letra
  * pequena. Com `href`, clicar filtra a lista da tela (spec 4.3); `ativo`
  * marca o filtro em uso com um contorno (a cor do cartão é a do ritmo da
  * linha, como nos outros módulos).
  */
-export function CartaoMkt({
+export function CartaoDaTela({
   titulo,
   valor,
   fonte,
@@ -209,12 +221,19 @@ export function CartaoMkt({
  * sorteado pelo título do primeiro cartão, então é fixo em cada tela e muda
  * de uma tela para outra. Cartão com `tom` próprio fica como está.
  */
-export function Cartoes({ children }: { children: React.ReactNode }) {
+export function Cartoes({
+  modulo,
+  children,
+}: {
+  /** Entra no sorteio do ritmo (ex.: "marketing"). */
+  modulo: string;
+  children: React.ReactNode;
+}) {
   const itens = Children.toArray(children).filter((c) =>
     isValidElement<{ titulo?: string; tom?: Tom }>(c),
   ) as React.ReactElement<{ titulo?: string; tom?: Tom }>[];
   const tons = tonsDaTela(
-    `marketing:${itens[0]?.props.titulo ?? ""}`,
+    `${modulo}:${itens[0]?.props.titulo ?? ""}`,
     itens.length,
   );
   return (
@@ -229,7 +248,7 @@ export function Cartoes({ children }: { children: React.ReactNode }) {
 }
 
 /** Abas da tela pela URL (?aba=…), mantendo os outros filtros. */
-export function AbasMkt({
+export function AbasDaTela({
   abas,
   ativa,
   rotulo,

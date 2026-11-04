@@ -1,5 +1,5 @@
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
-import { TopoDaTela } from "@/components/marketing/tela";
+import { TopoDaTela } from "@/components/dashboard/tela";
 import { formatarDataHora } from "@/lib/formato";
 import type { AlteracaoMkt } from "@/server/marketing/parametros";
 

@@ -9,7 +9,7 @@ import {
   situacao,
 } from "@/components/admin/integracao";
 import { Secao } from "@/components/dashboard/tabela";
-import { Fonte } from "@/components/marketing/tela";
+import { Fonte } from "@/components/dashboard/tela";
 import { Protegido } from "@/components/protegido";
 import {
   ehSistemaGoogle,

@@ -10,11 +10,11 @@ import {
   TelaCarregando,
 } from "@/components/carregando";
 import { SeloStatus } from "@/components/dashboard/indicador";
+import { AbasDaTela, hrefCom } from "@/components/dashboard/tela";
 import { AbaCalendario } from "@/components/marketing/radar/calendario";
 import { BASE_RADAR, type PropsAba } from "@/components/marketing/radar/comum";
 import { AbaRonda } from "@/components/marketing/radar/ronda";
 import { AbaTarefas } from "@/components/marketing/radar/tarefas";
-import { AbasMkt, hrefCom } from "@/components/marketing/tela";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarDataHora } from "@/lib/formato";
@@ -104,7 +104,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <AbasMkt
+      <AbasDaTela
         rotulo="Abas do Radar operacional"
         ativa={aba}
         abas={ABAS.map((a) => ({

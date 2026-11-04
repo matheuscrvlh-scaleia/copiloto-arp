@@ -1,18 +1,18 @@
 import { MapPin } from "lucide-react";
+import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
 import { Faixas } from "@/components/dashboard/graficos/faixas";
 import { Linhas } from "@/components/dashboard/graficos/linhas";
 import { Secao } from "@/components/dashboard/tabela";
-import { BarraDeFiltros } from "@/components/marketing/filtros";
-import { TabelaMkt } from "@/components/marketing/tabela";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import {
   AbrirNaFerramenta,
-  CartaoMkt,
+  CartaoDaTela,
   Cartoes,
   Fonte,
   hrefCom,
   TopoDaTela,
   variacaoContra,
-} from "@/components/marketing/tela";
+} from "@/components/dashboard/tela";
 import { BotaoExportar } from "@/components/os/exportar";
 import { formatarData, formatarNumero } from "@/lib/formato";
 import { linhaDeFiltros, semanasAte, somarDias } from "@/lib/marketing/periodo";
@@ -113,6 +113,7 @@ export function AbaRonda({
   return (
     <>
       <BarraDeFiltros
+        modulo="marketing"
         tela="radar"
         hoje={hoje}
         lembrado={p.lembrado}
@@ -161,8 +162,8 @@ export function AbaRonda({
         }
       />
 
-      <Cartoes>
-        <CartaoMkt
+      <Cartoes modulo="marketing">
+        <CartaoDaTela
           titulo="Abertas do Marketing"
           valor={formatarNumero(abertas.length)}
           status={limite === null ? undefined : urgente ? "fora" : "ok"}
@@ -177,7 +178,7 @@ export function AbaRonda({
             cartao ? hrefCom(BASE_RADAR, p.busca, { cartao: null }) : undefined
           }
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Novas na semana"
           valor={formatarNumero(novas.length)}
           variacao={variacaoContra(
@@ -191,7 +192,7 @@ export function AbaRonda({
           href={hrefCartao("novas")}
           ativo={cartao === "novas"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo={`Abertas há mais de ${antigaDias} dias`}
           valor={formatarNumero(antigas.length)}
           status={antigas.length ? "atencao" : undefined}
@@ -200,7 +201,7 @@ export function AbaRonda({
           href={hrefCartao("antigas")}
           ativo={cartao === "antigas"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Concluídas no mês"
           valor={formatarNumero(concluidas.length)}
           fonte={FONTE_ASANA}
@@ -217,7 +218,7 @@ export function AbaRonda({
         }
         descricao="Uma linha por sinalização da ronda com código do Marketing, da mais antiga para a mais nova."
       >
-        <TabelaMkt
+        <TabelaLista
           colunas={
             cartao === "concluidas"
               ? COLUNAS.map((c) =>

@@ -4,12 +4,12 @@ import type {
   RdLandingPageDia,
 } from "@/lib/marketing/fontes";
 import { diaDaSemana, somarDias } from "@/lib/marketing/periodo";
+import { sorteio } from "@/lib/sorteio";
 import {
   type CampanhaExemplo,
   type DadosAnuncios,
   JANELA_DIAS,
 } from "./anuncios";
-import { sorteio } from "./sorteio";
 
 // RD Station de exemplo: ~60 conversões por semana em 6 landing pages. As
 // pagas chegam com traffic_campaign = nome da campanha (UTM); parte delas

@@ -13,17 +13,17 @@ import { BarrasHorizontais } from "@/components/dashboard/graficos/barras-horizo
 import { Colunas } from "@/components/dashboard/graficos/colunas";
 import { Rosca } from "@/components/dashboard/graficos/rosca";
 import { Secao } from "@/components/dashboard/tabela";
-import { TabelaMkt } from "@/components/marketing/tabela";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import {
   AbrirNaFerramenta,
-  CartaoMkt,
+  CartaoDaTela,
   Cartoes,
   Fonte,
   fontesReais,
   hrefCom,
   TopoDaTela,
   variacaoContra,
-} from "@/components/marketing/tela";
+} from "@/components/dashboard/tela";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import {
@@ -156,8 +156,8 @@ async function Tela({
           </p>
         ) : (
           <>
-            <Cartoes>
-              <CartaoMkt
+            <Cartoes modulo="marketing">
+              <CartaoDaTela
                 titulo="Investimento"
                 exemplo={
                   c.plataforma !== "meta" &&
@@ -176,7 +176,7 @@ async function Tela({
                 }
                 fonte={PLATAFORMAS[c.plataforma].ferramenta}
               />
-              <CartaoMkt
+              <CartaoDaTela
                 titulo="Leads no RD"
                 exemplo={
                   c.plataforma !== "meta" &&
@@ -191,7 +191,7 @@ async function Tela({
                 detalhe={`Conversões da plataforma: ${formatarNumero(c.conversoesPlataforma)}`}
                 fonte="RD Station"
               />
-              <CartaoMkt
+              <CartaoDaTela
                 titulo="Custo por lead"
                 exemplo={
                   c.plataforma !== "meta" &&
@@ -214,7 +214,7 @@ async function Tela({
                 }
                 fonte="Anúncios e RD Station"
               />
-              <CartaoMkt
+              <CartaoDaTela
                 titulo="Cliques no link"
                 exemplo={
                   c.plataforma !== "meta" &&
@@ -287,7 +287,7 @@ async function Tela({
                 titulo="Termos de pesquisa"
                 descricao={`Os 20 com mais cliques · ${f.rotulo}`}
               >
-                <TabelaMkt
+                <TabelaLista
                   semBusca
                   colunas={[
                     { titulo: "Termo" },
@@ -317,7 +317,7 @@ async function Tela({
             )}
 
             <Secao titulo="Dia a dia" descricao={f.rotulo}>
-              <TabelaMkt
+              <TabelaLista
                 semBusca
                 colunas={[
                   { titulo: "Data" },

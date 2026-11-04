@@ -6,17 +6,13 @@ import {
   lerPeriodoMkt,
   type PeriodoMkt,
 } from "@/lib/marketing/periodo";
-import {
-  type ContextoMkt,
-  contextoMkt,
-  filtrosDaTela,
-  landingPages,
-} from "./base";
+import { type Busca, filtrosLembrados } from "@/server/preferencias/filtros";
+import { type ContextoMkt, contextoMkt, landingPages } from "./base";
 
 // Filtros de uma tela do Marketing: o que veio na URL (ou os últimos usados
 // pela pessoa), o período e o anterior de mesmo tamanho para a comparação.
 
-export type Busca = Record<string, string | string[] | undefined>;
+export type { Busca };
 
 export interface FiltrosLidos {
   ctx: ContextoMkt;
@@ -41,7 +37,7 @@ export async function lerFiltros(
 ): Promise<FiltrosLidos> {
   const [ctx, { busca, lembrado }] = await Promise.all([
     contextoMkt(),
-    filtrosDaTela(tela, buscaUrl),
+    filtrosLembrados("marketing", tela, buscaUrl),
   ]);
   const periodo = lerPeriodoMkt(busca, padrao, ctx.hoje);
   const anterior = anteriorMkt(periodo);

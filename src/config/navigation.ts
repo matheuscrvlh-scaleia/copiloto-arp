@@ -40,7 +40,17 @@ export type Icone =
   | "redes"
   | "reputacao"
   | "radar"
-  | "eventos";
+  | "eventos"
+  | "funil"
+  | "ocupacao"
+  | "vencimentos"
+  | "relacionamento"
+  | "censo"
+  | "contratos"
+  | "fichas"
+  | "kit"
+  | "simulador"
+  | "pesquisa";
 
 export interface NavItem {
   href: string;
@@ -304,6 +314,88 @@ export const navigation: NavSection[] = [
         label: "Configurações",
         icone: "parametros",
         permissao: "marketing.parametros",
+      },
+    ],
+  },
+  {
+    titulo: "Comercial",
+    // Painel no topo; depois as consultas, as ferramentas e os parâmetros.
+    itens: [
+      {
+        href: "/comercial",
+        label: "Painel",
+        icone: "painel",
+        permissao: "comercial.painel.ver",
+      },
+      {
+        href: "/comercial/funil",
+        label: "Funil comercial",
+        icone: "funil",
+        permissao: "comercial.funil.ver",
+      },
+      {
+        href: "/comercial/ocupacao",
+        label: "Ocupação e estoque",
+        icone: "ocupacao",
+        permissao: "comercial.ocupacao.ver",
+      },
+      {
+        href: "/comercial/vencimentos",
+        label: "Vencimentos",
+        icone: "vencimentos",
+        permissao: "comercial.vencimentos.ver",
+      },
+      {
+        href: "/comercial/relacionamento",
+        label: "Relacionamento",
+        icone: "relacionamento",
+        permissao: "comercial.relacionamento.ver",
+      },
+      {
+        href: "/comercial/censo",
+        label: "Censo",
+        icone: "censo",
+        permissao: "comercial.censo.ver",
+      },
+      {
+        href: "/comercial/contratos",
+        label: "Contratos",
+        icone: "contratos",
+        permissao: "comercial.contratos.ver",
+      },
+      {
+        href: "/comercial/fichas",
+        label: "Fichas cadastrais",
+        icone: "fichas",
+        permissao: ["comercial.formulario.ver", "comercial.formulario.link"],
+      },
+      {
+        href: "/comercial/kit",
+        label: "Kit de entrega",
+        icone: "kit",
+        permissao: "comercial.kit.ver",
+      },
+      {
+        href: "/comercial/eventos",
+        label: "Eventos",
+        icone: "simulador",
+        permissao: "comercial.eventos.ver",
+      },
+      {
+        href: "/comercial/pesquisa",
+        label: "Pesquisa de mercado",
+        icone: "pesquisa",
+        permissao: "comercial.pesquisa.ver",
+      },
+      {
+        href: "/comercial/configuracoes",
+        label: "Configurações",
+        icone: "parametros",
+        permissao: [
+          "comercial.parametros.editar",
+          "comercial.painel.metas",
+          "comercial.censo.importar",
+        ],
       },
     ],
   },

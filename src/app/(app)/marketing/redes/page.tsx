@@ -7,20 +7,20 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
+import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
 import { BarrasHorizontais } from "@/components/dashboard/graficos/barras-horizontais";
 import { MiniArea } from "@/components/dashboard/graficos/mini-area";
 import { Secao } from "@/components/dashboard/tabela";
-import { BarraDeFiltros } from "@/components/marketing/filtros";
-import { TabelaMkt } from "@/components/marketing/tabela";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import {
   AbrirNaFerramenta,
-  CartaoMkt,
+  CartaoDaTela,
   Cartoes,
   Fonte,
   fontesReais,
   TopoDaTela,
   variacaoContra,
-} from "@/components/marketing/tela";
+} from "@/components/dashboard/tela";
 import { BotaoExportar } from "@/components/os/exportar";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
@@ -119,6 +119,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   return (
     <div className="flex flex-col gap-6">
       <BarraDeFiltros
+        modulo="marketing"
         tela="redes"
         periodo={periodo}
         hoje={ctx.hoje}
@@ -167,8 +168,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         }
       />
 
-      <Cartoes>
-        <CartaoMkt
+      <Cartoes modulo="marketing">
+        <CartaoDaTela
           titulo="Seguidores"
           exemplo={
             redes.some((r) => r === "youtube" || r === "tiktok") &&
@@ -187,7 +188,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           }
           fonte="Foto diária de cada rede"
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Novos seguidores no período"
           exemplo={
             redes.some((r) => r === "youtube" || r === "tiktok") &&
@@ -203,7 +204,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           calculo="Seguidores no fim menos no início do período. YouTube: inscritos ganhos menos perdidos."
           fonte="Foto diária; YouTube Analytics"
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Alcance e visualizações"
           exemplo={
             redes.some((r) => r === "youtube" || r === "tiktok") &&
@@ -219,7 +220,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           calculo="Instagram: reach (soma dos dias). YouTube: views. TikTok: video_views. O Facebook não entra: a Meta não entrega mais esse número da página."
           fonte="Instagram, YouTube e TikTok"
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Interações"
           exemplo={
             redes.some((r) => r === "youtube" || r === "tiktok") &&
@@ -242,7 +243,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         titulo="Por rede"
         descricao={`${f.rotulo} · uma linha por rede`}
       >
-        <TabelaMkt
+        <TabelaLista
           colunas={COLUNAS_REDE}
           semBusca
           linhas={linhas.map((l) => ({
@@ -291,7 +292,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             ))}
           </ol>
         )}
-        <TabelaMkt
+        <TabelaLista
           colunas={COLUNAS_POST}
           ordemInicial={{ coluna: 11, desc: true }}
           placeholder="Buscar post…"

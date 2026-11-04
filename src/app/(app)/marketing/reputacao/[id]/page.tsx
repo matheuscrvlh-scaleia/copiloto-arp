@@ -11,18 +11,18 @@ import {
 import { BarrasHorizontais } from "@/components/dashboard/graficos/barras-horizontais";
 import { Secao } from "@/components/dashboard/tabela";
 import {
-  ListaDeAvaliacoes,
-  SeloSituacao,
-} from "@/components/marketing/reputacao/avaliacoes";
-import {
   AbrirNaFerramenta,
-  CartaoMkt,
+  CartaoDaTela,
   Cartoes,
   Fonte,
   hrefCom,
   TopoDaTela,
   variacaoContra,
-} from "@/components/marketing/tela";
+} from "@/components/dashboard/tela";
+import {
+  ListaDeAvaliacoes,
+  SeloSituacao,
+} from "@/components/marketing/reputacao/avaliacoes";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarNumero, formatarPct } from "@/lib/formato";
@@ -183,8 +183,8 @@ async function Tela({
                 abaixo do real.
               </p>
             )}
-            <Cartoes>
-              <CartaoMkt
+            <Cartoes modulo="marketing">
+              <CartaoDaTela
                 titulo="Nota média"
                 exemplo={
                   "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
@@ -194,7 +194,7 @@ async function Tela({
                 calculo="Nota que o Google mostra no perfil (averageRating)."
                 fonte={GOOGLE}
               />
-              <CartaoMkt
+              <CartaoDaTela
                 titulo="Novas no período"
                 exemplo={
                   "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
@@ -208,7 +208,7 @@ async function Tela({
                 detalhe={`Nota das novas: ${nota(l.periodo.notaDasNovas)} · respondidas ${formatarPct(l.periodo.taxaResposta)}`}
                 fonte={GOOGLE}
               />
-              <CartaoMkt
+              <CartaoDaTela
                 titulo="Reclamações no período"
                 exemplo={
                   "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
@@ -231,7 +231,7 @@ async function Tela({
                 })}
                 ativo={cartao === "reclamacoes"}
               />
-              <CartaoMkt
+              <CartaoDaTela
                 titulo="Situação"
                 exemplo={
                   "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"

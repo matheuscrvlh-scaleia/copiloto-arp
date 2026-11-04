@@ -1,17 +1,17 @@
 import { CalendarClock, Filter, FolderKanban, Tag, User } from "lucide-react";
+import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
 import { ColunasEmpilhadas } from "@/components/dashboard/graficos/colunas-empilhadas";
 import { SeloStatus } from "@/components/dashboard/indicador";
 import { Secao } from "@/components/dashboard/tabela";
-import { BarraDeFiltros } from "@/components/marketing/filtros";
-import { TabelaMkt } from "@/components/marketing/tabela";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import {
   AbrirNaFerramenta,
-  CartaoMkt,
+  CartaoDaTela,
   Cartoes,
   Fonte,
   hrefCom,
   TopoDaTela,
-} from "@/components/marketing/tela";
+} from "@/components/dashboard/tela";
 import { BotaoExportar } from "@/components/os/exportar";
 import {
   formatarData,
@@ -167,6 +167,7 @@ export function AbaTarefas({
   return (
     <>
       <BarraDeFiltros
+        modulo="marketing"
         tela="radar"
         hoje={hoje}
         lembrado={p.lembrado}
@@ -237,8 +238,8 @@ export function AbaTarefas({
         }
       />
 
-      <Cartoes>
-        <CartaoMkt
+      <Cartoes modulo="marketing">
+        <CartaoDaTela
           titulo="Abertas"
           valor={formatarNumero(c.abertas)}
           detalhe="Inclui as atrasadas"
@@ -247,7 +248,7 @@ export function AbaTarefas({
             cartao ? hrefCom(BASE_RADAR, p.busca, { cartao: null }) : undefined
           }
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Atrasadas"
           valor={formatarNumero(c.atrasadas)}
           status={c.atrasadasHaMais > 0 ? "atencao" : undefined}
@@ -261,7 +262,7 @@ export function AbaTarefas({
           href={hrefCartao("atrasadas")}
           ativo={cartao === "atrasadas"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Vencem nos próximos 7 dias"
           valor={formatarNumero(c.vencem7)}
           detalhe={`Prazo de ${formatarData(hoje)} a ${formatarData(somarDias(hoje, 6))}`}
@@ -269,7 +270,7 @@ export function AbaTarefas({
           href={hrefCartao("vence7")}
           ativo={cartao === "vence7"}
         />
-        <CartaoMkt
+        <CartaoDaTela
           titulo="Concluídas no mês no prazo"
           valor={formatarPct(doMes.pct)}
           detalhe={`${doMes.noPrazo} de ${doMes.noPrazo + doMes.comAtraso} · ${rotuloSemPrazo(doMes.semPrazo)} · ${formatarMes(mesPassado)}: ${formatarPct(doMesPassado.pct)}`}
@@ -284,7 +285,7 @@ export function AbaTarefas({
         titulo="Tarefas"
         descricao="Uma linha por tarefa dos projetos do Marketing, da mais atrasada para a de prazo mais longe."
       >
-        <TabelaMkt
+        <TabelaLista
           colunas={COLUNAS}
           ordemInicial={{ coluna: 3, desc: false }}
           placeholder="Buscar nesta lista…"
@@ -340,7 +341,7 @@ export function AbaTarefas({
             />
           </div>
         )}
-        <TabelaMkt
+        <TabelaLista
           colunas={COLUNAS_PESSOA}
           semBusca
           ordemInicial={{ coluna: 2, desc: true }}
