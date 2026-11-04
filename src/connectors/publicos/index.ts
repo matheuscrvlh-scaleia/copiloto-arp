@@ -13,8 +13,12 @@ export interface Opcoes {
   fetch?: typeof fetch;
 }
 
+// A BrasilAPI (Cloudflare) recusa com 403 o User-Agent padrão do Node.
+const CABECALHOS = { "User-Agent": "ARP-Centralizador/1.0" };
+
 const pedir = (sistema: string, url: string, o: Opcoes, retries = 1) =>
   requestJson(sistema, url, {
+    headers: CABECALHOS,
     timeoutMs: TIMEOUT_MS,
     retries,
     fetch: o.fetch,

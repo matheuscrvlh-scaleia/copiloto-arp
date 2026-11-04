@@ -189,7 +189,7 @@ export function Secao({
   return (
     <section
       id={id}
-      className={`${TOM[tom]} scroll-mt-6 rounded-[1.75rem] p-5 md:p-6 ${className}`}
+      className={`${TOM[tom]} min-w-0 scroll-mt-6 rounded-[1.75rem] p-5 md:p-6 ${className}`}
     >
       <div className="relative flex items-center gap-1">
         <h2 className="text-base font-semibold">{titulo}</h2>

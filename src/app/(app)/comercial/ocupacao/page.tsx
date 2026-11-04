@@ -341,7 +341,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                   todos: INDICADORES.quantidade,
                   valor: indicador === "quantidade" ? "" : indicador,
                   icone: <Gauge className="size-4" />,
-                  largura: "w-36",
+                  largura: "w-44",
                   opcoes: indicadores
                     .filter((i) => i !== "quantidade")
                     .map((i) => ({ valor: i, rotulo: INDICADORES[i] })),

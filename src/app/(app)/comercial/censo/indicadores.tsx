@@ -457,7 +457,7 @@ export async function Indicadores({
             itens={barras(
               segmentos,
               (g) => g.movimentacao,
-              (v) => formatarMoeda(v, 0),
+              (v) => formatarNumero(v, 0),
             )}
             descricao="Movimentação diária estimada por segmento"
             rotuloLargo
@@ -511,7 +511,10 @@ export async function Indicadores({
               busca: k,
               celulas: [
                 k,
-                v,
+                // As expectativas são uma frase: quebra para caber no quadro.
+                <span key="v" className="whitespace-normal">
+                  {v}
+                </span>,
                 <span key="c" className="text-xs text-neutral-500">
                   {c}
                 </span>,

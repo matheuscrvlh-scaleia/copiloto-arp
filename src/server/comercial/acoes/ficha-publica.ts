@@ -111,6 +111,29 @@ export async function salvarFichaPeloLink(
   if (!lidas.data.aceite) return SEM_ACEITE;
   const r = enviar ? limparPorTipo(lidas.data) : lidas.data;
 
+  // Ficha e respostas numa transação, com o token conferido de novo no banco.
+  async function gravar(
+    dados: typeof r,
+    comoEnvio: boolean,
+  ): Promise<EstadoDaFicha | null> {
+    const doc = documentoDaFicha(dados);
+    const { data, error } = await comAdmin().rpc("gravar_ficha_pelo_link", {
+      p_token: ficha.token,
+      p_tipo: dados.tipo || null,
+      p_luc: lucDaFicha(dados),
+      p_nome: nomeDaFicha(dados) || ficha.nome,
+      p_documento: doc.length === 11 || doc.length === 14 ? doc : null,
+      p_respostas: dados,
+      p_assinatura: dados.assinatura || null,
+      p_enviar: comoEnvio,
+    });
+    if (error) {
+      console.error("ficha pelo link", ficha.id, error);
+      return FALHOU;
+    }
+    return data === "ok" ? null : inativo(data as MotivoInativo);
+  }
+
   if (enviar) {
     const problemas = problemasDoEnvio(r, hojeEmBrasilia(new Date()));
     if (r.tipo) {
@@ -125,7 +148,10 @@ export async function salvarFichaPeloLink(
           mensagem: `Envie o arquivo: ${d}.`,
         });
     }
-    if (problemas.length)
+    // Envio barrado não perde o que foi digitado: fica como rascunho.
+    if (problemas.length) {
+      const falha = await gravar(lidas.data, false);
+      if (falha) return falha;
       return {
         erro:
           problemas.length === 1
@@ -133,28 +159,17 @@ export async function salvarFichaPeloLink(
             : `Faltam ${problemas.length} respostas para enviar. Veja os campos marcados.`,
         problemas,
       };
+    }
     const avisos = avisosDoEnvio(r);
-    if (avisos.length && form.get("confirmar") !== "1") return { avisos };
+    if (avisos.length && form.get("confirmar") !== "1") {
+      const falha = await gravar(lidas.data, false);
+      return falha ?? { avisos };
+    }
   }
 
-  const doc = documentoDaFicha(r);
+  const falha = await gravar(r, enviar);
+  if (falha) return falha;
   const nome = nomeDaFicha(r) || ficha.nome;
-  // Ficha e respostas numa transação, com o token conferido de novo no banco.
-  const { data, error } = await comAdmin().rpc("gravar_ficha_pelo_link", {
-    p_token: ficha.token,
-    p_tipo: r.tipo || null,
-    p_luc: lucDaFicha(r),
-    p_nome: nome,
-    p_documento: doc.length === 11 || doc.length === 14 ? doc : null,
-    p_respostas: r,
-    p_assinatura: r.assinatura || null,
-    p_enviar: enviar,
-  });
-  if (error) {
-    console.error("ficha pelo link", ficha.id, error);
-    return FALHOU;
-  }
-  if (data !== "ok") return inativo(data as MotivoInativo);
 
   if (!enviar)
     return {

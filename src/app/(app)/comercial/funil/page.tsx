@@ -437,7 +437,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           <Fonte>{RD} (Segmento)</Fonte>
         </Secao>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
           <Secao titulo="Motivo de perda" exemplo={exemplo}>
             <TabelaContagem
               rotulo="Motivo"

@@ -260,7 +260,7 @@ export function AbasDaTela({
   return (
     <nav
       aria-label={rotulo}
-      className="vidro flex w-full gap-1 overflow-x-auto rounded-full p-1 sm:w-fit"
+      className="vidro flex w-full max-w-full gap-1 overflow-x-auto rounded-full p-1 sm:w-fit"
     >
       {abas.map((a) => (
         <Link

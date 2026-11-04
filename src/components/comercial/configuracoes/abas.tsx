@@ -15,7 +15,7 @@ export function AbasConfiguracoes({ abas }: { abas: AbaConfiguracao[] }) {
   return (
     <nav
       aria-label="Seções das configurações do Comercial"
-      className="vidro flex w-full gap-1 overflow-x-auto rounded-full p-1 sm:w-fit"
+      className="vidro flex w-full max-w-full gap-1 overflow-x-auto rounded-full p-1 sm:w-fit"
     >
       {abas.map((a) => {
         const ativa = atual === a.href || atual.startsWith(`${a.href}/`);

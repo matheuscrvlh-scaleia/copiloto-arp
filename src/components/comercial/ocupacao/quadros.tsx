@@ -146,6 +146,7 @@ export function ListaDeLucs({
       )}
       <TabelaLista
         colunas={colunasLucs(comValores)}
+        ordemInicial={{ coluna: 0, desc: false }}
         placeholder="Buscar LUC, locatário, rua…"
         vazio="Nenhum LUC nesse filtro."
         alturaMax="max-h-[40rem]"

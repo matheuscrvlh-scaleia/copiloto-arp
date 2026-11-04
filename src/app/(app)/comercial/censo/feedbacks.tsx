@@ -390,7 +390,7 @@ export async function Feedbacks({
                             name="tema"
                             aria-label="Mover para o tema"
                             defaultValue={tema?.id ?? ""}
-                            className={`${classeCampo} w-44`}
+                            className={`${classeCampo} sm:w-44`}
                           >
                             {ativos.map((t) => (
                               <option key={t.id} value={t.id}>
@@ -449,7 +449,7 @@ function Temas({ temas }: { temas: Awaited<ReturnType<typeof temasCenso>> }) {
               name="ativo"
               defaultValue={t.ativo ? "sim" : "nao"}
               aria-label="Situação do tema"
-              className={`${classeCampo} w-32`}
+              className={`${classeCampo} sm:w-36`}
             >
               <option value="sim">Ativo</option>
               <option value="nao">Inativo</option>
