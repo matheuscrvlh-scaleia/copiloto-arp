@@ -12,6 +12,7 @@ import {
   GradePainel,
   linhasExportarPainel,
 } from "@/components/comercial/painel/grade";
+import { VisaoPainel } from "@/components/comercial/painel/visao";
 import {
   EXEMPLO,
   FiltrosComercial,
@@ -109,8 +110,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         }
       />
 
+      <VisaoPainel ano={ano} linhas={d.linhas} exemplo={exemplo} />
+
       <Secao
-        titulo={`Indicadores de ${ano}`}
+        titulo={`Mês a mês em ${ano}`}
         exemplo={
           exemplo && "ENET e RD Station de exemplo; as metas são as cadastradas"
         }
@@ -161,7 +164,13 @@ function Esqueleto() {
   return (
     <TelaCarregando>
       <FiltrosCarregando />
-      <CartaoCarregando altura="h-[60rem]" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }, (_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: esqueleto fixo
+          <CartaoCarregando key={i} altura="h-44" />
+        ))}
+      </div>
+      <CartaoCarregando altura="h-[40rem]" />
     </TelaCarregando>
   );
 }
