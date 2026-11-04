@@ -4,15 +4,11 @@ import { Check, Lock } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Selecao } from "@/components/selecao";
-import { PERMISSOES, type Permissao } from "@/lib/permissions";
-
-const MODULOS = [
-  { prefixo: "admin.", titulo: "Administração" },
-  { prefixo: "rh.", titulo: "RH" },
-  { prefixo: "financeiro.", titulo: "Financeiro" },
-  { prefixo: "os.", titulo: "Tickets" },
-  { prefixo: "marketing.", titulo: "Marketing" },
-] as const;
+import {
+  MODULOS_DE_PERMISSAO as MODULOS,
+  PERMISSOES,
+  type Permissao,
+} from "@/lib/permissions";
 
 const TODAS = Object.keys(PERMISSOES) as Permissao[];
 

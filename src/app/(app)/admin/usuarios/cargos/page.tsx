@@ -7,21 +7,13 @@ import { Abas, BotaoLink, Situacao } from "@/components/admin/ui";
 import { Carregando, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarNumero } from "@/lib/formato";
-import { PERMISSOES } from "@/lib/permissions";
+import { MODULOS_DE_PERMISSAO as MODULOS, PERMISSOES } from "@/lib/permissions";
 import { alternarCargo, apagarCargo } from "@/server/admin/acoes/usuarios";
 import { cargos } from "@/server/admin/dados";
 import { ABAS_USUARIOS } from "../abas";
 import { confirmarExclusao, confirmarInativacao } from "./textos";
 
 export const metadata: Metadata = { title: "Cargos" };
-
-const MODULOS = [
-  { prefixo: "admin.", nome: "Administração" },
-  { prefixo: "rh.", nome: "RH" },
-  { prefixo: "financeiro.", nome: "Financeiro" },
-  { prefixo: "os.", nome: "Tickets" },
-  { prefixo: "marketing.", nome: "Marketing" },
-];
 
 export default function Page() {
   return (
@@ -102,7 +94,7 @@ async function Lista() {
                     key={m.prefixo}
                     className={`rounded-full px-2.5 py-1 text-xs ${tudo ? "ladrilho" : "border border-neutral-200 bg-white/70 text-neutral-600"}`}
                   >
-                    {m.nome} · {n}
+                    {m.titulo} · {n}
                   </span>
                 );
               })}

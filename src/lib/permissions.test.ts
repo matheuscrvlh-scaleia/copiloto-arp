@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PERMISSOES } from "./permissions";
+import { MODULOS_DE_PERMISSAO, PERMISSOES } from "./permissions";
 
 describe("catálogo de permissões", () => {
   it("é o mesmo no código e no banco", () => {
@@ -26,5 +26,12 @@ describe("catálogo de permissões", () => {
       .flatMap((b) => [...b.matchAll(/\('([a-z_.]+)',/g)].map((m) => m[1]))
       .filter((c) => !tiradas.includes(c));
     expect(noBanco.sort()).toEqual(Object.keys(PERMISSOES).sort());
+  });
+
+  it("toda permissão aparece num módulo da tela de cargos", () => {
+    const fora = Object.keys(PERMISSOES).filter(
+      (p) => !MODULOS_DE_PERMISSAO.some((m) => p.startsWith(m.prefixo)),
+    );
+    expect(fora).toEqual([]);
   });
 });

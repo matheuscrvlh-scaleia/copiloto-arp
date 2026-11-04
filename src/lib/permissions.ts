@@ -119,3 +119,13 @@ export const PERMISSOES = {
 } as const;
 
 export type Permissao = keyof typeof PERMISSOES;
+
+/** Módulos na ordem em que aparecem nas telas de cargos e usuários. */
+export const MODULOS_DE_PERMISSAO = [
+  { prefixo: "admin.", titulo: "Administração" },
+  { prefixo: "rh.", titulo: "RH" },
+  { prefixo: "financeiro.", titulo: "Financeiro" },
+  { prefixo: "os.", titulo: "Tickets" },
+  { prefixo: "marketing.", titulo: "Marketing" },
+  { prefixo: "comercial.", titulo: "Comercial" },
+] as const;
