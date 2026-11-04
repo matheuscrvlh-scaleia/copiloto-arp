@@ -230,8 +230,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           valor={formatarNumero(ativos.length)}
           detalhe={`${ativos.length - mapas} documentos e ${mapas} mapas`}
           fonte={FONTE}
-          href={hrefCom(BASE, f.busca, { cartao: null })}
-          ativo={!cartao}
+          href={cartao ? hrefCom(BASE, f.busca, { cartao: null }) : undefined}
         />
         <CartaoDaTela
           titulo={`Vencem em ${aviso} dias`}

@@ -365,8 +365,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           detalhe={`${formatarNumero(t.quantidade)} LUCs`}
           fonte={ENET}
           exemplo={EXEMPLO.enet}
-          href={hrefStatus("")}
-          ativo={!filtro.status}
+          href={filtro.status ? hrefStatus("") : undefined}
         />
         <CartaoDaTela
           titulo="ABL locada"

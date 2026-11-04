@@ -208,7 +208,7 @@ export function CartaoDaTela({
       href={href}
       scroll={false}
       aria-current={ativo ? "true" : undefined}
-      className={`flex rounded-[1.75rem] outline-none *:flex-1 focus-visible:ring-2 focus-visible:ring-neutral-900/25 ${ativo ? "ring-2 ring-neutral-900 ring-offset-2 ring-offset-transparent" : ""}`}
+      className={`flex rounded-[1.75rem] outline-none *:flex-1 focus-visible:ring-2 focus-visible:ring-neutral-900/25 ${ativo ? "ring-2 ring-marca ring-offset-2 ring-offset-[color-mix(in_oklab,var(--color-neutral-100)_60%,transparent)]" : ""}`}
     >
       {cartao}
     </Link>
