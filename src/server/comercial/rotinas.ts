@@ -9,11 +9,11 @@ import {
 import { formatarData } from "@/lib/formato";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import type { Permissao } from "@/lib/permissions";
-import { memo } from "@/lib/sorteio";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
+import { registrarDepois } from "@/server/logs";
 import { comAdmin } from "./base";
-import { gerarEnet } from "./exemplo/enet";
+import { dadosEnetSemSessao } from "./fontes";
 
 // Lembretes do Comercial, uma vez por dia (/api/cron/comercial, service
 // role), só dentro do sistema (nada vai para o locatário): aniversário de
@@ -22,10 +22,6 @@ import { gerarEnet } from "./exemplo/enet";
 // (kit_aviso_dias) para quem tem comercial.kit.editar. Vão para o sino
 // (os.notificacoes) com uma chave por aviso: rodar de novo não repete.
 // Também grava a foto da ocupação do fim do mês para o Painel.
-
-// atalho: até fontes.ts ter uma leitura do ENET sem sessão, a rotina gera o
-// mesmo ENET de exemplo do dia que as telas leem.
-const enetDoDia = memo(gerarEnet);
 
 export interface ResultadoRotinaCom {
   chave: string;
@@ -108,7 +104,7 @@ async function lerParametros() {
 type Params = Awaited<ReturnType<typeof lerParametros>>;
 
 async function rotinaAniversarios(hoje: string, p: Params): Promise<number> {
-  const enet = enetDoDia(hoje);
+  const enet = await dadosEnetSemSessao(hoje);
   const lista = aniversariosParaLembrar(
     { ...enet, hoje },
     p.lembrete_aniversario_dias,
@@ -178,7 +174,7 @@ async function rotinaFotoOcupacao(hoje: string): Promise<number> {
   const contam = new Set(
     (tipos.data ?? []).filter((t) => t.conta_ocupacao).map((t) => t.tipo),
   );
-  const enet = enetDoDia(hoje);
+  const enet = await dadosEnetSemSessao(hoje);
   const dias = [somarDias(`${hoje.slice(0, 7)}-01`, -1)];
   if (fimDoMesDe(hoje) === hoje) dias.push(hoje);
   const fotos = dias.map((d) => fotoDaOcupacao(enet, d, contam));
@@ -245,5 +241,29 @@ export async function rodarRotinasComercial(
       });
     }
   }
+  const total = resultados.reduce((t, r) => t + r.registros, 0);
+  const falhas = resultados.filter((r) => !r.ok);
+  if (total > 0 || falhas.length > 0)
+    registrarDepois({
+      modulo: "comercial",
+      evento: "comercial_rotina",
+      descricao: [
+        `Lembretes do dia: ${total} ${total === 1 ? "aviso" : "avisos"}`,
+        falhas.length
+          ? `falha em ${falhas.map((f) => f.rotulo).join(", ")}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      usuarioId: null,
+      detalhes: {
+        rotinas: resultados.map((r) => ({
+          rotina: r.chave,
+          ok: r.ok,
+          registros: r.registros,
+          erro: r.erro ?? null,
+        })),
+      },
+    });
   return resultados;
 }

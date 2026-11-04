@@ -1025,3 +1025,37 @@ describe("remover dados de exemplo", () => {
     }).toEqual(antes);
   });
 });
+
+describe("histórico do sistema (20261104150000_comercial_logs)", () => {
+  it("eventos e alterações entram no módulo comercial", async () => {
+    expect(
+      await valor("select core.modulo_da_auditoria('comercial.listas', '{}')"),
+    ).toBe("comercial");
+    expect(
+      await valor(
+        `select core.modulo_da_auditoria('core.metas', '{"indicador": "comercial.vendas"}')`,
+      ),
+    ).toBe("comercial");
+    expect(
+      await erro(
+        "insert into core.logs (modulo, evento, descricao) values ('comercial', 'comercial_rotina', 'Teste')",
+      ),
+    ).toBeNull();
+  });
+
+  it("proposta de evento cai na auditoria com quem alterou", async () => {
+    await como("eventos", () =>
+      db.query(
+        `insert into comercial.propostas_evento (cliente, area_m2, valor_original, valor_parceria, valor_final)
+         values ('Auditada', 100, 1000, 900, 900)`,
+      ),
+    );
+    expect(
+      await contar(
+        "core.auditoria",
+        `tabela = 'comercial.propostas_evento' and acao = 'insert'
+         and depois->>'cliente' = 'Auditada' and usuario_id = '${U.eventos}'`,
+      ),
+    ).toBe(1);
+  });
+});

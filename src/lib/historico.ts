@@ -11,6 +11,7 @@ export const MODULOS = {
   rh: "RH",
   financeiro: "Financeiro",
   os: "Tickets",
+  comercial: "Comercial",
   integracoes: "Integrações",
 } as const;
 export type Modulo = keyof typeof MODULOS;
@@ -72,6 +73,18 @@ export const TABELAS: Record<string, string> = {
   "os.os_custos": "Custo da OS",
   "os.material_valores": "Valor de material",
   "os.importacoes": "Importação do sistema de OS",
+  "comercial.parametros": "Parâmetros do Comercial",
+  "comercial.listas": "Lista do Comercial",
+  "comercial.fontes_de_para": "De-para de fontes do RD",
+  "comercial.tipos_luc": "Tipo de LUC",
+  "comercial.faixas_evento": "Faixa de preço de evento",
+  "comercial.kit_documentos": "Documento do kit",
+  "comercial.kit_versoes": "Versão de documento do kit",
+  "comercial.censo_temas": "Tema do Censo",
+  "comercial.censo_sugestao_temas": "Tema de sugestão do Censo",
+  "comercial.pesquisa_imoveis": "Imóvel pesquisado",
+  "comercial.importacoes": "Importação do Comercial",
+  "comercial.propostas_evento": "Proposta de evento",
 };
 
 const ACOES_ALTERACAO: Record<string, string> = {
@@ -106,6 +119,16 @@ export const EVENTOS = {
   os_modelo_disparado: "Disparou modelo de entrada ou saída",
   os_rotina: "Rodou a rotina de chamados",
   os_papel_timbrado: "Trocou ou removeu o papel timbrado dos PDFs",
+  comercial_configuracao: "Alterou a configuração do Comercial",
+  comercial_exemplos_removidos: "Removeu os dados de exemplo do Comercial",
+  comercial_importacao_confirmada: "Confirmou importação do Comercial",
+  comercial_importacao_desfeita: "Desfez importação do Comercial",
+  comercial_contrato_salvo: "Salvou contrato",
+  comercial_contrato_pronto: "Marcou contrato pronto para gerar",
+  comercial_distrato_salvo: "Salvou distrato",
+  comercial_contrato_anexo: "Anexou arquivo ao contrato",
+  comercial_contrato_anexo_removido: "Removeu anexo do contrato",
+  comercial_rotina: "Rodou a rotina do Comercial",
 } as const;
 export type Evento = keyof typeof EVENTOS;
 

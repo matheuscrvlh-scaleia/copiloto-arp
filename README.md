@@ -27,6 +27,15 @@ monta à mão.
   dos locatários-chave, radar do Asana, fluxo do estacionamento e um painel
   semanal com alertas. Só consulta as ferramentas; dados de exemplo nos campos
   das APIs até a ligação real. Quem valida: Daniel.
+- **Comercial** (mockup): painel de indicadores (plano × real), funil, ocupação
+  e estoque de LUCs com a curva da carteira, vencimentos de contrato,
+  relacionamento (aniversários e registro de contatos), Censo dos locatários
+  com questionário por link, contratos e distratos num assistente por etapas,
+  ficha cadastral pública por link, kit de entrega, simulador de propostas de
+  evento e pesquisa de mercado. RD Station CRM e ENET com dados de exemplo
+  nos campos das APIs (`src/server/comercial/fontes.ts`) até a API ser
+  liberada; CEP, CNPJ, feriados e IGP-M/IPCA reais pelos serviços públicos.
+  Quem valida: Paulo.
 
 As especificações completas estão na pasta do projeto ARP (fora do repo).
 Integrações: [docs/integracoes.md](docs/integracoes.md).
@@ -111,6 +120,7 @@ Modelo de dados: [docs/modelo-de-dados.md](docs/modelo-de-dados.md).
 | RD Station Marketing | `/api/sync/rd-station` | Vercel Cron, todo dia às 06h15 de Brasília; "Sincronizar agora" em Marketing › Configurações › Integrações |
 
 | Rotinas de Tickets | `/api/cron/os` | Todo dia às 07h30 de Brasília (de hora em hora no plano Pro da Vercel; "Rodar rotinas agora" em Modelos e lembretes): aceite automático, avisos de prazo, lembretes recorrentes, preventivas, modelos de entrada e saída, cobrança do terceirizado |
+| Rotinas do Comercial | `/api/cron/comercial` | Todo dia às 08h de Brasília: lembretes no sino de aniversário de contrato e de sócio e de documento do kit vencendo; foto da ocupação no fim do mês para o Painel |
 
 As rotas de sincronização e de rotinas exigem `Authorization: Bearer <CRON_SECRET>`.
 
@@ -119,7 +129,9 @@ OS do terceirizado (`/ordem/<token>`) abrem sem login. No portal, a loja
 entra com o CNPJ (com limite de tentativas por IP) e fica numa sessão que o
 servidor confere a cada acesso; encerrar o acesso na tela do Portal tira a
 loja na hora. O link do terceirizado para de funcionar quando é cancelado ou
-quando a OS fecha.
+quando a OS fecha. No Comercial, a ficha cadastral (`/ficha/<token>`) e o
+questionário do Censo (`/censo/<token>`) também abrem sem login, com um link
+por interessado ou empresa.
 Cada execução fica registrada em `integracao.sync_runs`.
 
 O acesso a cada sistema (usuário, senha, token) é cadastrado em

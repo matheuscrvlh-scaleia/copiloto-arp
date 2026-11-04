@@ -1,14 +1,16 @@
 import "server-only";
-import { after } from "next/server";
 import { cache } from "react";
 import {
   type GrupoHistorico,
   type LinhaAuditoria,
   TABELAS_COM,
 } from "@/lib/comercial/parametros";
+import { EVENTOS } from "@/lib/historico";
+import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { podeAgora } from "@/server/auth";
 import { nomesDeUsuarios } from "@/server/comercial/importacoes";
+import { registrarDepois } from "@/server/logs";
 
 // Leituras extras de Comercial › Configurações: feriados cadastrados
 // (os.feriados, o mesmo do Tickets) e o histórico das alterações
@@ -100,20 +102,37 @@ export async function feriadosCadastrados(): Promise<
   return data ?? [];
 }
 
-/** Registro no log do servidor depois de responder (não atrasa a ação). */
+const O_QUE_MUDOU: Record<string, string> = {
+  parametros_salvos: "parâmetros",
+  lista_salva: "lista",
+  de_para_salvo: "de-para de fontes",
+  de_para_incluido: "de-para de fontes",
+  de_para_removido: "de-para de fontes",
+  tipos_luc_salvos: "tipos de LUC",
+  tipo_luc_incluido: "tipos de LUC",
+  faixa_evento_salva: "faixas de evento",
+  faixa_evento_incluida: "faixas de evento",
+  faixa_evento_removida: "faixas de evento",
+  feriado_incluido: "feriados",
+  feriado_removido: "feriados",
+};
+
+/** Evento no histórico do sistema, depois de responder (não atrasa a ação). */
 export function logComercial(
   evento: string,
   usuarioId: string | null,
   detalhes: Record<string, unknown> = {},
 ): void {
-  after(() =>
-    console.info(
-      JSON.stringify({
-        modulo: "comercial",
-        evento,
-        usuario: usuarioId,
-        ...detalhes,
-      }),
-    ),
-  );
+  const exemplos = evento === "exemplos_removidos";
+  registrarDepois({
+    modulo: "comercial",
+    evento: exemplos
+      ? "comercial_exemplos_removidos"
+      : "comercial_configuracao",
+    descricao: exemplos
+      ? EVENTOS.comercial_exemplos_removidos
+      : `Configurações do Comercial: ${O_QUE_MUDOU[evento] ?? evento}`,
+    usuarioId,
+    detalhes: { acao: evento, ...(detalhes as Record<string, Json>) },
+  });
 }

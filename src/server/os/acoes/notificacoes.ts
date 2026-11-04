@@ -4,9 +4,11 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { usuarioAtual } from "@/server/auth";
 
-// Sininho: as notificações do módulo Tickets (os.notificacoes). O
-// sino do menu busca daqui ao carregar e ao abrir, e marca como lida. O RLS
-// só deixa ler e marcar as do próprio usuário.
+// Sininho: as notificações do Tickets e os lembretes do Comercial (ambos em
+// os.notificacoes). O sino do menu busca daqui ao carregar e ao abrir, e
+// marca como lida. O RLS só deixa ler e marcar as do próprio usuário.
+
+const MODULOS_DO_SINO = ["os.", "comercial."];
 
 export interface NotificacaoDoSino {
   id: number;
@@ -21,10 +23,15 @@ async function tabela() {
   return (await createClient()).schema("os").from("notificacoes");
 }
 
-/** Não lidas mais recentes de quem está logado (vazio sem o módulo). */
+/** Não lidas mais recentes de quem está logado (vazio sem Tickets nem Comercial). */
 export async function minhasNotificacoes(): Promise<NotificacaoDoSino[]> {
   const usuario = await usuarioAtual();
-  if (!usuario.permissoes.some((p) => p.startsWith("os."))) return [];
+  if (
+    !usuario.permissoes.some((p) =>
+      MODULOS_DO_SINO.some((m) => p.startsWith(m)),
+    )
+  )
+    return [];
   const { data, error } = await (await tabela())
     .select("id, tipo, titulo, texto, href, criado_em")
     .eq("usuario_id", usuario.id)

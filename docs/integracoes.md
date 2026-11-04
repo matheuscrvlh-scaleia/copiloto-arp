@@ -15,6 +15,7 @@ nenhum sistema, mesmo quando a API permite.
 | Copiloto RH | RH: nascimento, tipo de contrato, admissões, desligamentos, turnover | API (OAuth client_credentials) | **Funcionando**: fonte de colaboradores, nascimento, contrato, admissões, desligamentos e turnover (cálculo do Copiloto). A base da ARP não tem desligados | `src/connectors/copiloto-rh` |
 | WPS ParkingPlus | Estacionamento: entradas, saídas e pagamentos | API, 1x por dia | **Sincronizando** (homologação; falta o acesso de produção) | `src/connectors/wps` |
 | Diário de Obras | Obras: diários (RDO), mão de obra, atividades, ocorrências | API | Falta o token. Cliente de todas as rotas pronto, sem sincronização (módulo não definido) | `src/connectors/diario-de-obras` |
+| Serviços públicos (BrasilAPI, ViaCEP, Banco Central) | Comercial: CEP, CNPJ, feriados nacionais, IGP-M e IPCA | API pública, na hora (sem cadastro) | **Funcionando**, sem credencial | `src/connectors/publicos` |
 
 **Onde fica o acesso:** Administração › Integrações (Secullum, WPS, Diário
 de Obras e Copiloto RH). Cada credencial é testada ao salvar, só com leituras
@@ -538,6 +539,25 @@ quantidade de entradas e saídas por dia. Saíram a tela, a permissão
 Os anúncios precisam de UTM com o nome da campanha (`traffic_campaign` no
 RD): sem isso o custo por lead por campanha não fecha, e o lead aparece como
 "origem não identificada".
+
+## Serviços públicos (Comercial)
+
+Gratuitos e sem cadastro, só leitura, consultados na hora. Conector em
+`src/connectors/publicos` (Zod em toda resposta, timeout de 4 s); as telas
+chamam por `src/server/comercial/consultas.ts` (CEP e CNPJ) e
+`src/server/comercial/publicos.ts` (feriados e índices). **Se o serviço
+falhar, nada trava**: o formulário segue e a pessoa digita; a tela mostra o
+resto sem a estimativa.
+
+| Serviço | Endereço | Onde aparece | Observações |
+|---|---|---|---|
+| CEP | BrasilAPI `GET /api/cep/v2/{cep}`; ViaCEP `GET /ws/{cep}/json/` de reserva | Ficha cadastral (inclusive a pública), contratos, pesquisa de mercado | Preenche rua, bairro, cidade e UF |
+| CNPJ | BrasilAPI `GET /api/cnpj/v1/{cnpj}` | Ficha cadastral, contratos (partes e fiador) | Razão social, nome fantasia, endereço, sócios; confere o dígito antes de chamar |
+| Feriados nacionais | BrasilAPI `GET /api/feriados/v1/{ano}` | Eventos (data sazonal), Configurações › Parâmetros | Cache do servidor por semanas. Os de Nova Friburgo ficam em `os.feriados` (os mesmos do Tickets) |
+| IGP-M e IPCA | Banco Central SGS, séries 189 e 433: `GET /dados/serie/bcdata.sgs.{serie}/dados/ultimos/{n}?formato=json` | Vencimentos (estimativa do reajuste) | Variação mensal; o acumulado em 12 meses é calculado aqui. Cache por dias |
+
+CEP e CNPJ abrem também na ficha pública, sem login: limite de 30 consultas
+por IP a cada 10 minutos (na memória de cada instância do servidor).
 
 ## Uploads de arquivo
 

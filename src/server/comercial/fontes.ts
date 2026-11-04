@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import type { FontesEnet, FontesRd } from "@/lib/comercial/fontes";
+import { hojeEmBrasilia } from "@/lib/os/tempo";
 import { memo } from "@/lib/sorteio";
 import { contextoCom } from "./base";
 import { gerarEnet } from "./exemplo/enet";
@@ -33,5 +34,15 @@ export const dadosRd = cache(async (): Promise<DadosRd> => {
 /** LUCs, contratos, clientes e contas a receber do ENET. */
 export const dadosEnet = cache(async (): Promise<DadosEnet> => {
   const { hoje } = await contextoCom();
-  return { ...enetDoDia(hoje), exemplo: true };
+  return dadosEnetSemSessao(hoje);
 });
+
+/**
+ * O mesmo ENET sem sessão, para a rotina (cron) e a ficha pública: quem
+ * chama já conferiu o acesso (CRON_SECRET, token) e só usa o necessário.
+ */
+export async function dadosEnetSemSessao(
+  hoje = hojeEmBrasilia(new Date()),
+): Promise<DadosEnet> {
+  return { ...enetDoDia(hoje), exemplo: true };
+}

@@ -13,14 +13,11 @@ import {
   type TipoFicha,
 } from "@/lib/comercial/ficha";
 import type { EnetLuc } from "@/lib/comercial/fontes";
-import { hojeEmBrasilia } from "@/lib/os/tempo";
-import { memo } from "@/lib/sorteio";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TAG } from "@/server/cache";
 import { urlDoSistema } from "@/server/os/base";
 import { com, comAdmin, contextoCom, listas, parametros } from "./base";
-import { gerarEnet } from "./exemplo/enet";
-import { dadosEnet } from "./fontes";
+import { dadosEnet, dadosEnetSemSessao } from "./fontes";
 
 // Leituras das fichas cadastrais (4.12). A tela interna lê com a sessão
 // (RLS: a lista para quem vê fichas, gera link ou monta contrato; dados,
@@ -71,12 +68,9 @@ export async function lucsVagos(): Promise<{
   return { opcoes: opcoesDeLuc(enet.lucs), exemplo: enet.exemplo };
 }
 
-// atalho: a fachada de fontes.ts pede sessão; a ficha pública gera o mesmo
-// ENET de exemplo do dia aqui. Quando o conector chegar, isto vira uma
-// leitura sem sessão em fontes.ts.
-const enetDoDia = memo(gerarEnet);
-const lucsVagosPublicos = () =>
-  opcoesDeLuc(enetDoDia(hojeEmBrasilia(new Date())).lucs);
+/** LUCs vagos para a ficha pública (sem sessão; o token já foi conferido). */
+const lucsVagosPublicos = async () =>
+  opcoesDeLuc((await dadosEnetSemSessao()).lucs);
 
 // ---------------------------------------------------------------------------
 // Configuração da ficha (parâmetros e listas ficha_documento_*)
@@ -240,7 +234,7 @@ export async function paginaDaFicha(
     textosPublicos(),
     documentosPublicos(),
   ]);
-  const lucs = lucsVagosPublicos();
+  const lucs = await lucsVagosPublicos();
   const luc = acesso.ficha.luc;
   if (luc && !lucs.some((l) => l.valor === luc))
     lucs.unshift({ valor: luc, rotulo: luc });

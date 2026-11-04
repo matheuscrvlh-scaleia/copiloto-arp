@@ -2,7 +2,6 @@
 
 import { randomBytes } from "node:crypto";
 import { refresh } from "next/cache";
-import { after } from "next/server";
 import { z } from "zod";
 import {
   ANEXO_MAX_BYTES,
@@ -29,6 +28,7 @@ import {
   dadosDaFichaParaContrato,
   type PartesDaFicha,
 } from "@/lib/comercial/ficha";
+import { EVENTOS } from "@/lib/historico";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { pode, podeAgora, usuarioAtual } from "@/server/auth";
@@ -40,6 +40,7 @@ import {
   vistoriaDoLuc,
 } from "@/server/comercial/contratos";
 import { BUCKET_COMERCIAL } from "@/server/comercial/kit";
+import { registrarDepois } from "@/server/logs";
 
 // Gravações de Contratos e Distratos (spec 4.11). Rascunho e etapas vão
 // com a sessão: o RLS confere comercial.contratos.editar e os gatilhos do
@@ -64,12 +65,28 @@ const SEM_PERMISSAO = "Você não tem permissão para editar contratos.";
 const OUTRA_PESSOA =
   "Outra pessoa salvou este contrato enquanto você editava. Recarregue a tela para ver a versão nova (o que você digitou continua aqui até recarregar).";
 
-// atalho: core.logs ainda não aceita o módulo "comercial" (check e
-// lib/historico.ts); o rastro de quem alterou fica em contrato_versoes e
-// o evento sai no log do servidor.
-function registrar(evento: string, detalhes: Record<string, unknown>) {
-  after(() => {
-    console.info(`comercial.${evento}`, JSON.stringify(detalhes));
+type EventoContrato =
+  | "contrato_salvo"
+  | "contrato_pronto"
+  | "distrato_salvo"
+  | "contrato_anexo"
+  | "contrato_anexo_removido";
+
+/** Evento no histórico do sistema; o antes e depois fica em contrato_versoes. */
+function registrar(
+  evento: EventoContrato,
+  {
+    por,
+    ...detalhes
+  }: { contrato: string; por: string } & Record<string, Json | undefined>,
+) {
+  const e = `comercial_${evento}` as const;
+  registrarDepois({
+    modulo: "comercial",
+    evento: e,
+    descricao: EVENTOS[e],
+    usuarioId: por,
+    detalhes,
   });
 }
 

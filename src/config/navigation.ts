@@ -391,10 +391,15 @@ export const navigation: NavSection[] = [
         href: "/comercial/configuracoes",
         label: "Configurações",
         icone: "parametros",
+        // Quem abre alguma aba: Parâmetros, Metas ou Importações (os mesmos
+        // tipos de comercial.pode_importar).
         permissao: [
           "comercial.parametros.editar",
           "comercial.painel.metas",
           "comercial.censo.importar",
+          "comercial.formulario.ver",
+          "comercial.pesquisa.editar",
+          "comercial.relacionamento.registrar",
         ],
       },
     ],

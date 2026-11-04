@@ -353,9 +353,13 @@ do mockup e saem com `comercial.remover_exemplos()`.
 - Feriados de Nova Friburgo: `os.feriados` (o Comercial lê; edita com
   `comercial.parametros.editar`).
 - Histórico: `core.auditoria` de parâmetros, listas, de-para, tipos de LUC,
-  faixas, kit, temas, sugestões, pesquisa e importações, visível com
+  faixas, kit, temas, sugestões, pesquisa, importações e propostas de evento
+  (esta desde `20261104150000_comercial_logs`), visível com
   `comercial.parametros.editar`. Fichas, respostas e contatos ficam fora
-  (dado pessoal); contratos têm `contrato_versoes`.
+  (dado pessoal); contratos têm `contrato_versoes`. No histórico do sistema
+  (`core.historico`), `comercial.*` e as metas `comercial.*` caem no módulo
+  `comercial`, que `core.logs` também aceita (eventos de contratos,
+  importações, configurações e da rotina diária).
 - Bucket privado `comercial`: `kit/`, `fichas/`, `contratos/`,
   `importacoes/<tipo>/`, cada pasta com a permissão do assunto.
 - Formulários públicos (ficha e Censo por token): o servidor confere o token

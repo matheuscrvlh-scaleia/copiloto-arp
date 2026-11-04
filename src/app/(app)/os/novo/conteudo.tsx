@@ -12,8 +12,9 @@ import { NovoNaPagina } from "./novo-na-pagina";
 // Abrir chamado (/os/novo) ou OS (/os/ordens/nova) com contexto pela URL:
 // ?ativo=<id> (etiqueta QR do ativo), ?loja=<id> (da lista de lojas em
 // cache), ?vinculado=<id> (chamado ligado), ?vistoria=<id>&ambiente=<id>
-// ("Gerar OS") e ?duplicar=<id>. Um não vira o outro: a cópia e o vínculo
-// só valem dentro do que a página abre.
+// ("Gerar OS"), ?duplicar=<id> e ?titulo=&descricao= (texto pronto, como o
+// "Precisa de outro setor?" do Comercial). Um não vira o outro: a cópia e o
+// vínculo só valem dentro do que a página abre.
 
 export type Busca = Record<string, string | string[] | undefined>;
 
@@ -66,6 +67,8 @@ async function montarInicial(
   const inicial: InicialDoFormulario = ehOS
     ? { tipo: "os", contexto: [] }
     : { contexto: [] };
+  inicial.titulo = um(busca.titulo)?.slice(0, 200);
+  inicial.descricao = um(busca.descricao)?.slice(0, 5000);
   const origemId = um(busca.duplicar);
   const vinculadoId = um(busca.vinculado);
   const ativoId = um(busca.ativo);

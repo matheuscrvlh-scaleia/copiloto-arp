@@ -1,7 +1,6 @@
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
-import { after } from "next/server";
 import { cache } from "react";
 import { z } from "zod";
 import {
@@ -23,12 +22,14 @@ import {
   TIPOS_ORDEM,
   type TipoImportacao,
 } from "@/lib/comercial/importacao";
+import { EVENTOS } from "@/lib/historico";
 import { decodificarTexto, lerCsv } from "@/lib/marketing/parametros";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { usuarioAtual } from "@/server/auth";
 import type { Importacao } from "@/server/comercial/base";
+import { registrarDepois } from "@/server/logs";
 
 // Importações do histórico (spec 4.13): a leitura do histórico da aba e o
 // trabalho comum de prévia e confirmação. Cada tipo (Censo, Fichas, Pesquisa,
@@ -379,25 +380,22 @@ export function erroDoBanco(
   return { erro: `Não foi possível ${oQue}. Tente de novo.` };
 }
 
-/** Registro no log do servidor, depois de responder. */
+/** Evento no histórico do sistema, depois de responder. */
 export function logImportacao(
   acao: "confirmada" | "desfeita",
   tipo: TipoImportacao,
   id: string,
   usuarioId: string,
-  detalhes: Record<string, unknown> = {},
+  detalhes: Record<string, Json | undefined> = {},
 ): void {
-  after(() =>
-    console.info(
-      JSON.stringify({
-        evento: `comercial_importacao_${acao}`,
-        tipo,
-        importacao: id,
-        usuario: usuarioId,
-        ...detalhes,
-      }),
-    ),
-  );
+  const evento = `comercial_importacao_${acao}` as const;
+  registrarDepois({
+    modulo: "comercial",
+    evento,
+    descricao: `${EVENTOS[evento]}: ${TIPOS_IMPORTACAO[tipo].rotulo}`,
+    usuarioId,
+    detalhes: { tipo, importacao: id, ...detalhes },
+  });
 }
 
 // ---------------------------------------------------------------------------
