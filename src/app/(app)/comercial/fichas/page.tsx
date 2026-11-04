@@ -214,11 +214,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       <TopoComercial
         dadosDe={agoraTexto}
         filtros={linhaFiltros}
-        exemplo={
-          exemplo
-            ? "fichas de demonstração (Configurações › Remover dados de exemplo)"
-            : undefined
-        }
+        exemplo={exemplo ? "fichas de demonstração" : undefined}
         acoes={
           ctx.pode("comercial.exportar") ? (
             <BotaoExportar

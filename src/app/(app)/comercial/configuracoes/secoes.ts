@@ -37,12 +37,6 @@ const ABAS: (AbaConfiguracao & { permissao: Permissao | "importar" })[] = [
     descricao: "Quem alterou parâmetros e cadastros, quando, antes e depois",
     permissao: "comercial.parametros.editar",
   },
-  {
-    href: `${BASE}/exemplos`,
-    rotulo: "Dados de exemplo",
-    descricao: "Remover os registros de exemplo da demonstração",
-    permissao: "comercial.parametros.editar",
-  },
 ];
 
 /** Abas que a pessoa pode abrir. Lê a sessão: use dentro de <Suspense>. */

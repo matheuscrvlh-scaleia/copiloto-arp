@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { Secao, Tabela } from "@/components/dashboard/tabela";
 import { TopoDaTela } from "@/components/dashboard/tela";
 import {
@@ -84,26 +85,40 @@ export function BlocoHistorico({
             valor: (l) => {
               const ms = mudancas(l);
               if (!ms.length) return "—";
+              const campos = ms.map((m) => m.rotulo).join(", ");
               return (
-                <ul className="flex flex-col gap-0.5 text-xs">
-                  {ms.map((m) => (
-                    <li key={m.campo}>
-                      <span className="text-neutral-500">{m.rotulo}: </span>
-                      {l.acao === "update" ? (
-                        <>
-                          <span className="text-neutral-500 line-through">
-                            {m.antes}
-                          </span>{" "}
-                          → {m.depois}
-                        </>
-                      ) : l.acao === "delete" ? (
-                        m.antes
-                      ) : (
-                        m.depois
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                <details className="group text-xs">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 text-neutral-600 hover:text-neutral-900 [&::-webkit-details-marker]:hidden">
+                    <ChevronRight
+                      className="size-3.5 shrink-0 transition group-open:rotate-90"
+                      aria-hidden
+                    />
+                    <span className="line-clamp-1 max-w-80">
+                      {ms.length === 1
+                        ? campos
+                        : `${ms.length} campos: ${campos}`}
+                    </span>
+                  </summary>
+                  <ul className="mt-1.5 flex flex-col gap-0.5 pl-5">
+                    {ms.map((m) => (
+                      <li key={m.campo}>
+                        <span className="text-neutral-500">{m.rotulo}: </span>
+                        {l.acao === "update" ? (
+                          <>
+                            <span className="text-neutral-500 line-through">
+                              {m.antes}
+                            </span>{" "}
+                            → {m.depois}
+                          </>
+                        ) : l.acao === "delete" ? (
+                          m.antes
+                        ) : (
+                          m.depois
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               );
             },
           },

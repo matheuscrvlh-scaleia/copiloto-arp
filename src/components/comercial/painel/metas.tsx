@@ -35,11 +35,13 @@ export function GradeMetas({
       className="flex flex-col gap-4"
     >
       <input type="hidden" name="ano" value={ano} />
-      <div className="-mx-2 overflow-auto">
+      <div className="-mx-2 max-h-[70vh] overflow-auto">
         <table className="w-full min-w-max border-collapse text-sm">
-          <thead>
+          <thead className="sticky top-0 z-20 bg-white/90 backdrop-blur">
             <tr className="border-b border-neutral-200 text-xs text-neutral-500">
-              <th className="px-2 py-2 text-left font-medium">Indicador</th>
+              <th className="sticky left-0 z-30 bg-white/90 px-2 py-2 text-left font-medium backdrop-blur">
+                Indicador
+              </th>
               {meses.map((m) => (
                 <th key={m} className="px-1 py-2 text-right font-medium">
                   {m}/{String(ano).slice(2)}
@@ -55,7 +57,7 @@ export function GradeMetas({
               >
                 <th
                   scope="row"
-                  className="min-w-56 px-2 py-2 text-left font-medium"
+                  className="sticky left-0 z-10 min-w-56 bg-white/90 px-2 py-2 text-left font-medium backdrop-blur"
                 >
                   {l.nome}
                   <span className="block text-[11px] font-normal text-neutral-500">
@@ -65,13 +67,15 @@ export function GradeMetas({
                 </th>
                 {l.campos.map((campo, i) => (
                   <td key={campo} className="px-1 py-1.5">
-                    <input
-                      name={campo}
-                      inputMode="decimal"
-                      defaultValue={l.valores[i]}
-                      aria-label={`${l.nome}, ${meses[i]}/${ano}`}
-                      className={`${classeCampo} w-28 px-2 text-right tabular-nums`}
-                    />
+                    <div className="w-28">
+                      <input
+                        name={campo}
+                        inputMode="decimal"
+                        defaultValue={l.valores[i]}
+                        aria-label={`${l.nome}, ${meses[i]}/${ano}`}
+                        className={`${classeCampo} px-2 text-right tabular-nums`}
+                      />
+                    </div>
                   </td>
                 ))}
               </tr>

@@ -432,29 +432,3 @@ export async function removerFeriado(
     "Feriado removido.",
   );
 }
-
-// ---------------------------------------------------------------------------
-// Dados de exemplo
-// ---------------------------------------------------------------------------
-
-export async function removerExemplos(
-  _: EstadoAcao,
-  _form: FormData,
-): Promise<EstadoAcao> {
-  const negado = await exigir();
-  if (negado) return negado;
-  const { data, error } = await (await com()).rpc("remover_exemplos");
-  if (error) return erroDoBanco(error);
-  const contagem = (data ?? {}) as Record<string, number>;
-  const total = Object.values(contagem).reduce(
-    (s, n) => s + (Number(n) || 0),
-    0,
-  );
-  refresh();
-  logComercial("exemplos_removidos", (await usuarioAtual()).id, contagem);
-  return {
-    ok: total
-      ? `${total} registro(s) de exemplo removido(s).`
-      : "Não havia dados de exemplo.",
-  };
-}
