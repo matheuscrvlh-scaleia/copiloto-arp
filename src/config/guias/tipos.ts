@@ -39,7 +39,11 @@ export type Alvo =
   | "chamado-conversa"
   | "chamado-informacoes"
   | "calendario"
-  | "em-construcao";
+  | "em-construcao"
+  | "novo-titulo"
+  | "novo-enviar"
+  | "os-cronometro"
+  | "os-bloco";
 
 /**
  * Bloco, cartão ou aba pelo título que aparece na tela, sem marcar a página:
@@ -61,4 +65,29 @@ export interface Guia {
    */
   versao: number;
   passos: Passo[];
+}
+
+/** Passo de uma trilha: pode estar em outra tela e esperar a pessoa agir. */
+export interface PassoTrilha extends Passo {
+  /** Tela onde o passo acontece; o guia vai até ela. Sem rota: a do passo anterior. */
+  rota?: string;
+  /**
+   * Avança sozinho quando este ponto aparece (a pessoa abriu o formulário,
+   * escolheu a categoria, abriu uma OS). O Próximo continua valendo.
+   */
+  ate?: Alvo;
+  /** Texto no centro quando o alvo não está na tela (ex.: lista vazia). */
+  semAlvo?: string;
+}
+
+/** Processo de ponta a ponta, atravessando telas (ex.: a OS do começo ao fim). */
+export interface Trilha {
+  id: string;
+  titulo: string;
+  /** Uma linha no menu do botão Guia. */
+  resumo: string;
+  /** Aparece no menu das telas que começam com este endereço (ex.: "/os"). */
+  modulo: string;
+  versao: number;
+  passos: PassoTrilha[];
 }

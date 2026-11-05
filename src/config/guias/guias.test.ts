@@ -1,8 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { navigation } from "@/config/navigation";
-import { GUIAS, guiaDa } from "./index";
+import { GUIAS, guiaDa, TRILHAS, trilhasDa } from "./index";
 
 /** Texto de todos os .tsx/.ts de src (menos testes). */
 function fontes(): string[] {
@@ -119,5 +119,43 @@ describe("guias das telas", () => {
     expect(guiaDa("/os/ordens/123")?.chave).toBe("/os/ordens");
     expect(guiaDa("/osx")).toBeNull();
     expect(guiaDa("/login")).toBeNull();
+  });
+});
+
+describe("trilhas (processo de ponta a ponta)", () => {
+  it("toda rota é uma tela que existe e o primeiro passo diz onde começa", () => {
+    const app = join(__dirname, "..", "..", "app", "(app)");
+    for (const t of TRILHAS) {
+      expect(t.passos[0]?.rota, t.id).toBeDefined();
+      for (const p of t.passos)
+        if (p.rota)
+          expect(existsSync(join(app, p.rota, "page.tsx")), p.rota).toBe(true);
+    }
+  });
+
+  it("todo ponto citado existe nos componentes", () => {
+    const existentes = alvosNoCodigo();
+    const textos = fontes();
+    const faltando = TRILHAS.flatMap((t) =>
+      t.passos.flatMap((p) =>
+        [p.alvo, p.ate].flatMap((a) => {
+          if (!a) return [];
+          const [tipo, titulo] = a.split(/:(.*)/s);
+          const ok = titulo
+            ? tipo !== undefined && tituloExiste(tipo, titulo, textos)
+            : existentes.has(a);
+          return ok ? [] : [`${t.id} → ${a}`];
+        }),
+      ),
+    );
+    expect(faltando).toEqual([]);
+  });
+
+  it("aparece no menu das telas do módulo", () => {
+    expect(trilhasDa("/os/ordens/caixa").map((t) => t.id)).toEqual([
+      "os",
+      "chamado",
+    ]);
+    expect(trilhasDa("/rh")).toEqual([]);
   });
 });

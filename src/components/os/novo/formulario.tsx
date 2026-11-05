@@ -225,13 +225,10 @@ function EscolherCategoria({
     : [];
 
   return (
-    <div className="flex flex-col gap-5">
+    <div data-guia="novo-categoria" className="flex flex-col gap-5">
       {contexto.length > 0 && <Contexto itens={contexto} />}
       {dica && <p className="text-sm text-neutral-600">{dica}</p>}
-      <label
-        data-guia="novo-categoria"
-        className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white py-1.5 pr-4 pl-1.5 text-sm focus-within:border-neutral-900 focus-within:ring-4 focus-within:ring-neutral-900/5"
-      >
+      <label className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white py-1.5 pr-4 pl-1.5 text-sm focus-within:border-neutral-900 focus-within:ring-4 focus-within:ring-neutral-900/5">
         <span className="grid size-8 place-items-center rounded-full bg-neutral-900 text-white">
           <Search className="size-4" aria-hidden />
         </span>
@@ -642,7 +639,7 @@ function Detalhes({
             </fieldset>
           )}
 
-          <div className="flex flex-col gap-1">
+          <div data-guia="novo-titulo" className="flex flex-col gap-1">
             <label
               htmlFor={`${id}-titulo`}
               className="text-xs font-medium text-neutral-600"
@@ -927,6 +924,7 @@ function Detalhes({
       </div>
 
       <div
+        data-guia="novo-enviar"
         className={`sticky bottom-0 z-[1] flex flex-col gap-2 border-t border-neutral-900/[0.07] sm:flex-row sm:items-center sm:justify-end sm:gap-4 ${naJanela ? "px-5 py-3 sm:px-7 sm:py-4" : "bg-neutral-50/95 py-3 backdrop-blur"}`}
       >
         {erro ? (

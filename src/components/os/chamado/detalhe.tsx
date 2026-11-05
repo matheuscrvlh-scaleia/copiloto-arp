@@ -360,9 +360,11 @@ export async function DetalheChamado({
         </section>
       )}
       {registraTempo && (
-        <Suspense fallback={<CartaoCarregando altura="h-48" />}>
-          <BlocoOS ordemId={ch.id} compacto={compacto} />
-        </Suspense>
+        <div data-guia="os-bloco">
+          <Suspense fallback={<CartaoCarregando altura="h-48" />}>
+            <BlocoOS ordemId={ch.id} compacto={compacto} />
+          </Suspense>
+        </div>
       )}
       <section
         data-guia="chamado-conversa"

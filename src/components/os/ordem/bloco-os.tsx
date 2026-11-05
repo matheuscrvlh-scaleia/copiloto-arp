@@ -395,7 +395,7 @@ export async function CronometroDaOS({
   const minha = d.minhaSessaoAberta;
   if (bloqueio && !minha) return null;
   return (
-    <div className={className}>
+    <div data-guia="os-cronometro" className={className}>
       <Cronometro
         ordemId={d.chamado.id}
         desde={

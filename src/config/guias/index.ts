@@ -7,7 +7,8 @@ import { GUIAS_GESTAO, GUIAS_RH } from "./rh-gestao";
 import { GUIAS_TICKETS } from "./tickets";
 import type { Guia, Passo } from "./tipos";
 
-export type { Alvo, Guia, Passo } from "./tipos";
+export type { Alvo, Guia, Passo, PassoTrilha, Trilha } from "./tipos";
+export { TRILHAS, trilhasDa } from "./trilhas";
 
 /** Um guia por tela do menu (o teste confere que nenhuma fica sem). */
 export const GUIAS: Record<string, Guia> = {
