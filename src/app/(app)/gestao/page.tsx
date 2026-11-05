@@ -544,7 +544,11 @@ async function Pessoas({
       )}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
         {/* Visão geral: cartão de destaque com os números do período. */}
-        <section className="destaque flex flex-col gap-6 rounded-[2rem] p-6 xl:col-span-5">
+        <section
+          data-guia="secao"
+          data-guia-titulo="Visão geral"
+          className="destaque flex flex-col gap-6 rounded-[2rem] p-6 xl:col-span-5"
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Visão geral</h2>
             <span className="ladrilho rounded-full px-3 py-1 text-xs">
@@ -644,7 +648,11 @@ async function Pessoas({
         </section>
 
         {/* Evolução do quadro: área suave em vidro. */}
-        <section className="vidro flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-7">
+        <section
+          data-guia="secao"
+          data-guia-titulo="Evolução do headcount"
+          className="vidro flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-7"
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Evolução do headcount</h2>
@@ -675,7 +683,11 @@ async function Pessoas({
       </div>
 
       {/* Pessoas por setor: cartão preto largo, uma coluna por setor. */}
-      <section className="tom-escuro rounded-[2rem] p-6">
+      <section
+        data-guia="secao"
+        data-guia-titulo="Pessoas por setor"
+        className="tom-escuro rounded-[2rem] p-6"
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">
@@ -745,7 +757,11 @@ async function Pessoas({
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
         {/* Movimento de pessoas: admissões ↑ e desligamentos ↓ por mês. */}
-        <section className="vidro flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-5">
+        <section
+          data-guia="secao"
+          data-guia-titulo="Movimento de pessoas"
+          className="vidro flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-5"
+        >
           <div>
             <h2 className="text-lg font-semibold">Movimento de pessoas</h2>
             <p className="text-xs text-neutral-500">
@@ -762,7 +778,11 @@ async function Pessoas({
         </section>
 
         {/* Banco de horas: débitos ← zero → créditos, por setor. */}
-        <section className="destaque flex flex-col gap-5 rounded-[2rem] p-6 xl:col-span-7">
+        <section
+          data-guia="secao"
+          data-guia-titulo="Banco de horas"
+          className="destaque flex flex-col gap-5 rounded-[2rem] p-6 xl:col-span-7"
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Banco de horas</h2>
@@ -829,7 +849,11 @@ async function Pessoas({
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        <section className="tom-verde flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-7">
+        <section
+          data-guia="secao"
+          data-guia-titulo="Tempo de casa"
+          className="tom-verde flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-7"
+        >
           <div>
             <h2 className="text-lg font-semibold">Tempo de casa</h2>
             <p className="text-xs text-neutral-500">
@@ -847,7 +871,11 @@ async function Pessoas({
           />
         </section>
 
-        <section className="vidro flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-5">
+        <section
+          data-guia="secao"
+          data-guia-titulo="Horas perdidas"
+          className="vidro flex flex-col gap-4 rounded-[2rem] p-6 xl:col-span-5"
+        >
           <div>
             <h2 className="text-lg font-semibold">Horas perdidas</h2>
             <p className="text-xs text-neutral-500">

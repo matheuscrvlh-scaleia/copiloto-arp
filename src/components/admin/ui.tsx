@@ -19,6 +19,8 @@ export function Abas({
         <Link
           key={a.href}
           href={a.href}
+          data-guia="aba"
+          data-guia-titulo={a.rotulo}
           aria-current={a.href === atual ? "page" : undefined}
           className="shrink-0 rounded-full px-5 py-2 text-sm text-neutral-500 transition hover:text-neutral-900 aria-[current=page]:bg-neutral-900 aria-[current=page]:font-medium aria-[current=page]:text-white"
         >

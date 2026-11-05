@@ -32,7 +32,14 @@ function tituloExiste(tipo: string, titulo: string, textos: string[]): boolean {
       (t) => t.includes(`rotulo: "${titulo}"`) || t.includes(`: "${titulo}",`),
     );
   const tag = TAGS[tipo as keyof typeof TAGS];
-  if (textos.some((t) => t.includes(`titulo: "${titulo}"`))) return true;
+  if (
+    textos.some(
+      (t) =>
+        t.includes(`titulo: "${titulo}"`) ||
+        t.includes(`data-guia-titulo="${titulo}"`),
+    )
+  )
+    return true;
   const procurado = `titulo="${titulo}"`;
   return textos.some((t) => {
     for (

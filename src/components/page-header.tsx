@@ -50,7 +50,10 @@ export function Cartao({
 /** Tela que ainda depende de outra fonte de dados ou etapa. */
 export function EmConstrucao({ motivo }: { motivo: string }) {
   return (
-    <div className="vidro relative isolate overflow-hidden rounded-[2rem] px-6 py-12 text-center md:py-16">
+    <div
+      data-guia="em-construcao"
+      className="vidro relative isolate overflow-hidden rounded-[2rem] px-6 py-12 text-center md:py-16"
+    >
       <div
         aria-hidden
         className="absolute -top-24 left-1/2 -z-10 h-56 w-2/3 -translate-x-1/2 animate-pulse rounded-full bg-marca/25 blur-3xl [animation-duration:4s] motion-reduce:animate-none"

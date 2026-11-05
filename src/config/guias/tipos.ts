@@ -38,7 +38,8 @@ export type Alvo =
   | "chamado-destinos"
   | "chamado-conversa"
   | "chamado-informacoes"
-  | "calendario";
+  | "calendario"
+  | "em-construcao";
 
 /**
  * Bloco, cartão ou aba pelo título que aparece na tela, sem marcar a página:

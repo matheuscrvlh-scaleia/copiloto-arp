@@ -1,13 +1,10 @@
+import { GUIAS_ADMIN } from "./admin";
+import { GUIAS_COMERCIAL } from "./comercial";
 import { encerramento } from "./comum";
-import {
-  GUIAS_FINANCEIRO,
-  GUIAS_GESTAO,
-  GUIAS_RH,
-} from "./gestao-rh-financeiro";
+import { GUIAS_FINANCEIRO } from "./financeiro";
 import { GUIAS_MARKETING } from "./marketing";
-import { GUIAS_COMERCIAL } from "./marketing-comercial";
+import { GUIAS_GESTAO, GUIAS_RH } from "./rh-gestao";
 import { GUIAS_TICKETS } from "./tickets";
-import { GUIAS_ADMIN } from "./tickets-admin";
 import type { Guia, Passo } from "./tipos";
 
 export type { Alvo, Guia, Passo } from "./tipos";
