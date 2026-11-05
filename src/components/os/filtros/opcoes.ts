@@ -70,13 +70,17 @@ export const campoVisao: CampoBarra = {
 };
 
 /** Recortes que a pessoa pode ver (Meu setor e Todos dependem de permissão). */
-export function campoRecorte(permitidos: Recorte[]): CampoBarra {
+/** `padrao`: o recorte de quando nada foi escolhido (o "todos" da barra). */
+export function campoRecorte(
+  permitidos: Recorte[],
+  padrao: Recorte = "minha_caixa",
+): CampoBarra {
   return {
     chave: "recorte",
     rotulo: "O que mostrar",
-    todos: RECORTES.minha_caixa,
+    todos: RECORTES[padrao],
     opcoes: permitidos
-      .filter((r) => r !== "minha_caixa")
+      .filter((r) => r !== padrao)
       .map((r) => ({ valor: r, rotulo: RECORTES[r] })),
     largura: "w-52",
   };

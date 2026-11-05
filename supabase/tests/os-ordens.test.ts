@@ -178,4 +178,17 @@ describe("OS sai de os.chamados para os.ordens", () => {
       await db.exec("rollback");
     }
   });
+
+  it("outros custos: lista vazia por padrão, só aceita lista", async () => {
+    expect(
+      await valor(
+        `select outros_custos::text from os.os_custos where ordem_id = '${id.ordem}'`,
+      ),
+    ).toBe("[]");
+    expect(
+      await erro(
+        `update os.os_custos set outros_custos = '{"valor": 1}' where ordem_id = '${id.ordem}'`,
+      ),
+    ).toMatch(/check constraint/);
+  });
 });

@@ -13,7 +13,7 @@ import {
   minutosDaOS,
 } from "@/lib/os/calculos";
 import { rotuloOS } from "@/lib/os/numeros";
-import { nomeArquivoPdf, rotuloLote } from "@/lib/os/ordem";
+import { nomeArquivoPdf, outrosCustos, rotuloLote } from "@/lib/os/ordem";
 import { dataBr, dataHoraBr } from "@/lib/os/relatorios";
 import { PERIODOS, PRIORIDADES, STATUS } from "@/lib/os/rotulos";
 import { baixarArquivo, contexto, os } from "../base";
@@ -542,6 +542,10 @@ function custosDa(f: Folha, o: LinhaOS) {
     ...(terceirizado
       ? ([["Terceirizado", k.valor_terceirizado]] as [string, number | null][])
       : []),
+    ...outrosCustos(k.outros_custos).map((x): [string, number | null] => [
+      x.descricao,
+      x.valor,
+    ]),
     ["Custo total (valor da O.S.)", k.custo_total ?? k.legado_valor],
     ["Valor com rateio", k.valor_rateio ?? k.legado_valor_rateio],
   ];

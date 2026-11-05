@@ -4414,6 +4414,7 @@ export type Database = {
           orcamento_aprovado_em: string | null
           orcamento_aprovado_por: string | null
           orcamento_numero: string | null
+          outros_custos: Json
           rateio_regra: Database["os"]["Enums"]["regra_rateio"] | null
           rateio_valor: number | null
           valor_rateio: number | null
@@ -4437,6 +4438,7 @@ export type Database = {
           orcamento_aprovado_em?: string | null
           orcamento_aprovado_por?: string | null
           orcamento_numero?: string | null
+          outros_custos?: Json
           rateio_regra?: Database["os"]["Enums"]["regra_rateio"] | null
           rateio_valor?: number | null
           valor_rateio?: number | null
@@ -4460,6 +4462,7 @@ export type Database = {
           orcamento_aprovado_em?: string | null
           orcamento_aprovado_por?: string | null
           orcamento_numero?: string | null
+          outros_custos?: Json
           rateio_regra?: Database["os"]["Enums"]["regra_rateio"] | null
           rateio_valor?: number | null
           valor_rateio?: number | null

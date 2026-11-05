@@ -5,7 +5,13 @@ import { useId, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import { type Acao, EnvioDaAcao, FormAcao } from "@/components/form-acao";
 import { type Opcao, Selecao } from "@/components/selecao";
-import { ACOES, CONDICOES, GATILHOS } from "@/lib/os/modelos";
+import {
+  ACOES,
+  CONDICOES,
+  GATILHOS,
+  type Gatilho,
+  PRAZO_CONTA_DE,
+} from "@/lib/os/modelos";
 
 // Editor de um modelo de entrada/saída de cliente: nome, quando dispara e a
 // lista de itens (um destino do Aviso cada). Os itens vão num campo oculto
@@ -59,6 +65,7 @@ export function EditorDeModelo({
     modelo.itens.map((i, n) => ({ ...i, chave: i.id ?? `novo-${n}` })),
   );
   const [contador, setContador] = useState(0);
+  const [gatilho, setGatilho] = useState<Gatilho>(modelo.gatilho);
 
   const mudar = (chave: string, campos: Partial<ItemEditavel>) =>
     setLinhas((ls) =>
@@ -123,6 +130,7 @@ export function EditorDeModelo({
             name="gatilho"
             obrigatorio
             valorInicial={modelo.gatilho}
+            aoMudar={(v) => setGatilho(v as Gatilho)}
             opcoes={opcoes(GATILHOS)}
           />
         </label>
@@ -231,7 +239,7 @@ export function EditorDeModelo({
                     />
                   </div>
                   <label className={rotulo}>
-                    Prazo (dias do contrato)
+                    Prazo ({PRAZO_CONTA_DE[gatilho]})
                     <input
                       type="number"
                       inputMode="numeric"

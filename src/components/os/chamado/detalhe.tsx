@@ -327,7 +327,7 @@ export async function DetalheChamado({
         <section className={CARTAO}>
           <h3 className={TITULO_SECAO}>
             {ch.destinos_em_ordem
-              ? "Aprovação em ordem"
+              ? "Etapas em ordem"
               : "Andamento de cada destino"}
           </h3>
           <Destinos
@@ -352,6 +352,7 @@ export async function DetalheChamado({
             )}
             encerrado={!emAberto && ch.status !== "concluido"}
             definirTarefas={d.pode.definirTarefas && emAberto}
+            reordenar={d.pode.reordenar && emAberto}
           />
         </section>
       )}

@@ -23,20 +23,20 @@ export function Entrada() {
           Entrar no portal
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Informe o CNPJ da sua loja para fazer e acompanhar pedidos.
+          Informe o CPF ou o CNPJ da sua loja para fazer e acompanhar pedidos.
         </p>
       </div>
       <form action={acao} className="flex flex-col gap-4">
         <div>
           <Rotulo htmlFor={`${id}-cnpj`} obrigatorio>
-            CNPJ
+            CPF ou CNPJ
           </Rotulo>
           <input
             id={`${id}-cnpj`}
             name="cnpj"
             inputMode="numeric"
             autoComplete="off"
-            placeholder="00.000.000/0000-00"
+            placeholder="Só os números"
             defaultValue={estado.cnpj}
             required
             maxLength={18}
@@ -46,7 +46,7 @@ export function Entrada() {
         {lojas && (
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1.5 text-sm font-medium text-neutral-800">
-              Este CNPJ tem mais de uma loja. Qual é a sua?
+              Este documento tem mais de uma loja. Qual é a sua?
             </legend>
             {lojas.map((l, i) => (
               <label

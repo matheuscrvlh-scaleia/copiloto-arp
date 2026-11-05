@@ -101,10 +101,14 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
     "abertos_por_mim",
     ...(a.ctx.pode("os.todos_setores") ? (["todos"] as const) : []),
   ];
+  // Sem escolha, quem tem setor abre no mês do próprio setor.
+  const padrao: Recorte = permitidos.includes("meu_setor")
+    ? "meu_setor"
+    : "minha_caixa";
   const recorte =
     filtros.recorte && permitidos.includes(filtros.recorte)
       ? filtros.recorte
-      : "minha_caixa";
+      : padrao;
   const comSetor = recorte === "meu_setor" || recorte === "todos";
   const valores = {
     ...filtros,
@@ -181,7 +185,7 @@ async function CalendarioDaTela({ busca }: { busca: Promise<Busca> }) {
         fixos={["recorte", "visao", "de", "ate"]}
         campos={[
           campoVisao,
-          campoRecorte(permitidos),
+          campoRecorte(permitidos, padrao),
           ...(comSetor ? [campoSetor(setores)] : []),
           campoTipoComOS,
         ]}

@@ -19,6 +19,7 @@ import { ROTAS_OS } from "@/lib/os/rotas";
 import { FAIXAS_SINAL_PADRAO } from "@/lib/os/sinal";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import {
+  corrigirVigencia,
   incluirFeriado,
   incluirVigencia,
   removerAtivoCategoria,
@@ -603,6 +604,41 @@ function CartaoTecnico({
             />
           </label>
         </FormAcao>
+        {t.valores.some((v) => v.vigente_desde <= hoje) && (
+          <FormAcao
+            acao={corrigirVigencia}
+            rotulo="Corrigir valor"
+            variante="secundario"
+            confirmar="Corrigir este valor? As OS do período dele serão recalculadas."
+            className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[11rem_11rem_auto]"
+          >
+            <label className={rotulo}>
+              Corrigir o valor de
+              <Selecao
+                name="id"
+                rotulo="Valor a corrigir"
+                obrigatorio
+                valorInicial={vigente?.id ?? ""}
+                opcoes={t.valores
+                  .filter((v) => v.vigente_desde <= hoje)
+                  .map((v) => ({
+                    valor: v.id,
+                    rotulo: `${formatarData(v.vigente_desde)} · ${valorMinuto(Number(v.valor_minuto))}`,
+                  }))}
+              />
+            </label>
+            <label className={rotulo}>
+              Valor certo (R$/min)
+              <input
+                name="valor_minuto"
+                inputMode="decimal"
+                required
+                placeholder="ex.: 0,5000"
+                className={classeCampo}
+              />
+            </label>
+          </FormAcao>
+        )}
         <div className="border-t border-neutral-900/[0.06] pt-3">
           <FormTecnico
             t={t}

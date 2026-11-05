@@ -14,6 +14,13 @@ export const GATILHOS = {
 } as const;
 export type Gatilho = keyof typeof GATILHOS;
 
+/** De onde o prazo do item conta, no rótulo do campo. */
+export const PRAZO_CONTA_DE: Record<Gatilho, string> = {
+  entrada: "dias após o início",
+  saida: "dias após a saída",
+  manual: "dias após o disparo",
+};
+
 export const CONDICOES = {
   sempre: "Sempre",
   tem_vaga: "Só se o contrato tiver vaga",

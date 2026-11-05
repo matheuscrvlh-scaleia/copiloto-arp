@@ -11,6 +11,7 @@ import {
   assinaturaDoLink,
   motivoParaNaoConcluir,
   osEncerrada,
+  outrosCustos,
   paraSessao,
   precisaAprovacao,
   rateioDaOS,
@@ -295,6 +296,7 @@ async function lerDadosDaOS(ordemId: string): Promise<DadosOS | null> {
     vigencias,
     materiais: mats,
     terceirizado: k?.valor_terceirizado ?? null,
+    outros: outrosCustos(k?.outros_custos),
     rateio: rateioDaOS(
       chamado.rateio,
       k?.rateio_regra ?? null,
@@ -450,7 +452,7 @@ export async function recalcularOS(ordemId: string): Promise<void> {
       .eq("ordem_id", ordemId),
     db
       .from("os_custos")
-      .select("valor_terceirizado, rateio_regra, rateio_valor")
+      .select("valor_terceirizado, rateio_regra, rateio_valor, outros_custos")
       .eq("ordem_id", ordemId)
       .maybeSingle(),
   ]);
@@ -477,6 +479,7 @@ export async function recalcularOS(ordemId: string): Promise<void> {
         : null,
     })),
     terceirizado: k?.valor_terceirizado ?? null,
+    outros: outrosCustos(k?.outros_custos),
     rateio: rateioDaOS(
       ch.data.rateio,
       k?.rateio_regra ?? null,

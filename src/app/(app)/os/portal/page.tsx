@@ -99,11 +99,11 @@ async function Links({
           tom={TONS[1]}
           href={alternar("sem_cnpj")}
           ativo={f === "sem_cnpj"}
-          titulo="Sem CNPJ"
+          titulo="Sem CPF ou CNPJ"
           valor={formatarNumero(r.semCnpj)}
           detalhe={
             r.semCnpj
-              ? "não conseguem entrar: cadastre o CNPJ em Lojas"
+              ? "não conseguem entrar: cadastre o CPF ou CNPJ em Lojas"
               : "todas podem entrar"
           }
         />
@@ -127,7 +127,7 @@ async function Links({
 
       <Secao
         titulo={f ? `Lojas · ${FILTROS_PORTAL[f]}` : "Lojas vigentes"}
-        descricao={`Um link só para todas as lojas: cada loja entra com o próprio CNPJ e fica dentro por até ${LIMITES_PORTAL.sessaoDias} dias. Encerrar o acesso tira a loja na hora.`}
+        descricao={`Um link só para todas as lojas: cada loja entra com o próprio CPF ou CNPJ e fica dentro por até ${LIMITES_PORTAL.sessaoDias} dias. Encerrar o acesso tira a loja na hora.`}
       >
         {ctx.pode("os.exportar") && (
           <div className="mb-4 flex justify-end">
@@ -193,7 +193,7 @@ function LinhaDaLoja({ l, agora }: { l: LinhaDoPortal; agora: Date }) {
             </span>
           )}
           {!l.loja.cnpj ? (
-            <Situacao tipo="neutro">Sem CNPJ</Situacao>
+            <Situacao tipo="neutro">Sem CPF ou CNPJ</Situacao>
           ) : (
             l.acesso.dentro && <Situacao tipo="ok">Dentro do portal</Situacao>
           )}

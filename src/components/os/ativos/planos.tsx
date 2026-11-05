@@ -13,6 +13,7 @@ import {
 import { somarDias } from "@/lib/os/tempo";
 import type { Plano } from "@/server/os/ativos";
 import { Janela } from "./janela";
+import { SetorECategoria } from "./setor-categoria";
 
 // Planos preventivos na ficha do ativo: lista, criar, editar, pausar,
 // excluir e "Gerar agora". A OS sai sozinha N dias antes da data.
@@ -122,19 +123,13 @@ function CamposDoPlano({
           />
         </label>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label className={rotulo}>
-          Setor
-          <Selecao
-            name="setor_id"
-            obrigatorio
-            valorInicial={plano?.setor_id ?? padrao.setorId}
-            opcoes={opcoes.setores.map((s) => ({
-              valor: s.id,
-              rotulo: s.nome,
-            }))}
-          />
-        </label>
+      <SetorECategoria
+        setores={opcoes.setores}
+        categorias={opcoes.categorias}
+        setorInicial={plano?.setor_id ?? padrao.setorId}
+        categoriaInicial={plano?.categoria_id ?? padrao.categoriaId}
+        rotulo={rotulo}
+      >
         <label className={rotulo}>
           Responsável
           <Selecao
@@ -146,22 +141,7 @@ function CamposDoPlano({
             ]}
           />
         </label>
-      </div>
-      <label className={rotulo}>
-        Categoria da OS
-        <Selecao
-          name="categoria_id"
-          valorInicial={plano?.categoria_id ?? padrao.categoriaId}
-          opcoes={[
-            { valor: "", rotulo: "Sem categoria" },
-            ...opcoes.categorias.map((c) => ({
-              valor: c.id,
-              rotulo: c.nome,
-              descricao: c.preventiva ? "Preventiva" : undefined,
-            })),
-          ]}
-        />
-      </label>
+      </SetorECategoria>
       <label className={rotulo}>
         Descrição
         <textarea

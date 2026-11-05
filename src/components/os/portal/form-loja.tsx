@@ -124,12 +124,12 @@ export function FormLoja({
                 className={classeCampo}
               />
             </Campo>
-            <Campo id="cnpj" rotulo="CNPJ">
+            <Campo id="cnpj" rotulo="CPF ou CNPJ">
               <input
                 id="cnpj"
                 name="cnpj"
                 inputMode="numeric"
-                placeholder="00.000.000/0000-00"
+                placeholder="Só os números"
                 defaultValue={v?.cnpj ?? ""}
                 className={classeCampo}
               />

@@ -4,7 +4,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
-import { soDigitos } from "@/lib/documentos";
+import { documentoValido, soDigitos } from "@/lib/documentos";
 import { ROTA_PORTAL } from "@/lib/os/rotas";
 import { limparTelefone } from "@/lib/os/whatsapp";
 import {
@@ -32,7 +32,7 @@ import {
 // telefone de quem pede são obrigatórios em tudo o que grava.
 
 const SEM_SESSAO: EstadoAcao = {
-  erro: "Sua entrada no portal terminou. Recarregue a página e entre de novo com o CNPJ.",
+  erro: "Sua entrada no portal terminou. Recarregue a página e entre de novo com o CPF ou CNPJ.",
 };
 
 // ---------------------------------------------------------------------------
@@ -52,20 +52,26 @@ export async function entrar(
 ): Promise<EstadoEntrada> {
   const digitado = textoDoForm(form, "cnpj").slice(0, 18);
   const cnpj = soDigitos(digitado);
-  if (cnpj.length !== 14)
-    return { erro: "Informe os 14 dígitos do CNPJ.", cnpj: digitado };
+  if (!documentoValido(cnpj))
+    return {
+      erro:
+        cnpj.length === 11 || cnpj.length === 14
+          ? "CPF ou CNPJ inválido. Confira os números."
+          : "Informe o CPF (11 dígitos) ou o CNPJ (14 dígitos).",
+      cnpj: digitado,
+    };
   const agora = new Date();
   const ip = await ipDaRequisicao();
   if (await bloqueadoPorTentativas(ip, agora))
     return {
-      erro: "Muitas tentativas com CNPJ errado. Espere alguns minutos e tente de novo.",
+      erro: "Muitas tentativas com documento errado. Espere alguns minutos e tente de novo.",
       cnpj: digitado,
     };
   const lojas = await lojasDoCnpj(cnpj);
   if (!lojas.length) {
     await registrarTentativa(ip, agora);
     return {
-      erro: "Nenhuma loja com contrato vigente neste CNPJ. Confira o número ou fale com a administração.",
+      erro: "Nenhuma loja com contrato vigente neste CPF ou CNPJ. Confira o número ou fale com a administração.",
       cnpj: digitado,
     };
   }

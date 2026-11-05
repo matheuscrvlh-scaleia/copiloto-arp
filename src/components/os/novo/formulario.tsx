@@ -468,6 +468,8 @@ function Detalhes({
   // Em ordem; "" é um select ainda vazio.
   const [setoresExtras, setSetoresExtras] = useState<string[]>([""]);
   const [pessoasExtras, setPessoasExtras] = useState<string[]>([""]);
+  // Os destinos extras andam um depois do outro, ou todos ao mesmo tempo.
+  const [emOrdem, setEmOrdem] = useState(true);
   const [vinculos, setVinculos] = useState<OpcoesDeVinculo | null>(null);
   const [, carregar] = useTransition();
   const [erroLocal, setErroLocal] = useState<string | null>(null);
@@ -851,12 +853,25 @@ function Detalhes({
                 className={classeCampo}
               />
             </Propriedade>
+            {!pessoal &&
+              tipo !== "aviso" &&
+              [...setoresExtras, ...pessoasExtras].some(Boolean) && (
+                <ComoAndam emOrdem={emOrdem} aoMudar={setEmOrdem} />
+              )}
             {!pessoal && tipo !== "aviso" && (
               <ListaEmOrdem
-                titulo="Também para os setores, em ordem"
-                dica={`Começa em ${setor?.nome ?? "este setor"}; cada um só anda depois que o anterior concluir a sua parte.`}
+                titulo={
+                  emOrdem
+                    ? "Também para os setores, em ordem"
+                    : "Também para os setores"
+                }
+                dica={
+                  emOrdem
+                    ? `Começa em ${setor?.nome ?? "este setor"}; cada um só anda depois que o anterior concluir a sua parte.`
+                    : "Todos recebem na hora e andam ao mesmo tempo."
+                }
                 nome="setores_extras"
-                inicio={2}
+                inicio={emOrdem ? 2 : undefined}
                 primeiro={{
                   id: escolha.setorId,
                   nome: setor?.nome ?? "Este setor",
@@ -873,13 +888,13 @@ function Detalhes({
             {!pessoal && (
               <ListaEmOrdem
                 titulo={
-                  tipo === "aviso"
+                  tipo === "aviso" || !emOrdem
                     ? "Também para as pessoas"
                     : "Depois, para as pessoas, em ordem"
                 }
                 nome="pessoas_extras"
                 inicio={
-                  tipo === "aviso"
+                  tipo === "aviso" || !emOrdem
                     ? undefined
                     : 2 + setoresExtras.filter(Boolean).length
                 }
@@ -1254,5 +1269,49 @@ function CamposExtras({
         );
       })}
     </div>
+  );
+}
+
+/** Em ordem (um depois do outro) ou ao mesmo tempo (todos já recebem). */
+function ComoAndam({
+  emOrdem,
+  aoMudar,
+}: {
+  emOrdem: boolean;
+  aoMudar: (v: boolean) => void;
+}) {
+  return (
+    <fieldset>
+      <legend className="mb-2 text-xs font-medium text-neutral-600">
+        Os outros destinos andam
+      </legend>
+      <input
+        type="hidden"
+        name="destinos_em_ordem"
+        value={emOrdem ? "1" : "0"}
+      />
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            [true, "Em ordem"],
+            [false, "Ao mesmo tempo"],
+          ] as const
+        ).map(([v, texto]) => (
+          <label
+            key={texto}
+            className="flex cursor-pointer items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm transition hover:border-neutral-400 has-[:checked]:border-neutral-900 has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-neutral-900/10"
+          >
+            <input
+              type="radio"
+              name="como_andam"
+              checked={emOrdem === v}
+              onChange={() => aoMudar(v)}
+              className="size-4 accent-neutral-900"
+            />
+            {texto}
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }

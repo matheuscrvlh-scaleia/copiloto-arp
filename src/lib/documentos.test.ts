@@ -4,6 +4,7 @@ import {
   cpfValido,
   digitosCnpj,
   digitosCpf,
+  documentoValido,
   formatarCep,
   formatarCnpj,
   formatarCpf,
@@ -21,6 +22,14 @@ describe("documentos da empresa", () => {
     expect(cnpjValido("11222333000182")).toBe(false);
     expect(cnpjValido("1122233300018")).toBe(false);
     expect(cnpjValido("00000000000000")).toBe(false);
+  });
+
+  it("portal: CPF ou CNPJ, sempre com os dígitos certos", () => {
+    expect(documentoValido("11222333000181")).toBe(true);
+    expect(documentoValido(`123456789${digitosCpf("123456789")}`)).toBe(true);
+    expect(documentoValido("11111111111111")).toBe(false);
+    expect(documentoValido("12345678900")).toBe(false);
+    expect(documentoValido("123")).toBe(false);
   });
 
   it("formata CNPJ e CEP", () => {

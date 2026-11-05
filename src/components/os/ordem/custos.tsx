@@ -2,13 +2,13 @@ import { Info } from "lucide-react";
 import { SeloStatus } from "@/components/dashboard/indicador";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
-import { Selecao } from "@/components/selecao";
 import { formatarDataHora, formatarMoeda, formatarNumero } from "@/lib/formato";
 import { formatarDuracao, type ResultadoOS } from "@/lib/os/calculos";
-import { REGRAS_RATEIO, type RegraRateio } from "@/lib/os/rotulos";
+import type { RegraRateio } from "@/lib/os/rotulos";
 import { salvarCustoTerceirizado, salvarRateio } from "@/server/os/acoes/ordem";
 import type { Tabela } from "@/server/os/base";
 import { rotulo } from "./estilos";
+import { CamposDoRateio } from "./regra-rateio";
 
 // Quadro de custos (só os.custos): mão de obra por técnico com o valor por
 // minuto vigente em cada sessão, materiais, terceirizado, valor da O.S. e
@@ -35,6 +35,7 @@ export function QuadroCustos({
   ];
   if (terceirizada || r.terceirizado)
     linhas.push(["Terceirizado", formatarMoeda(r.terceirizado)]);
+  if (r.outros) linhas.push(["Outros custos", formatarMoeda(r.outros)]);
   const legado = custos?.legado_valor ?? null;
 
   return (
@@ -172,32 +173,7 @@ export function FormRateio({
           ))}
         </div>
       </fieldset>
-      {comCustos && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
-          <label className={rotulo}>
-            Regra
-            <Selecao
-              name="rateio_regra"
-              rotulo="Regra do rateio"
-              valorInicial={regra ?? "hora_trabalhada"}
-              opcoes={Object.entries(REGRAS_RATEIO).map(([v, r]) => ({
-                valor: v,
-                rotulo: r,
-              }))}
-            />
-          </label>
-          <label className={rotulo}>
-            Valor (R$) ou %
-            <input
-              name="rateio_valor"
-              inputMode="decimal"
-              defaultValue={valor === null ? "" : formatarNumero(valor, 2)}
-              placeholder="manual ou %"
-              className={classeCampo}
-            />
-          </label>
-        </div>
-      )}
+      {comCustos && <CamposDoRateio regra={regra} valor={valor} />}
       {comCustos && (
         <p className="text-xs text-neutral-500">
           Hora trabalhada: o valor da O.S. inteiro. Manual: o valor digitado.

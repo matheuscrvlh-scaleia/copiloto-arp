@@ -4,7 +4,7 @@ import { refresh, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
-import { formatarCnpj } from "@/lib/documentos";
+import { documentoValido, formatarDocumento } from "@/lib/documentos";
 import { formatarData } from "@/lib/formato";
 import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
 import {
@@ -88,7 +88,7 @@ export async function encerrarAcesso(
   refresh();
   return {
     ok: n
-      ? "Acesso encerrado. Para voltar, a loja entra de novo com o CNPJ."
+      ? "Acesso encerrado. Para voltar, a loja entra de novo com o CPF ou CNPJ."
       : "A loja não estava dentro do portal.",
   };
 }
@@ -101,7 +101,7 @@ const ROTULOS_LOJA = {
   luc: "LUC",
   nome: "Nome da loja",
   locatario: "Locatário",
-  cnpj: "CNPJ",
+  cnpj: "CPF ou CNPJ",
   bloco: "Bloco",
   situacao: "Situação",
   inicio: "Início",
@@ -127,7 +127,7 @@ const lojaForm = z
     locatario: opcional,
     cnpj: z.preprocess(
       (v) => (typeof v === "string" ? v.replace(/\D/g, "") || null : null),
-      z.string().length(14, "precisa ter 14 dígitos").nullable(),
+      z.string().refine(documentoValido, "CPF ou CNPJ inválido").nullable(),
     ),
     contrato: opcional,
     bloco: opcional,
@@ -461,7 +461,7 @@ const COLUNAS_LINKS: ColunaExportar[] = [
   { titulo: "LUC" },
   { titulo: "Loja" },
   { titulo: "Bloco" },
-  { titulo: "CNPJ" },
+  { titulo: "CPF ou CNPJ" },
   { titulo: "Dentro do portal" },
   { titulo: "Último acesso" },
   { titulo: "Pedidos no mês", numero: true },
@@ -483,7 +483,7 @@ export async function exportarLinks(
       l.loja.luc,
       l.loja.nome,
       l.loja.bloco,
-      l.loja.cnpj ? formatarCnpj(l.loja.cnpj) : "Sem CNPJ",
+      l.loja.cnpj ? formatarDocumento(l.loja.cnpj) : "Sem CPF ou CNPJ",
       l.acesso.dentro ? "Sim" : "Não",
       dia(l.acesso.ultimo),
       l.pedidosNoMes,

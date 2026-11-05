@@ -257,6 +257,7 @@ export async function abrirChamado(
     pessoal: v.pessoal === "1",
     setoresExtras: valores(form, "setores_extras").filter(Boolean),
     pessoasExtras: valores(form, "pessoas_extras").filter(Boolean),
+    destinosEmOrdem: form.get("destinos_em_ordem") !== "0",
     tarefas,
     etiquetas: lerEtiquetas(v.etiquetas),
     lojaId: v.loja_id,
@@ -681,6 +682,71 @@ const destino = z.object({
   id: uuid,
   acao: z.enum(["ler", "iniciar", "concluir"]),
 });
+
+const mover = z.object({
+  id: uuid,
+  passo: z.enum(["-1", "1"]),
+});
+
+/**
+ * Troca a etapa de lugar com a vizinha (destinos em ordem). Só quem gerencia
+ * o setor do chamado, e só entre etapas que ainda não começaram.
+ */
+export async function moverDestino(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const d = mover.safeParse(Object.fromEntries(form));
+  if (!d.success) return primeiroErro(d.error);
+  const ctx = await contexto();
+  const db = await os();
+  const { data: linha } = await db
+    .from("destinatarios")
+    .select("id, chamado_id, ordem_id")
+    .eq("id", d.data.id)
+    .maybeSingle();
+  if (!linha) return { erro: "Etapa não encontrada." };
+  const ch = await lerChamado(linha.chamado_id ?? linha.ordem_id ?? "");
+  if (!ch) return { erro: "Chamado não encontrado." };
+  if (!gerencia(ctx, ch.setor_id))
+    return { erro: "Só quem gerencia o setor muda a ordem das etapas." };
+  if (!ch.destinos_em_ordem)
+    return { erro: "As etapas deste chamado andam ao mesmo tempo." };
+  if (["fechado", "cancelado"].includes(ch.status))
+    return { erro: "O chamado já foi encerrado." };
+  const { data: todos, error } = await db
+    .from("destinatarios")
+    .select("id, ordem, status, lido_em")
+    .eq(chaveDo(ch), ch.id)
+    .order("ordem");
+  if (error) return erroDoBanco(error);
+  const lista = todos ?? [];
+  const i = lista.findIndex((x) => x.id === d.data.id);
+  const a = lista[i];
+  const b = lista[i + Number(d.data.passo)];
+  if (!a || !b) return { erro: "Não dá para mover para esse lado." };
+  if (a.status !== "aberto" || b.status !== "aberto")
+    return {
+      erro: "Só dá para mudar a ordem das etapas que ainda não começaram.",
+    };
+  // A primeira etapa é o setor do chamado: ela não sai do lugar.
+  if (i === 0 || i + Number(d.data.passo) === 0)
+    return { erro: "A primeira etapa é o setor do chamado." };
+  for (const [x, ordem] of [
+    [a, b.ordem],
+    [b, a.ordem],
+  ] as const) {
+    const r = await db.from("destinatarios").update({ ordem }).eq("id", x.id);
+    if (r.error) return erroDoBanco(r.error);
+  }
+  await registrar(ch, {
+    tipo: "alteracao",
+    texto: "Mudou a ordem das etapas.",
+    dados: { campo: "ordem_destinos" },
+  });
+  refresh();
+  return {};
+}
 
 const TEXTO_DESTINO = {
   ler: "confirmou que leu",

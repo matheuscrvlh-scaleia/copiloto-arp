@@ -1,6 +1,7 @@
 import {
   type EntradaOS,
   minutosDaSessao,
+  type OutroCusto,
   type ResultadoOS,
   type Sessao,
 } from "./calculos";
@@ -137,6 +138,19 @@ export function resultadoParaBanco(r: ResultadoOS) {
     completo: r.completo,
     memoria: r.memoria,
   };
+}
+
+/** Outros custos gravados (jsonb): só as linhas com descrição e valor. */
+export function outrosCustos(json: unknown): OutroCusto[] {
+  if (!Array.isArray(json)) return [];
+  return json.flatMap((o): OutroCusto[] => {
+    const descricao =
+      typeof o?.descricao === "string" ? o.descricao.trim() : "";
+    const valor = Number(o?.valor);
+    return descricao && Number.isFinite(valor) && valor >= 0
+      ? [{ descricao, valor }]
+      : [];
+  });
 }
 
 /** Acima do teto, o orçamento do terceirizado precisa de aprovação. */

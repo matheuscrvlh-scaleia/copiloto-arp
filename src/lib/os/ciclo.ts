@@ -31,7 +31,7 @@ export type AcaoChamado =
 export const ROTULOS_ACAO: Record<AcaoChamado, string> = {
   assumir: "Assumir",
   iniciar: "Iniciar",
-  aguardar: "Aguardando…",
+  aguardar: "Colocar em espera…",
   retomar: "Retomar",
   concluir: "Concluir",
   confirmar: "Confirmar",

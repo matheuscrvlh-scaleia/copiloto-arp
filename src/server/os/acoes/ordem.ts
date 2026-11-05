@@ -739,6 +739,67 @@ export async function salvarCustoTerceirizado(
   return { ok: "Custo do terceirizado salvo." };
 }
 
+const outros = z.object({
+  ordem_id: id,
+  outros: z.string(),
+});
+const linhasOutros = z
+  .array(
+    z.object({
+      descricao: z
+        .string()
+        .trim()
+        .min(1, "Outros custos: descreva cada um.")
+        .max(200),
+      valor: z.string(),
+    }),
+  )
+  .max(50);
+
+/** Custos avulsos da OS (descrição e valor), que entram no valor da O.S. */
+export async function salvarOutrosCustos(
+  _: EstadoOS,
+  form: FormData,
+): Promise<EstadoOS> {
+  const d = outros.safeParse(Object.fromEntries(form));
+  if (!d.success) return primeiroErro(d.error);
+  let bruto: unknown;
+  try {
+    bruto = JSON.parse(d.data.outros);
+  } catch {
+    return { erro: "Outros custos: não deu para ler a lista." };
+  }
+  const l = linhasOutros.safeParse(bruto);
+  if (!l.success) return primeiroErro(l.error);
+  const linhas: { descricao: string; valor: number }[] = [];
+  for (const x of l.data) {
+    const valor = lerValorBr(x.valor);
+    if (valor === null || Number.isNaN(valor) || valor < 0)
+      return { erro: `${x.descricao}: informe um valor em reais.` };
+    linhas.push({ descricao: x.descricao, valor });
+  }
+  const alvo = await chamadoParaEditar(d.data.ordem_id);
+  if (alvo.erro !== undefined) return { erro: alvo.erro };
+  if (!alvo.ctx.pode("os.custos"))
+    return { erro: "Você não tem permissão para ver e editar custos." };
+
+  const db = await os();
+  const { error } = await db
+    .from("os_custos")
+    .upsert({ ordem_id: d.data.ordem_id, outros_custos: linhas });
+  if (error) return erroDoBanco(error);
+  await Promise.all([
+    recalcularOS(d.data.ordem_id),
+    registrar(ordem(d.data.ordem_id), {
+      tipo: "alteracao",
+      texto: "Atualizou os outros custos.",
+      dados: { campo: "outros_custos" },
+    }),
+  ]);
+  refresh();
+  return { ok: "Outros custos salvos." };
+}
+
 // ---------------------------------------------------------------------------
 // Resultado e conclusão
 // ---------------------------------------------------------------------------

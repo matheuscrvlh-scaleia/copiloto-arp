@@ -20,7 +20,7 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import { erroDoBanco, primeiroErro, valores } from "@/server/acoes";
 import { TAG } from "@/server/cache";
 import { registrarDepois } from "@/server/logs";
-import { enviarArquivo, os, removerArquivos } from "@/server/os/base";
+import { enviarArquivo, os, osAdmin, removerArquivos } from "@/server/os/base";
 import {
   data,
   decimal,
@@ -35,6 +35,7 @@ import {
   textoOpcional,
   uuidOpcional,
 } from "@/server/os/config-acoes";
+import { recalcularOS } from "@/server/os/ordem";
 import { CAMINHOS_PAPEL_TIMBRADO } from "@/server/os/pdf/papel-timbrado";
 
 // Parâmetros do módulo (spec 4.15): tudo o que pode mudar, numa tela só.
@@ -277,6 +278,64 @@ export async function incluirVigencia(
   }
   refresh();
   return { ok: "Novo valor incluído." };
+}
+
+const correcao = z.object({
+  id: z.uuid(),
+  valor_minuto: decimal(0, 10_000),
+});
+
+/**
+ * Corrige um valor por minuto digitado errado (inclusive o que já vale). A
+ * mudança fica no histórico (auditoria do cadastro) e as OS com sessões do
+ * técnico no período desse valor são recalculadas.
+ */
+export async function corrigirVigencia(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const acesso = await exigirAgora("os.parametros");
+  if (acesso.erro) return acesso.erro;
+  const d = correcao.safeParse(Object.fromEntries(form));
+  if (!d.success) return primeiroErro(d.error, ROTULOS);
+  const valor = Math.round(d.data.valor_minuto * 1_000_000) / 1_000_000;
+  const db = await os();
+  const { data: v, error } = await db
+    .from("tecnico_valores")
+    .update({ valor_minuto: valor })
+    .eq("id", d.data.id)
+    .select("tecnico_id, vigente_desde")
+    .maybeSingle();
+  if (error) return erroDoBanco(error);
+  if (!v) return { erro: "Valor não encontrado." };
+
+  // Período do valor: da data dele até o próximo valor do técnico.
+  const admin = osAdmin();
+  const { data: proximo } = await admin
+    .from("tecnico_valores")
+    .select("vigente_desde")
+    .eq("tecnico_id", v.tecnico_id)
+    .gt("vigente_desde", v.vigente_desde)
+    .order("vigente_desde")
+    .limit(1)
+    .maybeSingle();
+  let q = admin
+    .from("sessoes")
+    .select("ordem_id, sessao_tecnicos!inner(tecnico_id)")
+    .eq("sessao_tecnicos.tecnico_id", v.tecnico_id)
+    .gte("data", v.vigente_desde);
+  if (proximo) q = q.lt("data", proximo.vigente_desde);
+  const { data: sessoes, error: e2 } = await q;
+  if (e2) return erroDoBanco(e2);
+  const ordens = [...new Set((sessoes ?? []).map((s) => s.ordem_id))];
+  for (let i = 0; i < ordens.length; i += 10)
+    await Promise.all(ordens.slice(i, i + 10).map((o) => recalcularOS(o)));
+  refresh();
+  return {
+    ok: ordens.length
+      ? `Valor corrigido. ${ordens.length} OS recalculada${ordens.length > 1 ? "s" : ""}.`
+      : "Valor corrigido. Nenhuma OS no período.",
+  };
 }
 
 /** Só some uma vigência que ainda não começou (nada foi calculado com ela). */

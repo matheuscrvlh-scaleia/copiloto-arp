@@ -184,6 +184,16 @@ describe("cálculo da O.S.", () => {
     };
     const rateio = (r: Partial<EntradaOS>) => calcularOS({ ...base, ...r });
 
+    it("outros custos entram no valor da O.S. e no rateio", () => {
+      const r = rateio({
+        outros: [{ descricao: "Frete", valor: 25.5 }],
+        rateio: { regra: "percentual", percentual: 100 },
+      });
+      expect(r.outros).toBe(25.5);
+      expect(r.total).toBe(175.5);
+      expect(r.valorRateio).toBe(175.5);
+      expect(r.memoria).toContain("Outros custos: R$ 25,50");
+    });
     it("fora do rateio é zero", () => {
       expect(rateio({}).total).toBe(150);
       expect(rateio({}).valorRateio).toBe(0);

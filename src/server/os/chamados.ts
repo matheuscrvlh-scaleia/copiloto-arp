@@ -265,6 +265,8 @@ export interface NovoChamado {
   pessoal: boolean;
   setoresExtras: string[];
   pessoasExtras: string[];
+  /** false: os destinos extras andam ao mesmo tempo (padrão: em ordem). */
+  destinosEmOrdem?: boolean;
   /** O que cabe a cada destino, pelo id do setor ou da pessoa. */
   tarefas: Record<string, string>;
   etiquetas: string[];
@@ -368,9 +370,12 @@ export async function criarChamado(
     origem: "sistema",
     pessoal: n.pessoal,
     precisa_confirmacao: precisaConfirmacao,
-    // Fora o Aviso, os destinos extras andam um depois do outro.
+    // Fora o Aviso, os destinos extras andam um depois do outro, a não ser
+    // que quem abriu escolha "ao mesmo tempo".
     destinos_em_ordem:
-      n.tipo !== "aviso" && n.setoresExtras.length + n.pessoasExtras.length > 0,
+      n.tipo !== "aviso" &&
+      n.destinosEmOrdem !== false &&
+      n.setoresExtras.length + n.pessoasExtras.length > 0,
     aberto_por: eu,
     responsavel_id: responsavel,
     prazo: prazo?.toISOString() ?? null,

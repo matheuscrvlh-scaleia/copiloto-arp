@@ -40,12 +40,19 @@ export interface Rateio {
   percentual?: number | null;
 }
 
+export interface OutroCusto {
+  descricao: string;
+  valor: number;
+}
+
 export interface EntradaOS {
   sessoes: Sessao[];
   vigencias: VigenciaValor[];
   materiais?: Material[];
   /** Quanto o terceirizado cobrou. */
   terceirizado?: number | null;
+  /** Custos avulsos lançados à mão (descrição e valor). */
+  outros?: OutroCusto[];
   /** null: fora do rateio. */
   rateio: Rateio | null;
   /** No sistema antigo, rateio "Terceirizado" usava o valor da O.S. inteiro. */
@@ -71,7 +78,8 @@ export interface ResultadoOS {
   porTecnico: CustoTecnico[];
   materiais: number;
   terceirizado: number;
-  /** Custo total = mão de obra + materiais + terceirizado ("valor da O.S."). */
+  outros: number;
+  /** Custo total = mão de obra + materiais + terceirizado + outros ("valor da O.S."). */
   total: number;
   valorRateio: number;
   /** false quando falta algum valor: o total está por baixo. */
@@ -249,7 +257,15 @@ export function calcularOS(e: EntradaOS): ResultadoOS {
   const terceirizado = e.terceirizado ?? 0;
   if (terceirizado) memoria.push(`Terceirizado: ${reais(terceirizado)}`);
 
-  const total = maoDeObra + materiais + terceirizado;
+  let outros = 0;
+  for (const o of e.outros ?? []) {
+    outros += o.valor;
+    memoria.push(`${o.descricao}: ${reais(o.valor)}`);
+  }
+  if ((e.outros ?? []).length > 0)
+    memoria.push(`Outros custos: ${reais(outros)}`);
+
+  const total = maoDeObra + materiais + terceirizado + outros;
   memoria.push(`Valor da O.S.: ${reais(total)}`);
 
   const valorRateio = calcularRateio(e, total, pendencias, memoria);
@@ -266,6 +282,7 @@ export function calcularOS(e: EntradaOS): ResultadoOS {
     })),
     materiais: centavos(materiais),
     terceirizado: centavos(terceirizado),
+    outros: centavos(outros),
     total: centavos(total),
     valorRateio: centavos(valorRateio),
     completo: pendencias.size === 0,

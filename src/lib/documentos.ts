@@ -41,6 +41,11 @@ export function cpfValido(valor: string): boolean {
   return d.endsWith(digitosCpf(d.slice(0, 9)));
 }
 
+/** CPF (11 dígitos) ou CNPJ (14) com os dígitos verificadores certos. */
+export function documentoValido(valor: string): boolean {
+  return cpfValido(valor) || cnpjValido(valor);
+}
+
 /** 12345678909 → 123.456.789-09 */
 export function formatarCpf(d: string | null): string {
   if (!d || d.length !== 11) return d ?? "";

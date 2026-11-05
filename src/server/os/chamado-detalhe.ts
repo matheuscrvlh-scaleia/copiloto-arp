@@ -96,6 +96,8 @@ export interface DetalheChamado {
     verVistoria: boolean;
     editar: boolean;
     definirTarefas: boolean;
+    /** Gestor do setor: reordena as etapas que ainda não começaram. */
+    reordenar: boolean;
   };
   avisoHoras: number;
   causasFalha: string[];
@@ -308,6 +310,7 @@ export const carregarDetalhe = cache(
         // A mesma regra de definirTarefaDestino.
         definirTarefas:
           papel.solicitante || papel.responsavel || papel.doSetor || ehGestor,
+        reordenar: ehGestor && ch.destinos_em_ordem,
       },
       avisoHoras: p.aviso_vencimento_horas,
       causasFalha: p.causas_falha,

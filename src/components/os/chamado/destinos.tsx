@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  ArrowDown,
+  ArrowUp,
   Building2,
   CircleCheck,
   CircleDashed,
@@ -13,7 +15,11 @@ import {
 import { useActionState, useState } from "react";
 import { formatarDataHora } from "@/lib/formato";
 import type { StatusDestino } from "@/lib/os/ciclo";
-import { andarDestino, definirTarefaDestino } from "@/server/os/acoes/chamados";
+import {
+  andarDestino,
+  definirTarefaDestino,
+  moverDestino,
+} from "@/server/os/acoes/chamados";
 
 // Andamento de cada destinatário (Aviso para vários setores, pessoas
 // extras): cada um confirma que leu e conclui a própria parte; o chamado
@@ -70,6 +76,7 @@ export function Destinos({
   nomes,
   encerrado,
   definirTarefas = false,
+  reordenar = false,
 }: {
   linhas: LinhaDestino[];
   /** Um depois do outro: cada um espera o anterior concluir. */
@@ -80,8 +87,39 @@ export function Destinos({
   encerrado: boolean;
   /** Quem coordena (pediu, responde, é do setor, gerencia) define as tarefas. */
   definirTarefas?: boolean;
+  /** Gestor: muda a ordem das etapas que ainda não começaram. */
+  reordenar?: boolean;
 }) {
   const [estado, executar, enviando] = useActionState(andarDestino, {});
+  const [movido, moverAcao, movendo] = useActionState(moverDestino, {});
+  // Troca com a vizinha: as duas ainda abertas, e a primeira (o setor do
+  // chamado) fica no lugar.
+  const podeMover = (i: number, passo: number) =>
+    reordenar &&
+    !encerrado &&
+    i > 0 &&
+    i + passo > 0 &&
+    linhas[i]?.status === "aberto" &&
+    linhas[i + passo]?.status === "aberto";
+  const seta = (l: LinhaDestino, i: number, passo: 1 | -1) =>
+    podeMover(i, passo) ? (
+      <form action={moverAcao}>
+        <input type="hidden" name="id" value={l.id} />
+        <input type="hidden" name="passo" value={String(passo)} />
+        <button
+          type="submit"
+          disabled={movendo}
+          aria-label={`${passo < 0 ? "Subir" : "Descer"} ${l.nome}`}
+          className="grid size-9 place-items-center rounded-full text-neutral-500 transition hover:bg-neutral-900/[0.06] hover:text-neutral-900 disabled:opacity-40"
+        >
+          {passo < 0 ? (
+            <ArrowUp className="size-4" aria-hidden />
+          ) : (
+            <ArrowDown className="size-4" aria-hidden />
+          )}
+        </button>
+      </form>
+    ) : null;
   const faltam = linhas.filter((l) => l.status !== "concluido");
 
   const botao = (
@@ -172,6 +210,8 @@ export function Destinos({
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {seta(l, i, -1)}
+                {seta(l, i, 1)}
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${s.classe}`}
                 >
@@ -201,9 +241,9 @@ export function Destinos({
           );
         })}
       </ul>
-      {estado.erro && (
+      {(estado.erro ?? movido.erro) && (
         <p role="alert" className="text-sm text-red-700">
-          {estado.erro}
+          {estado.erro ?? movido.erro}
         </p>
       )}
     </div>

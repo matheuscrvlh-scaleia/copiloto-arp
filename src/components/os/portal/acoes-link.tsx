@@ -47,7 +47,7 @@ export function AcoesDaLoja({
           variante="perigo"
           rotulo="Encerrar acesso"
           rotuloEnviando="Encerrando…"
-          confirmar={`Encerrar o acesso de ${loja} ao portal? Quem estiver dentro sai na hora e precisa entrar de novo com o CNPJ.`}
+          confirmar={`Encerrar o acesso de ${loja} ao portal? Quem estiver dentro sai na hora e precisa entrar de novo com o CPF ou CNPJ.`}
         >
           <input type="hidden" name="loja" value={lojaId} />
         </FormAcao>

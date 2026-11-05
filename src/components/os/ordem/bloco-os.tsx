@@ -23,6 +23,7 @@ import {
   assinaturaDoLink,
   etapaDoTerceirizado,
   linkAtivo,
+  outrosCustos,
 } from "@/lib/os/ordem";
 import { dataHoraBr } from "@/lib/os/relatorios";
 import { rotaOrdem, rotaTerceirizado } from "@/lib/os/rotas";
@@ -41,6 +42,7 @@ import { aviso, quadro, rotulo, titulo } from "./estilos";
 import { FormExecucao } from "./execucao";
 import { type ArquivoDaOS, Fotos } from "./fotos";
 import { Materiais } from "./materiais";
+import { FormOutrosCustos } from "./outros-custos";
 import { type SessaoLinha, Sessoes } from "./sessoes";
 import {
   type LinkNaTela,
@@ -258,6 +260,12 @@ export async function BlocoOS({
                     )
                   }
                   terceirizada={terceirizada}
+                />
+              )}
+              {d.comCustos && d.podeEditar && (
+                <FormOutrosCustos
+                  ordemId={d.chamado.id}
+                  outros={outrosCustos(d.custos?.outros_custos)}
                 />
               )}
               {d.podeEditar ? (
