@@ -334,7 +334,10 @@ function Mes({
   const inicioDoMes = (s: string[], primeira: boolean) =>
     s.find((d) => !fora(d) && (primeira || d.endsWith("-01")));
   return (
-    <div className="vidro overflow-hidden rounded-[1.75rem]">
+    <div
+      data-guia="calendario"
+      className="vidro overflow-hidden rounded-[1.75rem]"
+    >
       <div
         className="grid grid-cols-7 border-b border-neutral-900/[0.06] text-xs font-medium text-neutral-500"
         aria-hidden

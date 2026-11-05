@@ -214,7 +214,10 @@ export async function DetalheChamado({
         </span>
       </p>
       {(d.acoes.length > 0 || comGestao || podeLer) && (
-        <div className="flex flex-wrap items-start gap-2">
+        <div
+          data-guia="chamado-acoes"
+          className="flex flex-wrap items-start gap-2"
+        >
           {podeLer && <BotaoLido id={ch.id} />}
           <AcoesDoChamado
             id={ch.id}
@@ -266,7 +269,7 @@ export async function DetalheChamado({
   const corpo = (
     <div className="flex min-w-0 flex-col gap-5">
       {(ch.descricao || d.campos.length > 0) && (
-        <section className={CARTAO}>
+        <section data-guia="chamado-descricao" className={CARTAO}>
           <h3 className={TITULO_SECAO}>Descrição</h3>
           {ch.descricao ? (
             <p className="text-sm break-words whitespace-pre-wrap text-neutral-900">
@@ -296,7 +299,7 @@ export async function DetalheChamado({
         </section>
       )}
       {d.checklist.length > 0 && (
-        <section className={CARTAO}>
+        <section data-guia="chamado-checklist" className={CARTAO}>
           <h3 className={TITULO_SECAO}>Checklist</h3>
           <Checklist
             id={ch.id}
@@ -324,7 +327,7 @@ export async function DetalheChamado({
         </section>
       )}
       {d.andamento && (
-        <section className={CARTAO}>
+        <section data-guia="chamado-destinos" className={CARTAO}>
           <h3 className={TITULO_SECAO}>
             {ch.destinos_em_ordem
               ? "Etapas em ordem"
@@ -361,7 +364,11 @@ export async function DetalheChamado({
           <BlocoOS ordemId={ch.id} compacto={compacto} />
         </Suspense>
       )}
-      <section className={CARTAO} aria-labelledby={`conversa-${ch.id}`}>
+      <section
+        data-guia="chamado-conversa"
+        className={CARTAO}
+        aria-labelledby={`conversa-${ch.id}`}
+      >
         <h3 id={`conversa-${ch.id}`} className={TITULO_SECAO}>
           Conversa e histórico
         </h3>
@@ -405,7 +412,7 @@ export async function DetalheChamado({
         <aside
           className={`flex min-w-0 flex-col gap-5 lg:sticky lg:self-start ${registraTempo ? "lg:top-24" : "lg:top-5"}`}
         >
-          <section className={CARTAO}>
+          <section data-guia="chamado-informacoes" className={CARTAO}>
             <h3 className={TITULO_SECAO}>Informações</h3>
             {informacoes}
           </section>

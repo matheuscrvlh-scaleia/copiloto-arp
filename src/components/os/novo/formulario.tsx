@@ -228,7 +228,10 @@ function EscolherCategoria({
     <div className="flex flex-col gap-5">
       {contexto.length > 0 && <Contexto itens={contexto} />}
       {dica && <p className="text-sm text-neutral-600">{dica}</p>}
-      <label className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white py-1.5 pr-4 pl-1.5 text-sm focus-within:border-neutral-900 focus-within:ring-4 focus-within:ring-neutral-900/5">
+      <label
+        data-guia="novo-categoria"
+        className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white py-1.5 pr-4 pl-1.5 text-sm focus-within:border-neutral-900 focus-within:ring-4 focus-within:ring-neutral-900/5"
+      >
         <span className="grid size-8 place-items-center rounded-full bg-neutral-900 text-white">
           <Search className="size-4" aria-hidden />
         </span>
@@ -709,7 +712,7 @@ function Detalhes({
             />
           )}
 
-          <div className={rotulo}>
+          <div data-guia="novo-arquivos" className={rotulo}>
             Fotos e arquivos
             <EscolherArquivos
               arquivos={arquivos}
@@ -720,6 +723,7 @@ function Detalhes({
         </div>
 
         <aside
+          data-guia="novo-propriedades"
           aria-label="Propriedades do chamado"
           className={`flex flex-col gap-6 border-t border-neutral-900/[0.07] md:border-t-0 md:border-l ${naJanela ? "bg-neutral-900/[0.025] p-5 sm:px-6 sm:py-6 md:overflow-y-auto" : "py-5 md:py-0 md:pl-7"}`}
         >

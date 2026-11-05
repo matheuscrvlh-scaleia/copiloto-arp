@@ -68,7 +68,10 @@ export function CartoesFiltro({
   // Cada visão tem cartões diferentes: eles mesmos sorteiam os tons.
   const tons = tonsDaTela(cartoes.map((c) => c.chave).join());
   return (
-    <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
+    <div
+      data-guia="cartoes"
+      className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4"
+    >
       {cartoes.slice(0, 4).map((c, i) => {
         const Icone = ICONE[c.chave];
         const marcado = ativo === c.chave;
@@ -77,6 +80,8 @@ export function CartoesFiltro({
           <button
             key={c.chave}
             type="button"
+            data-guia="cartao"
+            data-guia-titulo={CARTOES[c.chave].titulo}
             aria-pressed={marcado}
             onClick={() => aoEscolher(marcado ? null : c.chave)}
             className={`flutua flex min-h-32 flex-col gap-2 rounded-[1.75rem] p-4 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-marca md:p-5 ${TOM[tons[i] ?? "claro"]} ${marcado ? CLASSE_MARCADO : ""}`}

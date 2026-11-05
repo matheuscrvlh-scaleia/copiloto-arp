@@ -104,7 +104,7 @@ export function BotaoExportar({
     "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-white/80 hover:text-neutral-900 disabled:cursor-wait disabled:opacity-60 dark:hover:bg-white/10";
 
   return (
-    <div className="flex items-center gap-2">
+    <div data-guia="exportar" className="flex items-center gap-2">
       <fieldset
         aria-label="Exportar"
         className="vidro m-0 inline-flex items-center gap-0.5 rounded-full p-1"

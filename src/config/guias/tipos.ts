@@ -24,7 +24,21 @@ export type Alvo =
   | "dica"
   | "tabela"
   | "busca"
-  | "visao";
+  | "visao"
+  // Tickets
+  | "mais-filtros"
+  | "lote"
+  | "novo"
+  | "novo-categoria"
+  | "novo-arquivos"
+  | "novo-propriedades"
+  | "chamado-acoes"
+  | "chamado-descricao"
+  | "chamado-checklist"
+  | "chamado-destinos"
+  | "chamado-conversa"
+  | "chamado-informacoes"
+  | "calendario";
 
 /**
  * Bloco, cartão ou aba pelo título que aparece na tela, sem marcar a página:

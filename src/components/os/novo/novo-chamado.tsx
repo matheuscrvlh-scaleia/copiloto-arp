@@ -120,6 +120,7 @@ export function NovoChamado({ dados }: { dados: DadosDoFormulario }) {
   const botao = (
     <button
       type="button"
+      data-guia="novo"
       onClick={() => setAberta(true)}
       onPointerEnter={carregarFormulario}
       onFocus={carregarFormulario}

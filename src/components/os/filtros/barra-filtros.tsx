@@ -231,7 +231,10 @@ export function BarraFiltros({
 
   return (
     <div className="flex flex-col gap-2" aria-busy={carregando}>
-      <fieldset className="vidro m-0 flex min-w-0 flex-wrap items-center gap-1 rounded-[1.75rem] p-1.5 xl:flex-nowrap xl:rounded-full">
+      <fieldset
+        data-guia="filtros"
+        className="vidro m-0 flex min-w-0 flex-wrap items-center gap-1 rounded-[1.75rem] p-1.5 xl:flex-nowrap xl:rounded-full"
+      >
         <legend className="sr-only">Filtros</legend>
         {campos.map((c, i) => {
           const Icone = ICONES[c.chave as keyof typeof ICONES] ?? ListFilter;
@@ -254,7 +257,10 @@ export function BarraFiltros({
           );
         })}
         {busca && (
-          <label className="order-last flex min-w-0 basis-full items-center gap-2 rounded-full py-2 pr-3 pl-3.5 text-sm transition focus-within:bg-white/90 hover:bg-white/70 md:order-none md:min-w-48 md:flex-1 md:basis-auto dark:focus-within:bg-white/15 dark:hover:bg-white/10">
+          <label
+            data-guia="busca"
+            className="order-last flex min-w-0 basis-full items-center gap-2 rounded-full py-2 pr-3 pl-3.5 text-sm transition focus-within:bg-white/90 hover:bg-white/70 md:order-none md:min-w-48 md:flex-1 md:basis-auto dark:focus-within:bg-white/15 dark:hover:bg-white/10"
+          >
             <Search className="size-4 shrink-0 text-neutral-500" aria-hidden />
             <span className="sr-only">Buscar na lista</span>
             <input
@@ -274,6 +280,7 @@ export function BarraFiltros({
         )}
         {(comPainel || ocultos.length > 0) && (
           <button
+            data-guia="mais-filtros"
             ref={botaoFiltros}
             type="button"
             aria-haspopup="dialog"

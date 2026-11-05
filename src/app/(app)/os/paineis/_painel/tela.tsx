@@ -119,6 +119,7 @@ export async function Painel({
             </span>
             {exportar && (
               <a
+                data-guia="exportar"
                 href={`${ROTAS_OS.paineis}/exportar?${pdf}`}
                 download
                 className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800"
@@ -130,7 +131,10 @@ export async function Painel({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div
+          data-guia="cartoes"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        >
           {painel.cartoes.map((c, i) => (
             <CartaoLista
               key={c.titulo}

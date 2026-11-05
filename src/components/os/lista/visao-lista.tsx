@@ -228,6 +228,7 @@ function Conteudo({
       {barra}
 
       <section
+        data-guia="tabela"
         aria-label={colunas.aviso ? "Avisos" : "Chamados"}
         aria-busy={carregando}
         className="vidro flex flex-col gap-4 rounded-[1.75rem] p-3 md:p-5"
@@ -486,6 +487,7 @@ function Tabela({
             <th scope="col" className="w-8 px-2 py-2">
               {!aviso && (
                 <input
+                  data-guia="lote"
                   type="checkbox"
                   aria-label="Marcar todos desta página"
                   checked={todosMarcados}
