@@ -87,7 +87,7 @@ const AZUL = cor("#0B3C72");
 const LINHA = cor("#E5E5E5");
 const LARGURA = 210 - 2 * MARGENS.lateral;
 /** Fim da área útil: antes do rodapé do papel timbrado (endereço, 252 mm). */
-const LIMITE = Math.min(297 - MARGENS.base, 249);
+const LIMITE = 297 - MARGENS.base;
 
 /**
  * PDF no papel timbrado (retrato): cada OS em um bloco de três linhas —

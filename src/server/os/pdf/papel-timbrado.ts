@@ -22,8 +22,11 @@ import { LOGO_PNG_BASE64 } from "./logo";
 export const MM = 72 / 25.4;
 export const A4 = { largura: 210 * MM, altura: 297 * MM } as const;
 
-/** Área útil: o conteúdo começa a 38 mm do topo e termina a 34 mm do fim. */
-export const MARGENS = { topo: 38, base: 34, lateral: 14 } as const;
+/**
+ * Área útil: o conteúdo começa a 38 mm do topo e termina a 48 mm do fim
+ * (249 mm), acima do rodapé, que começa na linha a 252 mm.
+ */
+export const MARGENS = { topo: 38, base: 48, lateral: 14 } as const;
 
 /** Onde fica a imagem enviada em Parâmetros (bucket privado "os"). */
 export const CAMINHOS_PAPEL_TIMBRADO = [

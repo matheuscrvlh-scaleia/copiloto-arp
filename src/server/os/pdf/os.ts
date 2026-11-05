@@ -55,7 +55,7 @@ import {
 
 const LARGURA = 210 - 2 * MARGENS.lateral;
 /** Fim da área útil: antes do rodapé do papel timbrado (endereço, 252 mm). */
-const LIMITE = Math.min(297 - MARGENS.base, 249);
+const LIMITE = 297 - MARGENS.base;
 const AZUL = cor("#0B3C72");
 const LINHA = cor("#D4D4D4");
 const FUNDO = cor("#F3F4F6");
