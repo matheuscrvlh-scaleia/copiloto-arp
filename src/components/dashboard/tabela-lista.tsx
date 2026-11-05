@@ -167,7 +167,10 @@ export function TabelaLista({
       {(!semBusca || (subtotais && rotuloGrupo)) && (
         <div className="flex flex-wrap items-center gap-2">
           {!semBusca && (
-            <label className="flex min-w-48 flex-1 items-center gap-2 rounded-full border border-neutral-200 bg-white/70 px-3 py-1.5 sm:max-w-xs">
+            <label
+              data-guia="busca"
+              className="flex min-w-48 flex-1 items-center gap-2 rounded-full border border-neutral-200 bg-white/70 px-3 py-1.5 sm:max-w-xs"
+            >
               <Search className="size-4 text-neutral-400" aria-hidden />
               <input
                 type="search"

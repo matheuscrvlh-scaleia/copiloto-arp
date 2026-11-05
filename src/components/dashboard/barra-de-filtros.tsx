@@ -126,6 +126,7 @@ export function BarraDeFiltros({
 
   return (
     <fieldset
+      data-guia="filtros"
       className="vidro m-0 flex min-w-0 flex-wrap items-center gap-1 rounded-[1.75rem] p-1.5 sm:rounded-full"
       aria-busy={carregando}
     >

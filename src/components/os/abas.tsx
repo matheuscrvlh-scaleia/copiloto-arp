@@ -20,6 +20,7 @@ export function Abas({ abas, rotulo }: { abas: Aba[]; rotulo: string }) {
   return (
     <nav
       aria-label={rotulo}
+      data-guia="abas"
       className="vidro flex w-full gap-1 overflow-x-auto rounded-full p-1 sm:w-fit"
     >
       {abas.map((a) => (

@@ -49,7 +49,10 @@ export function Tabela<T>({
   const celula = (c: Coluna<T>) =>
     `${alinhar(c)} ${c.numero ? "whitespace-nowrap" : ""}`;
   return (
-    <div className={`-mx-2 overflow-x-auto ${rolar ? "h-full" : ""}`}>
+    <div
+      data-guia="tabela"
+      className={`-mx-2 overflow-x-auto ${rolar ? "h-full" : ""}`}
+    >
       <table
         className={`w-full border-collapse text-sm ${caber ? "" : "min-w-max"}`}
       >
@@ -143,7 +146,7 @@ function Dica({
   classe: string;
 }) {
   return (
-    <span className="group/dica inline-flex">
+    <span data-guia="dica" className="group/dica inline-flex">
       <button
         type="button"
         aria-label={`${rotulo}: ${texto}`}
@@ -189,6 +192,7 @@ export function Secao({
   return (
     <section
       id={id}
+      data-guia="secao"
       className={`${TOM[tom]} min-w-0 scroll-mt-6 rounded-[1.75rem] p-5 md:p-6 ${className}`}
     >
       <div className="relative flex items-center gap-1">

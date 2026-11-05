@@ -31,7 +31,10 @@ export async function MenuDoUsuario() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2 rounded-2xl bg-neutral-100 p-1.5">
+        <div
+          data-guia="avisos"
+          className="flex items-center gap-2 rounded-2xl bg-neutral-100 p-1.5"
+        >
           <AlternarTema />
           <Suspense fallback={<SinoCarregando />}>
             <SinoDoUsuario usuario={usuario} />

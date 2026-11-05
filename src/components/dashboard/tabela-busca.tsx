@@ -97,7 +97,10 @@ export function TabelaBusca({
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex min-w-56 flex-1 items-center gap-2 rounded-full border border-neutral-900/10 bg-white/70 py-1.5 pr-4 pl-1.5 text-sm">
+        <label
+          data-guia="busca"
+          className="flex min-w-56 flex-1 items-center gap-2 rounded-full border border-neutral-900/10 bg-white/70 py-1.5 pr-4 pl-1.5 text-sm"
+        >
           <span className="grid size-7 place-items-center rounded-full bg-neutral-900 text-white">
             <Search className="size-3.5" aria-hidden />
           </span>

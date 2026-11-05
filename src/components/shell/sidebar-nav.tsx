@@ -65,12 +65,17 @@ export function SidebarNav({ sections }: { sections: NavSection[] }) {
   }
 
   return (
-    <nav className="flex flex-col gap-4 text-sm">
+    <nav data-guia="menu" className="flex flex-col gap-4 text-sm">
       {sections.map((section) => {
         const aberto = !recolhidos.includes(section.titulo);
         const id = `menu-${section.titulo.toLowerCase()}`;
         return (
-          <div key={section.titulo}>
+          <div
+            key={section.titulo}
+            data-guia={
+              section.titulo === secaoAtiva ? "menu-modulo" : undefined
+            }
+          >
             <button
               type="button"
               onClick={() => alternar(section.titulo)}

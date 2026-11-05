@@ -8,7 +8,7 @@ export function PageHeader({
   description?: string;
 }) {
   return (
-    <header className="mb-6">
+    <header data-guia="titulo" className="mb-6">
       <h1 className="text-4xl font-semibold tracking-tight text-neutral-900 md:text-5xl">
         {title}
       </h1>

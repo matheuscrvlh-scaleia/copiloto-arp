@@ -4,6 +4,7 @@ import { CalendarDays, CornerDownLeft, Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { type NavSection, ondeEstou } from "@/config/navigation";
+import { BotaoGuia } from "./guia";
 import { ICONES } from "./icones";
 
 const sem = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -56,7 +57,10 @@ export function BarraSuperiorCliente({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="flex items-center gap-2 text-sm text-neutral-500">
+      <p
+        data-guia="onde-estou"
+        className="flex items-center gap-2 text-sm text-neutral-500"
+      >
         {local ? (
           <>
             <span>{local.secao}</span>
@@ -69,6 +73,7 @@ export function BarraSuperiorCliente({
       </p>
 
       <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
+        <BotaoGuia />
         <span className="vidro hidden items-center gap-2 rounded-full py-1.5 pr-4 pl-1.5 text-sm text-neutral-700 lg:flex">
           <span className="grid size-8 place-items-center rounded-full bg-neutral-900 text-white">
             <CalendarDays className="size-4" aria-hidden />
@@ -77,7 +82,10 @@ export function BarraSuperiorCliente({
         </span>
 
         <div className="relative w-full sm:w-80">
-          <label className="vidro flex items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5 text-sm">
+          <label
+            data-guia="busca-telas"
+            className="vidro flex items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5 text-sm"
+          >
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-neutral-900 text-white">
               <Search className="size-4" aria-hidden />
             </span>

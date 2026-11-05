@@ -52,7 +52,10 @@ export function TopoDaTela({
   exemplo?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
+    <div
+      data-guia="fonte"
+      className="flex flex-wrap items-start justify-between gap-3"
+    >
       <div className="flex min-w-0 flex-col gap-1.5">
         {(dadosDe || reais || aviso || exemplo) && (
           <p className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
@@ -95,7 +98,11 @@ export function TopoDaTela({
           </p>
         )}
       </div>
-      {acoes && <div className="flex shrink-0 gap-2">{acoes}</div>}
+      {acoes && (
+        <div data-guia="exportar" className="flex shrink-0 gap-2">
+          {acoes}
+        </div>
+      )}
     </div>
   );
 }
@@ -238,6 +245,7 @@ export function Cartoes({
   );
   return (
     <div
+      data-guia="cartoes"
       className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${itens.length === 3 ? "xl:grid-cols-3" : "xl:grid-cols-4"}`}
     >
       {itens.map((c, i) =>
@@ -260,6 +268,7 @@ export function AbasDaTela({
   return (
     <nav
       aria-label={rotulo}
+      data-guia="abas"
       className="vidro flex w-full max-w-full gap-1 overflow-x-auto rounded-full p-1 sm:w-fit"
     >
       {abas.map((a) => (

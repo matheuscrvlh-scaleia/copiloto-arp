@@ -37,7 +37,11 @@ export function Filtros({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2" aria-busy={carregando}>
+    <div
+      data-guia="filtros"
+      className="flex flex-wrap items-center gap-2"
+      aria-busy={carregando}
+    >
       <Selecao
         variante="pilula"
         rotulo="Mês"
