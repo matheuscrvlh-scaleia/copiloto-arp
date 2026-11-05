@@ -19,6 +19,7 @@ import { IntegracaoNaoConfigurada, rdCrm } from "@/server/integracoes";
 import { lerTudo } from "@/server/supabase-paginas";
 import { contextoCom } from "./base";
 import { gerarEnet } from "./exemplo/enet";
+import { gerarRd } from "./exemplo/rd";
 
 // Fontes externas do Comercial, nos campos das APIs (lib/comercial/fontes.ts).
 // RD Station: oportunidades da API do CRM (guardadas por hora) e conversões
@@ -131,8 +132,10 @@ async function conversoesDoMarketing(): Promise<
 }
 
 /** Oportunidades do RD Station CRM e conversões do RD Station Marketing. */
+const rdDoDia = memo(gerarRd);
+
 export const dadosRd = cache(async (): Promise<DadosRd> => {
-  const { pode } = await contextoCom();
+  const { pode, hoje } = await contextoCom();
   if (!LEEM_RD.some(pode)) throw new Error("Sem acesso ao RD pelo Comercial.");
   const [lido, marketing] = await Promise.all([
     lerOportunidades(),
@@ -140,11 +143,9 @@ export const dadosRd = cache(async (): Promise<DadosRd> => {
       ? conversoesDoMarketing()
       : { conversoes: [], landingPages: [] },
   ]);
-  return {
-    oportunidades: "dados" in lido ? lido.dados : [],
-    ...marketing,
-    aviso: "aviso" in lido ? lido.aviso : null,
-  };
+  // atalho: enquanto o CRM não conecta, o Funil e o Painel usam o RD de exemplo.
+  if (!("dados" in lido)) return { ...rdDoDia(hoje), aviso: null };
+  return { oportunidades: lido.dados, ...marketing, aviso: null };
 });
 
 const enetDoDia = memo(gerarEnet);
