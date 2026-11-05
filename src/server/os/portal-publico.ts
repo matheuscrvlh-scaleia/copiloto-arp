@@ -290,8 +290,6 @@ export async function pedidosDaLoja(lojaId: string): Promise<Pedido[]> {
     .select(COLUNAS_PEDIDO)
     .eq("loja_id", lojaId)
     .eq("origem", "portal")
-    // Convertido em OS: a loja acompanha pela OS (que também é do portal).
-    .is("convertido_em_id", null)
     .order("criado_em", { ascending: false })
     .limit(200);
   if (error) throw new Error(`Pedidos: ${error.message}`);
@@ -483,8 +481,6 @@ export async function enviosNaUltimaHora(
       .select("id", { count: "exact", head: true })
       .eq("loja_id", lojaId)
       .eq("origem", "portal")
-      // A OS convertida pela equipe não é pedido novo da loja.
-      .is("convertido_de_id", null)
       .gte("criado_em", desde),
     db
       .from("eventos")
