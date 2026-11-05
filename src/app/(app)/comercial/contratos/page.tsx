@@ -240,6 +240,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                   Fazer distrato
                 </Link>
                 <Link
+                  data-guia="novo-contrato"
                   href={`${BASE}/novo`}
                   className="inline-flex items-center gap-1.5 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800"
                 >

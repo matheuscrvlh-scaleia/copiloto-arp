@@ -43,7 +43,9 @@ export type Alvo =
   | "novo-titulo"
   | "novo-enviar"
   | "os-cronometro"
-  | "os-bloco";
+  | "os-bloco"
+  | "novo-contrato"
+  | "fichas-gerar";
 
 /**
  * Bloco, cartão ou aba pelo título que aparece na tela, sem marcar a página:

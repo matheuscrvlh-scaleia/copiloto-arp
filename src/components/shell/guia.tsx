@@ -89,11 +89,15 @@ export function BotaoGuia() {
     const andamento = trilhaEmAndamento();
     if (!andamento) return;
     const t = TRILHAS.find((x) => x.id === andamento.id);
-    if (!t || rotaDoPasso(t, andamento.i) !== pathname) {
-      trilha.current?.encerrar();
-      return;
-    }
-    void motor().mostrar(t, andamento.i);
+    if (!t) return motor().encerrar();
+    if (rotaDoPasso(t, andamento.i) === pathname)
+      return void motor().mostrar(t, andamento.i);
+    // A pessoa clicou no que o passo pediu (ex.: Novo contrato) e caiu na
+    // tela do passo seguinte: a trilha segue de lá.
+    const seguinte = t.passos[andamento.i + 1];
+    if (seguinte?.rota === pathname)
+      return void motor().mostrar(t, andamento.i + 1);
+    motor().encerrar();
   }, [pathname, motor]);
 
   const abrirTela = useCallback(async () => {

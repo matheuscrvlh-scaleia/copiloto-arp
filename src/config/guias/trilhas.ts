@@ -1,4 +1,5 @@
 import type { PassoTrilha, Trilha } from "./tipos";
+import { TRILHAS_MODULOS } from "./trilhas-modulos";
 
 // Trilhas: o processo de ponta a ponta, atravessando telas. O guia vai
 // sozinho para a tela de cada passo, espera a pessoa abrir o formulário ou
@@ -209,6 +210,7 @@ export const TRILHAS: Trilha[] = [
       quadro: "/os/quadro",
     }),
   },
+  ...TRILHAS_MODULOS,
 ];
 
 /** As trilhas do módulo da tela (ex.: /os/... mostra as de Tickets). */

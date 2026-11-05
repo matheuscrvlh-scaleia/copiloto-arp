@@ -156,6 +156,7 @@ describe("trilhas (processo de ponta a ponta)", () => {
       "os",
       "chamado",
     ]);
-    expect(trilhasDa("/rh")).toEqual([]);
+    expect(trilhasDa("/rh/jornada").map((t) => t.id)).toEqual(["rh-mes"]);
+    expect(trilhasDa("/gestao")).toEqual([]);
   });
 });
