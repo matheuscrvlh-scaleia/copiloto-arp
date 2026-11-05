@@ -411,7 +411,8 @@ export function Selecao({
               })}
             </div>
           </div>,
-          document.body,
+          // Dentro de um <dialog> aberto (camada do topo), a lista vai nele; senão fica atrás.
+          botao.current?.closest("dialog") ?? document.body,
         )}
     </div>
   );
