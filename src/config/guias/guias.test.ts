@@ -4,6 +4,49 @@ import { describe, expect, it } from "vitest";
 import { navigation } from "@/config/navigation";
 import { GUIAS, guiaDa } from "./index";
 
+/** Texto de todos os .tsx/.ts de src (menos testes). */
+function fontes(): string[] {
+  const textos: string[] = [];
+  const raiz = join(__dirname, "..", "..");
+  const percorrer = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const caminho = join(dir, e.name);
+      if (e.isDirectory()) percorrer(caminho);
+      else if (/\.tsx?$/.test(e.name) && !e.name.includes(".test."))
+        textos.push(readFileSync(caminho, "utf8"));
+    }
+  };
+  percorrer(raiz);
+  return textos;
+}
+
+const TAGS = {
+  secao: /^Secao$/,
+  cartao: /^Cartao(DaTela|Indicador)$/,
+} as const;
+
+/** O título está num <Secao> ou cartão (a tag aberta mais próxima antes dele) ou é rótulo de aba. */
+function tituloExiste(tipo: string, titulo: string, textos: string[]): boolean {
+  if (tipo === "aba")
+    return textos.some(
+      (t) => t.includes(`rotulo: "${titulo}"`) || t.includes(`: "${titulo}",`),
+    );
+  const tag = TAGS[tipo as keyof typeof TAGS];
+  const procurado = `titulo="${titulo}"`;
+  return textos.some((t) => {
+    for (
+      let i = t.indexOf(procurado);
+      i >= 0;
+      i = t.indexOf(procurado, i + 1)
+    ) {
+      const antes = t.slice(Math.max(0, i - 600), i);
+      const aberta = [...antes.matchAll(/<([A-Z]\w*)/g)].at(-1)?.[1];
+      if (aberta && tag.test(aberta)) return true;
+    }
+    return false;
+  });
+}
+
 /** Todo `data-guia="…"` escrito nos componentes (e o do menu, montado no JSX). */
 function alvosNoCodigo(): Set<string> {
   const achados = new Set<string>();
@@ -33,10 +76,23 @@ describe("guias das telas", () => {
   it("todo guia aponta para pontos que existem nos componentes", () => {
     const existentes = alvosNoCodigo();
     const usados = Object.values(GUIAS).flatMap((g) =>
-      g.passos.flatMap((p) => (p.alvo ? [p.alvo] : [])),
+      g.passos.flatMap((p) => (p.alvo ? [p.alvo.split(":")[0] ?? ""] : [])),
     );
     expect([...new Set(usados)].filter((a) => !existentes.has(a))).toEqual([]);
     expect(existentes.has("guia")).toBe(true);
+  });
+
+  it("bloco, cartão ou aba citado pelo título existe na tela", () => {
+    const textos = fontes();
+    const faltando = Object.entries(GUIAS).flatMap(([href, g]) =>
+      g.passos.flatMap((p) => {
+        const [tipo, titulo] = p.alvo?.split(/:(.*)/s) ?? [];
+        return tipo && titulo && !tituloExiste(tipo, titulo, textos)
+          ? [`${href} → ${p.alvo}`]
+          : [];
+      }),
+    );
+    expect(faltando).toEqual([]);
   });
 
   it("todo guia abre com um resumo e tem o que mostrar", () => {

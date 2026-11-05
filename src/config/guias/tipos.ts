@@ -23,11 +23,18 @@ export type Alvo =
   | "secao"
   | "dica"
   | "tabela"
-  | "busca";
+  | "busca"
+  | "visao";
+
+/**
+ * Bloco, cartão ou aba pelo título que aparece na tela, sem marcar a página:
+ * "secao:Onde agir", "cartao:Custo por lead", "aba:Locatários-chave".
+ */
+export type AlvoPorTitulo = `${"secao" | "cartao" | "aba"}:${string}`;
 
 export interface Passo {
   /** Sem alvo, o passo aparece no centro da tela (abertura, resumo). */
-  alvo?: Alvo;
+  alvo?: Alvo | AlvoPorTitulo;
   titulo: string;
   texto: string;
 }

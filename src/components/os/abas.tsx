@@ -27,6 +27,8 @@ export function Abas({ abas, rotulo }: { abas: Aba[]; rotulo: string }) {
         <Link
           key={a.href}
           href={a.href}
+          data-guia="aba"
+          data-guia-titulo={a.rotulo}
           aria-current={a.href === ativa ? "page" : undefined}
           className="shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium text-neutral-600 transition hover:bg-white/60 hover:text-neutral-900 aria-[current=page]:bg-neutral-900 aria-[current=page]:text-white aria-[current=page]:shadow-sm"
         >

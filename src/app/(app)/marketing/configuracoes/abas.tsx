@@ -28,6 +28,8 @@ export function AbasConfiguracoes() {
           <Link
             key={a.href}
             href={a.href}
+            data-guia="aba"
+            data-guia-titulo={a.rotulo}
             aria-current={ativa ? "page" : undefined}
             className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap transition ${
               ativa

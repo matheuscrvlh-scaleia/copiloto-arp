@@ -4,7 +4,8 @@ import {
   GUIAS_GESTAO,
   GUIAS_RH,
 } from "./gestao-rh-financeiro";
-import { GUIAS_COMERCIAL, GUIAS_MARKETING } from "./marketing-comercial";
+import { GUIAS_MARKETING } from "./marketing";
+import { GUIAS_COMERCIAL } from "./marketing-comercial";
 import { GUIAS_ADMIN, GUIAS_TICKETS } from "./tickets-admin";
 import type { Guia, Passo } from "./tipos";
 

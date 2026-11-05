@@ -318,6 +318,7 @@ export function TrocaVisao({
   return (
     <nav
       aria-label="Visão do calendário"
+      data-guia="visao"
       className="vidro flex w-fit gap-1 rounded-full p-1"
     >
       {(

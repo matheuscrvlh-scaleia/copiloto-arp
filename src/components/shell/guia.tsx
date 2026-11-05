@@ -5,11 +5,15 @@ import type { Driver, DriveStep } from "driver.js";
 import { Compass } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type Alvo, chaveVisto, guiaDa } from "@/config/guias";
+import { chaveVisto, guiaDa, type Passo } from "@/config/guias";
 
 /** O primeiro elemento visível com o alvo (fora: gaveta fechada, sem permissão, sem dado). */
-function alvoNaTela(alvo: Alvo): Element | undefined {
-  return [...document.querySelectorAll(`[data-guia="${alvo}"]`)].find(
+function alvoNaTela(alvo: NonNullable<Passo["alvo"]>): Element | undefined {
+  const [tipo, titulo] = alvo.split(/:(.*)/s);
+  const seletor = titulo
+    ? `[data-guia="${tipo}"][data-guia-titulo="${CSS.escape(titulo)}"]`
+    : `[data-guia="${alvo}"]`;
+  return [...document.querySelectorAll(seletor)].find(
     (el) => el.getClientRects().length > 0,
   );
 }

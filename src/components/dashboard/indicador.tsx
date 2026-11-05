@@ -92,6 +92,8 @@ export function CartaoIndicador({
   return (
     <ComDetalhe origem={origem}>
       <div
+        data-guia="cartao"
+        data-guia-titulo={titulo}
         className={`${TOM[tom]} flutua relative flex h-full flex-col gap-3 rounded-[1.75rem] p-5 hover:z-10`}
       >
         <Titulo

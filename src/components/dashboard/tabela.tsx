@@ -193,6 +193,7 @@ export function Secao({
     <section
       id={id}
       data-guia="secao"
+      data-guia-titulo={titulo}
       className={`${TOM[tom]} min-w-0 scroll-mt-6 rounded-[1.75rem] p-5 md:p-6 ${className}`}
     >
       <div className="relative flex items-center gap-1">
