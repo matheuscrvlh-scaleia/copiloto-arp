@@ -1,35 +1,33 @@
 import "server-only";
-import { cacheLife, cacheTag } from "next/cache";
 import { cache } from "react";
-import { mensagemSegura } from "@/connectors/http";
 import type {
   FontesEnet,
   FontesRd,
+  RdContatoCrm,
   RdConversaoComercial,
   RdLandingPageComercial,
   RdOportunidade,
 } from "@/lib/comercial/fontes";
-import { funilPorEtapa, oportunidadeDoCrm } from "@/lib/comercial/rd-crm";
 import { hojeEmBrasilia, paraBrasilia } from "@/lib/os/tempo";
 import { memo } from "@/lib/sorteio";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { podeAgora } from "@/server/auth";
-import { TAG } from "@/server/cache";
-import { IntegracaoNaoConfigurada, rdCrm } from "@/server/integracoes";
 import { lerTudo } from "@/server/supabase-paginas";
 import { contextoCom } from "./base";
 import { gerarEnet } from "./exemplo/enet";
 import { gerarRd } from "./exemplo/rd";
 
 // Fontes externas do Comercial, nos campos das APIs (lib/comercial/fontes.ts).
-// RD Station: oportunidades da API do CRM (guardadas por hora) e conversões
-// que a sincronização do RD Station Marketing grava (marketing.rd_*), os dois
-// configurados em Administração › Integrações. ENET: de exemplo, gerado no
-// código, até a API ser liberada. As telas conferem a permissão antes de
-// chamar e tiram contato e valores antes de mandar ao navegador.
+// RD Station: oportunidades que a sincronização do RD Station CRM grava
+// (comercial.rd_oportunidades) e conversões que a do RD Station Marketing
+// grava (marketing.rd_*), as duas configuradas em Administração ›
+// Integrações. ENET: de exemplo, gerado no código, até a API ser liberada.
+// As telas conferem a permissão antes de chamar e tiram contato e valores
+// antes de mandar ao navegador.
 
 export type DadosRd = FontesRd & {
-  /** Por que o CRM não entregou (não conectado, falhou); null quando leu. */
+  /** O que avisar sobre o RD (dados de exemplo até a primeira leitura). */
   aviso: string | null;
 };
 export type DadosEnet = FontesEnet & { exemplo: boolean };
@@ -41,30 +39,40 @@ const LEEM_RD = [
   "comercial.parametros.editar",
 ] as const;
 
-/** Erro dentro de "use cache" perde a mensagem em produção: volta como dado. */
-type Lido = { dados: RdOportunidade[] } | { aviso: string };
+const AVISO_EXEMPLO =
+  "RD Station CRM ainda sem leitura: os números do RD são de exemplo até ele ser conectado em Administração › Integrações.";
 
-async function lerOportunidades(): Promise<Lido> {
-  "use cache";
-  cacheTag(TAG.comercial.rdCrm);
-  try {
-    const api = await rdCrm();
-    const [funis, crm] = await Promise.all([api.funis(), api.oportunidades()]);
-    const mapa = funilPorEtapa(funis);
-    cacheLife("hours");
-    return { dados: crm.map((o) => oportunidadeDoCrm(o, mapa)) };
-  } catch (erro) {
-    cacheLife("seconds");
-    if (erro instanceof IntegracaoNaoConfigurada)
-      return {
-        aviso:
-          "RD Station CRM não conectado: cadastre o token em Administração › Integrações.",
-      };
-    console.error("leitura do RD Station CRM", erro);
-    return {
-      aviso: `O RD Station CRM não respondeu: ${mensagemSegura(erro).slice(0, 160)}`,
-    };
+/**
+ * Oportunidades gravadas (RLS: Funil, Painel ou parâmetros). Os contatos
+ * ficam numa coluna fora da sessão: só com o Funil, pela service role
+ * depois de conferir no banco, para o cruzamento com as conversões e para
+ * quem vê contato (o Funil tira o contato de quem não vê).
+ */
+async function oportunidadesGravadas(
+  comContatos: boolean,
+): Promise<RdOportunidade[]> {
+  const db = (await createClient()).schema("comercial");
+  const linhas = await lerTudo(() =>
+    db.from("rd_oportunidades").select("id, dados").order("id"),
+  );
+  let contatos = new Map<string, RdContatoCrm[]>();
+  if (
+    comContatos &&
+    linhas.length &&
+    (await podeAgora("comercial.funil.ver"))
+  ) {
+    const admin = createAdminClient().schema("comercial");
+    const cs = await lerTudo(() =>
+      admin.from("rd_oportunidades").select("id, contatos").order("id"),
+    );
+    contatos = new Map(
+      cs.map((c) => [c.id, c.contatos as unknown as RdContatoCrm[]]),
+    );
   }
+  return linhas.map((l) => ({
+    ...(l.dados as unknown as Omit<RdOportunidade, "contacts">),
+    contacts: contatos.get(l.id) ?? [],
+  }));
 }
 
 /** Instante do banco (UTC) → "aaaa-mm-ddThh:mm:00-03:00". */
@@ -131,21 +139,20 @@ async function conversoesDoMarketing(): Promise<
   };
 }
 
-/** Oportunidades do RD Station CRM e conversões do RD Station Marketing. */
 const rdDoDia = memo(gerarRd);
 
+/** Oportunidades do RD Station CRM e conversões do RD Station Marketing. */
 export const dadosRd = cache(async (): Promise<DadosRd> => {
   const { pode, hoje } = await contextoCom();
   if (!LEEM_RD.some(pode)) throw new Error("Sem acesso ao RD pelo Comercial.");
-  const [lido, marketing] = await Promise.all([
-    lerOportunidades(),
-    pode("comercial.funil.ver")
-      ? conversoesDoMarketing()
-      : { conversoes: [], landingPages: [] },
+  const funil = pode("comercial.funil.ver");
+  const [oportunidades, marketing] = await Promise.all([
+    oportunidadesGravadas(funil),
+    funil ? conversoesDoMarketing() : { conversoes: [], landingPages: [] },
   ]);
-  // atalho: enquanto o CRM não conecta, o Funil e o Painel usam o RD de exemplo.
-  if (!("dados" in lido)) return { ...rdDoDia(hoje), aviso: null };
-  return { oportunidades: lido.dados, ...marketing, aviso: null };
+  // atalho: enquanto o CRM não tem leitura gravada, o Funil e o Painel usam o RD de exemplo.
+  if (!oportunidades.length) return { ...rdDoDia(hoje), aviso: AVISO_EXEMPLO };
+  return { oportunidades, ...marketing, aviso: null };
 });
 
 const enetDoDia = memo(gerarEnet);

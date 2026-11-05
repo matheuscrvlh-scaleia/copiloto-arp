@@ -91,6 +91,7 @@ const SINCRONIZA: Sistema[] = [
   "wps",
   "mkt_rd_station",
   "mkt_meta",
+  "rd_crm",
 ];
 
 /**

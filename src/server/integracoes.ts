@@ -1,4 +1,3 @@
-import { createRdCrmClient } from "@/connectors/rd-crm";
 import "server-only";
 import {
   type CopilotoRhConfig,
@@ -200,13 +199,6 @@ export async function diarioDeObras() {
   );
 }
 
-/** RD Station CRM com o token salvo em Administração › Integrações. */
-export async function rdCrm() {
-  return createRdCrmClient({
-    token: (await credencialEmUso("rd_crm")).segredo,
-  });
-}
-
 export async function copilotoRh() {
   return createCopilotoRhClient(
     configCopiloto(await credencialEmUso("copiloto_rh")),
@@ -290,11 +282,17 @@ const TESTES: Record<Sistema, Teste> = {
       e.log === undefined ? "" : ` · ${formatarNumero(e.log.totalObras)} obras`;
     return `Conectado à empresa “${e.nome}”${obras}`;
   },
+  // Sem chamar a API: renovar troca o refresh token (o antigo para de
+  // valer), e isso só a sincronização faz. A leitura real aparece no histórico.
   async rd_crm(c) {
-    const api = createRdCrmClient({ token: c.segredo });
-    const [funis, p] = await Promise.all([api.funis(), api.pagina(1, 1)]);
-    const total = p.total ?? p.deals.length;
-    return `${formatarNumero(funis.length)} funis (${funis.map((f) => f.name).join(", ")}) · ${formatarNumero(total)} oportunidades`;
+    const def = INTEGRACOES.rd_crm;
+    def.parametros.parse(c.parametros);
+    if (!separarSegredos(def, c.segredo).refresh_token)
+      throw new IntegracaoNaoConfigurada(
+        "rd_crm",
+        "falta clicar em Conectar com o RD Station CRM",
+      );
+    return "Autorizado. As oportunidades são lidas todo dia e em Sincronizar agora.";
   },
   async copiloto_rh(c) {
     const api = createCopilotoRhClient(configCopiloto(c));

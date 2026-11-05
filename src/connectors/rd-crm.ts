@@ -1,20 +1,19 @@
 import { z } from "zod";
 import { parseWith, requestJson } from "./http";
 
-// RD Station CRM (API v1): token da instância na query, só leitura. É outro
-// produto que o RD Station Marketing: o acesso OAuth do Marketing não abre o
-// CRM. Limite de 120 chamadas por minuto; as oportunidades vêm de 200 em 200.
+// RD Station CRM (API v2, OAuth do app do CRM na RD Station App Store). É
+// outro produto que o RD Station Marketing: cada app só abre um produto. O
+// access token vale 2 horas; o refresh token muda a cada renovação (o antigo
+// para de valer) e vence com 14 dias sem uso. Só leitura. A negociação traz
+// só os ids (funil, etapa, dono, fonte...): os nomes vêm das listas.
 
 const SISTEMA = "rd_crm";
-const API_URL = "https://crm.rdstation.com/api/v1";
-const POR_PAGINA = 200;
-/** Teto de páginas por leitura (200 × 100 = 20 mil oportunidades). */
+const API_URL = "https://api.rd.services/crm/v2";
+const TOKEN_URL = "https://api.rd.services/oauth2/token";
+export const AUTORIZAR_URL = "https://accounts.rdstation.com/oauth/authorize";
+const POR_PAGINA = 100;
+/** A API só entrega os 10 mil primeiros registros de cada lista. */
 const MAX_PAGINAS = 100;
-
-export interface RdCrmConfig {
-  token: string;
-  fetch?: typeof fetch;
-}
 
 const txt = z
   .string()
@@ -25,130 +24,172 @@ const num = z.coerce
   .nullish()
   .transform((v) => (Number.isFinite(v) ? (v as number) : 0));
 const id = z.union([z.string(), z.number()]).transform(String);
+const idOpcional = id.nullish().transform((v) => v ?? null);
 
-/** {_id, name}; o RD manda _id ou id, conforme o recurso. */
-const ref = z
-  .object({ _id: id.optional(), id: id.optional(), name: txt })
-  .transform((r) => ({ _id: r._id ?? r.id ?? "", name: r.name }));
-
-const funisSchema = z.array(
-  z
-    .object({
-      _id: id.optional(),
-      id: id.optional(),
-      name: txt,
-      deal_stages: z
-        .array(
-          z
-            .object({ _id: id.optional(), id: id.optional(), name: txt })
-            .transform((e) => ({ _id: e._id ?? e.id ?? "", name: e.name })),
-        )
-        .nullish()
-        .transform((v) => v ?? []),
-    })
-    .transform((f) => ({
-      _id: f._id ?? f.id ?? "",
-      name: f.name,
-      deal_stages: f.deal_stages,
-    })),
-);
-export type RdCrmFunil = z.infer<typeof funisSchema>[number];
-
-const valorCampo = z
-  .unknown()
-  .transform((v) =>
-    v === null || v === undefined
-      ? null
-      : Array.isArray(v)
-        ? v.map(String).join(", ")
-        : String(v),
-  );
-
-const oportunidadeSchema = z.object({
-  _id: id.optional(),
-  id: id.optional(),
-  name: txt,
-  organization: ref.nullish(),
-  rating: num,
-  deal_pipeline: ref.nullish(),
-  deal_stage: ref.and(z.object({ deal_pipeline_id: id.nullish() })).nullish(),
-  win: z.boolean().nullish(),
-  deal_lost_reason: ref.nullish(),
-  deal_lost_note: z.string().nullish(),
-  amount_unique: num,
-  amount_montly: num,
-  hold: z.boolean().nullish(),
-  created_at: z.string(),
-  last_activity_at: z.string().nullish(),
-  next_task: z.object({ date: z.string().nullish(), subject: txt }).nullish(),
-  prediction_date: z.string().nullish(),
-  closed_at: z.string().nullish(),
-  deal_source: ref.nullish(),
-  campaign: ref.nullish(),
-  user: ref.nullish(),
-  deal_custom_fields: z
-    .array(
-      z.object({
-        custom_field: z.object({ _id: id.optional(), label: txt }).nullish(),
-        value: valorCampo,
-      }),
-    )
-    .nullish(),
-  contacts: z
-    .array(
-      z.object({
-        name: txt,
-        title: z.string().nullish(),
-        emails: z
-          .array(z.object({ email: txt }))
-          .nullish()
-          .transform((v) => v ?? []),
-        phones: z
-          .array(z.object({ phone: txt }))
-          .nullish()
-          .transform((v) => v ?? []),
-      }),
-    )
-    .nullish(),
+const tokensSchema = z.object({
+  access_token: z.string().min(1),
+  refresh_token: z.string().min(1),
 });
-export type RdCrmOportunidade = z.infer<typeof oportunidadeSchema>;
+export type TokensRdCrm = z.infer<typeof tokensSchema>;
+
+/** Item de lista com id e nome (funil, etapa, usuário, fonte, campanha...). */
+const comNome = z.object({ id, name: txt });
+export type ItemRdCrm = z.infer<typeof comNome>;
+
+const funilSchema = comNome.extend({
+  stage_ids: z
+    .array(id)
+    .nullish()
+    .transform((v) => v ?? []),
+});
+export type FunilRdCrm = z.infer<typeof funilSchema>;
+
+const campoSchema = z.object({
+  id,
+  slug: txt,
+  label: z.string().nullish(),
+  name: z.string().nullish(),
+});
+export type CampoRdCrm = z.infer<typeof campoSchema>;
+
+const contatoSchema = z.object({
+  id,
+  name: txt,
+  job_title: z.string().nullish(),
+  emails: z
+    .array(z.object({ email: txt }))
+    .nullish()
+    .transform((v) => v ?? []),
+  phones: z
+    .array(z.object({ phone: txt }))
+    .nullish()
+    .transform((v) => v ?? []),
+});
+export type ContatoRdCrm = z.infer<typeof contatoSchema>;
+
+const negociacaoSchema = z.object({
+  id,
+  name: txt,
+  rating: num,
+  status: z.string().nullish(),
+  one_time_price: num,
+  recurrence_price: num,
+  expected_close_date: z.string().nullish(),
+  closed_at: z.string().nullish(),
+  created_at: z.string(),
+  updated_at: z.string().nullish(),
+  pipeline_id: idOpcional,
+  stage_id: idOpcional,
+  owner_id: idOpcional,
+  source_id: idOpcional,
+  campaign_id: idOpcional,
+  lost_reason_id: idOpcional,
+  organization_id: idOpcional,
+  contact_ids: z
+    .array(id)
+    .nullish()
+    .transform((v) => v ?? []),
+  custom_fields: z
+    .record(z.string(), z.unknown())
+    .nullish()
+    .transform((v) => v ?? {}),
+});
+export type NegociacaoRdCrm = z.infer<typeof negociacaoSchema>;
 
 const paginaSchema = z.object({
-  total: z.coerce.number().nullish(),
-  has_more: z.boolean().nullish(),
-  deals: z.array(oportunidadeSchema),
+  data: z.array(z.unknown()),
+  links: z.object({ next: z.string().nullish() }).nullish(),
 });
 
-export function createRdCrmClient(config: RdCrmConfig) {
-  const ler = (caminho: string, query: Record<string, string | number> = {}) =>
+const form = (campos: Record<string, string>) => new URLSearchParams(campos);
+
+async function pedirTokens(campos: Record<string, string>, f?: typeof fetch) {
+  return parseWith(
+    SISTEMA,
+    tokensSchema,
+    await requestJson(SISTEMA, TOKEN_URL, {
+      method: "POST",
+      body: form(campos),
+      retries: 1,
+      fetch: f,
+    }),
+  );
+}
+
+export interface AppRdCrm {
+  clientId: string;
+  clientSecret: string;
+  fetch?: typeof fetch;
+}
+
+/** Troca o code da volta da autorização (vale 5 minutos) pelos tokens. */
+export const trocarCodigoRdCrm = (
+  app: AppRdCrm & { code: string; redirectUri: string },
+) =>
+  pedirTokens(
+    {
+      grant_type: "authorization_code",
+      client_id: app.clientId,
+      client_secret: app.clientSecret,
+      code: app.code,
+      redirect_uri: app.redirectUri,
+    },
+    app.fetch,
+  );
+
+/** Novo par de tokens: o refresh token antigo deixa de valer. */
+export const renovarRdCrm = (app: AppRdCrm & { refreshToken: string }) =>
+  pedirTokens(
+    {
+      grant_type: "refresh_token",
+      client_id: app.clientId,
+      client_secret: app.clientSecret,
+      refresh_token: app.refreshToken,
+    },
+    app.fetch,
+  );
+
+export function createRdCrmClient(config: {
+  accessToken: string;
+  fetch?: typeof fetch;
+}) {
+  const ler = (caminho: string, query?: Record<string, string | number>) =>
     requestJson(SISTEMA, `${API_URL}${caminho}`, {
-      query: { ...query, token: config.token },
+      headers: { Authorization: `Bearer ${config.accessToken}` },
+      query,
       retries: 2,
       fetch: config.fetch,
     });
 
-  /** Uma página de oportunidades (o total vem junto). */
-  const pagina = async (n: number, limite = POR_PAGINA) =>
-    parseWith(
-      SISTEMA,
-      paginaSchema,
-      await ler("/deals", { page: n, limit: limite }),
-    );
+  /** Todas as páginas de uma lista, conferindo cada item no schema. */
+  async function listar<T extends z.ZodType>(
+    caminho: string,
+    schema: T,
+  ): Promise<z.infer<T>[]> {
+    const out: z.infer<T>[] = [];
+    for (let n = 1; n <= MAX_PAGINAS; n++) {
+      const p = parseWith(
+        SISTEMA,
+        paginaSchema,
+        await ler(caminho, { "page[number]": n, "page[size]": POR_PAGINA }),
+      );
+      out.push(...parseWith(SISTEMA, z.array(schema), p.data));
+      if (!p.links?.next || p.data.length < POR_PAGINA) break;
+    }
+    return out;
+  }
 
   return {
-    pagina,
-    async funis(): Promise<RdCrmFunil[]> {
-      return parseWith(SISTEMA, funisSchema, await ler("/deal_pipelines"));
-    },
-    /** Todas as oportunidades de todos os funis. */
-    async oportunidades(): Promise<RdCrmOportunidade[]> {
-      const out: RdCrmOportunidade[] = [];
-      for (let p = 1; p <= MAX_PAGINAS; p++) {
-        const r = await pagina(p);
-        out.push(...r.deals);
-        if (!r.has_more || r.deals.length < POR_PAGINA) return out;
-      }
-      return out;
-    },
+    funis: () => listar("/pipelines", funilSchema),
+    etapas: (funil: string) =>
+      listar(`/pipelines/${encodeURIComponent(funil)}/stages`, comNome),
+    usuarios: () => listar("/users", comNome),
+    fontes: () => listar("/sources", comNome),
+    campanhas: () => listar("/campaigns", comNome),
+    motivosDePerda: () => listar("/lost_reasons", comNome),
+    empresas: () => listar("/organizations", comNome),
+    contatos: () => listar("/contacts", contatoSchema),
+    campos: () => listar("/custom_fields", campoSchema),
+    negociacoes: () => listar("/deals", negociacaoSchema),
   };
 }

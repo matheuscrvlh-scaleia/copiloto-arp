@@ -19,6 +19,10 @@
       "schedule": "15 9 * * *"
     },
     {
+      "path": "/api/sync/rd-crm",
+      "schedule": "20 9 * * *"
+    },
+    {
       "path": "/api/sync/meta",
       "schedule": "45 9 * * *"
     },

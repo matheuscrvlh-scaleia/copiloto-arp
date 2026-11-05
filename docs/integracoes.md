@@ -16,12 +16,14 @@ nenhum sistema, mesmo quando a API permite.
 | WPS ParkingPlus | Estacionamento: entradas, saídas e pagamentos | API, 1x por dia | **Sincronizando** (homologação; falta o acesso de produção) | `src/connectors/wps` |
 | Diário de Obras | Obras: diários (RDO), mão de obra, atividades, ocorrências | API | Falta o token. Cliente de todas as rotas pronto, sem sincronização (módulo não definido) | `src/connectors/diario-de-obras` |
 | Serviços públicos (BrasilAPI, ViaCEP, Banco Central) | Comercial: CEP, CNPJ, feriados nacionais, IGP-M e IPCA | API pública, na hora (sem cadastro) | **Funcionando**, sem credencial | `src/connectors/publicos` |
-| RD Station CRM | Comercial: oportunidades, funis, etapas, motivos de perda (Funil comercial e leads do Painel) | API v1 (token da instância), lida na hora e guardada por 1 hora | Falta o token (o acesso OAuth do RD Station Marketing não abre o CRM: conferido em 04/11/2026) | `src/connectors/rd-crm.ts` |
+| RD Station CRM | Comercial: oportunidades, funis, etapas, motivos de perda (Funil comercial e leads do Painel) | API v2 (OAuth do app do CRM na RD Station App Store), sincronizada 1x por dia em `comercial.rd_oportunidades` | Falta criar o app do CRM e clicar em **Conectar com o RD Station CRM** (o app do RD Station Marketing não abre o CRM: conferido em 04/11/2026). Até a primeira leitura, o Comercial mostra o RD de exemplo, com aviso | `src/connectors/rd-crm.ts`, `src/server/sync/rd-crm.ts` |
 
 **Onde fica o acesso:** Administração › Integrações (Secullum, WPS, Diário
 de Obras, Copiloto RH e o RD Station, CRM e Marketing, que o Comercial e o
-Marketing usam juntos). O RD Station CRM é testado com `GET /deal_pipelines` e
-o total de `GET /deals`; o Comercial cruza o e-mail do contato da oportunidade
+Marketing usam juntos). O RD Station CRM não é testado na API ao salvar: o
+refresh token muda a cada renovação, e só a sincronização (`/api/sync/rd-crm`,
+06h20, e o Sincronizar agora) renova e guarda o novo na hora. A URL de
+callback do app do CRM é `https://<domínio>/api/integracoes/rd-crm/retorno`; o Comercial cruza o e-mail do contato da oportunidade
 com as conversões que a sincronização do RD Station Marketing grava
 (`marketing.rd_conversoes`) para achar a landing page de origem. Cada credencial é testada ao salvar, só com leituras
 (Secullum: lista de bancos e departamentos, sem gastar o limite do /Calcular;

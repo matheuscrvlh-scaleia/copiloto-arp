@@ -1,74 +1,109 @@
-import type { RdCrmFunil, RdCrmOportunidade } from "@/connectors/rd-crm";
-import type { RdOportunidade, RdRef } from "./fontes";
+import type {
+  CampoRdCrm,
+  ContatoRdCrm,
+  ItemRdCrm,
+  NegociacaoRdCrm,
+} from "@/connectors/rd-crm";
+import type { RdContatoCrm, RdOportunidade, RdRef } from "./fontes";
 
-// Oportunidade da API do RD Station CRM → formato das telas do Comercial.
-// O funil sai da própria oportunidade ou, sem ele, da etapa (lista de funis).
+// Negociação da API v2 do RD Station CRM → formato das telas do Comercial.
+// A v2 manda só ids; os nomes vêm das listas (Cadastros). Contatos ficam à
+// parte: vão para a coluna que só o servidor lê.
 
-const SEM: RdRef = { _id: "", name: "" };
-
-export function oportunidadeDoCrm(
-  o: RdCrmOportunidade,
-  funilDaEtapa: ReadonlyMap<string, RdRef>,
-): RdOportunidade {
-  const etapa = o.deal_stage
-    ? { _id: o.deal_stage._id, name: o.deal_stage.name }
-    : SEM;
-  const funil =
-    o.deal_pipeline ??
-    funilDaEtapa.get(etapa._id) ??
-    (o.deal_stage?.deal_pipeline_id
-      ? { _id: o.deal_stage.deal_pipeline_id, name: "" }
-      : SEM);
-  return {
-    _id: o._id ?? o.id ?? "",
-    name: o.name,
-    organization: o.organization ?? null,
-    rating: o.rating,
-    deal_pipeline: funil,
-    deal_stage: etapa,
-    win: o.win ?? null,
-    deal_lost_reason: o.deal_lost_reason ?? null,
-    deal_lost_note: o.deal_lost_note ?? null,
-    amount_unique: o.amount_unique,
-    amount_montly: o.amount_montly,
-    hold: o.hold ?? false,
-    created_at: o.created_at,
-    first_activity_at: null,
-    last_activity_at: o.last_activity_at ?? null,
-    next_task: o.next_task?.date
-      ? { date: o.next_task.date, subject: o.next_task.subject }
-      : null,
-    prediction_date: o.prediction_date?.slice(0, 10) ?? null,
-    closed_at: o.closed_at ?? null,
-    deal_source: o.deal_source ?? null,
-    campaign: o.campaign ?? null,
-    user: o.user ?? SEM,
-    deal_custom_fields: (o.deal_custom_fields ?? []).flatMap((c) =>
-      c.custom_field
-        ? [
-            {
-              custom_field: {
-                _id: c.custom_field._id ?? "",
-                label: c.custom_field.label,
-              },
-              value: c.value,
-            },
-          ]
-        : [],
-    ),
-    contacts: (o.contacts ?? []).map((c) => ({
-      name: c.name,
-      title: c.title ?? null,
-      emails: c.emails,
-      phones: c.phones,
-    })),
-  };
+export interface CadastrosRdCrm {
+  funis: ItemRdCrm[];
+  etapas: ItemRdCrm[];
+  usuarios: ItemRdCrm[];
+  fontes: ItemRdCrm[];
+  campanhas: ItemRdCrm[];
+  motivos: ItemRdCrm[];
+  empresas: ItemRdCrm[];
+  campos: CampoRdCrm[];
+  contatos: ContatoRdCrm[];
 }
 
-/** Etapa → funil, pela lista de funis do CRM. */
-export function funilPorEtapa(funis: RdCrmFunil[]): Map<string, RdRef> {
-  const m = new Map<string, RdRef>();
-  for (const f of funis)
-    for (const e of f.deal_stages) m.set(e._id, { _id: f._id, name: f.name });
-  return m;
+const porId = (xs: ItemRdCrm[]) =>
+  new Map(xs.map((x) => [x.id, { _id: x.id, name: x.name }]));
+
+const texto = (v: unknown): string | null =>
+  v === null || v === undefined || v === ""
+    ? null
+    : Array.isArray(v)
+      ? v.map(String).join(", ")
+      : String(v);
+
+export interface OportunidadeGravada {
+  id: string;
+  dados: Omit<RdOportunidade, "contacts">;
+  contatos: RdContatoCrm[];
+}
+
+/** Monta as oportunidades com os nomes dos cadastros. */
+export function oportunidadesDoCrm(
+  negociacoes: NegociacaoRdCrm[],
+  c: CadastrosRdCrm,
+): OportunidadeGravada[] {
+  const funis = porId(c.funis);
+  const etapas = porId(c.etapas);
+  const usuarios = porId(c.usuarios);
+  const fontes = porId(c.fontes);
+  const campanhas = porId(c.campanhas);
+  const motivos = porId(c.motivos);
+  const empresas = porId(c.empresas);
+  const rotulo = new Map(
+    c.campos.map((f) => [
+      f.slug,
+      { _id: f.id, label: f.label ?? f.name ?? f.slug },
+    ]),
+  );
+  const contatos = new Map(c.contatos.map((x) => [x.id, x]));
+  const ref = (m: Map<string, RdRef>, i: string | null): RdRef | null =>
+    i ? (m.get(i) ?? { _id: i, name: "" }) : null;
+  const SEM: RdRef = { _id: "", name: "" };
+
+  return negociacoes.map((n) => ({
+    id: n.id,
+    dados: {
+      _id: n.id,
+      name: n.name,
+      organization: ref(empresas, n.organization_id),
+      rating: n.rating,
+      deal_pipeline: ref(funis, n.pipeline_id) ?? SEM,
+      deal_stage: ref(etapas, n.stage_id) ?? SEM,
+      win: n.status === "won" ? true : n.status === "lost" ? false : null,
+      deal_lost_reason: ref(motivos, n.lost_reason_id),
+      deal_lost_note: null,
+      amount_unique: n.one_time_price,
+      amount_montly: n.recurrence_price,
+      hold: n.status === "paused",
+      created_at: n.created_at,
+      first_activity_at: null,
+      last_activity_at: null,
+      next_task: null,
+      prediction_date: n.expected_close_date?.slice(0, 10) ?? null,
+      closed_at: n.closed_at ?? null,
+      deal_source: ref(fontes, n.source_id),
+      campaign: ref(campanhas, n.campaign_id),
+      user: ref(usuarios, n.owner_id) ?? SEM,
+      deal_custom_fields: Object.entries(n.custom_fields).map(
+        ([slug, valor]) => ({
+          custom_field: rotulo.get(slug) ?? { _id: slug, label: slug },
+          value: texto(valor),
+        }),
+      ),
+    },
+    contatos: n.contact_ids.flatMap((i) => {
+      const x = contatos.get(i);
+      return x
+        ? [
+            {
+              name: x.name,
+              title: x.job_title ?? null,
+              emails: x.emails,
+              phones: x.phones,
+            },
+          ]
+        : [];
+    }),
+  }));
 }

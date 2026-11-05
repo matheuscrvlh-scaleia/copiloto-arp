@@ -16,6 +16,7 @@ import {
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { erroDoBanco, primeiroErro } from "@/server/acoes";
+import { iniciarAutorizacaoRdCrm } from "@/server/admin/autorizacao-rd-crm";
 import { usuarioAtual } from "@/server/auth";
 import { TAG } from "@/server/cache";
 import { cifrar, cofreConfigurado } from "@/server/cofre";
@@ -37,6 +38,7 @@ import { iniciarAutorizacaoRd } from "@/server/marketing/autorizacao-rd";
 import { iniciarAutorizacaoTikTok } from "@/server/marketing/autorizacao-tiktok";
 import { sincronizarCopiloto } from "@/server/sync/copiloto-rh";
 import { sincronizarMeta } from "@/server/sync/meta";
+import { sincronizarRdCrm } from "@/server/sync/rd-crm";
 import { sincronizarRd } from "@/server/sync/rd-station";
 import { sincronizarSecullum } from "@/server/sync/secullum";
 import { sincronizarWps } from "@/server/sync/wps";
@@ -146,7 +148,9 @@ export async function salvarIntegracao(
       ? (id: string) => iniciarAutorizacaoGoogle(sistema, id)
       : sistema === "mkt_tiktok"
         ? iniciarAutorizacaoTikTok
-        : iniciarAutorizacaoRd;
+        : sistema === "rd_crm"
+          ? iniciarAutorizacaoRdCrm
+          : iniciarAutorizacaoRd;
     redirect(await iniciar(app));
   }
 
@@ -170,7 +174,6 @@ export async function salvarIntegracao(
   if (sistema === "mkt_site") updateTag(TAG.marketing.eventosSite);
   if (sistema === "mkt_meta") updateTag(TAG.marketing.meta);
   if (sistema === "mkt_asana") updateTag(TAG.marketing.asana);
-  if (sistema === "rd_crm") updateTag(TAG.comercial.rdCrm);
   if (teste) {
     const r = await core.rpc("registrar_teste_integracao", {
       p_sistema: sistema,
@@ -209,7 +212,6 @@ export async function testarIntegracao(
   if (sistema === "mkt_site" && teste.ok) updateTag(TAG.marketing.eventosSite);
   if (sistema === "mkt_meta" && teste.ok) updateTag(TAG.marketing.meta);
   if (sistema === "mkt_asana" && teste.ok) updateTag(TAG.marketing.asana);
-  if (sistema === "rd_crm" && teste.ok) updateTag(TAG.comercial.rdCrm);
   // Só a credencial salva na tela guarda o resultado (a do .env não tem linha).
   if (await credencialSalva(sistema).catch(() => null)) {
     const r = await (await createClient())
@@ -238,7 +240,6 @@ export async function removerIntegracao(
     .schema("core")
     .rpc("remover_integracao", { p_sistema: sistema });
   if (error) return erroDoBanco(error);
-  if (sistema === "rd_crm") updateTag(TAG.comercial.rdCrm);
   refresh();
   return { ok: "Credencial removida." };
 }
@@ -263,6 +264,7 @@ export async function sincronizarAgora(
   if (sistema === "copiloto_rh") return sincronizarCopilotoAgora();
   if (sistema === "wps") return sincronizarWpsAgora();
   if (sistema === "mkt_rd_station") return sincronizarRdAgora();
+  if (sistema === "rd_crm") return sincronizarRdCrmAgora();
   if (sistema === "mkt_meta") return sincronizarMetaAgora();
   if (sistema !== "secullum")
     return { erro: "A sincronização desta integração ainda não existe." };
@@ -318,6 +320,21 @@ async function sincronizarRdAgora(): Promise<EstadoAcao> {
   });
   return {
     ok: "Leitura do RD iniciada. Leva alguns minutos; as telas do Marketing passam a mostrar os leads reais.",
+  };
+}
+
+/** RD Station CRM: lê todas as oportunidades depois de responder. */
+async function sincronizarRdCrmAgora(): Promise<EstadoAcao> {
+  after(async () => {
+    try {
+      await sincronizarRdCrm();
+    } catch (erro) {
+      // O erro fica registrado em integracao.sync_runs.
+      console.error("sync rd crm (manual)", erro);
+    }
+  });
+  return {
+    ok: "Leitura do RD Station CRM iniciada. Leva alguns minutos; acompanhe no histórico.",
   };
 }
 

@@ -158,16 +158,33 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
     modulo: "admin",
     serve:
       "Oportunidades, funis, etapas, motivos de perda e responsáveis. Alimenta o Funil comercial e os leads do Painel comercial.",
-    campos: [],
-    segredos: [
+    campos: [
       {
-        nome: "segredo",
-        rotulo: "Token da instância",
+        nome: "client_id",
+        rotulo: "Client ID",
+        tipo: "text",
         ajuda:
-          "No RD Station CRM: Perfil › Integrações › Token da instância (o acesso do RD Station Marketing não abre o CRM)",
+          "App do RD Station CRM criado na RD Station App Store (o app do Marketing não abre o CRM)",
       },
     ],
-    parametros: z.object({}),
+    segredos: [
+      { nome: "client_secret", rotulo: "Client secret" },
+      {
+        nome: "refresh_token",
+        rotulo: "Refresh token",
+        opcional: true,
+        gerado: true,
+      },
+    ],
+    parametros: z.object({ client_id: texto }),
+    autorizar: {
+      rotulo: "Conectar com o RD Station CRM",
+      segredo: "refresh_token",
+      campo: "client_id",
+      credencial: "client_secret",
+      explicacao:
+        "Com o Client ID e o secret do app do CRM preenchidos, este botão salva os dois e abre a autorização no RD. Na volta, o sistema guarda o acesso e lê as oportunidades todo dia (e em Sincronizar agora).",
+    },
   },
   copiloto_rh: {
     nome: "Copiloto RH",
@@ -616,6 +633,38 @@ export const RETORNO_RD = {
   },
 } as const;
 export type ResultadoRd = keyof typeof RETORNO_RD;
+
+/** Volta da autorização do RD Station CRM (URL de callback do app do CRM). */
+export const AUTORIZACAO_RD_CRM = {
+  retorno: "/api/integracoes/rd-crm/retorno",
+} as const;
+
+export const RETORNO_RD_CRM: Record<
+  ResultadoRd,
+  { ok: boolean; texto: string }
+> = {
+  ...RETORNO_RD,
+  conectado: {
+    ok: true,
+    texto:
+      "RD Station CRM conectado. As oportunidades começaram a ser lidas; acompanhe em Últimas sincronizações.",
+  },
+  teste: {
+    ok: false,
+    texto:
+      "Autorizado e salvo, mas a primeira leitura falhou (veja o cartão do RD Station CRM).",
+  },
+  state: {
+    ok: false,
+    texto:
+      "A autorização expirou ou não começou neste navegador. Clique em Conectar com o RD Station CRM de novo.",
+  },
+  codigo: {
+    ok: false,
+    texto:
+      "O RD recusou o código (expirado, já usado ou de outro app). Clique em Conectar com o RD Station CRM de novo.",
+  },
+};
 export type ResultadoAutorizacao = ResultadoRd;
 
 /** A URL de retorno cadastrada no app do TikTok é esta rota, no domínio do sistema. */

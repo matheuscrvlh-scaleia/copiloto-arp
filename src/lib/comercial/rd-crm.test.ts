@@ -1,96 +1,114 @@
 import { describe, expect, it } from "vitest";
-import { createRdCrmClient } from "@/connectors/rd-crm";
-import { funilPorEtapa, oportunidadeDoCrm } from "./rd-crm";
+import {
+  createRdCrmClient,
+  renovarRdCrm,
+  trocarCodigoRdCrm,
+} from "@/connectors/rd-crm";
+import { oportunidadesDoCrm } from "./rd-crm";
 
-// Respostas no formato da documentação da API v1 do RD Station CRM
+// Respostas no formato da documentação da API v2 do RD Station CRM
 // (nomes fictícios).
-const FUNIS = [
-  {
-    id: "f1",
-    name: "Comercial - Espaço Arp",
-    deal_stages: [
-      { _id: "e1", name: "Sem contato" },
-      { _id: "e2", name: "Proposta" },
-    ],
-  },
-];
-const DEAL = {
-  _id: "d1",
+const NEGOCIACAO = {
+  id: "d1",
   name: "Loja 120 m²",
   rating: 3,
-  amount_unique: "0",
-  amount_montly: 4500.5,
-  hold: null,
-  win: null,
+  status: "lost",
+  one_time_price: "0",
+  recurrence_price: 4500.5,
+  expected_close_date: "2026-12-01",
   created_at: "2026-10-01T13:00:00.000-03:00",
-  prediction_date: "2026-12-01T00:00:00.000-03:00",
-  deal_stage: { _id: "e2", name: "Proposta" },
-  user: { _id: "u1", name: "Fulana" },
-  organization: { _id: "o1", name: "Empresa Teste" },
-  deal_custom_fields: [
-    { custom_field: { _id: "c1", label: "Segmento" }, value: ["Moda"] },
-    { custom_field: null, value: "x" },
-  ],
-  contacts: [{ name: "Beltrano", emails: [{ email: "b@teste.com" }] }],
+  pipeline_id: "f1",
+  stage_id: "e2",
+  owner_id: "u1",
+  lost_reason_id: "m1",
+  source_id: null,
+  contact_ids: ["c1", "c9"],
+  custom_fields: { segmento: ["Moda"], tamanho: null },
 };
 
-function fetchFalso(respostas: Record<string, unknown>) {
-  const pedidos: URL[] = [];
-  const f: typeof fetch = async (u) => {
-    const url = new URL(String(u));
-    pedidos.push(url);
-    const corpo = respostas[url.pathname];
-    return new Response(JSON.stringify(corpo), {
-      status: corpo === undefined ? 404 : 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  };
-  return { f, pedidos };
-}
-
-describe("RD Station CRM", () => {
-  it("lê todas as páginas, com o token na query", async () => {
-    let n = 0;
-    const pedidos: URL[] = [];
-    const f: typeof fetch = async (u) => {
-      const url = new URL(String(u));
-      pedidos.push(url);
-      n++;
-      const deals = n === 1 ? Array(200).fill(DEAL) : [DEAL];
-      return Response.json({ total: 201, has_more: n === 1, deals });
+describe("RD Station CRM (API v2)", () => {
+  it("troca o code e renova o par de tokens por formulário", async () => {
+    const corpos: string[] = [];
+    const f: typeof fetch = async (_, init) => {
+      corpos.push(String(init?.body));
+      return Response.json({ access_token: "a", refresh_token: "r2" });
     };
-    const api = createRdCrmClient({ token: "tk", fetch: f });
-    expect(await api.oportunidades()).toHaveLength(201);
-    expect(pedidos.map((p) => p.searchParams.get("page"))).toEqual(["1", "2"]);
-    expect(pedidos[0]?.searchParams.get("token")).toBe("tk");
+    const app = { clientId: "id", clientSecret: "s", fetch: f };
+    expect(
+      await trocarCodigoRdCrm({ ...app, code: "c", redirectUri: "https://x/" }),
+    ).toEqual({ access_token: "a", refresh_token: "r2" });
+    await renovarRdCrm({ ...app, refreshToken: "r1" });
+    expect(corpos[0]).toContain("grant_type=authorization_code");
+    expect(corpos[1]).toContain("grant_type=refresh_token");
+    expect(corpos[1]).toContain("refresh_token=r1");
   });
 
-  it("converte para o formato das telas, com o funil pela etapa", async () => {
-    const { f } = fetchFalso({
-      "/api/v1/deal_pipelines": FUNIS,
-      "/api/v1/deals": { total: 1, has_more: false, deals: [DEAL] },
-    });
-    const api = createRdCrmClient({ token: "tk", fetch: f });
-    const mapa = funilPorEtapa(await api.funis());
-    const [crm] = await api.oportunidades();
-    const o = oportunidadeDoCrm(crm as never, mapa);
-    expect(o.deal_pipeline).toEqual({
-      _id: "f1",
-      name: "Comercial - Espaço Arp",
-    });
-    expect(o.amount_unique).toBe(0);
-    expect(o.amount_montly).toBe(4500.5);
-    expect(o.hold).toBe(false);
-    expect(o.win).toBeNull();
-    expect(o.prediction_date).toBe("2026-12-01");
-    expect(o.deal_custom_fields).toEqual([
-      { custom_field: { _id: "c1", label: "Segmento" }, value: "Moda" },
+  it("lê todas as páginas com o token no cabeçalho", async () => {
+    const pedidos: { url: URL; auth: string | null }[] = [];
+    const f: typeof fetch = async (u, init) => {
+      const url = new URL(String(u));
+      pedidos.push({
+        url,
+        auth: new Headers(init?.headers).get("authorization"),
+      });
+      const n = Number(url.searchParams.get("page[number]"));
+      return Response.json({
+        data: n === 1 ? Array(100).fill(NEGOCIACAO) : [NEGOCIACAO],
+        links: { next: n === 1 ? "https://api.rd.services/x?page=2" : null },
+      });
+    };
+    const api = createRdCrmClient({ accessToken: "tk", fetch: f });
+    expect(await api.negociacoes()).toHaveLength(101);
+    expect(pedidos.map((p) => p.url.searchParams.get("page[number]"))).toEqual([
+      "1",
+      "2",
     ]);
-    expect(o.contacts[0]).toEqual({
-      name: "Beltrano",
-      title: null,
-      emails: [{ email: "b@teste.com" }],
-      phones: [],
+    expect(pedidos[0]?.auth).toBe("Bearer tk");
+    expect(pedidos[0]?.url.pathname).toBe("/crm/v2/deals");
+  });
+
+  it("põe os nomes dos cadastros e separa os contatos", async () => {
+    const api = createRdCrmClient({
+      accessToken: "tk",
+      fetch: async () => Response.json({ data: [NEGOCIACAO], links: {} }),
     });
+    const [o] = oportunidadesDoCrm(await api.negociacoes(), {
+      funis: [{ id: "f1", name: "Comercial - Espaço Arp" }],
+      etapas: [{ id: "e2", name: "Proposta" }],
+      usuarios: [{ id: "u1", name: "Fulana" }],
+      fontes: [],
+      campanhas: [],
+      motivos: [{ id: "m1", name: "Preço" }],
+      empresas: [],
+      campos: [{ id: "cf1", slug: "segmento", label: "Segmento" }],
+      contatos: [
+        {
+          id: "c1",
+          name: "Beltrano",
+          job_title: null,
+          emails: [{ email: "b@teste.com" }],
+          phones: [],
+        },
+      ],
+    });
+    expect(o?.dados.deal_pipeline.name).toBe("Comercial - Espaço Arp");
+    expect(o?.dados.deal_stage.name).toBe("Proposta");
+    expect(o?.dados.win).toBe(false);
+    expect(o?.dados.deal_lost_reason?.name).toBe("Preço");
+    expect(o?.dados.amount_unique).toBe(0);
+    expect(o?.dados.amount_montly).toBe(4500.5);
+    expect(o?.dados.deal_source).toBeNull();
+    expect(o?.dados.deal_custom_fields).toEqual([
+      { custom_field: { _id: "cf1", label: "Segmento" }, value: "Moda" },
+      { custom_field: { _id: "tamanho", label: "tamanho" }, value: null },
+    ]);
+    expect(o?.contatos).toEqual([
+      {
+        name: "Beltrano",
+        title: null,
+        emails: [{ email: "b@teste.com" }],
+        phones: [],
+      },
+    ]);
   });
 });

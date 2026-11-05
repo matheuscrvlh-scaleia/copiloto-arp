@@ -1397,6 +1397,27 @@ export type Database = {
         }
         Relationships: []
       }
+      rd_oportunidades: {
+        Row: {
+          atualizado_em: string
+          contatos: Json
+          dados: Json
+          id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          contatos?: Json
+          dados: Json
+          id: string
+        }
+        Update: {
+          atualizado_em?: string
+          contatos?: Json
+          dados?: Json
+          id?: string
+        }
+        Relationships: []
+      }
       tipos_luc: {
         Row: {
           atualizado_em: string

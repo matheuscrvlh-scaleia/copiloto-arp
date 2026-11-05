@@ -19,7 +19,12 @@ import { Tabela } from "@/components/dashboard/tabela";
 import { Carregando, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarDataHora, formatarNumero } from "@/lib/formato";
-import { INTEGRACOES, RETORNO_RD, type ResultadoRd } from "@/lib/integracoes";
+import {
+  INTEGRACOES,
+  RETORNO_RD,
+  RETORNO_RD_CRM,
+  type ResultadoRd,
+} from "@/lib/integracoes";
 import { type Execucao, integracoesNaTela } from "@/server/admin/dados";
 
 export const metadata: Metadata = { title: "Integrações" };
@@ -50,11 +55,13 @@ async function Integracoes({
 }: {
   busca: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { rd } = await busca;
+  const { rd, rdcrm } = await busca;
   const retorno =
     typeof rd === "string" && rd in RETORNO_RD
       ? RETORNO_RD[rd as ResultadoRd]
-      : null;
+      : typeof rdcrm === "string" && rdcrm in RETORNO_RD_CRM
+        ? RETORNO_RD_CRM[rdcrm as ResultadoRd]
+        : null;
   const { cofre, integracoes, historico } = await integracoesNaTela();
   const conectadas = integracoes.filter(
     (i) => situacao(i).tipo === "ok",
