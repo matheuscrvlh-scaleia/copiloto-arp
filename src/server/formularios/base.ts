@@ -210,6 +210,8 @@ export async function respostaPorId(
 // ---------------------------------------------------------------------------
 
 export interface FormularioPublico {
+  /** Só no servidor (caminho dos arquivos); a página não repassa. */
+  id: string;
   titulo: string;
   descricao: string;
   campos: Campo[];
@@ -228,7 +230,7 @@ export async function formularioPeloToken(
   const { data, error } = await frmAdmin()
     .from("formularios")
     .select(
-      "titulo, descricao, campos, mensagem_final, situacao, encerra_em, limite_respostas, total_respostas",
+      "id, titulo, descricao, campos, mensagem_final, situacao, encerra_em, limite_respostas, total_respostas",
     )
     .eq("token", token)
     .maybeSingle();
@@ -240,6 +242,7 @@ export async function formularioPeloToken(
   if (motivo || !data) return { motivo: motivo ?? "inexistente" };
   return {
     formulario: {
+      id: data.id,
       titulo: data.titulo,
       descricao: data.descricao,
       campos: lerCampos(data.campos),

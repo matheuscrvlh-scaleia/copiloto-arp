@@ -1,14 +1,17 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Paperclip } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { z } from "zod";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { Nota, Secao } from "@/components/dashboard/tabela";
 import { FormAcao } from "@/components/form-acao";
 import { SemAcesso } from "@/components/protegido";
-import { formatarDataHora } from "@/lib/formato";
+import { formatarDataHora, formatarNumero } from "@/lib/formato";
 import {
+  type Arquivo,
+  arquivoSchema,
   recebeResposta,
   type TipoCampo,
   textoDaResposta,
@@ -95,7 +98,7 @@ async function Tela({
       </header>
 
       <Secao titulo="Respostas">
-        <Lista itens={atuais} />
+        <Lista itens={atuais} formularioId={f.id} />
       </Secao>
 
       {antigas.length > 0 && (
@@ -103,7 +106,7 @@ async function Tela({
           titulo="Perguntas que saíram do formulário"
           descricao="Respondidas antes de a pergunta ser excluída ou trocada. O título é o da época do envio."
         >
-          <Lista itens={antigas} />
+          <Lista itens={antigas} formularioId={f.id} />
         </Secao>
       )}
 
@@ -131,11 +134,24 @@ async function Tela({
   );
 }
 
-function Lista({ itens }: { itens: Item[] }) {
+/** Arquivos gravados numa resposta (pergunta "Envio de arquivo"). */
+function arquivosDe(v: unknown): Arquivo[] | null {
+  const r = z.array(arquivoSchema).min(1).safeParse(v);
+  return r.success ? r.data : null;
+}
+
+function Lista({
+  itens,
+  formularioId,
+}: {
+  itens: Item[];
+  formularioId: string;
+}) {
   return (
     <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
       {itens.map((i, n) => {
         const texto = textoDaResposta(i.tipo, i.valor);
+        const arquivos = arquivosDe(i.valor);
         return (
           <div key={i.id} className="contents">
             <dt className="text-xs text-neutral-500 sm:pt-0.5">
@@ -143,7 +159,26 @@ function Lista({ itens }: { itens: Item[] }) {
               {i.titulo}
             </dt>
             <dd className="min-w-0 whitespace-pre-line break-words font-medium text-neutral-900">
-              {texto || <span className="font-normal text-neutral-400">—</span>}
+              {arquivos ? (
+                <ul className="flex flex-col gap-1">
+                  {arquivos.map((a) => (
+                    <li key={a.caminho}>
+                      <a
+                        href={`${rotaDoFormulario(formularioId, "arquivo")}?${new URLSearchParams({ caminho: a.caminho, nome: a.nome })}`}
+                        className="inline-flex items-center gap-1.5 underline underline-offset-4 hover:text-neutral-600"
+                      >
+                        <Paperclip className="size-3.5 shrink-0" aria-hidden />
+                        {a.nome}
+                      </a>
+                      <span className="ml-2 text-xs font-normal text-neutral-500">
+                        {formatarNumero(a.tamanho / 1024 / 1024, 1)} MB
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                texto || <span className="font-normal text-neutral-400">—</span>
+              )}
             </dd>
           </div>
         );

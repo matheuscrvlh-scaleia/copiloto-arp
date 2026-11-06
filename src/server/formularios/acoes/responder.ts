@@ -1,17 +1,29 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import {
+  type ArquivoEnviado,
+  LIMITES,
   titulosDasPerguntas,
   validarRespostas,
 } from "@/lib/formularios/campos";
 import type { MotivoFechado } from "@/lib/formularios/formulario";
+import { BYTES_DO_TIPO } from "@/lib/os/tipo-arquivo";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
+import {
+  assinar,
+  BUCKET_FORMULARIOS,
+  conferirAssinatura,
+  tipoDoArquivo,
+} from "../arquivos";
 import { formularioPeloToken, frmAdmin, tokenValido } from "../base";
 
 // Quem responde pelo link (sem login): o token e as respostas são
 // conferidos aqui, contra as perguntas atuais, e a gravação passa por
 // formularios.responder() (service role), que confere de novo a situação,
-// a data e o limite com a linha travada.
+// a data e o limite com a linha travada. Arquivo sobe antes, um por vez,
+// e volta assinado; o envio final só aceita arquivo assinado.
 
 export interface EstadoDoEnvio {
   erro?: string;
@@ -53,10 +65,11 @@ export async function responderPeloLink(
   const acesso = await formularioPeloToken(token);
   if ("motivo" in acesso)
     return { erro: MENSAGEM_FECHADO[acesso.motivo], fechado: acesso.motivo };
-  const { campos } = acesso.formulario;
+  const { campos, id } = acesso.formulario;
   const { respostas, erros } = validarRespostas(
     campos,
     entrada as Record<string, unknown>,
+    conferirAssinatura(id),
   );
   if (Object.keys(erros).length)
     return { erro: "Confira as perguntas marcadas.", erros };
@@ -75,4 +88,56 @@ export async function responderPeloLink(
     return { erro: "Não foi possível enviar. Tente de novo." };
   }
   return { enviado: true };
+}
+
+export interface EstadoDoArquivo {
+  erro?: string;
+  arquivo?: ArquivoEnviado;
+}
+
+/**
+ * Sobe um arquivo de uma pergunta "Envio de arquivo" com o formulário
+ * aberto. Volta caminho, nome, tamanho, tipo e a assinatura que o envio
+ * final confere.
+ */
+export async function enviarArquivoPeloLink(
+  form: FormData,
+): Promise<EstadoDoArquivo> {
+  const token = String(form.get("token") ?? "");
+  if (!tokenValido(token)) return { erro: MENSAGEM_FECHADO.inexistente };
+  const acesso = await formularioPeloToken(token);
+  if ("motivo" in acesso) return { erro: MENSAGEM_FECHADO[acesso.motivo] };
+  const { id, campos } = acesso.formulario;
+  const campo = campos.find(
+    (c) => c.id === String(form.get("campo") ?? "") && c.tipo === "arquivo",
+  );
+  if (!campo) return { erro: "Pergunta não encontrada. Recarregue a página." };
+
+  const arquivo = form.get("arquivo");
+  if (!(arquivo instanceof File) || arquivo.size === 0)
+    return { erro: "Escolha o arquivo." };
+  if (arquivo.size > LIMITES.arquivoMb * 1024 * 1024)
+    return { erro: `Arquivo maior que ${LIMITES.arquivoMb} MB.` };
+  const bytes = new Uint8Array(await arquivo.arrayBuffer());
+  const tipo = tipoDoArquivo(arquivo.name, bytes.slice(0, BYTES_DO_TIPO));
+  if (!tipo)
+    return {
+      erro: "Envie PDF, foto (JPG, PNG, WEBP ou HEIC), Word ou Excel.",
+    };
+
+  const caminho = `${id}/${randomUUID()}.${tipo.ext}`;
+  // atalho: arquivo que sobe e não é enviado no formulário fica no bucket.
+  const { error } = await createAdminClient()
+    .storage.from(BUCKET_FORMULARIOS)
+    .upload(caminho, bytes, { contentType: tipo.tipo, upsert: false });
+  if (error) {
+    console.error("arquivo do formulário", id, error);
+    return { erro: "Não foi possível guardar o arquivo. Tente de novo." };
+  }
+  const base = arquivo.name.replace(/\.[^.]*$/, "");
+  const nome = `${
+    base.replace(/[^\p{L}\p{N} ._()-]/gu, "").slice(0, 100) || "arquivo"
+  }.${tipo.ext}`;
+  const dados = { caminho, nome, tamanho: arquivo.size, tipo: tipo.tipo };
+  return { arquivo: { ...dados, assinatura: assinar(dados) } };
 }

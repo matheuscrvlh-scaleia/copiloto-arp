@@ -8,7 +8,8 @@ import { formatarData, formatarNumero, lerValorBr } from "@/lib/formato";
 
 // Formulários personalizados: os tipos de pergunta, a validação do que o
 // editor grava e do que quem responde envia, o texto de cada resposta e o
-// resumo por pergunta. Funções puras (sem banco, sem Next), usadas no
+// resumo por pergunta, a condição de exibição (pergunta ou seção que só
+// aparece conforme uma resposta anterior) e o tipo arquivo. Funções puras (sem banco, sem Next), usadas no
 // navegador (editor e formulário público) e no servidor (que confere tudo
 // de novo antes de gravar).
 
@@ -25,6 +26,7 @@ export const TIPOS_CAMPO = [
   "numero",
   "data",
   "documento",
+  "arquivo",
   "secao",
 ] as const;
 export type TipoCampo = (typeof TIPOS_CAMPO)[number];
@@ -42,6 +44,7 @@ export const ROTULO_TIPO: Record<TipoCampo, string> = {
   numero: "Número",
   data: "Data",
   documento: "CPF ou CNPJ",
+  arquivo: "Envio de arquivo",
   secao: "Título de seção",
 };
 
@@ -53,7 +56,45 @@ export const LIMITES = {
   opcoes: 50,
   texto: 500,
   paragrafo: 5000,
+  /** Arquivos por pergunta do tipo arquivo. */
+  arquivos: 10,
+  /** Tamanho de cada arquivo, em MB. */
+  arquivoMb: 10,
 } as const;
+
+/** Extensões aceitas na pergunta "Envio de arquivo". */
+export const EXTENSOES_ARQUIVO = [
+  "pdf",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "heic",
+  "heif",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+] as const;
+
+/** Tipos cuja resposta pode decidir se outra pergunta aparece. */
+export const DECIDEM: readonly TipoCampo[] = [
+  "unica",
+  "lista",
+  "multipla",
+  "sim_nao",
+  "escala",
+];
+
+/**
+ * "Mostrar só se a pergunta <campo> for uma de <valores>". Valores em texto:
+ * a opção, "sim"/"nao" ou a nota.
+ */
+export const condicaoSchema = z.object({
+  campo: z.string().regex(/^[a-z0-9]{6,16}$/),
+  valores: z.array(z.string().trim().max(200)).max(LIMITES.opcoes).default([]),
+});
+export type Condicao = z.infer<typeof condicaoSchema>;
 
 export const campoSchema = z.object({
   id: z.string().regex(/^[a-z0-9]{6,16}$/),
@@ -66,6 +107,10 @@ export const campoSchema = z.object({
   escalaMax: z.number().int().min(2).max(10).default(5),
   rotuloMin: z.string().trim().max(60).default(""),
   rotuloMax: z.string().trim().max(60).default(""),
+  /** Arquivo: quantos a pessoa pode mandar nesta pergunta. */
+  maxArquivos: z.number().int().min(1).max(LIMITES.arquivos).default(1),
+  /** Só aparece quando a condição bate (null: sempre). */
+  condicao: condicaoSchema.nullable().default(null),
 });
 export type Campo = z.infer<typeof campoSchema>;
 
@@ -94,7 +139,71 @@ export function novoCampo(tipo: TipoCampo): Campo {
     escalaMax: 5,
     rotuloMin: "",
     rotuloMax: "",
+    maxArquivos: 1,
+    condicao: null,
   };
+}
+
+/** Os valores que uma pergunta que decide pode ter, com o rótulo. */
+export function valoresQueDecidem(
+  c: Campo,
+): { valor: string; rotulo: string }[] {
+  switch (c.tipo) {
+    case "unica":
+    case "lista":
+    case "multipla":
+      return c.opcoes.map((o) => ({ valor: o, rotulo: o }));
+    case "sim_nao":
+      return [
+        { valor: "sim", rotulo: "Sim" },
+        { valor: "nao", rotulo: "Não" },
+      ];
+    case "escala":
+      return Array.from({ length: c.escalaMax - c.escalaMin + 1 }, (_, i) => {
+        const n = String(c.escalaMin + i);
+        return { valor: n, rotulo: n };
+      });
+    default:
+      return [];
+  }
+}
+
+/** A resposta (crua ou gravada) bate com algum dos valores da condição? */
+function bate(v: unknown, valores: string[]): boolean {
+  const lista = Array.isArray(v) ? v : [v];
+  return lista.some((x) => {
+    const t =
+      x === true
+        ? "sim"
+        : x === false
+          ? "nao"
+          : typeof x === "number"
+            ? String(x)
+            : x;
+    return typeof t === "string" && valores.includes(t.trim());
+  });
+}
+
+/**
+ * Ids dos itens que aparecem com estas respostas. Item com condição aparece
+ * se a pergunta de que depende está visível e a resposta dela bate. Seção
+ * escondida esconde tudo até a próxima seção.
+ */
+export function visiveis(
+  campos: Campo[],
+  respostas: Record<string, unknown>,
+): Set<string> {
+  const vistos = new Set<string>();
+  const ok = (c: Campo) =>
+    !c.condicao ||
+    (vistos.has(c.condicao.campo) &&
+      bate(respostas[c.condicao.campo], c.condicao.valores));
+  let secaoAberta = true;
+  for (const c of campos) {
+    if (c.tipo === "secao") secaoAberta = ok(c);
+    if (secaoAberta && (c.tipo === "secao" || ok(c))) vistos.add(c.id);
+  }
+  return vistos;
 }
 
 /** Pergunta que recebe resposta (título de seção não recebe). */
@@ -128,12 +237,52 @@ export function problemasDosCampos(campos: Campo[]): string[] {
     }
     if (c.tipo === "escala" && c.escalaMax <= c.escalaMin)
       problemas.push(`${n}: o fim da escala precisa ser maior que o início.`);
+    if (c.condicao) {
+      const j = campos.findIndex((x) => x.id === c.condicao?.campo);
+      const ref = campos[j];
+      if (!ref || j >= i)
+        problemas.push(
+          `${n}: a condição precisa apontar para uma pergunta anterior.`,
+        );
+      else if (!DECIDEM.includes(ref.tipo))
+        problemas.push(
+          `${n}: a condição só pode usar pergunta de escolha, sim ou não ou escala.`,
+        );
+      else if (c.condicao.valores.length === 0)
+        problemas.push(`${n}: marque ao menos uma resposta na condição.`);
+      else {
+        const validos = valoresQueDecidem(ref).map((x) => x.valor);
+        if (c.condicao.valores.some((v) => !validos.includes(v)))
+          problemas.push(
+            `${n}: a condição usa uma resposta que não existe mais na pergunta ${j + 1}.`,
+          );
+      }
+    }
   });
   return problemas;
 }
 
 /** Valor gravado de uma resposta. */
-export type Valor = string | string[] | number | boolean;
+export type Valor = string | string[] | number | boolean | Arquivo[];
+
+/** Arquivo enviado numa pergunta do tipo arquivo (caminho no bucket). */
+export const arquivoSchema = z.object({
+  caminho: z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.[a-z0-9]{2,5}$/),
+  nome: z.string().trim().min(1).max(120),
+  tamanho: z
+    .number()
+    .int()
+    .min(1)
+    .max(LIMITES.arquivoMb * 1024 * 1024),
+  tipo: z.string().max(120),
+});
+export type Arquivo = z.infer<typeof arquivoSchema>;
+
+/** Arquivo como volta do envio, com a assinatura que o servidor confere. */
+export const arquivoEnviadoSchema = arquivoSchema.extend({
+  assinatura: z.string().max(200),
+});
+export type ArquivoEnviado = z.infer<typeof arquivoEnviadoSchema>;
 
 const vazio = (v: unknown) =>
   v === undefined ||
@@ -144,7 +293,11 @@ const vazio = (v: unknown) =>
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /** Uma resposta crua → valor gravado, ou a mensagem de erro. */
-function lerValor(c: Campo, v: unknown): { valor: Valor } | { erro: string } {
+function lerValor(
+  c: Campo,
+  v: unknown,
+  conferirArquivo: (a: ArquivoEnviado) => boolean,
+): { valor: Valor } | { erro: string } {
   const texto =
     typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : null;
   switch (c.tipo) {
@@ -210,6 +363,18 @@ function lerValor(c: Campo, v: unknown): { valor: Valor } | { erro: string } {
       if (v === true || v === "sim") return { valor: true };
       if (v === false || v === "nao") return { valor: false };
       return { erro: "Escolha sim ou não." };
+    case "arquivo": {
+      const lidos = z.array(arquivoEnviadoSchema).safeParse(v);
+      if (!lidos.success) return { erro: "Envie o arquivo de novo." };
+      if (lidos.data.length > c.maxArquivos)
+        return {
+          erro: `Envie no máximo ${c.maxArquivos} ${c.maxArquivos === 1 ? "arquivo" : "arquivos"}.`,
+        };
+      if (lidos.data.some((a) => !conferirArquivo(a)))
+        return { erro: "Envie o arquivo de novo." };
+      // Grava sem a assinatura.
+      return { valor: lidos.data.map(({ assinatura: _, ...a }) => a) };
+    }
     case "secao":
       return { erro: "Seção não recebe resposta." };
   }
@@ -217,22 +382,27 @@ function lerValor(c: Campo, v: unknown): { valor: Valor } | { erro: string } {
 
 /**
  * Confere as respostas contra as perguntas atuais: obrigatórias, formato de
- * cada tipo e opções existentes. Chave que não é pergunta é ignorada.
+ * cada tipo e opções existentes. Chave que não é pergunta é ignorada, e
+ * pergunta escondida pela condição não é exigida nem gravada. No servidor,
+ * `conferirArquivo` confere a assinatura de cada arquivo; no navegador
+ * basta o formato.
  */
 export function validarRespostas(
   campos: Campo[],
   entrada: Record<string, unknown>,
+  conferirArquivo: (a: ArquivoEnviado) => boolean = () => true,
 ): { respostas: Record<string, Valor>; erros: Record<string, string> } {
   const respostas: Record<string, Valor> = {};
   const erros: Record<string, string> = {};
+  const aparecem = visiveis(campos, entrada);
   for (const c of campos) {
-    if (!recebeResposta(c)) continue;
+    if (!recebeResposta(c) || !aparecem.has(c.id)) continue;
     const v = entrada[c.id];
     if (vazio(v)) {
       if (c.obrigatorio) erros[c.id] = "Resposta obrigatória.";
       continue;
     }
-    const lido = lerValor(c, v);
+    const lido = lerValor(c, v, conferirArquivo);
     if ("erro" in lido) erros[c.id] = lido.erro;
     else respostas[c.id] = lido.valor;
   }
@@ -252,7 +422,12 @@ export function textoDaResposta(
   valor: unknown,
 ): string {
   if (vazio(valor)) return "";
-  if (Array.isArray(valor)) return valor.map(String).join("; ");
+  if (Array.isArray(valor))
+    return valor
+      .map((x) =>
+        x && typeof x === "object" && "nome" in x ? String(x.nome) : String(x),
+      )
+      .join("; ");
   if (typeof valor === "boolean") return valor ? "Sim" : "Não";
   if (typeof valor === "number")
     return tipo === "escala"

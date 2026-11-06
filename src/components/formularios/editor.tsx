@@ -15,6 +15,7 @@ import { notificar } from "@/components/notificacoes";
 import {
   type Campo,
   COM_OPCOES,
+  DECIDEM,
   LIMITES,
   novoCampo,
   novoId,
@@ -22,12 +23,14 @@ import {
   ROTULO_TIPO,
   TIPOS_CAMPO,
   type TipoCampo,
+  valoresQueDecidem,
 } from "@/lib/formularios/campos";
 import { salvarConteudo } from "@/server/formularios/acoes/formularios";
 
 // Editor do formulário: título, descrição e as perguntas, cada uma num
 // cartão (tipo, pergunta, ajuda, obrigatória, opções ou escala), com subir,
-// descer, duplicar e excluir. Tudo fica na tela até "Salvar", que grava de
+// descer, duplicar e excluir, e a condição "Mostrar só se…" (depende de
+// uma pergunta de escolha, sim ou não ou escala que vem antes). Tudo fica na tela até "Salvar", que grava de
 // uma vez; sair com alteração pendente pede confirmação do navegador.
 
 const BOTAO =
@@ -168,6 +171,10 @@ export function EditorDoFormulario({
           key={c.id}
           campo={c}
           n={i + 1}
+          anteriores={campos
+            .slice(0, i)
+            .map((x, j) => ({ campo: x, n: j + 1 }))
+            .filter((x) => DECIDEM.includes(x.campo.tipo))}
           primeiro={i === 0}
           ultimo={i === campos.length - 1}
           mudar={(m) => mudar(i, m)}
@@ -183,7 +190,16 @@ export function EditorDoFormulario({
               ...cs.slice(i + 1),
             ])
           }
-          excluir={() => setCampos((cs) => cs.filter((_, j) => j !== i))}
+          excluir={() =>
+            // Quem dependia da pergunta excluída volta a aparecer sempre.
+            setCampos((cs) =>
+              cs
+                .filter((_, j) => j !== i)
+                .map((x) =>
+                  x.condicao?.campo === c.id ? { ...x, condicao: null } : x,
+                ),
+            )
+          }
         />
       ))}
 
@@ -260,6 +276,7 @@ export function EditorDoFormulario({
 function CartaoDaPergunta({
   campo: c,
   n,
+  anteriores,
   primeiro,
   ultimo,
   mudar,
@@ -269,6 +286,8 @@ function CartaoDaPergunta({
 }: {
   campo: Campo;
   n: number;
+  /** Perguntas antes desta que podem decidir se ela aparece. */
+  anteriores: { campo: Campo; n: number }[];
   primeiro: boolean;
   ultimo: boolean;
   mudar: (m: Partial<Campo>) => void;
@@ -285,6 +304,7 @@ function CartaoDaPergunta({
     max: useId(),
     rotuloMin: useId(),
     rotuloMax: useId(),
+    maxArquivos: useId(),
   };
   const secao = c.tipo === "secao";
 
@@ -449,6 +469,41 @@ function CartaoDaPergunta({
         </div>
       )}
 
+      {c.tipo === "arquivo" && (
+        <div className="flex flex-col gap-1.5 sm:w-56">
+          <label
+            htmlFor={ids.maxArquivos}
+            className="text-xs font-medium text-neutral-500"
+          >
+            Quantos arquivos
+          </label>
+          <select
+            id={ids.maxArquivos}
+            value={c.maxArquivos}
+            onChange={(e) => mudar({ maxArquivos: Number(e.target.value) })}
+            className={classeCampo}
+          >
+            {Array.from({ length: LIMITES.arquivos }, (_, k) => k + 1).map(
+              (m) => (
+                <option key={m} value={m}>
+                  {m === 1 ? "Um arquivo" : `Até ${m} arquivos`}
+                </option>
+              ),
+            )}
+          </select>
+          <p className="text-xs text-neutral-500">
+            PDF, foto, Word ou Excel, até {LIMITES.arquivoMb} MB cada.
+          </p>
+        </div>
+      )}
+
+      <CondicaoDaPergunta
+        campo={c}
+        secao={secao}
+        anteriores={anteriores}
+        mudar={mudar}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-900/[0.06] pt-3">
         {secao ? (
           <span className="text-xs text-neutral-500">
@@ -594,5 +649,124 @@ function Opcoes({
         </button>
       </div>
     </fieldset>
+  );
+}
+
+/** "Mostrar só se a pergunta X for…": escolha a pergunta e as respostas. */
+function CondicaoDaPergunta({
+  campo: c,
+  secao,
+  anteriores,
+  mudar,
+}: {
+  campo: Campo;
+  secao: boolean;
+  anteriores: { campo: Campo; n: number }[];
+  mudar: (m: Partial<Campo>) => void;
+}) {
+  const ids = { ligar: useId(), pergunta: useId() };
+  const cond = c.condicao;
+  const ref = anteriores.find((a) => a.campo.id === cond?.campo);
+  // Condição que aponta para pergunta que não vem antes (foi movida).
+  const quebrada = !!cond && !ref;
+
+  if (!anteriores.length && !cond) return null;
+
+  return (
+    <div
+      className={`flex flex-col gap-3 rounded-2xl px-4 py-3 ${cond ? "bg-sky-400/10" : "bg-neutral-900/[0.03]"}`}
+    >
+      <label
+        htmlFor={ids.ligar}
+        className="flex cursor-pointer items-center gap-2 text-sm"
+      >
+        <input
+          id={ids.ligar}
+          type="checkbox"
+          checked={!!cond}
+          onChange={(e) => {
+            const primeira = anteriores.at(-1);
+            mudar({
+              condicao:
+                e.target.checked && primeira
+                  ? { campo: primeira.campo.id, valores: [] }
+                  : null,
+            });
+          }}
+          className="size-4 accent-neutral-900"
+        />
+        {secao
+          ? "Mostrar esta seção (e as perguntas dela) só se…"
+          : "Mostrar esta pergunta só se…"}
+      </label>
+      {cond && (
+        <div className="flex flex-col gap-3">
+          {quebrada && (
+            <p className="text-xs text-red-700">
+              A pergunta usada na condição não vem mais antes desta. Escolha
+              outra.
+            </p>
+          )}
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor={ids.pergunta}
+              className="text-xs font-medium text-neutral-500"
+            >
+              A resposta da pergunta
+            </label>
+            <select
+              id={ids.pergunta}
+              value={ref ? cond.campo : ""}
+              onChange={(e) =>
+                mudar({ condicao: { campo: e.target.value, valores: [] } })
+              }
+              className={classeCampo}
+            >
+              {!ref && <option value="">Escolha a pergunta…</option>}
+              {anteriores.map((a) => (
+                <option key={a.campo.id} value={a.campo.id}>
+                  {a.n}. {a.campo.titulo || "(sem título)"}
+                </option>
+              ))}
+            </select>
+          </div>
+          {ref && (
+            <fieldset className="flex flex-col gap-1">
+              <legend className="mb-1 text-xs font-medium text-neutral-500">
+                for uma destas (marque uma ou mais)
+              </legend>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {valoresQueDecidem(ref.campo).map((v) => {
+                  const marcado = cond.valores.includes(v.valor);
+                  return (
+                    <label
+                      key={v.valor}
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={marcado}
+                        onChange={() =>
+                          mudar({
+                            condicao: {
+                              campo: cond.campo,
+                              valores: marcado
+                                ? cond.valores.filter((x) => x !== v.valor)
+                                : [...cond.valores, v.valor],
+                            },
+                          })
+                        }
+                        className="size-4 accent-neutral-900"
+                      />
+                      {v.rotulo || "(opção em branco)"}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

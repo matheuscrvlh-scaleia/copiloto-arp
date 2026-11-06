@@ -1,6 +1,14 @@
 "use client";
 
-import { CircleAlert, CircleCheck, Eye } from "lucide-react";
+import {
+  CircleAlert,
+  CircleCheck,
+  Eye,
+  Loader,
+  Paperclip,
+  Upload,
+  X,
+} from "lucide-react";
 import {
   useActionState,
   useEffect,
@@ -10,19 +18,27 @@ import {
 } from "react";
 import { classeCampo } from "@/components/estilos";
 import { soDigitos } from "@/lib/documentos";
+import { formatarNumero } from "@/lib/formato";
 import {
+  type ArquivoEnviado,
   type Campo,
+  EXTENSOES_ARQUIVO,
+  LIMITES,
   recebeResposta,
   validarRespostas,
+  visiveis,
 } from "@/lib/formularios/campos";
 import {
   type EstadoDoEnvio,
+  enviarArquivoPeloLink,
   responderPeloLink,
 } from "@/server/formularios/acoes/responder";
 
 // O formulário como quem responde vê: uma pergunta por cartão, obrigatórias
 // com *, erro embaixo de cada uma. Confere tudo no navegador antes de
-// enviar (o servidor confere de novo). Na prévia nada é enviado.
+// enviar (o servidor confere de novo). Pergunta com condição só aparece
+// quando a resposta anterior bate, e o que fica escondido não vai no envio.
+// Arquivo sobe na hora em que é escolhido. Na prévia nada é enviado.
 
 type Respostas = Record<string, unknown>;
 
@@ -89,6 +105,7 @@ export function FormularioPublico({
   const [ignorado, setIgnorado] = useState<EstadoDoEnvio | null>(null);
   const atual = estado !== ignorado;
   const enviado = (atual && estado.enviado) || enviadoNaPrevia;
+  const aparecem = visiveis(campos, r);
 
   useEffect(() => {
     if (estado.erros) setErros(estado.erros);
@@ -115,6 +132,10 @@ export function FormularioPublico({
   function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const conferido = validarRespostas(campos, r);
+    // Só o que está à vista vai (o servidor descarta o resto de novo).
+    const aVista = Object.fromEntries(
+      Object.entries(r).filter(([k]) => aparecem.has(k)),
+    );
     setErros(conferido.erros);
     if (Object.keys(conferido.erros).length) return;
     if (previa || !token) {
@@ -123,7 +144,7 @@ export function FormularioPublico({
     }
     const dados = new FormData(e.currentTarget);
     dados.set("token", token);
-    dados.set("respostas", JSON.stringify(r));
+    dados.set("respostas", JSON.stringify(aVista));
     iniciar(() => executar(dados));
   }
 
@@ -166,7 +187,9 @@ export function FormularioPublico({
       </div>
     );
 
-  const obrigatorias = campos.some((c) => recebeResposta(c) && c.obrigatorio);
+  const obrigatorias = campos.some(
+    (c) => recebeResposta(c) && c.obrigatorio && aparecem.has(c.id),
+  );
   let numero = 0;
 
   return (
@@ -193,6 +216,7 @@ export function FormularioPublico({
       </header>
 
       {campos.map((c) => {
+        if (!aparecem.has(c.id)) return null;
         if (c.tipo === "secao")
           return (
             <div key={c.id} className="mt-2 px-2">
@@ -213,6 +237,7 @@ export function FormularioPublico({
             valor={r[c.id]}
             erro={erros[c.id]}
             definir={(v) => definir(c.id, v)}
+            token={previa ? undefined : token}
           />
         );
       })}
@@ -262,12 +287,15 @@ function Pergunta({
   valor,
   erro,
   definir,
+  token,
 }: {
   campo: Campo;
   n: number;
   valor: unknown;
   erro?: string;
   definir: (v: unknown) => void;
+  /** Sem token (prévia): o arquivo não sobe. */
+  token?: string;
 }) {
   const id = useId();
   const texto = typeof valor === "string" ? valor : "";
@@ -364,6 +392,15 @@ function Pergunta({
           value={texto}
           onChange={(e) => definir(e.target.value)}
           className={`${classe(!!erro)} sm:max-w-60`}
+        />
+      )}
+      {c.tipo === "arquivo" && (
+        <CampoDeArquivo
+          id={id}
+          campo={c}
+          valor={valor}
+          definir={definir}
+          token={token}
         />
       )}
       {c.tipo === "documento" && (
@@ -529,5 +566,146 @@ function Opcao({
       />
       {rotulo}
     </label>
+  );
+}
+
+const ACEITA = EXTENSOES_ARQUIVO.map((e) => `.${e}`).join(",");
+
+/** Arquivos da pergunta: sobem um a um na hora; dá para tirar antes de enviar. */
+function CampoDeArquivo({
+  id,
+  campo: c,
+  valor,
+  definir,
+  token,
+}: {
+  id: string;
+  campo: Campo;
+  valor: unknown;
+  definir: (v: unknown) => void;
+  token?: string;
+}) {
+  const lista = Array.isArray(valor) ? (valor as ArquivoEnviado[]) : [];
+  const [subindo, setSubindo] = useState(0);
+  const [falha, setFalha] = useState<string | null>(null);
+  const cabe = c.maxArquivos - lista.length;
+
+  async function escolher(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivos = [...(e.target.files ?? [])].slice(0, Math.max(cabe, 0));
+    e.target.value = "";
+    setFalha(null);
+    let atuais = lista;
+    for (const arquivo of arquivos) {
+      if (arquivo.size > LIMITES.arquivoMb * 1024 * 1024) {
+        setFalha(`${arquivo.name}: maior que ${LIMITES.arquivoMb} MB.`);
+        continue;
+      }
+      setSubindo((n) => n + 1);
+      try {
+        let novo: ArquivoEnviado | undefined;
+        if (!token) {
+          // Prévia: nada sobe; só simula para ver o fluxo.
+          const ext = arquivo.name.split(".").pop()?.toLowerCase() ?? "pdf";
+          novo = {
+            caminho: `${crypto.randomUUID()}/${crypto.randomUUID()}.${ext.slice(0, 5)}`,
+            nome: arquivo.name.slice(0, 120),
+            tamanho: arquivo.size,
+            tipo: arquivo.type,
+            assinatura: "previa",
+          };
+        } else {
+          const dados = new FormData();
+          dados.set("token", token);
+          dados.set("campo", c.id);
+          dados.set("arquivo", arquivo);
+          const r = await enviarArquivoPeloLink(dados);
+          if (r.erro) setFalha(`${arquivo.name}: ${r.erro}`);
+          novo = r.arquivo;
+        }
+        if (novo) {
+          atuais = [...atuais, novo];
+          definir(atuais);
+        }
+      } catch {
+        setFalha(`${arquivo.name}: não foi possível enviar. Tente de novo.`);
+      } finally {
+        setSubindo((n) => n - 1);
+      }
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {lista.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          {lista.map((a) => (
+            <li
+              key={a.caminho}
+              className="flex items-center gap-2 rounded-xl bg-white/70 px-3 py-2 text-sm"
+            >
+              <Paperclip
+                className="size-4 shrink-0 text-neutral-500"
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate">{a.nome}</span>
+              <span className="shrink-0 text-xs text-neutral-500">
+                {formatarNumero(a.tamanho / 1024 / 1024, 1)} MB
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  definir(lista.filter((x) => x.caminho !== a.caminho))
+                }
+                aria-label={`Tirar ${a.nome}`}
+                className="grid size-7 shrink-0 place-items-center rounded-full text-neutral-500 transition hover:bg-neutral-900/5 hover:text-neutral-900"
+              >
+                <X className="size-4" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {cabe > 0 && (
+        <label
+          htmlFor={id}
+          className="flex w-fit cursor-pointer items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400 has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-neutral-900/10"
+        >
+          {subindo > 0 ? (
+            <Loader className="size-4 animate-spin" aria-hidden />
+          ) : (
+            <Upload className="size-4" aria-hidden />
+          )}
+          {subindo > 0
+            ? "Enviando arquivo…"
+            : lista.length
+              ? "Adicionar outro arquivo"
+              : c.maxArquivos > 1
+                ? "Escolher arquivos"
+                : "Escolher arquivo"}
+          <input
+            id={id}
+            type="file"
+            accept={ACEITA}
+            multiple={cabe > 1}
+            disabled={subindo > 0}
+            onChange={escolher}
+            className="sr-only"
+          />
+        </label>
+      )}
+      <p className="text-xs text-neutral-500">
+        PDF, foto, Word ou Excel, até {LIMITES.arquivoMb} MB cada
+        {c.maxArquivos > 1 ? ` (no máximo ${c.maxArquivos})` : ""}.
+      </p>
+      {falha && (
+        <p
+          className="flex items-center gap-1 text-xs text-red-700"
+          role="alert"
+        >
+          <CircleAlert className="size-3.5 shrink-0" aria-hidden />
+          {falha}
+        </p>
+      )}
+    </div>
   );
 }

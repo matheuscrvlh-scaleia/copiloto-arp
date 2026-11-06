@@ -7,7 +7,7 @@ import type { Guia } from "./tipos";
 
 export const GUIAS_FORMULARIOS: Record<string, Guia> = {
   "/formularios": {
-    versao: 1,
+    versao: 2,
     passos: [
       abertura(
         "Formulários",
@@ -39,7 +39,7 @@ export const GUIAS_FORMULARIOS: Record<string, Guia> = {
         alvo: "formularios-editor",
         titulo: "Passo 2. Monte as perguntas",
         texto:
-          "<b>Adicionar pergunta</b> e escolha o tipo: resposta curta, parágrafo, escolha única, caixas de seleção, lista, escala, sim ou não, e-mail, telefone, número, data, CPF/CNPJ ou título de seção. Marque <b>Obrigatória</b> quando precisar. As setas mudam a ordem. No fim, <b>Salvar</b>.",
+          "<b>Adicionar pergunta</b> e escolha o tipo: resposta curta, parágrafo, escolha única, caixas de seleção, lista, escala, sim ou não, e-mail, telefone, número, data, CPF/CNPJ, envio de arquivo ou título de seção. Marque <b>Obrigatória</b> quando precisar. Em <b>Mostrar só se…</b>, a pergunta (ou a seção inteira) só aparece conforme uma resposta anterior. As setas mudam a ordem. No fim, <b>Salvar</b>.",
       },
       {
         alvo: "aba:Link e configurações",

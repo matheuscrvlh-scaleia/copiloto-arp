@@ -276,6 +276,29 @@ describe("envio pelo link", () => {
     expect(await responder(f.token)).toMatch(/encerrado/);
   });
 
+  it("arquivos ficam num bucket privado, sem acesso direto com login", async () => {
+    const b = await db.query<{ public: boolean }>(
+      "select public from storage.buckets where id = 'formularios'",
+    );
+    expect(b.rows).toEqual([{ public: false }]);
+    await db.query(
+      "insert into storage.objects (bucket_id, name) values ('formularios', 'x/y.pdf')",
+    );
+    const visto = await como("edita", () =>
+      db.query(
+        "select name from storage.objects where bucket_id = 'formularios'",
+      ),
+    );
+    expect(visto.rows).toHaveLength(0);
+    expect(
+      await como("edita", () =>
+        erro(
+          "insert into storage.objects (bucket_id, name) values ('formularios', 'a/b.pdf')",
+        ),
+      ),
+    ).toMatch(/row-level security/);
+  });
+
   it("o administrador recebe as permissões do módulo", async () => {
     const r = await db.query<{ permissao: string }>(
       `select cp.permissao from core.cargo_permissoes cp

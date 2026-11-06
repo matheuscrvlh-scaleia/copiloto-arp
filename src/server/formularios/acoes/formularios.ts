@@ -19,6 +19,12 @@ import {
   situacaoEfetiva,
 } from "@/lib/formularios/formulario";
 import type { Json } from "@/lib/supabase/database.types";
+import { podeAgora } from "@/server/auth";
+import {
+  apagarArquivos,
+  arquivosDoFormulario,
+  caminhosDasRespostas,
+} from "../arquivos";
 import {
   contexto,
   frm,
@@ -280,7 +286,7 @@ export async function duplicarFormulario(
   redirect(rotaDoFormulario(data.id, "editar"));
 }
 
-/** "Excluir formulário": some com as respostas. */
+/** "Excluir formulário": some com as respostas e os arquivos enviados. */
 export async function excluirFormulario(
   _: EstadoAcao,
   form: FormData,
@@ -297,10 +303,18 @@ export async function excluirFormulario(
     console.error("excluir formulário", error);
     return { erro: "Não foi possível excluir. Tente de novo." };
   }
+  // Os arquivos só pela service role: confere a permissão agora no banco.
+  if (await podeAgora("formularios.editar"))
+    await apagarArquivos(await arquivosDoFormulario(ok.data)).catch((e) =>
+      console.error("arquivos do formulário excluído", e),
+    );
   redirect(ROTA_FORMULARIOS);
 }
 
-/** "Excluir resposta" (teste, spam): o total do formulário acompanha. */
+/**
+ * "Excluir resposta" (teste, spam): o total do formulário acompanha e os
+ * arquivos da resposta saem do bucket.
+ */
 export async function excluirResposta(
   _: EstadoAcao,
   form: FormData,
@@ -314,10 +328,15 @@ export async function excluirResposta(
     .delete()
     .eq("formulario_id", f.data)
     .eq("id", r.data)
-    .select("id");
+    .select("id, respostas");
   if (error || !data?.length) {
     console.error("excluir resposta", error);
     return { erro: "Não foi possível excluir. Tente de novo." };
   }
+  const caminhos = caminhosDasRespostas(
+    data.map((x) => x.respostas as Record<string, unknown>),
+  ).filter((c) => c.startsWith(`${f.data}/`));
+  if (caminhos.length && (await podeAgora("formularios.editar")))
+    await apagarArquivos(caminhos);
   redirect(rotaDoFormulario(f.data));
 }
