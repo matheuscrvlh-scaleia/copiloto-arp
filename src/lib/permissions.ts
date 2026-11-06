@@ -143,6 +143,6 @@ export const MODULOS_DE_PERMISSAO = [
   { prefixo: "os.", titulo: "Tickets" },
   { prefixo: "marketing.", titulo: "Marketing" },
   { prefixo: "comercial.", titulo: "Comercial" },
-  { prefixo: "formularios.", titulo: "Formulários" },
   { prefixo: "calendario.", titulo: "Calendário" },
+  { prefixo: "formularios.", titulo: "Formulários" },
 ] as const;

@@ -118,6 +118,17 @@ export const navigation: NavSection[] = [
     ],
   },
   {
+    titulo: "Formulários",
+    itens: [
+      {
+        href: "/formularios",
+        label: "Formulários",
+        icone: "formularios",
+        permissao: ["formularios.ver", "formularios.editar"],
+      },
+    ],
+  },
+  {
     titulo: "RH",
     itens: [
       { href: "/rh", label: "Painel", icone: "painel", permissao: "rh.painel" },
@@ -419,17 +430,6 @@ export const navigation: NavSection[] = [
           "comercial.pesquisa.editar",
           "comercial.relacionamento.registrar",
         ],
-      },
-    ],
-  },
-  {
-    titulo: "Formulários",
-    itens: [
-      {
-        href: "/formularios",
-        label: "Formulários",
-        icone: "formularios",
-        permissao: ["formularios.ver", "formularios.editar"],
       },
     ],
   },
