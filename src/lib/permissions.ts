@@ -116,6 +116,11 @@ export const PERMISSOES = {
   "comercial.parametros.editar":
     "Alterar as tabelas de apoio (de-para de fontes, faixas, preços de eventos, modelos)",
   "comercial.exportar": "Exportar Excel e PDF em qualquer tela do módulo",
+
+  "formularios.ver": "Ver os formulários e as respostas recebidas",
+  "formularios.editar":
+    "Criar, editar, publicar, encerrar e excluir formulários e respostas",
+  "formularios.exportar": "Baixar as respostas em Excel e PDF",
 } as const;
 
 export type Permissao = keyof typeof PERMISSOES;
@@ -128,4 +133,5 @@ export const MODULOS_DE_PERMISSAO = [
   { prefixo: "os.", titulo: "Tickets" },
   { prefixo: "marketing.", titulo: "Marketing" },
   { prefixo: "comercial.", titulo: "Comercial" },
+  { prefixo: "formularios.", titulo: "Formulários" },
 ] as const;

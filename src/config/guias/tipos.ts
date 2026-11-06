@@ -45,7 +45,12 @@ export type Alvo =
   | "os-cronometro"
   | "os-bloco"
   | "novo-contrato"
-  | "fichas-gerar";
+  | "fichas-gerar"
+  // Formulários
+  | "formularios-novo"
+  | "formularios-editor"
+  | "formularios-situacao"
+  | "formularios-link";
 
 /**
  * Bloco, cartão ou aba pelo título que aparece na tela, sem marcar a página:

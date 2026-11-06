@@ -9,6 +9,7 @@ de verdade das colunas; este documento explica o desenho.
 | 2 | `financeiro` | Começou pelo estacionamento (WPS); o resto é proposta abaixo |
 | 3 | `os` | **Criado**: Tickets (chamados, OS e ativos) (3 migrations de 23/10/2026, testadas em `supabase/tests/os.test.ts`) |
 | 4 | `comercial` | **Escrito e testado no PGlite** (`20261104120000_comercial.sql`, `supabase/tests/comercial.test.ts`); falta aplicar no Supabase |
+| 5 | `formularios` | **Criado** (`20261106120000_formularios.sql`, aplicado em 06/11/2026; testes em `supabase/tests/formularios.test.ts`) |
 
 ## Decisões gerais
 
@@ -367,6 +368,31 @@ do mockup e saem com `comercial.remover_exemplos()`.
 - Valores (`comercial.valores.ver`) e contato não são separados no banco:
   `contratos.aluguel` e `dados` chegam a quem vê o contrato; é o servidor que
   tira os valores antes de mandar para a tela.
+
+## formularios — formulários personalizados com link público
+
+Migration `20261106120000_formularios.sql`. A equipe monta quantos
+formulários quiser, publica e manda o link; quem recebe responde sem login.
+Regras puras (tipos de pergunta, validação, resumo) em `src/lib/formularios`.
+
+- `formularios`: título, descrição, `campos` (jsonb: as perguntas na ordem,
+  validadas pelo Zod de `campos.ts`), mensagem final, `situacao`
+  (`rascunho`, `publicado`, `encerrado`), `token` do link
+  (`/responder/<token>`; trocar o token desliga o link antigo), `encerra_em`
+  e `limite_respostas` opcionais, e `total_respostas` /
+  `ultima_resposta_em`, mantidos pelo banco.
+- `respostas`: `respostas` (jsonb, valor por id da pergunta) e `perguntas`
+  (título de cada pergunta no momento do envio). Editar o formulário depois
+  não perde o que já foi respondido.
+- Envio: só pela service role, com `formularios.responder(token, respostas,
+  perguntas)`, que trava a linha e confere situação, data e limite (ao bater
+  o limite, encerra). O servidor valida as respostas antes, contra as
+  perguntas atuais. Nada é aberto para `anon`.
+- RLS: ver com `formularios.ver` ou `formularios.editar`; criar, alterar e
+  excluir formulário, e excluir resposta, com `formularios.editar`. Ninguém
+  com login insere resposta. Excluir resposta acerta o total (gatilho).
+- Histórico: `core.auditoria` do formulário (não das respostas). O contador
+  de respostas não conta como edição (nem em `atualizado_em`).
 
 ## Fase 2: financeiro (proposta, não criada)
 

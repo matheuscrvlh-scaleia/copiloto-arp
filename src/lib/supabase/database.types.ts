@@ -2098,6 +2098,111 @@ export type Database = {
       [_ in never]: never
     }
   }
+  formularios: {
+    Tables: {
+      formularios: {
+        Row: {
+          atualizado_em: string
+          campos: Json
+          criado_em: string
+          criado_por: string | null
+          descricao: string
+          encerra_em: string | null
+          id: string
+          limite_respostas: number | null
+          mensagem_final: string
+          publicado_em: string | null
+          situacao: string
+          titulo: string
+          token: string
+          total_respostas: number
+          ultima_resposta_em: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          campos?: Json
+          criado_em?: string
+          criado_por?: string | null
+          descricao?: string
+          encerra_em?: string | null
+          id?: string
+          limite_respostas?: number | null
+          mensagem_final?: string
+          publicado_em?: string | null
+          situacao?: string
+          titulo: string
+          token?: string
+          total_respostas?: number
+          ultima_resposta_em?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          campos?: Json
+          criado_em?: string
+          criado_por?: string | null
+          descricao?: string
+          encerra_em?: string | null
+          id?: string
+          limite_respostas?: number | null
+          mensagem_final?: string
+          publicado_em?: string | null
+          situacao?: string
+          titulo?: string
+          token?: string
+          total_respostas?: number
+          ultima_resposta_em?: string | null
+        }
+        Relationships: []
+      }
+      respostas: {
+        Row: {
+          enviada_em: string
+          formulario_id: string
+          id: string
+          perguntas: Json
+          respostas: Json
+        }
+        Insert: {
+          enviada_em?: string
+          formulario_id: string
+          id?: string
+          perguntas?: Json
+          respostas: Json
+        }
+        Update: {
+          enviada_em?: string
+          formulario_id?: string
+          id?: string
+          perguntas?: Json
+          respostas?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "respostas_formulario_id_fkey"
+            columns: ["formulario_id"]
+            isOneToOne: false
+            referencedRelation: "formularios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      responder: {
+        Args: { p_perguntas: Json; p_respostas: Json; p_token: string }
+        Returns: string
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   integracao: {
     Tables: {
       credenciais: {
@@ -7034,6 +7139,9 @@ export const Constants = {
     },
   },
   financeiro: {
+    Enums: {},
+  },
+  formularios: {
     Enums: {},
   },
   integracao: {

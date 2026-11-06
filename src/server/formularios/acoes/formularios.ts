@@ -1,0 +1,323 @@
+"use server";
+
+import { randomBytes } from "node:crypto";
+import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import type { EstadoAcao } from "@/components/form-acao";
+import {
+  type Campo,
+  novoCampo,
+  problemasDosCampos,
+} from "@/lib/formularios/campos";
+import {
+  configuracoesSchema,
+  conteudoSchema,
+  deBrasilia,
+  problemaParaPublicar,
+  type Situacao,
+  situacaoEfetiva,
+} from "@/lib/formularios/formulario";
+import type { Json } from "@/lib/supabase/database.types";
+import {
+  contexto,
+  frm,
+  lerCampos,
+  ROTA_FORMULARIOS,
+  rotaDoFormulario,
+} from "../base";
+
+// Formulários: o que a equipe grava, com a sessão (o RLS confere
+// formularios.editar de novo). Formulário e respostas não têm cache no
+// servidor: basta o refresh(). O envio pelo link fica em responder.ts.
+
+const SEM_PERMISSAO: EstadoAcao = {
+  erro: "Você não tem permissão para editar formulários.",
+};
+const FALHOU: EstadoAcao = { erro: "Não foi possível salvar. Tente de novo." };
+
+const id = z.uuid();
+
+async function podeEditar(): Promise<boolean> {
+  return (await contexto()).edita;
+}
+
+/** "Novo formulário": rascunho com uma pergunta de exemplo; abre o editor. */
+export async function criarFormulario(
+  _: EstadoAcao,
+  _form: FormData,
+): Promise<EstadoAcao> {
+  const ctx = await contexto();
+  if (!ctx.edita) return SEM_PERMISSAO;
+  const primeira: Campo = {
+    ...novoCampo("texto"),
+    titulo: "Nome completo",
+    obrigatorio: true,
+  };
+  const { data, error } = await (await frm())
+    .from("formularios")
+    .insert({
+      titulo: "Formulário sem título",
+      campos: [primeira] as unknown as Json,
+      mensagem_final: "Recebemos a sua resposta. Obrigado!",
+      criado_por: ctx.usuario.id,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    console.error("criar formulário", error);
+    return FALHOU;
+  }
+  redirect(rotaDoFormulario(data.id, "editar"));
+}
+
+export interface Conteudo {
+  id: string;
+  titulo: string;
+  descricao: string;
+  campos: Campo[];
+}
+
+/** Editor: título, descrição e perguntas, de uma vez. */
+export async function salvarConteudo(
+  c: Conteudo,
+): Promise<EstadoAcao & { problemas?: string[] }> {
+  if (!(await podeEditar())) return SEM_PERMISSAO;
+  const ok = id.safeParse(c.id);
+  const d = conteudoSchema.safeParse(c);
+  if (!ok.success) return FALHOU;
+  if (!d.success)
+    return { erro: d.error.issues[0]?.message ?? "Confira o formulário." };
+  const problemas = problemasDosCampos(d.data.campos);
+  if (problemas.length) return { erro: problemas[0], problemas };
+
+  const db = await frm();
+  const atual = await db
+    .from("formularios")
+    .select("situacao")
+    .eq("id", ok.data)
+    .maybeSingle();
+  if (atual.error || !atual.data) return FALHOU;
+  if (atual.data.situacao === "publicado") {
+    const p = problemaParaPublicar(d.data.campos);
+    if (p) return { erro: `Formulário publicado: ${p.toLowerCase()}` };
+  }
+  const { data, error } = await db
+    .from("formularios")
+    .update({
+      titulo: d.data.titulo,
+      descricao: d.data.descricao,
+      campos: d.data.campos as unknown as Json,
+    })
+    .eq("id", ok.data)
+    .select("id");
+  if (error || !data?.length) {
+    console.error("salvar formulário", error);
+    return FALHOU;
+  }
+  refresh();
+  return { ok: "Formulário salvo." };
+}
+
+/** Configurações: mensagem de agradecimento, data e limite de respostas. */
+export async function salvarConfiguracoes(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await podeEditar())) return SEM_PERMISSAO;
+  const ok = id.safeParse(form.get("id"));
+  const d = configuracoesSchema.safeParse({
+    mensagem_final: form.get("mensagem_final") ?? "",
+    encerra_em: form.get("encerra_em") ?? "",
+    limite_respostas: form.get("limite_respostas") ?? "",
+  });
+  if (!ok.success) return FALHOU;
+  if (!d.success)
+    return { erro: d.error.issues[0]?.message ?? "Confira os campos." };
+  const { data, error } = await (await frm())
+    .from("formularios")
+    .update({
+      mensagem_final: d.data.mensagem_final,
+      encerra_em: deBrasilia(d.data.encerra_em),
+      limite_respostas: d.data.limite_respostas,
+    })
+    .eq("id", ok.data)
+    .select("id");
+  if (error || !data?.length) {
+    console.error("configurações do formulário", error);
+    return FALHOU;
+  }
+  refresh();
+  return { ok: "Configurações salvas." };
+}
+
+const mudanca = z.object({
+  id,
+  acao: z.enum(["publicar", "encerrar", "reabrir", "rascunho"]),
+});
+
+/** Publicar, encerrar, reabrir ou voltar para rascunho. */
+export async function mudarSituacao(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await podeEditar())) return SEM_PERMISSAO;
+  const d = mudanca.safeParse({ id: form.get("id"), acao: form.get("acao") });
+  if (!d.success) return FALHOU;
+  const db = await frm();
+  const { data: f, error: e1 } = await db
+    .from("formularios")
+    .select(
+      "campos, situacao, publicado_em, encerra_em, limite_respostas, total_respostas",
+    )
+    .eq("id", d.data.id)
+    .maybeSingle();
+  if (e1 || !f) return FALHOU;
+
+  const nova: Situacao =
+    d.data.acao === "encerrar"
+      ? "encerrado"
+      : d.data.acao === "rascunho"
+        ? "rascunho"
+        : "publicado";
+  if (nova === "publicado") {
+    const campos = lerCampos(f.campos);
+    const problema =
+      problemaParaPublicar(campos) ?? problemasDosCampos(campos)[0];
+    if (problema) return { erro: problema };
+    // Reabrir sem tirar a data vencida ou o limite batido não adianta.
+    const efetiva = situacaoEfetiva(
+      { ...f, situacao: "publicado" },
+      new Date(),
+    );
+    if (efetiva === "encerrado")
+      return {
+        erro: "A data de encerramento já passou ou o limite de respostas foi atingido. Ajuste em Configurações antes de publicar.",
+      };
+  }
+  if (nova === "rascunho" && f.total_respostas > 0)
+    return {
+      erro: "Este formulário já tem respostas: encerre em vez de voltar para rascunho.",
+    };
+
+  const { error } = await db
+    .from("formularios")
+    .update({
+      situacao: nova,
+      publicado_em:
+        nova === "publicado"
+          ? (f.publicado_em ?? new Date().toISOString())
+          : f.publicado_em,
+    })
+    .eq("id", d.data.id);
+  if (error) {
+    console.error("situação do formulário", error);
+    return FALHOU;
+  }
+  refresh();
+  return {
+    ok:
+      nova === "publicado"
+        ? "Formulário publicado: o link já recebe respostas."
+        : nova === "encerrado"
+          ? "Formulário encerrado: o link não recebe mais respostas."
+          : "Formulário voltou para rascunho.",
+  };
+}
+
+/** "Gerar novo link": o link antigo para de funcionar na hora. */
+export async function gerarNovoLink(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await podeEditar())) return SEM_PERMISSAO;
+  const ok = id.safeParse(form.get("id"));
+  if (!ok.success) return FALHOU;
+  const { data, error } = await (await frm())
+    .from("formularios")
+    .update({ token: randomBytes(24).toString("base64url") })
+    .eq("id", ok.data)
+    .select("id");
+  if (error || !data?.length) {
+    console.error("novo link do formulário", error);
+    return FALHOU;
+  }
+  refresh();
+  return { ok: "Link novo gerado. O anterior não abre mais." };
+}
+
+/** "Duplicar": cópia em rascunho, sem as respostas; abre o editor. */
+export async function duplicarFormulario(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const ctx = await contexto();
+  if (!ctx.edita) return SEM_PERMISSAO;
+  const ok = id.safeParse(form.get("id"));
+  if (!ok.success) return FALHOU;
+  const db = await frm();
+  const { data: f, error: e1 } = await db
+    .from("formularios")
+    .select("titulo, descricao, campos, mensagem_final")
+    .eq("id", ok.data)
+    .maybeSingle();
+  if (e1 || !f) return FALHOU;
+  const { data, error } = await db
+    .from("formularios")
+    .insert({
+      titulo: `${f.titulo} (cópia)`.slice(0, 200),
+      descricao: f.descricao,
+      campos: f.campos,
+      mensagem_final: f.mensagem_final,
+      criado_por: ctx.usuario.id,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    console.error("duplicar formulário", error);
+    return FALHOU;
+  }
+  redirect(rotaDoFormulario(data.id, "editar"));
+}
+
+/** "Excluir formulário": some com as respostas. */
+export async function excluirFormulario(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await podeEditar())) return SEM_PERMISSAO;
+  const ok = id.safeParse(form.get("id"));
+  if (!ok.success) return FALHOU;
+  const { data, error } = await (await frm())
+    .from("formularios")
+    .delete()
+    .eq("id", ok.data)
+    .select("id");
+  if (error || !data?.length) {
+    console.error("excluir formulário", error);
+    return { erro: "Não foi possível excluir. Tente de novo." };
+  }
+  redirect(ROTA_FORMULARIOS);
+}
+
+/** "Excluir resposta" (teste, spam): o total do formulário acompanha. */
+export async function excluirResposta(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await podeEditar())) return SEM_PERMISSAO;
+  const f = id.safeParse(form.get("formulario"));
+  const r = id.safeParse(form.get("resposta"));
+  if (!f.success || !r.success) return FALHOU;
+  const { data, error } = await (await frm())
+    .from("respostas")
+    .delete()
+    .eq("formulario_id", f.data)
+    .eq("id", r.data)
+    .select("id");
+  if (error || !data?.length) {
+    console.error("excluir resposta", error);
+    return { erro: "Não foi possível excluir. Tente de novo." };
+  }
+  redirect(rotaDoFormulario(f.data));
+}

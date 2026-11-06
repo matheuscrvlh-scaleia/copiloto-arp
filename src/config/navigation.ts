@@ -50,7 +50,8 @@ export type Icone =
   | "fichas"
   | "kit"
   | "simulador"
-  | "pesquisa";
+  | "pesquisa"
+  | "formularios";
 
 export interface NavItem {
   href: string;
@@ -401,6 +402,17 @@ export const navigation: NavSection[] = [
           "comercial.pesquisa.editar",
           "comercial.relacionamento.registrar",
         ],
+      },
+    ],
+  },
+  {
+    titulo: "Formulários",
+    itens: [
+      {
+        href: "/formularios",
+        label: "Formulários",
+        icone: "formularios",
+        permissao: ["formularios.ver", "formularios.editar"],
       },
     ],
   },

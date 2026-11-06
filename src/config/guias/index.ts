@@ -2,6 +2,7 @@ import { GUIAS_ADMIN } from "./admin";
 import { GUIAS_COMERCIAL } from "./comercial";
 import { encerramento } from "./comum";
 import { GUIAS_FINANCEIRO } from "./financeiro";
+import { GUIAS_FORMULARIOS } from "./formularios";
 import { GUIAS_MARKETING } from "./marketing";
 import { GUIAS_GESTAO, GUIAS_RH } from "./rh-gestao";
 import { GUIAS_TICKETS } from "./tickets";
@@ -18,6 +19,7 @@ export const GUIAS: Record<string, Guia> = {
   ...GUIAS_TICKETS,
   ...GUIAS_MARKETING,
   ...GUIAS_COMERCIAL,
+  ...GUIAS_FORMULARIOS,
   ...GUIAS_ADMIN,
 };
 

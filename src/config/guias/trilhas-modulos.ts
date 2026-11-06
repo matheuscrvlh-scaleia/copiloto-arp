@@ -12,6 +12,69 @@ const FIM = {
 
 export const TRILHAS_MODULOS: Trilha[] = [
   {
+    id: "formulario",
+    modulo: "/formularios",
+    versao: 1,
+    titulo: "Do formulário às respostas",
+    resumo:
+      "Criar, montar as perguntas, publicar, mandar o link e ler as respostas",
+    passos: [
+      {
+        rota: "/formularios",
+        titulo: "Do formulário às respostas",
+        texto:
+          "O caminho de um formulário: <b>criar</b> → <b>montar as perguntas</b> → <b>publicar</b> → <b>mandar o link</b> → <b>acompanhar as respostas</b>. Nada é publicado sem você confirmar.",
+      },
+      {
+        alvo: "formularios-novo",
+        ate: "formularios-editor",
+        titulo: "Crie o formulário",
+        texto:
+          "Clique em <b>Novo formulário</b>. O guia segue quando o editor abrir.",
+        semAlvo:
+          "Quem tem a permissão de editar formulários cria um novo nesta tela.",
+      },
+      {
+        alvo: "formularios-editor",
+        titulo: "Monte as perguntas",
+        texto:
+          "Escreva o título, use <b>Adicionar pergunta</b> e escolha o tipo de cada uma. Marque as obrigatórias e clique em <b>Salvar</b>. A <b>Prévia</b> mostra como fica.",
+        semAlvo:
+          "Abra um formulário e vá em Perguntas para montar e salvar as perguntas.",
+      },
+      {
+        alvo: "aba:Link e configurações",
+        ate: "formularios-situacao",
+        titulo: "Vá para Link e configurações",
+        texto: "Clique nesta aba para publicar e pegar o link.",
+        semAlvo: "Abra a aba Link e configurações do formulário.",
+      },
+      {
+        alvo: "formularios-situacao",
+        titulo: "Publique",
+        texto:
+          "<b>Publicar</b> abre o link. Data de encerramento e limite de respostas (opcionais) ficam no bloco Respostas, ao lado.",
+        semAlvo: "Em Link e configurações, clique em Publicar.",
+      },
+      {
+        alvo: "formularios-link",
+        titulo: "Mande o link",
+        texto:
+          "Copie ou mande pelo WhatsApp. Quem recebe responde sem login, pelo celular.",
+        semAlvo: "Em Link e configurações, copie o link e mande.",
+      },
+      {
+        alvo: "secao:Todas as respostas",
+        titulo: "Acompanhe as respostas",
+        texto:
+          "As respostas chegam na aba <b>Respostas</b>, com o resumo por pergunta e o Excel.",
+        semAlvo:
+          "As respostas chegam na aba Respostas do formulário, com resumo por pergunta e Excel.",
+      },
+      FIM,
+    ],
+  },
+  {
     id: "contrato",
     modulo: "/comercial",
     versao: 1,

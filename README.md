@@ -36,6 +36,11 @@ monta à mão.
   nos campos das APIs (`src/server/comercial/fontes.ts`) até a API ser
   liberada; CEP, CNPJ, feriados e IGP-M/IPCA reais pelos serviços públicos.
   Quem valida: Paulo.
+- **Formulários**: formulários personalizados com link público, no lugar do
+  Google Forms. Quantos quiser, todos editáveis (mesmo publicados): 13 tipos
+  de pergunta, obrigatórias, seções, prévia, data e limite para encerrar,
+  link para copiar ou mandar pelo WhatsApp e respostas com resumo por
+  pergunta e Excel. Quem responde não precisa de login.
 
 As especificações completas estão na pasta do projeto ARP (fora do repo).
 Integrações: [docs/integracoes.md](docs/integracoes.md).

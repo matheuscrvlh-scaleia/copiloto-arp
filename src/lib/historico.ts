@@ -85,6 +85,7 @@ export const TABELAS: Record<string, string> = {
   "comercial.pesquisa_imoveis": "Imóvel pesquisado",
   "comercial.importacoes": "Importação do Comercial",
   "comercial.propostas_evento": "Proposta de evento",
+  "formularios.formularios": "Formulário",
 };
 
 const ACOES_ALTERACAO: Record<string, string> = {

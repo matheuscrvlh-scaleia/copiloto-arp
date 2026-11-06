@@ -24,6 +24,7 @@ import {
   IdCard,
   Inbox,
   LayoutGrid,
+  ListChecks,
   type LucideIcon,
   MapPinned,
   Megaphone,
@@ -102,4 +103,5 @@ export const ICONES: Record<Icone, LucideIcon> = {
   kit: Package,
   simulador: Calculator,
   pesquisa: MapPinned,
+  formularios: ListChecks,
 };

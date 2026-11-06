@@ -11,7 +11,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "check": "biome check && npm run typecheck",
     "test": "vitest run",
-    "db:types": "supabase gen types typescript --project-id lrkcdtugcjxljazbdofg --schema core,financeiro,rh,integracao,os,marketing,comercial > src/lib/supabase/database.types.ts"
+    "db:types": "supabase gen types typescript --project-id lrkcdtugcjxljazbdofg --schema core,financeiro,rh,integracao,os,marketing,comercial,formularios > src/lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
