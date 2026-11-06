@@ -71,6 +71,11 @@ export const TAG = {
     metas: "comercial:metas",
   },
 
+  calendario: {
+    /** Tipos de item (nome, cor, ícone, campos, visibilidade padrão). */
+    tipos: "calendario:tipos",
+  },
+
   rh: {
     /** Departamentos (nome, código da folha, id no ponto, ativo). */
     departamentos: "rh:departamentos",

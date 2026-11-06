@@ -1,3 +1,4 @@
+import { TRILHA_CALENDARIO } from "./calendario";
 import type { PassoTrilha, Trilha } from "./tipos";
 import { TRILHAS_MODULOS } from "./trilhas-modulos";
 
@@ -211,6 +212,7 @@ export const TRILHAS: Trilha[] = [
     }),
   },
   ...TRILHAS_MODULOS,
+  TRILHA_CALENDARIO,
 ];
 
 /** As trilhas do módulo da tela (ex.: /os/... mostra as de Tickets). */

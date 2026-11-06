@@ -36,6 +36,11 @@ monta à mão.
   nos campos das APIs (`src/server/comercial/fontes.ts`) até a API ser
   liberada; CEP, CNPJ, feriados e IGP-M/IPCA reais pelos serviços públicos.
   Quem valida: Paulo.
+- **Calendário**: agenda da empresa com eventos, reuniões, obras, tarefas e
+  feriados. Tipos de item configuráveis (cor, ícone, campos, quem vê por
+  padrão) e, em cada item, quem vê: todos, setores, cargos, pessoas ou só
+  quem criou (garantido pelo RLS). Mês, semana, dia e agenda; repetição;
+  marcar como feito.
 - **Formulários**: formulários personalizados com link público, no lugar do
   Google Forms. Quantos quiser, todos editáveis (mesmo publicados): 13 tipos
   de pergunta, obrigatórias, seções, prévia, data e limite para encerrar,

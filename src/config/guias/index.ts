@@ -1,4 +1,5 @@
 import { GUIAS_ADMIN } from "./admin";
+import { GUIAS_CALENDARIO } from "./calendario";
 import { GUIAS_COMERCIAL } from "./comercial";
 import { encerramento } from "./comum";
 import { GUIAS_FINANCEIRO } from "./financeiro";
@@ -14,6 +15,7 @@ export { TRILHAS, trilhasDa } from "./trilhas";
 /** Um guia por tela do menu (o teste confere que nenhuma fica sem). */
 export const GUIAS: Record<string, Guia> = {
   ...GUIAS_GESTAO,
+  ...GUIAS_CALENDARIO,
   ...GUIAS_RH,
   ...GUIAS_FINANCEIRO,
   ...GUIAS_TICKETS,

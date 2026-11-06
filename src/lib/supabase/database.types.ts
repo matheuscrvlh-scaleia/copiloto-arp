@@ -12,6 +12,163 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.18"
   }
+  calendario: {
+    Tables: {
+      itens: {
+        Row: {
+          atualizado_em: string
+          cargos: string[]
+          concluido_em: string | null
+          concluido_por: string | null
+          criado_em: string
+          criado_por: string | null
+          descricao: string | null
+          fim: string
+          hora_fim: string | null
+          hora_inicio: string | null
+          id: string
+          inicio: string
+          local: string | null
+          recorrencia: string | null
+          recorrencia_ate: string | null
+          responsavel_id: string | null
+          setores: string[]
+          tipo_id: string
+          titulo: string
+          usuarios: string[]
+          visibilidade: string
+        }
+        Insert: {
+          atualizado_em?: string
+          cargos?: string[]
+          concluido_em?: string | null
+          concluido_por?: string | null
+          criado_em?: string
+          criado_por?: string | null
+          descricao?: string | null
+          fim: string
+          hora_fim?: string | null
+          hora_inicio?: string | null
+          id?: string
+          inicio: string
+          local?: string | null
+          recorrencia?: string | null
+          recorrencia_ate?: string | null
+          responsavel_id?: string | null
+          setores?: string[]
+          tipo_id: string
+          titulo: string
+          usuarios?: string[]
+          visibilidade?: string
+        }
+        Update: {
+          atualizado_em?: string
+          cargos?: string[]
+          concluido_em?: string | null
+          concluido_por?: string | null
+          criado_em?: string
+          criado_por?: string | null
+          descricao?: string | null
+          fim?: string
+          hora_fim?: string | null
+          hora_inicio?: string | null
+          id?: string
+          inicio?: string
+          local?: string | null
+          recorrencia?: string | null
+          recorrencia_ate?: string | null
+          responsavel_id?: string | null
+          setores?: string[]
+          tipo_id?: string
+          titulo?: string
+          usuarios?: string[]
+          visibilidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_tipo_id_fkey"
+            columns: ["tipo_id"]
+            isOneToOne: false
+            referencedRelation: "tipos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tipos: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          cor: string
+          criado_em: string
+          descricao: string | null
+          icone: string
+          id: string
+          nome: string
+          ordem: number
+          usa_conclusao: boolean
+          usa_horario: boolean
+          usa_local: boolean
+          usa_periodo: boolean
+          usa_recorrencia: boolean
+          usa_responsavel: boolean
+          visibilidade_padrao: string
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          cor: string
+          criado_em?: string
+          descricao?: string | null
+          icone?: string
+          id?: string
+          nome: string
+          ordem?: number
+          usa_conclusao?: boolean
+          usa_horario?: boolean
+          usa_local?: boolean
+          usa_periodo?: boolean
+          usa_recorrencia?: boolean
+          usa_responsavel?: boolean
+          visibilidade_padrao?: string
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          cor?: string
+          criado_em?: string
+          descricao?: string | null
+          icone?: string
+          id?: string
+          nome?: string
+          ordem?: number
+          usa_conclusao?: boolean
+          usa_horario?: boolean
+          usa_local?: boolean
+          usa_periodo?: boolean
+          usa_recorrencia?: boolean
+          usa_responsavel?: boolean
+          visibilidade_padrao?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      concluir: {
+        Args: { p_feito: boolean; p_item: string }
+        Returns: undefined
+      }
+      meu_cargo: { Args: never; Returns: string[] }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   comercial: {
     Tables: {
       censo_convites: {
@@ -7128,6 +7285,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  calendario: {
+    Enums: {},
+  },
   comercial: {
     Enums: {},
   },

@@ -10,6 +10,7 @@ de verdade das colunas; este documento explica o desenho.
 | 3 | `os` | **Criado**: Tickets (chamados, OS e ativos) (3 migrations de 23/10/2026, testadas em `supabase/tests/os.test.ts`) |
 | 4 | `comercial` | **Escrito e testado no PGlite** (`20261104120000_comercial.sql`, `supabase/tests/comercial.test.ts`); falta aplicar no Supabase |
 | 5 | `formularios` | **Criado** (`20261106120000_formularios.sql`, aplicado em 06/11/2026; testes em `supabase/tests/formularios.test.ts`) |
+| 6 | `calendario` | **Criado** (`20261106170000_calendario.sql`, aplicado em 06/11/2026; testes em `supabase/tests/calendario.test.ts`) |
 
 ## Decisões gerais
 
@@ -393,6 +394,33 @@ Regras puras (tipos de pergunta, validação, resumo) em `src/lib/formularios`.
   com login insere resposta. Excluir resposta acerta o total (gatilho).
 - Histórico: `core.auditoria` do formulário (não das respostas). O contador
   de respostas não conta como edição (nem em `atualizado_em`).
+
+## calendario — agenda da empresa
+
+Migration `20261106170000_calendario.sql`. Eventos, reuniões, obras, tarefas
+e feriados num calendário só; tudo configurável. Regras puras (repetição,
+dias de cada item) em `src/lib/calendario.ts`.
+
+- `tipos`: o que pode ser marcado. Nome, cor, ícone, os campos que o
+  formulário pede (`usa_horario`, `usa_periodo`, `usa_local`,
+  `usa_responsavel`, `usa_conclusao`, `usa_recorrencia`), quem vê por padrão,
+  ordem e ativo. Começa com Evento, Reunião, Tarefa, Obra e Feriado e folga.
+  Tipo com item não se exclui (desativa-se).
+- `itens`: título, descrição, local, `inicio`/`fim` (date) e
+  `hora_inicio`/`hora_fim` (time, hora de Brasília; sem hora = dia inteiro),
+  responsável, conclusão, repetição (`diaria`, `semanal`, `mensal`, `anual`,
+  até `recorrencia_ate`; a tela expande as vezes do período) e quem vê.
+- Quem vê (`visibilidade`): `todos` (quem tem `calendario.ver`), `restrito`
+  (os `setores` de `os.setores`, `cargos` de `core.cargos` e `usuarios`
+  marcados, em arrays com índice GIN) ou `privado`. Quem criou e o
+  responsável sempre veem. `calendario.ver_todos` vê os restritos; o privado
+  de outra pessoa, nunca.
+- Editar e excluir: o próprio item (`calendario.criar`) ou, com
+  `calendario.editar_todos`, os que vê, menos os privados. Quem criou e a
+  conclusão não mudam por update (grant por coluna). Concluir é por
+  `calendario.concluir(item, feito)`: quem criou, o responsável ou quem edita
+  todos; só em tipo com conclusão e item que não se repete.
+- Histórico: `core.auditoria` de tipos e itens.
 
 ## Fase 2: financeiro (proposta, não criada)
 

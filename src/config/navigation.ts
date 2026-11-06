@@ -101,6 +101,23 @@ export const navigation: NavSection[] = [
     ],
   },
   {
+    titulo: "Calendário",
+    itens: [
+      {
+        href: "/calendario",
+        label: "Agenda",
+        icone: "calendario",
+        permissao: "calendario.ver",
+      },
+      {
+        href: "/calendario/configuracoes",
+        label: "Tipos de item",
+        icone: "configuracoes",
+        permissao: "calendario.configurar",
+      },
+    ],
+  },
+  {
     titulo: "RH",
     itens: [
       { href: "/rh", label: "Painel", icone: "painel", permissao: "rh.painel" },

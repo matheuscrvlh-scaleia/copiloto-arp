@@ -121,6 +121,16 @@ export const PERMISSOES = {
   "formularios.editar":
     "Criar, editar, publicar, encerrar e excluir formulários e respostas",
   "formularios.exportar": "Baixar as respostas em Excel e PDF",
+
+  "calendario.ver": "Abrir o calendário e ver o que foi compartilhado com você",
+  "calendario.criar":
+    "Criar itens no calendário e editar ou excluir os próprios",
+  "calendario.editar_todos":
+    "Editar, concluir e excluir os itens de outras pessoas que você vê",
+  "calendario.ver_todos":
+    "Ver os itens restritos a outros setores, cargos e pessoas (os privados continuam só de quem criou)",
+  "calendario.configurar":
+    "Configurar os tipos de item: nome, cor, ícone, campos e quem vê por padrão",
 } as const;
 
 export type Permissao = keyof typeof PERMISSOES;
@@ -134,4 +144,5 @@ export const MODULOS_DE_PERMISSAO = [
   { prefixo: "marketing.", titulo: "Marketing" },
   { prefixo: "comercial.", titulo: "Comercial" },
   { prefixo: "formularios.", titulo: "Formulários" },
+  { prefixo: "calendario.", titulo: "Calendário" },
 ] as const;
