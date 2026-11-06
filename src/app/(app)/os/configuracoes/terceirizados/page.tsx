@@ -18,7 +18,7 @@ import {
 import { contexto, type Tabela } from "@/server/os/base";
 import { contatos, type Empresa, empresas } from "@/server/os/configuracoes";
 
-export const metadata: Metadata = { title: "Terceirizados e contatos" };
+export const metadata: Metadata = { title: "Internos e terceirizados" };
 
 // Empresas terceirizadas, os profissionais de cada uma e os contatos salvos
 // para o WhatsApp. Cada telefone tem o botão que abre a conversa.
@@ -96,8 +96,8 @@ async function Terceirizados({ busca }: { busca: Promise<Busca> }) {
 
       <Secao
         id="contatos"
-        titulo="Contatos salvos"
-        descricao="Colaboradores, lojistas e fornecedores para mandar mensagem pelo WhatsApp sem procurar o número."
+        titulo="Equipe interna e contatos"
+        descricao="Colaboradores da equipe interna, lojistas e fornecedores para mandar mensagem pelo WhatsApp sem procurar o número."
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

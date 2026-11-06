@@ -29,8 +29,8 @@ const ABAS: (Aba & { permissoes: Permissao[] })[] = [
   },
   {
     href: CONFIGURACOES_OS.terceirizados,
-    rotulo: "Terceirizados e contatos",
-    descricao: "Empresas, profissionais e contatos do WhatsApp",
+    rotulo: "Internos e terceirizados",
+    descricao: "Equipe interna, empresas terceirizadas e contatos do WhatsApp",
     permissoes: ["os.terceirizados", "os.parametros"],
   },
   {
