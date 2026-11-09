@@ -129,16 +129,11 @@ describe("resumo para o Painel", () => {
 });
 
 describe("arquivos de marca", () => {
-  it("aceita só PDF, PNG, JPG, SVG e ZIP e limpa o nome", async () => {
-    const { tipoDoArquivo, nomeSeguro, formatarTamanho } = await import(
-      "./marca"
-    );
+  it("aceita só PDF, PNG, JPG, SVG e ZIP", async () => {
+    const { tipoDoArquivo, formatarTamanho } = await import("./marca");
     expect(tipoDoArquivo("Guia Rápido.PDF")).toBe("application/pdf");
     expect(tipoDoArquivo("logo.svg")).toBe("image/svg+xml");
     expect(tipoDoArquivo("planilha.xlsx")).toBeNull();
-    expect(nomeSeguro("Rebranding Espaço Arp – Doc Final.pdf")).toBe(
-      "rebranding-espaco-arp-doc-final.pdf",
-    );
     expect(formatarTamanho(2.5 * 1024 * 1024)).toBe("2,5 MB");
   });
 });

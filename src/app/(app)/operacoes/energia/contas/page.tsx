@@ -141,7 +141,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   return (
     <div className="flex flex-col gap-6">
       <FiltrosEnergia
-        guia="op-contas-filtros"
+        data-guia="op-contas-filtros"
         meses={meses}
         mes={mes}
         unidade={unidade}

@@ -111,9 +111,12 @@ function Lista({
 
 function Formulario({
   grupo,
+  "data-guia": guia,
   children,
 }: {
   grupo: Grupo;
+  /** Âncora do guia passo a passo, literal em quem chama (o teste dos guias lê o texto). */
+  "data-guia": `op-parametros-${Grupo}`;
   children: React.ReactNode;
 }) {
   return (
@@ -123,7 +126,7 @@ function Formulario({
       rotulo="Salvar"
     >
       <input type="hidden" name="grupo" value={grupo} />
-      <div data-guia={`op-parametros-${grupo}`} className="flex flex-col gap-5">
+      <div data-guia={guia} className="flex flex-col gap-5">
         {children}
       </div>
     </FormAcao>
@@ -165,7 +168,7 @@ export function FormularioDoGrupo({
   switch (grupo) {
     case "agua":
       return (
-        <Formulario grupo="agua">
+        <Formulario grupo="agua" data-guia="op-parametros-agua">
           <div className={grade2}>
             <Numero
               name="agua_limite_m3"
@@ -221,7 +224,7 @@ export function FormularioDoGrupo({
       );
     case "termo":
       return (
-        <Formulario grupo="termo">
+        <Formulario grupo="termo" data-guia="op-parametros-termo">
           <div className={grade2}>
             <Texto
               name="termo_razao_social"
@@ -254,7 +257,7 @@ export function FormularioDoGrupo({
       );
     case "quadros":
       return (
-        <Formulario grupo="quadros">
+        <Formulario grupo="quadros" data-guia="op-parametros-quadros">
           <div className={grade3}>
             <Lista
               name="energia_disjuntores"
@@ -280,7 +283,7 @@ export function FormularioDoGrupo({
       );
     case "contas":
       return (
-        <Formulario grupo="contas">
+        <Formulario grupo="contas" data-guia="op-parametros-contas">
           <div className={grade2}>
             <Numero
               name="energia_alerta_pct"
@@ -308,7 +311,7 @@ export function FormularioDoGrupo({
       );
     case "limpeza":
       return (
-        <Formulario grupo="limpeza">
+        <Formulario grupo="limpeza" data-guia="op-parametros-limpeza">
           <div className={grade3}>
             <Texto name="limpeza_empresa" valor={p.limpeza_empresa} max={120} />
             <Numero
@@ -355,7 +358,7 @@ export function FormularioDoGrupo({
       );
     case "obras":
       return (
-        <Formulario grupo="obras">
+        <Formulario grupo="obras" data-guia="op-parametros-obras">
           <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-900/[0.06] bg-white/50 p-3 text-sm">
             <span className="flex-1">
               O token do aplicativo Diário de Obra (Cadastros › Empresa › Gerar

@@ -4,13 +4,13 @@ import { randomBytes } from "node:crypto";
 import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import { nomeSeguro } from "@/lib/arquivos/nome";
 import {
   ARQUIVO_MAX_BYTES,
   conteudoDosItens,
   conteudoDoTexto,
   lerConteudo,
   mesmoConteudo,
-  nomeSeguro,
   paraJson,
   type TipoBloco,
   tipoDoArquivo,

@@ -11,7 +11,7 @@ import {
   SISTEMA_DIARIO,
   sincronizarDiario,
 } from "@/server/sync/diario-de-obras";
-import { INTERVALO_MANUAL_MIN } from "@/server/sync/diario-de-obras-regras";
+import { pedidoManual } from "@/server/sync/diario-de-obras-regras";
 import { SyncEmAndamento } from "@/server/sync/execucao";
 
 /**
@@ -37,10 +37,11 @@ export async function atualizarDiarioAgora(
     };
   }
 
-  const { data, error } = await createAdminClient()
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .schema("integracao")
     .from("sync_runs")
-    .select("status, iniciado_em, finalizado_em")
+    .select("id, status, iniciado_em, finalizado_em")
     .eq("sistema", SISTEMA_DIARIO)
     .eq("recurso", RECURSO_DIARIO)
     .order("iniciado_em", { ascending: false })
@@ -48,16 +49,32 @@ export async function atualizarDiarioAgora(
     .maybeSingle();
   if (error)
     return { erro: "Não deu para ler a última consulta. Tente de novo." };
-  if (data?.status === "rodando")
-    return { erro: "Já há uma consulta em andamento. Aguarde terminar." };
-  const ultima = data?.finalizado_em ? Date.parse(data.finalizado_em) : 0;
-  const faltaMin = Math.ceil(
-    INTERVALO_MANUAL_MIN - (Date.now() - ultima) / 60_000,
-  );
-  if (faltaMin > 0)
+  const pedido = pedidoManual(data, new Date());
+  if (!pedido.pode)
     return {
-      erro: `A última consulta terminou há pouco. Tente de novo em ${faltaMin} min.`,
+      erro:
+        pedido.motivo === "andamento"
+          ? "Já há uma consulta em andamento. Aguarde terminar."
+          : `A última consulta terminou há pouco. Tente de novo em ${pedido.faltaMin} min.`,
     };
+  if (pedido.interrompida && data) {
+    // A consulta morreu no meio: fica registrada como erro (como executar()
+    // faz) para liberar a trava da sync_runs. Só a que ainda está "rodando".
+    const { error: erroMarca } = await admin
+      .schema("integracao")
+      .from("sync_runs")
+      .update({
+        status: "erro",
+        finalizado_em: new Date().toISOString(),
+        erro: "interrompida (timeout)",
+      })
+      .eq("id", data.id)
+      .eq("status", "rodando");
+    if (erroMarca)
+      return {
+        erro: "Não deu para liberar a consulta anterior. Tente de novo.",
+      };
+  }
 
   await logOperacoes(
     "operacoes_diario_atualizado",

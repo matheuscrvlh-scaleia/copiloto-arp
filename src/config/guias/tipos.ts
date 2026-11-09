@@ -88,6 +88,7 @@ export type Alvo =
   | "op-energia-unidade"
   // Operações: contas de energia e solar
   | "op-contas-importar"
+  | "op-contas-filtros"
   | "op-contas-tabela"
   | "op-contas-grafico"
   | "op-contas-detalhe-dados"
@@ -96,6 +97,7 @@ export type Alvo =
   | "op-contas-conferencia"
   | "op-contas-unidade-nova"
   | "op-contas-confirmar"
+  | "op-solar-filtros"
   | "op-solar-grafico"
   | "op-solar-creditos"
   | "op-solar-saldos"
@@ -144,6 +146,12 @@ export type Alvo =
   | "op-importacoes-historico"
   | "op-importacoes-desfazer"
   | "op-importacoes-tipo"
+  | "op-parametros-agua"
+  | "op-parametros-termo"
+  | "op-parametros-quadros"
+  | "op-parametros-contas"
+  | "op-parametros-limpeza"
+  | "op-parametros-obras"
   | "op-parametros-unidades"
   | "op-parametros-token-diario"
   | "op-parametros-remover-exemplos";

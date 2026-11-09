@@ -14,6 +14,7 @@ import {
   linhaDaLista,
   linhaDaObra,
   linhaDoDetalhe,
+  pedidoManual,
   precisaDetalhe,
   precisaFicha,
 } from "./diario-de-obras-regras";
@@ -151,5 +152,51 @@ describe("rotina do cron", () => {
       cursorSchema.parse({ obras: { a: { modified: null, historico: true } } })
         .obras.a?.historico,
     ).toBe(true);
+  });
+});
+
+describe("atualizar agora", () => {
+  const agora = new Date("2026-11-09T13:00:00Z");
+  const ha = (min: number) =>
+    new Date(agora.getTime() - min * 60_000).toISOString();
+
+  it("sem execução anterior, pode", () => {
+    expect(pedidoManual(null, agora)).toEqual({
+      pode: true,
+      interrompida: false,
+    });
+  });
+
+  it("recusa se há uma rodando há pouco", () => {
+    expect(
+      pedidoManual(
+        { status: "rodando", iniciado_em: ha(10), finalizado_em: null },
+        agora,
+      ),
+    ).toEqual({ pode: false, motivo: "andamento" });
+  });
+
+  it("uma rodando velha conta como interrompida e não bloqueia", () => {
+    expect(
+      pedidoManual(
+        { status: "rodando", iniciado_em: ha(31), finalizado_em: null },
+        agora,
+      ),
+    ).toEqual({ pode: true, interrompida: true });
+  });
+
+  it("respeita o intervalo mínimo desde a última que terminou", () => {
+    expect(
+      pedidoManual(
+        { status: "sucesso", iniciado_em: ha(4), finalizado_em: ha(2) },
+        agora,
+      ),
+    ).toEqual({ pode: false, motivo: "intervalo", faltaMin: 3 });
+    expect(
+      pedidoManual(
+        { status: "erro", iniciado_em: ha(9), finalizado_em: ha(6) },
+        agora,
+      ),
+    ).toEqual({ pode: true, interrompida: false });
   });
 });

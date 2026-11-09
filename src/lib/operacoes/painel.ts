@@ -1,17 +1,14 @@
-import { type CalendarioUtil, somarDiasUteis } from "@/lib/comercial/datas";
-import { ultimoDiaDoMes } from "@/lib/os/tempo";
+import { CODIGOS_ALERTA, type CodigoAlerta } from "./agua-alertas";
+import { alertasDoPainel, cartoesDoPainel, type LinhaDoPainel } from "./diario";
+import { ROTULO_ENVIO, type SituacaoEnvio } from "./limpeza";
 
-// Painel de Operações (spec 4.10): as contas que resumem cada área num
-// cartão. Funções puras: o servidor lê as tabelas (com o RLS de quem vê) e a
-// tela só mostra. Dinheiro em centavos inteiros; percentuais com uma casa.
+// Painel de Operações (spec 4.10): o resumo de cada área num cartão.
+// Funções puras. As regras de cada área (alertas da água, prazo do envio da
+// limpeza, prazo e desvio do Diário) NÃO são refeitas aqui: o painel recebe o
+// que as funções das áreas já calcularam e só soma, para bater com as telas.
+// Dinheiro em centavos inteiros.
 
-/** "aaaa-mm-01" do mês anterior. */
-export function mesAnterior(referencia: string): string {
-  const [a, m] = referencia.split("-").map(Number) as [number, number];
-  const ano = m === 1 ? a - 1 : a;
-  const mes = m === 1 ? 12 : m - 1;
-  return `${ano}-${String(mes).padStart(2, "0")}-01`;
-}
+export { mesAnterior } from "./limpeza";
 
 /** "aaaa-mm-01" do mês de uma data "aaaa-mm-dd". */
 export const mesDe = (data: string) => `${data.slice(0, 7)}-01`;
@@ -32,71 +29,44 @@ export function variacao(atual: number, anterior: number): number | null {
 // Água
 // ---------------------------------------------------------------------------
 
-export interface LeituraPainel {
-  bloco: string;
-  hidrometro: string;
-  consumo: number;
-  leitura_anterior: number | null;
-  leitura_atual: number | null;
-  foto: string | null;
+export interface ResumoDosAlertas {
+  /** Leituras com algum alerta mais os hidrômetros que sumiram (como o cartão da tela de Água). */
+  total: number;
+  porTipo: Record<CodigoAlerta, number>;
+  sumidos: number;
 }
 
-export const ALERTAS_AGUA = {
-  limite: "Consumo acima do limite",
-  regressiva: "Leitura zerada ou menor que a anterior",
-  sem_foto: "Leitura sem foto",
-  sumido: "Hidrômetro do mês anterior que não veio",
-} as const;
-export type AlertaAgua = keyof typeof ALERTAS_AGUA;
-
 /**
- * Alertas da água que dá para conferir só com as leituras (spec 4.4):
- * acima do limite, leitura regressiva ou zerada, sem foto e hidrômetro que
- * sumiu. O total conta leituras com algum alerta mais os sumidos.
+ * Conta os alertas que a tela de Água já calculou (alertasDaLeitura e
+ * sumidos, em mesDaAgua): o Painel só soma, para os números baterem.
  */
-export function alertasDaAgua(
-  atual: LeituraPainel[],
-  anterior: LeituraPainel[],
-  limiteM3: number,
-): { total: number; porTipo: Record<AlertaAgua, number> } {
-  const porTipo: Record<AlertaAgua, number> = {
-    limite: 0,
-    regressiva: 0,
-    sem_foto: 0,
-    sumido: 0,
-  };
+export function resumoDosAlertas(
+  leituras: { alertas: { codigo: CodigoAlerta }[] }[],
+  sumidos: number,
+): ResumoDosAlertas {
+  const porTipo = Object.fromEntries(
+    CODIGOS_ALERTA.map((c) => [c, 0]),
+  ) as Record<CodigoAlerta, number>;
   let comAlerta = 0;
-  for (const l of atual) {
-    const tipos: AlertaAgua[] = [];
-    if (Number(l.consumo) > limiteM3) tipos.push("limite");
-    if (
-      l.leitura_atual !== null &&
-      (Number(l.leitura_atual) === 0 ||
-        (l.leitura_anterior !== null &&
-          Number(l.leitura_atual) < Number(l.leitura_anterior)))
-    )
-      tipos.push("regressiva");
-    if (!l.foto) tipos.push("sem_foto");
-    for (const t of tipos) porTipo[t]++;
-    if (tipos.length) comAlerta++;
+  for (const l of leituras) {
+    for (const c of new Set(l.alertas.map((a) => a.codigo))) porTipo[c]++;
+    if (l.alertas.length) comAlerta++;
   }
-  const deAgora = new Set(atual.map((l) => l.hidrometro));
-  porTipo.sumido = new Set(
-    anterior.map((l) => l.hidrometro).filter((h) => !deAgora.has(h)),
-  ).size;
-  return { total: comAlerta + porTipo.sumido, porTipo };
+  return { total: comAlerta + sumidos, porTipo, sumidos };
+}
+
+interface LinhaDeConsumo {
+  bloco: string;
+  consumo: number;
 }
 
 /** Consumo (m³) por bloco no mês e no anterior, do maior para o menor. */
 export function consumoPorBloco(
-  atual: Pick<LeituraPainel, "bloco" | "consumo">[],
-  anterior: Pick<LeituraPainel, "bloco" | "consumo">[],
+  atual: LinhaDeConsumo[],
+  anterior: LinhaDeConsumo[],
 ): { bloco: string; atual: number; anterior: number }[] {
   const blocos = new Map<string, { atual: number; anterior: number }>();
-  const somar = (
-    linhas: Pick<LeituraPainel, "bloco" | "consumo">[],
-    campo: "atual" | "anterior",
-  ) => {
+  const somar = (linhas: LinhaDeConsumo[], campo: "atual" | "anterior") => {
     for (const l of linhas) {
       const b = blocos.get(l.bloco) ?? { atual: 0, anterior: 0 };
       // Milésimos de m³ inteiros: a soma não acumula erro de ponto flutuante.
@@ -163,75 +133,36 @@ export function ocupacaoPorBloco(quadros: QuadroResumo[]): (QuadroResumo & {
 // Rateio da limpeza
 // ---------------------------------------------------------------------------
 
-/**
- * Total do rateio (spec 4.8): área comum (funcionários × valor por
- * funcionário + extras) mais os blocos (participação × rateados × valor por
- * funcionário). As participações somam 100%, então o total é valor por
- * funcionário × (área comum + rateados) + extras. Calculado em centavos com
- * o valor por funcionário sem arredondar, e arredondado uma vez no fim (como
- * a planilha). null: falta valor base ou funcionários.
- */
-export function totalDoRateio(m: {
-  valorBase: number | string | null;
-  funcBase: number | null;
-  funcAreaComum: number | null;
-  funcRateados: number | null;
-  extras: (number | string)[];
-}): number | null {
-  if (
-    m.valorBase === null ||
-    !m.funcBase ||
-    m.funcAreaComum === null ||
-    m.funcRateados === null
-  )
-    return null;
-  const base = centavos(m.valorBase);
-  const extras = m.extras.reduce<number>((s, v) => s + centavos(v), 0);
-  return (
-    Math.round((base * (m.funcAreaComum + m.funcRateados)) / m.funcBase) +
-    extras
-  );
-}
-
-/** Dias da semana que contam como dia útil no prazo do rateio (seg. a sex.). */
-export const DIAS_UTEIS_PADRAO = [1, 2, 3, 4, 5] as const;
-
-/** Prazo do envio ao Financeiro: o N-ésimo dia útil do mês seguinte. */
-export function prazoDoEnvio(
-  referencia: string,
-  diaUtil: number,
-  cal: CalendarioUtil,
-): string {
-  const [a, m] = referencia.split("-").map(Number) as [number, number];
-  const fim = `${a}-${String(m).padStart(2, "0")}-${String(ultimoDiaDoMes(a, m)).padStart(2, "0")}`;
-  return somarDiasUteis(fim, diaUtil, cal);
-}
-
 export type SituacaoRateio =
   | "enviado"
+  | "historico"
   | "fechado"
   | "aberto"
   | "incompleto"
   | "atrasado";
 
 export const ROTULO_RATEIO: Record<SituacaoRateio, string> = {
-  enviado: "Enviado ao Financeiro",
+  enviado: ROTULO_ENVIO.enviado,
+  historico: ROTULO_ENVIO.historico,
   fechado: "Fechado, falta enviar",
   aberto: "Aberto",
   incompleto: "Incompleto",
-  atrasado: "Prazo de envio vencido",
+  atrasado: ROTULO_ENVIO.atrasado,
 };
 
-/** Situação do mês do rateio no painel (vencido sem envio vira alerta). */
+/**
+ * Situação do mês no painel, a partir da situação do envio que a tela da
+ * Limpeza calcula (situacaoDoEnvio: prazo com o calendário dos Chamados;
+ * mês importado e não enviado é histórico, não atraso) e do status do mês.
+ */
 export function situacaoDoRateio(m: {
   status: "aberto" | "fechado";
   incompleto: boolean;
-  enviado: boolean;
-  prazo: string;
-  hoje: string;
+  envio: SituacaoEnvio;
 }): SituacaoRateio {
-  if (m.enviado) return "enviado";
-  if (m.hoje > m.prazo) return "atrasado";
+  if (m.envio === "enviado" || m.envio === "enviado_atrasado") return "enviado";
+  if (m.envio === "historico") return "historico";
+  if (m.envio === "atrasado") return "atrasado";
   if (m.incompleto) return "incompleto";
   return m.status === "fechado" ? "fechado" : "aberto";
 }
@@ -272,62 +203,53 @@ export function situacaoFinanceira(
   };
 }
 
-/** Status das obras no Diário de Obra (status.id). */
-export const STATUS_OBRA_DIARIO: Record<number, string> = {
-  1: "Não iniciada",
-  2: "Paralisada",
-  3: "Em andamento",
-  4: "Concluída",
-};
-export const OBRA_CONCLUIDA = 4;
-export const OBRA_PARALISADA = 2;
-/** Status do relatório aprovado (os outros esperam aprovação). */
-export const RELATORIO_APROVADO = 4;
-
-export interface ObraDiario {
-  status_id: number;
-  realizado: number | string | null;
-  prazo_contratual: number | null;
-  prazo_decorrido: number | null;
-  prazo_a_vencer: number | null;
-  data_fim: string | null;
-}
-
-/**
- * Avanço físico × prazo consumido (spec 4.9): desvio em pontos (avanço −
- * prazo consumido; abaixo do limite de Parâmetros é alerta) e prazo vencido
- * (não concluída e sem dias a vencer, ou fim antes de hoje).
- */
-export function situacaoDoDiario(
-  o: ObraDiario,
-  hoje: string,
-  limiteDesvio: number,
-): {
+export interface ObraNoDiario {
+  id: string;
+  nome: string;
+  statusId: number;
   avancoPct: number | null;
   prazoPct: number | null;
   desvio: number | null;
   vencido: boolean;
   alerta: boolean;
+}
+
+// O painel só conta os alertas: o texto não aparece.
+const SEM_TEXTO = { pct: String, pontos: String, data: String };
+
+/**
+ * Resumo do Diário de Obra com as mesmas contas da tela do Diário
+ * (linhasDoPainel: prazoConsumido, desvioFisico, prazoVencido; alertas de
+ * alertasDoPainel, incluindo dias sem relatório).
+ */
+export function resumoDoDiario(
+  linhas: LinhaDoPainel[],
+  limiteDesvio: number,
+): {
+  obras: ObraNoDiario[];
+  emAndamento: number;
+  vencidas: number;
+  aAprovar: number;
+  comAlerta: number;
 } {
-  const avanco = o.realizado === null ? null : Number(o.realizado);
-  const prazo =
-    o.prazo_contratual && o.prazo_decorrido !== null
-      ? Math.min((o.prazo_decorrido / o.prazo_contratual) * 100, 100)
-      : null;
-  const desvio = avanco !== null && prazo !== null ? avanco - prazo : null;
-  const vencido =
-    o.status_id !== OBRA_CONCLUIDA &&
-    (o.prazo_a_vencer === 0 || (!!o.data_fim && o.data_fim < hoje));
+  const comAlerta = new Set(
+    alertasDoPainel(linhas, limiteDesvio, SEM_TEXTO).map((a) => a.obraId),
+  );
+  const c = cartoesDoPainel(linhas);
   return {
-    avancoPct: avanco,
-    prazoPct: prazo,
-    desvio,
-    vencido,
-    alerta:
-      vencido ||
-      o.status_id === OBRA_PARALISADA ||
-      (o.status_id !== OBRA_CONCLUIDA &&
-        desvio !== null &&
-        desvio < limiteDesvio),
+    obras: linhas.map((l) => ({
+      id: l.obra.id,
+      nome: l.obra.nome,
+      statusId: l.obra.statusId,
+      avancoPct: l.obra.realizado,
+      prazoPct: l.consumido,
+      desvio: l.desvio,
+      vencido: l.vencido,
+      alerta: comAlerta.has(l.obra.id),
+    })),
+    emAndamento: c.emAndamento,
+    vencidas: c.vencidas,
+    aAprovar: c.aAprovar,
+    comAlerta: comAlerta.size,
   };
 }

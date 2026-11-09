@@ -17,7 +17,7 @@ import {
 import { type FiltroExtrato, noExtrato } from "@/lib/operacoes/agua-extrato";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { linksDeLeitura } from "@/server/arquivos";
-import { pode, podeAgora } from "@/server/auth";
+import { podeAgora } from "@/server/auth";
 import { TAG } from "@/server/cache";
 import { nomesDeUsuarios } from "@/server/comercial/usuarios";
 import { lerTudo } from "@/server/supabase-paginas";
@@ -172,7 +172,9 @@ export const leiturasDoPeriodo = cache((de: string, ate: string) =>
  * null quando não deu para ler (a tela segue sem a comparação).
  */
 export const contratosEnet = cache(async (): Promise<ContratoEnet[] | null> => {
-  if (!(await pode("operacoes.agua.ver"))) return null;
+  // Service role logo abaixo: a permissão é conferida no banco agora (não
+  // na sessão em cache).
+  if (!(await podeAgora("operacoes.agua.ver"))) return null;
   try {
     return await contratosEmCache();
   } catch (erro) {

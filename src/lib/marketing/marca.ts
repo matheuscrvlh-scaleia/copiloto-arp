@@ -337,18 +337,6 @@ export function tipoDoArquivo(nome: string): string | null {
   return TIPOS_ARQUIVO[ext] ?? null;
 }
 
-/** Nome que pode ir no caminho do Storage: sem acento, espaço nem símbolo. */
-export function nomeSeguro(nome: string): string {
-  const limpo = nome
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/[^A-Za-z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^[-.]+|[-.]+$/g, "")
-    .toLowerCase();
-  return (limpo || "arquivo").slice(-120);
-}
-
 /** "2,4 MB", "830 KB". */
 export function formatarTamanho(bytes: number | null): string {
   if (bytes === null) return "";

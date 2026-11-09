@@ -1,31 +1,32 @@
 import "server-only";
 import { z } from "zod";
+import { linhasDoPainel } from "@/lib/operacoes/diario";
 import {
-  type AlertaAgua,
-  alertasDaAgua,
   centavos,
   consumoPorBloco,
-  DIAS_UTEIS_PADRAO,
-  type LeituraPainel,
   mesAnterior,
   mesDe,
+  type ObraNoDiario,
   ocupacaoPorBloco,
-  prazoDoEnvio,
-  RELATORIO_APROVADO,
+  type ResumoDosAlertas,
+  resumoDoDiario,
+  resumoDosAlertas,
   type SituacaoRateio,
-  situacaoDoDiario,
   situacaoDoRateio,
   situacaoFinanceira,
   somaM3,
-  totalDoRateio,
 } from "@/lib/operacoes/painel";
-import { createClient } from "@/lib/supabase/server";
 import { lerTudo } from "@/server/supabase-paginas";
+import { leiturasDoMes, mesDaAgua, mesesImportados } from "./agua";
 import { type ContextoOp, falhar, op, type Parametros } from "./base";
+import { datasDosRelatorios, obrasDoDiario } from "./diario";
+import { mesesDoRateio } from "./limpeza";
 
-// Painel de Operações (spec 4.10): um resumo de cada área, lido direto das
-// tabelas com a sessão (RLS). Cada área só é lida para quem tem a permissão
-// dela; sem dados, a área volta vazia e a tela diz do que depende.
+// Painel de Operações (spec 4.10): um resumo de cada área, com a sessão
+// (RLS). Água, limpeza e Diário usam as mesmas leituras e regras das telas
+// das áreas (mesDaAgua, mesesDoRateio, linhasDoPainel), para os números
+// baterem. Cada área só é lida para quem tem a permissão dela; sem dados, a
+// área volta vazia e a tela diz do que depende.
 
 type Banco = Awaited<ReturnType<typeof op>>;
 
@@ -41,103 +42,54 @@ export interface PainelAgua {
   consumoAnterior: number | null;
   /** null: sem a permissão de valores (só m³). */
   valorCentavos: number | null;
-  alertas: { total: number; porTipo: Record<AlertaAgua, number> };
+  /** As mesmas regras e contagens da tela de Água. */
+  alertas: ResumoDosAlertas;
   incompletos: number;
   blocos: { bloco: string; atual: number; anterior: number }[];
   limite: number;
   exemplo: boolean;
 }
 
-const COLUNAS_LEITURA =
-  "id, bloco, hidrometro, consumo, leitura_anterior, leitura_atual, foto, exemplo" as const;
-
-async function agua(
-  db: Banco,
-  p: Parametros,
-  comValores: boolean,
-): Promise<PainelAgua> {
-  const ultima = await db
-    .from("agua_leituras")
-    .select("referencia")
-    .eq("vigente", true)
-    .order("referencia", { ascending: false })
-    .limit(1);
-  falhar(ultima.error);
-  const referencia = ultima.data?.[0]?.referencia ?? null;
-  const incompletos = db
-    .from("importacoes")
-    .select("id", { count: "exact", head: true })
-    .eq("tipo", "agua")
-    .eq("status", "confirmada")
-    .eq("incompleta", true);
-  if (!referencia) {
-    const { count, error } = await incompletos;
-    falhar(error);
+async function agua(p: Parametros, comValores: boolean): Promise<PainelAgua> {
+  // O mês que a tela de Água abre: a importação confirmada mais nova.
+  const meses = await mesesImportados();
+  const incompletos = meses.filter((m) => m.incompleta).length;
+  const limite = Number(p.agua_limite_m3);
+  const referencia = meses[0]?.referencia ?? null;
+  if (!referencia)
     return {
       referencia: null,
       leituras: 0,
       consumo: 0,
       consumoAnterior: null,
       valorCentavos: null,
-      alertas: alertasDaAgua([], [], Number(p.agua_limite_m3)),
-      incompletos: count ?? 0,
+      alertas: resumoDosAlertas([], 0),
+      incompletos,
       blocos: [],
-      limite: Number(p.agua_limite_m3),
+      limite,
       exemplo: false,
     };
-  }
-  const anteriorRef = mesAnterior(referencia);
-  const doMes = (ref: string) =>
-    lerTudo(() =>
-      db
-        .from("agua_leituras")
-        .select(COLUNAS_LEITURA)
-        .eq("vigente", true)
-        .eq("referencia", ref)
-        .order("id"),
-    );
-  const [atual, anterior, nIncompletos, valores] = await Promise.all([
-    doMes(referencia),
-    doMes(anteriorRef),
-    incompletos,
-    comValores
-      ? lerTudo(() =>
-          db
-            .from("agua_valores")
-            .select(
-              "leitura_id, valor, leitura:agua_leituras!inner(referencia, vigente)",
-            )
-            .eq("leitura.referencia", referencia)
-            .eq("leitura.vigente", true)
-            .order("leitura_id"),
-        )
-      : null,
+  const [mes, anterior] = await Promise.all([
+    mesDaAgua(referencia),
+    leiturasDoMes(mesAnterior(referencia)),
   ]);
-  falhar(nIncompletos.error);
-  const comoLeitura = (l: (typeof atual)[number]): LeituraPainel => ({
-    bloco: l.bloco,
-    hidrometro: l.hidrometro,
-    consumo: Number(l.consumo),
-    leitura_anterior:
-      l.leitura_anterior === null ? null : Number(l.leitura_anterior),
-    leitura_atual: l.leitura_atual === null ? null : Number(l.leitura_atual),
-    foto: l.foto,
-  });
-  const a = atual.map(comoLeitura);
-  const b = anterior.map(comoLeitura);
+  const a = mes.leituras;
   return {
     referencia,
     leituras: a.length,
     consumo: somaM3(a.map((l) => l.consumo)),
-    consumoAnterior: b.length ? somaM3(b.map((l) => l.consumo)) : null,
-    valorCentavos: valores
-      ? valores.reduce((s, v) => s + centavos(v.valor), 0)
+    consumoAnterior: anterior.length
+      ? somaM3(anterior.map((l) => l.consumo))
       : null,
-    alertas: alertasDaAgua(a, b, Number(p.agua_limite_m3)),
-    incompletos: nIncompletos.count ?? 0,
-    blocos: consumoPorBloco(a, b),
-    limite: Number(p.agua_limite_m3),
-    exemplo: atual.some((l) => l.exemplo),
+    // Sem a permissão de valores o RLS esconde agua_valores (valor null).
+    valorCentavos: comValores
+      ? a.reduce((s, l) => s + centavos(l.valor), 0)
+      : null,
+    alertas: resumoDosAlertas(a, mes.sumidos.length),
+    incompletos,
+    blocos: consumoPorBloco(a, anterior),
+    limite,
+    exemplo: a.some((l) => l.exemplo),
   };
 }
 
@@ -289,20 +241,13 @@ export interface PainelLimpeza {
   exemplo: boolean;
 }
 
-async function limpeza(
-  db: Banco,
-  p: Parametros,
-  hoje: string,
-): Promise<PainelLimpeza> {
-  const ultimo = await db
-    .from("limpeza_meses")
-    .select(
-      "referencia, valor_base, func_base, func_area_comum, func_rateados, status, incompleto, enviado_em, exemplo",
-    )
-    .order("referencia", { ascending: false })
-    .limit(1);
-  falhar(ultimo.error);
-  const m = ultimo.data?.[0];
+/**
+ * O mês mais novo do rateio como a tela da Limpeza o mostra (mesesDoRateio:
+ * sem meses de importação em prévia, total pelo calcularRateio, prazo com o
+ * calendário dos Chamados, mês importado é histórico).
+ */
+async function limpeza(p: Parametros): Promise<PainelLimpeza> {
+  const m = (await mesesDoRateio())[0];
   if (!m)
     return {
       referencia: null,
@@ -315,55 +260,14 @@ async function limpeza(
       empresa: p.limpeza_empresa,
       exemplo: false,
     };
-  const [extras, contrato, feriados] = await Promise.all([
-    db.from("limpeza_extras").select("valor").eq("referencia", m.referencia),
-    db
-      .from("limpeza_contrato")
-      .select("valor")
-      .eq("referencia", m.referencia)
-      .eq("entra_conferencia", true),
-    // Os feriados do Chamados (RLS libera a quem usa Operações).
-    (await createClient()).schema("os").from("feriados").select("data"),
-  ]);
-  falhar(extras.error);
-  falhar(contrato.error);
-  falhar(feriados.error);
-  const total = totalDoRateio({
-    valorBase: m.valor_base,
-    funcBase: m.func_base,
-    funcAreaComum: m.func_area_comum,
-    funcRateados: m.func_rateados,
-    extras: (extras.data ?? []).map((e) => e.valor),
-  });
-  const itensContrato = contrato.data ?? [];
-  const contratoCentavos = itensContrato.length
-    ? itensContrato.reduce((s, c) => s + centavos(c.valor), 0)
-    : null;
-  const prazo = prazoDoEnvio(m.referencia, p.limpeza_dia_util_envio, {
-    feriados: new Set((feriados.data ?? []).map((f) => f.data)),
-    diasUteis: DIAS_UTEIS_PADRAO,
-  });
   return {
     referencia: m.referencia,
-    totalCentavos: total,
-    contratoCentavos,
-    conferencia:
-      total === null
-        ? "sem_total"
-        : contratoCentavos === null
-          ? "sem_contrato"
-          : total === contratoCentavos
-            ? "bate"
-            : "nao_bate",
-    situacao: situacaoDoRateio({
-      status: m.status as "aberto" | "fechado",
-      incompleto: m.incompleto,
-      enviado: m.enviado_em !== null,
-      prazo,
-      hoje,
-    }),
-    prazo,
-    enviadoEm: m.enviado_em,
+    totalCentavos: m.total,
+    contratoCentavos: m.conferencia === "sem_contrato" ? null : m.contrato,
+    conferencia: m.total === null ? "sem_total" : m.conferencia,
+    situacao: situacaoDoRateio(m),
+    prazo: m.prazo,
+    enviadoEm: m.enviadoEm,
     empresa: p.limpeza_empresa,
     exemplo: m.exemplo,
   };
@@ -484,19 +388,8 @@ async function obras(
 // Diário de Obra (cópia da API)
 // ---------------------------------------------------------------------------
 
-export interface ObraDoDiario {
-  id: string;
-  nome: string;
-  statusId: number;
-  avancoPct: number | null;
-  prazoPct: number | null;
-  desvio: number | null;
-  vencido: boolean;
-  alerta: boolean;
-}
-
 export interface PainelDiario {
-  obras: ObraDoDiario[];
+  obras: ObraNoDiario[];
   aAprovar: number;
   emAndamento: number;
   vencidas: number;
@@ -506,53 +399,34 @@ export interface PainelDiario {
   exemplo: boolean;
 }
 
+/** As mesmas linhas, contas e alertas da tela do Diário de Obra. */
 async function diario(
   db: Banco,
   p: Parametros,
   hoje: string,
 ): Promise<PainelDiario> {
-  const [lista, aAprovar] = await Promise.all([
+  const [obrasDoApp, relatorios, ultima] = await Promise.all([
+    obrasDoDiario(),
+    datasDosRelatorios(),
     db
       .from("diario_obras")
-      .select(
-        "id, nome, status_id, realizado, prazo_contratual, prazo_decorrido, prazo_a_vencer, data_fim, atualizado_em, exemplo",
-      )
-      .order("nome"),
-    db
-      .from("diario_relatorios")
-      .select("id", { count: "exact", head: true })
-      .neq("status_id", RELATORIO_APROVADO),
+      .select("atualizado_em")
+      .order("atualizado_em", { ascending: false })
+      .limit(1),
   ]);
-  falhar(lista.error);
-  falhar(aAprovar.error);
+  falhar(ultima.error);
   const limiteDesvio = Number(p.obras_limite_desvio);
-  const linhas = lista.data ?? [];
-  const obrasDoDiario = linhas.map((o): ObraDoDiario => {
-    const s = situacaoDoDiario(o, hoje, limiteDesvio);
-    return {
-      id: o.id,
-      nome: o.nome,
-      statusId: o.status_id,
-      avancoPct: s.avancoPct,
-      prazoPct: s.prazoPct,
-      desvio: s.desvio,
-      vencido: s.vencido,
-      alerta: s.alerta,
-    };
-  });
-  const atualizadoEm = linhas.reduce<string | null>(
-    (max, o) => (!max || o.atualizado_em > max ? o.atualizado_em : max),
-    null,
+  const linhas = linhasDoPainel(
+    obrasDoApp,
+    relatorios,
+    p.obras_dias_relatorio,
+    hoje,
   );
   return {
-    obras: obrasDoDiario,
-    aAprovar: aAprovar.count ?? 0,
-    emAndamento: obrasDoDiario.filter((o) => o.statusId === 3).length,
-    vencidas: obrasDoDiario.filter((o) => o.vencido).length,
-    comAlerta: obrasDoDiario.filter((o) => o.alerta).length,
-    atualizadoEm,
+    ...resumoDoDiario(linhas, limiteDesvio),
+    atualizadoEm: ultima.data?.[0]?.atualizado_em ?? null,
     limiteDesvio,
-    exemplo: linhas.some((o) => o.exemplo),
+    exemplo: obrasDoApp.some((o) => o.exemplo),
   };
 }
 
@@ -577,7 +451,7 @@ export async function dadosDoPainel(
     pode ? ler() : Promise.resolve(null);
   const [a, e, c, l, o, d] = await Promise.all([
     se(ctx.pode("operacoes.agua.ver"), () =>
-      agua(db, p, ctx.pode("operacoes.agua.valores")),
+      agua(p, ctx.pode("operacoes.agua.valores")),
     ),
     se(ctx.pode("operacoes.energia.ver"), () => energia(db)),
     se(
@@ -586,7 +460,7 @@ export async function dadosDoPainel(
     ),
     se(
       ctx.pode("operacoes.limpeza.ver") || ctx.pode("operacoes.limpeza.fechar"),
-      () => limpeza(db, p, ctx.hoje),
+      () => limpeza(p),
     ),
     se(ctx.pode("operacoes.obras.ver"), () => obras(db, p, ctx.hoje)),
     se(ctx.pode("operacoes.obras.diario"), () => diario(db, p, ctx.hoje)),

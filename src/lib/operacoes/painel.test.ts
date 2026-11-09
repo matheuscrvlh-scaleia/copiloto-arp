@@ -1,83 +1,92 @@
 import { describe, expect, it } from "vitest";
 import {
-  alertasDaAgua,
+  alertasDaLeitura,
+  type LeituraParaAlerta,
+  type ParametrosAlerta,
+  sumidos,
+} from "./agua-alertas";
+import { linhasDoPainel, type ObraDoDiario } from "./diario";
+import { situacaoDoEnvio } from "./limpeza";
+import {
   consumoPorBloco,
-  DIAS_UTEIS_PADRAO,
-  type LeituraPainel,
   mesAnterior,
   ocupacaoPorBloco,
-  prazoDoEnvio,
-  situacaoDoDiario,
+  resumoDoDiario,
+  resumoDosAlertas,
   situacaoDoRateio,
   situacaoFinanceira,
   somaM3,
-  totalDoRateio,
 } from "./painel";
-
-const leitura = (p: Partial<LeituraPainel>): LeituraPainel => ({
-  bloco: "05",
-  hidrometro: "H1",
-  consumo: 10,
-  leitura_anterior: 100,
-  leitura_atual: 110,
-  foto: "f.jpg",
-  ...p,
-});
 
 describe("datas", () => {
   it("mês anterior vira o ano em janeiro", () => {
     expect(mesAnterior("2026-01-01")).toBe("2025-12-01");
     expect(mesAnterior("2026-10-01")).toBe("2026-09-01");
   });
-
-  it("prazo do envio: 5º dia útil do mês seguinte, pulando feriado", () => {
-    const cal = { feriados: new Set<string>(), diasUteis: DIAS_UTEIS_PADRAO };
-    // Outubro/2026 → novembro começa num domingo: 2, 3, 4, 5, 6.
-    expect(prazoDoEnvio("2026-10-01", 5, cal)).toBe("2026-11-06");
-    const comFeriado = { ...cal, feriados: new Set(["2026-11-02"]) };
-    expect(prazoDoEnvio("2026-10-01", 5, comFeriado)).toBe("2026-11-09");
-    // Dezembro → janeiro do ano seguinte.
-    expect(prazoDoEnvio("2026-12-01", 1, cal)).toBe("2027-01-01");
-  });
 });
 
 describe("água", () => {
-  it("conta leituras com algum alerta e os hidrômetros que sumiram", () => {
-    const atual = [
-      leitura({ hidrometro: "A", consumo: 31 }),
-      leitura({ hidrometro: "B", leitura_atual: 90 }),
-      leitura({ hidrometro: "C", leitura_atual: 0, foto: null }),
-      leitura({ hidrometro: "D" }),
+  const parametros: ParametrosAlerta = {
+    limiteM3: 30,
+    variacaoPct: 50,
+    variacaoMeses: 3,
+    variacaoMinM3: 5,
+  };
+  const leitura = (p: Partial<LeituraParaAlerta>): LeituraParaAlerta => ({
+    hidrometro: "H1",
+    referencia: "2026-10-01",
+    cliente: "Loja Exemplo",
+    leituraAnterior: 100,
+    leituraAtual: 110,
+    consumo: 10,
+    temFoto: true,
+    ...p,
+  });
+  const comAlertas = (l: LeituraParaAlerta) => ({
+    alertas: alertasDaLeitura(l, { parametros, historico: [], enet: null }),
+  });
+
+  it("soma os alertas que a regra da tela de Água calculou", () => {
+    const leituras = [
+      comAlertas(leitura({ hidrometro: "A", consumo: 31 })),
+      comAlertas(leitura({ hidrometro: "B", leituraAtual: 90 })),
+      comAlertas(leitura({ hidrometro: "C", temFoto: false, consumo: 40 })),
+      comAlertas(leitura({ hidrometro: "D" })),
+      // Zerada sem leitura anterior: a tela não chama de regressiva.
+      comAlertas(
+        leitura({ hidrometro: "E", leituraAnterior: null, leituraAtual: 0 }),
+      ),
     ];
-    const anterior = [
-      leitura({ hidrometro: "A" }),
-      leitura({ hidrometro: "X" }),
-      leitura({ hidrometro: "X" }),
-    ];
-    const r = alertasDaAgua(atual, anterior, 30);
-    expect(r.porTipo).toEqual({
-      limite: 1,
-      regressiva: 2,
-      sem_foto: 1,
-      sumido: 1,
-    });
+    const foram = sumidos(
+      [{ hidrometro: "A" }, { hidrometro: "X" }, { hidrometro: "X" }],
+      ["A", "B", "C", "D", "E"],
+    );
+    const r = resumoDosAlertas(leituras, foram.length);
+    expect(r.porTipo.limite).toBe(2);
+    expect(r.porTipo.regressiva).toBe(1);
+    expect(r.porTipo.sem_foto).toBe(1);
+    expect(r.porTipo.consumo_zero).toBe(0);
+    expect(r.sumidos).toBe(1);
+    // A, B e C têm alerta (C conta uma vez só) + o X que sumiu.
     expect(r.total).toBe(4);
   });
 
   it("limite é estrito: exatamente no limite não alerta", () => {
-    expect(alertasDaAgua([leitura({ consumo: 30 })], [], 30).total).toBe(0);
+    expect(
+      resumoDosAlertas([comAlertas(leitura({ consumo: 30 }))], 0).total,
+    ).toBe(0);
   });
 
   it("consumo por bloco soma sem erro de ponto flutuante", () => {
     const r = consumoPorBloco(
       [
-        leitura({ bloco: "01", consumo: 0.1 }),
-        leitura({ bloco: "01", consumo: 0.2 }),
-        leitura({ bloco: "05", consumo: 5 }),
+        { bloco: "01", consumo: 0.1 },
+        { bloco: "01", consumo: 0.2 },
+        { bloco: "05", consumo: 5 },
       ],
       [
-        leitura({ bloco: "01", consumo: 1 }),
-        leitura({ bloco: "09", consumo: 2 }),
+        { bloco: "01", consumo: 1 },
+        { bloco: "09", consumo: 2 },
       ],
     );
     expect(r).toEqual([
@@ -127,46 +136,40 @@ describe("energia", () => {
 });
 
 describe("limpeza", () => {
-  it("reproduz o total de setembro de 2026 (spec 4.8): 57.783,61", () => {
-    expect(
-      totalDoRateio({
-        valorBase: 35323.94,
-        funcBase: 9,
-        funcAreaComum: 5,
-        funcRateados: 4,
-        extras: [278.68, 15588, 2520, 2497.99, 1575],
-      }),
-    ).toBe(5_778_361);
-  });
+  const prazo = "2026-11-06";
+  const envio = (origem: string, enviadoEm: string | null, hoje: string) =>
+    situacaoDoEnvio({ origem, enviadoEm }, prazo, hoje);
+  const base = { status: "fechado" as const, incompleto: false };
 
-  it("sem valor base ou funcionários não calcula", () => {
+  it("situação vem da situação do envio da tela da Limpeza", () => {
     expect(
-      totalDoRateio({
-        valorBase: null,
-        funcBase: 9,
-        funcAreaComum: 5,
-        funcRateados: 4,
-        extras: [],
+      situacaoDoRateio({ ...base, envio: envio("tela", null, "2026-11-05") }),
+    ).toBe("fechado");
+    expect(
+      situacaoDoRateio({ ...base, envio: envio("tela", null, "2026-11-07") }),
+    ).toBe("atrasado");
+    expect(
+      situacaoDoRateio({
+        ...base,
+        envio: envio("tela", "2026-11-09T12:00:00Z", "2026-11-09"),
       }),
-    ).toBeNull();
-  });
-
-  it("situação: enviado vence tudo; passou do prazo sem envio é alerta", () => {
-    const base = {
-      status: "fechado" as const,
-      incompleto: false,
-      enviado: false,
-      prazo: "2026-11-06",
-      hoje: "2026-11-05",
-    };
-    expect(situacaoDoRateio(base)).toBe("fechado");
-    expect(situacaoDoRateio({ ...base, hoje: "2026-11-07" })).toBe("atrasado");
-    expect(
-      situacaoDoRateio({ ...base, hoje: "2026-11-07", enviado: true }),
     ).toBe("enviado");
     expect(
-      situacaoDoRateio({ ...base, status: "aberto", incompleto: true }),
+      situacaoDoRateio({
+        status: "aberto",
+        incompleto: true,
+        envio: envio("tela", null, "2026-11-05"),
+      }),
     ).toBe("incompleto");
+  });
+
+  it("mês importado e não enviado é histórico, não atraso", () => {
+    expect(
+      situacaoDoRateio({
+        ...base,
+        envio: envio("importacao", null, "2027-03-01"),
+      }),
+    ).toBe("historico");
   });
 });
 
@@ -185,40 +188,67 @@ describe("obras", () => {
     expect(r.indice).toBeCloseTo(1.15);
     expect(r.alerta).toBe(true);
   });
+});
 
-  it("Diário: desvio em pontos, prazo vencido e paralisada viram alerta", () => {
-    const obra = {
-      status_id: 3,
-      realizado: 40,
-      prazo_contratual: 100,
-      prazo_decorrido: 60,
-      prazo_a_vencer: 40,
-      data_fim: "2027-01-31",
-    };
-    const r = situacaoDoDiario(obra, "2026-11-09", -10);
-    expect(r.desvio).toBe(-20);
-    expect(r.alerta).toBe(true);
-    expect(r.vencido).toBe(false);
-    expect(
-      situacaoDoDiario({ ...obra, realizado: 55 }, "2026-11-09", -10).alerta,
-    ).toBe(false);
-    expect(
-      situacaoDoDiario({ ...obra, prazo_a_vencer: 0 }, "2026-11-09", -10)
-        .vencido,
-    ).toBe(true);
-    expect(
-      situacaoDoDiario(
-        { ...obra, status_id: 4, prazo_a_vencer: 0, realizado: 10 },
-        "2026-11-09",
-        -10,
-      ).alerta,
-    ).toBe(false);
-    expect(
-      situacaoDoDiario(
-        { ...obra, status_id: 2, realizado: 60 },
-        "2026-11-09",
-        -10,
-      ).alerta,
-    ).toBe(true);
+describe("Diário de Obra", () => {
+  const hoje = "2026-11-09";
+  const obra = (o: Partial<ObraDoDiario>): ObraDoDiario => ({
+    id: "o1",
+    nome: "Obra A",
+    statusId: 3,
+    grupo: null,
+    responsavel: null,
+    // Começou hoje: nenhum dia sem relatório.
+    dataInicio: hoje,
+    dataFim: "2027-01-31",
+    prazo: { contratual: 100, decorrido: 60, aVencer: 40 },
+    realizado: 40,
+    tarefas: null,
+    ficha: null,
+    ...o,
+  });
+  const resumo = (obras: ObraDoDiario[]) =>
+    resumoDoDiario(linhasDoPainel(obras, [], [1, 2, 3, 4, 5], hoje), -10);
+
+  it("usa as contas da tela: desvio em pontos e prazo sem teto de 100%", () => {
+    const r = resumo([
+      obra({ id: "a" }),
+      obra({
+        id: "b",
+        realizado: 90,
+        prazo: { contratual: 100, decorrido: 120, aVencer: -20 },
+      }),
+    ]);
+    const [a, b] = r.obras;
+    expect(a?.desvio).toBe(-20);
+    expect(a?.alerta).toBe(true);
+    expect(a?.vencido).toBe(false);
+    // Passou do prazo: 120% consumido (não limita em 100) e a vencer < 0.
+    expect(b?.prazoPct).toBe(120);
+    expect(b?.desvio).toBe(-30);
+    expect(b?.vencido).toBe(true);
+    expect(r.vencidas).toBe(1);
+    expect(r.comAlerta).toBe(2);
+    expect(r.emAndamento).toBe(2);
+  });
+
+  it("concluída não alerta; paralisada e dias sem relatório alertam", () => {
+    const r = resumo([
+      obra({
+        id: "c",
+        statusId: 4,
+        realizado: 10,
+        prazo: { contratual: 100, decorrido: 100, aVencer: 0 },
+      }),
+      obra({ id: "p", statusId: 2, realizado: 60 }),
+      obra({ id: "s", realizado: 60, dataInicio: "2026-11-02" }),
+    ]);
+    expect(r.obras.map((o) => [o.id, o.alerta])).toEqual([
+      ["c", false],
+      ["p", true],
+      ["s", true],
+    ]);
+    expect(r.vencidas).toBe(0);
+    expect(r.comAlerta).toBe(2);
   });
 });

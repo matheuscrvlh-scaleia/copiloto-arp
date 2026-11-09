@@ -4854,6 +4854,7 @@ export type Database = {
           nota_fiscal: boolean
           nota_fiscal_numero: string | null
           observacoes: string | null
+          planos_pausados: string[]
           quantidade: string | null
           recebido_por: string | null
           registrado_em: string
@@ -4878,6 +4879,7 @@ export type Database = {
           nota_fiscal?: boolean
           nota_fiscal_numero?: string | null
           observacoes?: string | null
+          planos_pausados?: string[]
           quantidade?: string | null
           recebido_por?: string | null
           registrado_em?: string
@@ -4902,6 +4904,7 @@ export type Database = {
           nota_fiscal?: boolean
           nota_fiscal_numero?: string | null
           observacoes?: string | null
+          planos_pausados?: string[]
           quantidade?: string | null
           recebido_por?: string | null
           registrado_em?: string

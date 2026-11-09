@@ -15,15 +15,15 @@ export function FiltrosEnergia({
   mes,
   unidades,
   unidade,
-  guia,
+  "data-guia": guia,
 }: {
   /** Meses com fatura (aaaa-mm-01), do mais recente para o mais antigo. */
   meses: string[];
   mes: string;
   unidades: { valor: string; rotulo: string }[];
   unidade: string;
-  /** Âncora do guia passo a passo (ex.: "op-contas-filtros"). */
-  guia: string;
+  /** Âncora do guia passo a passo, escrita literal em quem chama (o teste dos guias lê o texto). */
+  "data-guia": "op-contas-filtros" | "op-solar-filtros";
 }) {
   const router = useRouter();
   const pathname = usePathname();

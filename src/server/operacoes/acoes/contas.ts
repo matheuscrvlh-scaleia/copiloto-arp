@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import { nomeSeguro } from "@/lib/arquivos/nome";
 import { formatarDataHora, formatarMes } from "@/lib/formato";
 import {
   ErroEnergisa,
@@ -25,7 +26,6 @@ import { podeAgora, usuarioAtual } from "@/server/auth";
 import { op } from "../base";
 import {
   minhasPrevias,
-  nomeDoArquivo,
   previasDe,
   sha256,
   TAMANHO_MAXIMO,
@@ -202,7 +202,7 @@ export async function lerFatura(form: FormData): Promise<EstadoFatura> {
     return { erro: "Não foi possível conferir a fatura. Tente de novo." };
   }
 
-  const caminho = `energisa/${randomUUID()}/${nomeDoArquivo(nome)}`;
+  const caminho = `energisa/${randomUUID()}/${nomeSeguro(nome, "fatura.pdf")}`;
   try {
     await gravarArquivo(BUCKET, caminho, bytes, "application/pdf");
   } catch (e) {

@@ -116,6 +116,8 @@ export interface ResumoDoMes {
   areaComum: number | null;
   blocos: Record<string, number | null>;
   conferencia: ResultadoRateio["conferencia"]["situacao"];
+  /** Soma dos itens do contrato que entram na conferência (centavos). */
+  contrato: number;
   /** A conta refeita difere do total da planilha importada. */
   difereDaPlanilha: boolean;
 }
@@ -217,6 +219,7 @@ export const mesesDoRateio = cache(async (): Promise<ResumoDoMes[]> => {
         areaComum: r.areaComumExibida,
         blocos: Object.fromEntries(r.blocos.map((b) => [b.bloco, b.valor])),
         conferencia: r.conferencia.situacao,
+        contrato: r.conferencia.contrato,
         difereDaPlanilha:
           totalPlanilha !== null &&
           r.total !== null &&

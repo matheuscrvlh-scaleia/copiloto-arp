@@ -176,3 +176,53 @@ export function devido(
   const passou = (agora.getTime() - Date.parse(ultima.finalizadoEm)) / 60_000;
   return passou >= intervaloMin - FOLGA_CRON_MIN;
 }
+
+/**
+ * Execução "rodando" há mais que isso já foi dada como interrompida (o
+ * mesmo limite com que `executar()` a marca como erro).
+ */
+export const RODANDO_MAX_MS = 30 * 60_000;
+
+/** A execução ainda está de fato rodando (não morreu no meio)? */
+export function rodandoDeVerdade(
+  run: { status: string; iniciado_em: string },
+  agora: Date,
+): boolean {
+  return (
+    run.status === "rodando" &&
+    agora.getTime() - Date.parse(run.iniciado_em) < RODANDO_MAX_MS
+  );
+}
+
+export type PedidoManual =
+  | { pode: true; interrompida: boolean }
+  | { pode: false; motivo: "andamento" }
+  | { pode: false; motivo: "intervalo"; faltaMin: number };
+
+/**
+ * "Atualizar agora" a partir da última execução registrada: recusa se há
+ * uma rodando de verdade ou se a última terminou há menos do intervalo
+ * mínimo. Uma "rodando" velha conta como interrompida (não bloqueia; o
+ * chamador a marca como erro).
+ */
+export function pedidoManual(
+  ultima: {
+    status: string;
+    iniciado_em: string;
+    finalizado_em: string | null;
+  } | null,
+  agora: Date,
+): PedidoManual {
+  if (!ultima) return { pode: true, interrompida: false };
+  if (ultima.status === "rodando") {
+    if (rodandoDeVerdade(ultima, agora))
+      return { pode: false, motivo: "andamento" };
+    return { pode: true, interrompida: true };
+  }
+  const fim = ultima.finalizado_em ? Date.parse(ultima.finalizado_em) : 0;
+  const faltaMin = Math.ceil(
+    INTERVALO_MANUAL_MIN - (agora.getTime() - fim) / 60_000,
+  );
+  if (faltaMin > 0) return { pode: false, motivo: "intervalo", faltaMin };
+  return { pode: true, interrompida: false };
+}

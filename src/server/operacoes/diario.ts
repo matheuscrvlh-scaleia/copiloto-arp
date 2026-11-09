@@ -20,7 +20,10 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { usuarioAtual } from "@/server/auth";
 import { lerTudo } from "@/server/supabase-paginas";
-import { cursorSchema } from "@/server/sync/diario-de-obras-regras";
+import {
+  cursorSchema,
+  rodandoDeVerdade,
+} from "@/server/sync/diario-de-obras-regras";
 import { falhar, op, type Tabela } from "./base";
 
 // Leituras do Diário de Obra. Os dados (cópia do aplicativo) vêm com a
@@ -30,8 +33,6 @@ import { falhar, op, type Tabela } from "./base";
 
 const SISTEMA = "diario_de_obras";
 const RECURSO = "obras";
-/** Execução "rodando" há mais que isso já foi dada como interrompida. */
-const RODANDO_MAX_MS = 30 * 60_000;
 
 async function exigirDiario(): Promise<void> {
   const u = await usuarioAtual();
@@ -100,11 +101,8 @@ export const estadoDoDiario = cache(async (): Promise<EstadoDiario> => {
   const lista = runs.data ?? [];
   const boa = lista.find((r) => r.status === "sucesso");
   const terminada = lista.find((r) => r.status !== "rodando");
-  const rodando = lista.find(
-    (r) =>
-      r.status === "rodando" &&
-      Date.now() - Date.parse(r.iniciado_em) < RODANDO_MAX_MS,
-  );
+  const agora = new Date();
+  const rodando = lista.find((r) => rodandoDeVerdade(r, agora));
   const cursor = boa ? cursorSchema.parse(boa.cursor_depois ?? {}) : null;
   const empresa = cadastros.data?.empresa as Empresa | null | undefined;
   return {

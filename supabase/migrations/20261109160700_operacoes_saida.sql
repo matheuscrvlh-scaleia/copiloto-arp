@@ -5,8 +5,9 @@
 --     Parâmetros do Chamados (antes fixas na tela).
 --   * Sobra sem cadastro (material de obra): cria o ativo e registra a
 --     saída numa transação só, com a mesma permissão (os.ativos_saida).
---   * Ativo que saiu: os planos preventivos param, não volta a "em uso" sem
---     desfazer a saída e não recebe chamado nem OS novos.
+--   * Ativo que saiu: os planos preventivos param (desfazer a saída religa
+--     os que ela pausou), não volta a "em uso" sem desfazer a saída e não
+--     recebe chamado nem OS novos.
 --   * Feriados: o prazo de envio do rateio da limpeza (dia útil) aparece no
 --     Painel de Operações, então quem usa Operações também lê os feriados.
 
@@ -82,7 +83,9 @@ $$;
 -- ---------------------------------------------------------------------------
 
 -- Saída registrada: os planos preventivos do ativo param (quem registra a
--- saída pode não ter os.ativos_gerenciar, que edita os planos).
+-- saída pode não ter os.ativos_gerenciar, que edita os planos). A saída
+-- guarda quais pausou (planos_pausados), para o desfazer religar só esses.
+-- Antes do insert: se a saída falhar, a pausa volta junto (mesma transação).
 create function os.pausar_planos_na_saida()
 returns trigger
 language plpgsql
@@ -90,13 +93,17 @@ security definer
 set search_path = ''
 as $$
 begin
-  update os.planos_preventivos set ativo = false
-    where ativo_id = new.ativo_id and ativo;
-  return null;
+  with pausados as (
+    update os.planos_preventivos set ativo = false
+      where ativo_id = new.ativo_id and ativo
+      returning id
+  )
+  select coalesce(array_agg(id), '{}') into new.planos_pausados from pausados;
+  return new;
 end;
 $$;
 
-create trigger pausar_planos after insert on os.ativo_saidas
+create trigger pausar_planos before insert on os.ativo_saidas
   for each row execute function os.pausar_planos_na_saida();
 
 -- Ativo que saiu do Espaço ARP só volta a uso desfazendo a saída (com

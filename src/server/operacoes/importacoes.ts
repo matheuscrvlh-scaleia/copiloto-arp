@@ -218,3 +218,35 @@ export const importacao = cache(
     };
   },
 );
+
+// ---------------------------------------------------------------------------
+// Arquivo repetido
+// ---------------------------------------------------------------------------
+
+type Banco = Awaited<ReturnType<typeof op>>;
+
+/**
+ * Importação (do tipo, num dos status) que já recebeu o mesmo arquivo
+ * (sha256), ou null. Erro do banco sobe: quem chama recusa o envio em vez
+ * de seguir sem conferir.
+ */
+export async function importacaoDoArquivo(
+  db: Banco,
+  tipo: TipoImportacao,
+  sha256: string,
+  status: StatusImportacao[] = ["previa", "confirmada"],
+) {
+  const { data, error } = await db
+    .from("importacoes")
+    .select("id, status, referencia, criado_em, confirmado_em")
+    .eq("tipo", tipo)
+    .in("status", status)
+    // jsonb: o filtro "cs" recebe o JSON em texto (um array do JS viraria
+    // array do Postgres, "{...}", e o filtro daria erro).
+    .contains("arquivos", JSON.stringify([{ sha256 }]))
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}

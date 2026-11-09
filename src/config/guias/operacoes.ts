@@ -436,7 +436,7 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
     ],
   },
   "/operacoes/energia/contas": {
-    versao: 1,
+    versao: 2,
     passos: [
       abertura(
         "Contas de energia",
@@ -447,20 +447,25 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
         "Passo 1. Importe as faturas",
         "Quando chegarem os PDFs da Energisa, clique aqui e envie todos de uma vez. Cada fatura vira uma prévia para conferir antes de entrar.",
       ),
+      p(
+        "op-contas-filtros",
+        "Passo 2. Escolha o mês e a unidade",
+        "Abre no mês mais recente com fatura e em todas as unidades. Os filtros vão no link: quem abrir vê o mesmo recorte. <b>Limpar</b> volta ao padrão.",
+      ),
       fonte(
-        "<b>Passo 2.</b> De quando são os dados e o mês e a unidade em uso. Selo amarelo: faturas de exemplo.",
+        "<b>Passo 3.</b> De quando são os dados e o mês e a unidade em uso. Selo amarelo: faturas de exemplo.",
       ),
       cartoes(
-        "<b>Passo 3.</b> Total do mês, consumo em kWh, energia compensada pela geração solar e o valor compensado.",
+        "<b>Passo 4.</b> Total do mês, consumo em kWh, energia compensada pela geração solar e o valor compensado.",
       ),
       p(
         "op-contas-tabela",
-        "Passo 4. Fatura a fatura",
+        "Passo 5. Fatura a fatura",
         "Uma linha por unidade: consumo, compensado, saldo de créditos, bandeira, iluminação pública, tributos, total e vencimento. Clique na unidade para ver os itens; <b>PDF</b> abre o original.",
       ),
       p(
         "op-contas-grafico",
-        "Passo 5. Doze meses",
+        "Passo 6. Doze meses",
         "O consumo de cada unidade nos 12 meses até o mês escolhido. Um salto fora do padrão pede olhar a fatura.",
       ),
       p(
@@ -477,31 +482,36 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
     ],
   },
   "/operacoes/energia/solar": {
-    versao: 1,
+    versao: 2,
     passos: [
       abertura(
         "Energia solar",
         "Só consulta: quanto foi gerado, quanto foi compensado nas contas e quanto sobra de crédito. Os números vêm das faturas da Energisa importadas; o cadastro das usinas é da Sustentabilidade.",
       ),
+      p(
+        "op-solar-filtros",
+        "Passo 1. Escolha o mês e a unidade",
+        "Abre no mês mais recente com fatura e em todas as unidades. Escolha uma unidade para ver só o crédito dela.",
+      ),
       fonte(
-        "<b>Passo 1.</b> De quando são os dados e o mês escolhido. Sem fonte de geração cadastrada em Parâmetros, a tela mostra só a compensação.",
+        "<b>Passo 2.</b> De quando são os dados e o mês escolhido. Sem fonte de geração cadastrada em Parâmetros, a tela mostra só a compensação.",
       ),
       cartoes(
-        "<b>Passo 2.</b> Geração do mês, compensado nas contas, valor compensado e saldo de créditos.",
+        "<b>Passo 3.</b> Geração do mês, compensado nas contas, valor compensado e saldo de créditos.",
       ),
       p(
         "op-solar-grafico",
-        "Passo 3. Geração × compensação",
+        "Passo 4. Geração × compensação",
         "Os 12 meses até o mês escolhido. Compensação muito abaixo da geração quer dizer crédito acumulando.",
       ),
       p(
         "op-solar-creditos",
-        "Passo 4. Onde o crédito foi usado",
+        "Passo 5. Onde o crédito foi usado",
         "Por unidade, a origem do crédito e o mês em que foi gerado.",
       ),
       p(
         "op-solar-saldos",
-        "Passo 5. Nada pode expirar",
+        "Passo 6. Nada pode expirar",
         "Saldo acumulado por unidade e o que expira no próximo ciclo, como impresso na fatura. A meta é zero a expirar: se aparecer valor, avise quem cuida das usinas.",
       ),
       exportar(),
@@ -872,7 +882,7 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
     ],
   },
   "/operacoes/parametros": {
-    versao: 1,
+    versao: 2,
     passos: [
       abertura(
         "Parâmetros de Operações",
@@ -881,9 +891,35 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
       abas(
         "<b>Passo 1.</b> Escolha o grupo. <b>Água</b>: limites dos alertas e modelo da planilha. <b>Energia · termo</b>: dados da ARP e textos do termo. <b>Energia · quadros</b>: listas da caixa. <b>Energia · contas e solar</b>: alerta das faturas e unidades. <b>Limpeza</b>: contrato, funcionários, extras e prazo do envio. <b>Obras</b>: consulta ao Diário e limites de desvio.",
       ),
-      abertura(
+      p(
+        "op-parametros-agua",
         "Passo 2. Altere e salve",
-        "Mude o valor e clique em <b>Salvar</b>. Vale dali em diante nas telas e nos alertas. Os campos aceitam só valores dentro dos limites; fora deles, a tela diz o que corrigir.",
+        "Limite de consumo, variação contra a média, blocos e o modelo de colunas da planilha do parceiro. Mude o valor e clique em <b>Salvar</b>: vale dali em diante nas telas e nos alertas. Fora dos limites, a tela diz o que corrigir.",
+      ),
+      p(
+        "op-parametros-termo",
+        "Passo 2. Altere e salve",
+        "Razão social, CNPJ, endereço e os textos do termo de energia. Mude o valor e clique em <b>Salvar</b>: vale dali em diante nas telas e nos alertas. Fora dos limites, a tela diz o que corrigir.",
+      ),
+      p(
+        "op-parametros-quadros",
+        "Passo 2. Altere e salve",
+        "Listas de disjuntores, ligações e situações do medidor usadas no cadastro da caixa. Mude o valor e clique em <b>Salvar</b>: vale dali em diante nas telas e nos alertas. Fora dos limites, a tela diz o que corrigir.",
+      ),
+      p(
+        "op-parametros-contas",
+        "Passo 2. Altere e salve",
+        "Percentual de alerta das faturas e a fonte da geração solar. Mude o valor e clique em <b>Salvar</b>: vale dali em diante nas telas e nos alertas. Fora dos limites, a tela diz o que corrigir.",
+      ),
+      p(
+        "op-parametros-limpeza",
+        "Passo 2. Altere e salve",
+        "Empresa, funcionários da base, área comum e rateados, blocos, extras padrão e o dia útil limite do envio ao Financeiro. Mude o valor e clique em <b>Salvar</b>: vale dali em diante nas telas e nos alertas. Fora dos limites, a tela diz o que corrigir.",
+      ),
+      p(
+        "op-parametros-obras",
+        "Passo 2. Altere e salve",
+        "Limites de desvio do orçamento e do avanço físico, dias que contam para o relatório e o intervalo da consulta ao Diário de Obra. Mude o valor e clique em <b>Salvar</b>: vale dali em diante nas telas e nos alertas. Fora dos limites, a tela diz o que corrigir.",
       ),
       p(
         "secao:Últimas alterações deste grupo",

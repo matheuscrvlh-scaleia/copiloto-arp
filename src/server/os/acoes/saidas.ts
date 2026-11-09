@@ -5,6 +5,7 @@ import { refresh, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import { nomeSeguro } from "@/lib/arquivos/nome";
 import { rotaAtivo } from "@/lib/os/rotas";
 import {
   esquemaDaSaida,
@@ -67,15 +68,7 @@ function anexosDoForm(form: FormData): File[] | EstadoAcao {
 }
 
 function caminhoDoAnexo(lote: string, nome: string): string {
-  const limpo =
-    nome
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9.]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(-80) || "anexo";
-  return `saidas/${lote}/${randomBytes(6).toString("hex")}-${limpo}`;
+  return `saidas/${lote}/${randomBytes(6).toString("hex")}-${nomeSeguro(nome, "anexo")}`;
 }
 
 /** Grava os anexos; se um falhar, apaga os que já foram. */

@@ -5,6 +5,7 @@ import { refresh } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import { nomeSeguro } from "@/lib/arquivos/nome";
 import { formatarDataHora } from "@/lib/formato";
 import { lerMes, nomeDoMes, reais, regraBl04Do } from "@/lib/operacoes/limpeza";
 import {
@@ -38,6 +39,7 @@ import { notificar } from "@/server/os/base";
 import { TIPO_XLSX } from "@/server/os/relatorios/planilha";
 import { op, parametros } from "../base";
 import { logImportacaoOp, logOperacoes } from "../historico";
+import { importacaoDoArquivo } from "../importacoes";
 import { detalheDoMes, PERMISSAO_FINANCEIRO } from "../limpeza";
 import { gerarDemonstrativo } from "../limpeza-pdf";
 import { planilhaDoRateio } from "../limpeza-planilha";
@@ -75,13 +77,6 @@ function erroDoBanco(
   console.error(contexto, error);
   return { erro: "Não foi possível salvar. Tente de novo." };
 }
-
-const nomeSeguro = (nome: string) =>
-  nome
-    .normalize("NFD")
-    .replace(/[^\w.-]+/g, "_")
-    .replace(/^\.+/, "")
-    .slice(-80) || "arquivo";
 
 // ---------------------------------------------------------------------------
 // Lançamento do mês
@@ -578,21 +573,20 @@ export async function previaHistorico(entrada: {
   const sha256 = createHash("sha256").update(bytes).digest("hex");
 
   const db = await op();
-  const [usuario, param, repetida] = await Promise.all([
-    usuarioAtual(),
-    parametros(),
-    db
-      .from("importacoes")
-      .select("id, confirmado_em")
-      .eq("tipo", "limpeza")
-      .eq("status", "confirmada")
-      .contains("arquivos", [{ sha256 }])
-      .limit(1),
-  ]);
-  if (repetida.data?.length)
+  let repetida: Awaited<ReturnType<typeof importacaoDoArquivo>>;
+  try {
+    repetida = await importacaoDoArquivo(db, "limpeza", sha256, ["confirmada"]);
+  } catch (erro) {
+    console.error("conferência de planilha repetida (rateio)", erro);
     return falhar(
-      `Esta planilha já foi importada${repetida.data[0]?.confirmado_em ? ` em ${formatarDataHora(repetida.data[0].confirmado_em)}` : ""}. Para trocar, desfaça aquela importação primeiro.`,
+      "Não foi possível conferir se a planilha já foi importada. Tente de novo.",
     );
+  }
+  if (repetida)
+    return falhar(
+      `Esta planilha já foi importada${repetida.confirmado_em ? ` em ${formatarDataHora(repetida.confirmado_em)}` : ""}. Para trocar, desfaça aquela importação primeiro.`,
+    );
+  const [usuario, param] = await Promise.all([usuarioAtual(), parametros()]);
 
   let leitura: ReturnType<typeof lerHistoricoDoRateio>;
   try {

@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { updateTag } from "next/cache";
 import { z } from "zod";
+import { nomeSeguro } from "@/lib/arquivos/nome";
 import {
   type ArquivoLido,
   type AvisoAgua,
@@ -79,18 +80,6 @@ const BUCKET = "operacoes" as const;
 const pastaDoEnvio = (envio: string) => `agua/envios/${envio}`;
 const LOTE = 500;
 const MAX_AVISOS = 500;
-
-function nomeSeguro(nome: string): string {
-  const base = nome.split(/[\\/]/).pop() ?? nome;
-  return (
-    base
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^\w.-]+/g, "_")
-      .replace(/^\.+/, "")
-      .slice(-120) || "arquivo"
-  );
-}
 
 const SEM_PERMISSAO = "Você não tem permissão para importar a água.";
 

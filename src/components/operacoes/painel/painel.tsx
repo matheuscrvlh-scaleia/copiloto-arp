@@ -16,13 +16,12 @@ import {
   formatarPct,
 } from "@/lib/formato";
 import type { Status } from "@/lib/indicadores";
+import { ALERTAS, CODIGOS_ALERTA } from "@/lib/operacoes/agua-alertas";
+import { OBRA_CONCLUIDA, STATUS_OBRA, statusDe } from "@/lib/operacoes/diario";
 import {
-  ALERTAS_AGUA,
-  type AlertaAgua,
   mesAnterior,
   ROTULO_RATEIO,
   type SituacaoRateio,
-  STATUS_OBRA_DIARIO,
 } from "@/lib/operacoes/painel";
 import type {
   DadosDoPainel,
@@ -56,6 +55,7 @@ const kwh = (v: number) => `${formatarNumero(v, 0)} kWh`;
 
 const STATUS_RATEIO: Record<SituacaoRateio, Status> = {
   enviado: "ok",
+  historico: "ok",
   fechado: "atencao",
   aberto: "atencao",
   incompleto: "fora",
@@ -287,14 +287,27 @@ export function QuadroAgua({ a }: { a: PainelAgua }) {
             }))}
           />
           <ul className="mt-4 flex flex-wrap gap-2" aria-label="Alertas">
-            {(Object.keys(ALERTAS_AGUA) as AlertaAgua[]).map((k) => (
+            {a.alertas.total === 0 && (
+              <li>
+                <SeloStatus status="ok" rotulo="Nenhum alerta no mês" />
+              </li>
+            )}
+            {CODIGOS_ALERTA.filter((k) => a.alertas.porTipo[k] > 0).map((k) => (
               <li key={k}>
                 <SeloStatus
-                  status={a.alertas.porTipo[k] ? "fora" : "ok"}
-                  rotulo={`${ALERTAS_AGUA[k]}: ${a.alertas.porTipo[k]}`}
+                  status="fora"
+                  rotulo={`${ALERTAS[k].rotulo}: ${a.alertas.porTipo[k]}`}
                 />
               </li>
             ))}
+            {a.alertas.sumidos > 0 && (
+              <li>
+                <SeloStatus
+                  status="fora"
+                  rotulo={`Hidrômetros que sumiram: ${a.alertas.sumidos}`}
+                />
+              </li>
+            )}
             {a.incompletos > 0 && (
               <li>
                 <SeloStatus
@@ -555,7 +568,7 @@ export function QuadroObras({ o }: { o: PainelObras }) {
 }
 
 export function QuadroDiario({ d }: { d: PainelDiario }) {
-  const ativas = d.obras.filter((o) => o.statusId !== 4);
+  const ativas = d.obras.filter((o) => o.statusId !== OBRA_CONCLUIDA);
   return (
     <Secao
       titulo="Obras · avanço físico"
@@ -573,7 +586,7 @@ export function QuadroDiario({ d }: { d: PainelDiario }) {
               valor: o.avancoPct ?? 0,
               texto: formatarPct(o.avancoPct, 0),
               detalhe: [
-                STATUS_OBRA_DIARIO[o.statusId] ?? `Status ${o.statusId}`,
+                statusDe(STATUS_OBRA, o.statusId).rotulo,
                 o.prazoPct !== null
                   ? `prazo consumido ${formatarPct(o.prazoPct, 0)}`
                   : null,

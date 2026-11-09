@@ -199,6 +199,36 @@ describe("ativo que saiu", () => {
     ).toBe(false);
   });
 
+  it("desfazer a saída religa só os planos que ela pausou", async () => {
+    const ativo = await novoAtivo("Gerador do bloco 9");
+    const plano = (titulo: string, ligado: boolean) =>
+      valor<string>(
+        `insert into os.planos_preventivos (ativo_id, titulo, frequencia_dias, proxima_data, setor_id, ativo)
+         values ('${ativo}', '${titulo}', 30, '2026-12-01', '${setor}', ${ligado}) returning id`,
+      );
+    const ligado = await plano("Troca de óleo", true);
+    const parado = await plano("Revisão anual (já parada)", false);
+    const saida = await registrarSaida(ativo);
+    expect(
+      await valor<string[]>(
+        `select planos_pausados from os.ativo_saidas where id = '${saida}'`,
+      ),
+    ).toEqual([ligado]);
+    const situacao = () =>
+      db.query<{ id: string; ativo: boolean }>(
+        `select id, ativo from os.planos_preventivos where ativo_id = '${ativo}' order by titulo`,
+      );
+    expect((await situacao()).rows.every((p) => !p.ativo)).toBe(true);
+    await como(U.saida, () =>
+      db.query(
+        `select os.desfazer_saida_ativo('${saida}', 'Descarte cancelado: o gerador foi consertado')`,
+      ),
+    );
+    const depois = new Map((await situacao()).rows.map((p) => [p.id, p.ativo]));
+    expect(depois.get(ligado)).toBe(true);
+    expect(depois.get(parado)).toBe(false);
+  });
+
   it("não volta a uso pelo Reativar; volta ao desfazer a saída", async () => {
     const ativo = await novoAtivo("Ar-condicionado sala 3");
     const saida = await registrarSaida(ativo, "Doação");

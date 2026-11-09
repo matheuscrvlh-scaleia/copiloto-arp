@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import { nomeSeguro } from "@/lib/arquivos/nome";
 import { formatarMoeda, lerValorBr } from "@/lib/formato";
 import {
   centavosDe,
@@ -31,6 +32,7 @@ import { gravarArquivo, removerArquivos } from "@/server/arquivos";
 import { podeAgora, usuarioAtual } from "@/server/auth";
 import { op, opAdmin } from "../base";
 import { logImportacaoOp } from "../historico";
+import { importacaoDoArquivo } from "../importacoes";
 
 // Ações das Obras — previsto e realizado (spec 4.9 e 4.11):
 //   * orçamento: ler a planilha → prévia gravada (importação "previa",
@@ -54,14 +56,6 @@ const SEM_PERMISSAO =
 
 const sha256 = (bytes: Uint8Array) =>
   createHash("sha256").update(bytes).digest("hex");
-
-const nomeSeguro = (nome: string) =>
-  nome
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^\w.-]+/g, "_")
-    .replace(/^[._]+/, "")
-    .slice(-80) || "arquivo";
 
 const reais = (centavos: number) => reaisDe(centavos);
 const moeda = (centavos: number) => formatarMoeda(reaisDe(centavos));
@@ -130,19 +124,6 @@ function mesesEscolhidos(form: FormData): Record<string, Mes> {
 }
 
 type Banco = Awaited<ReturnType<typeof op>>;
-
-async function importacaoComMesmoArquivo(banco: Banco, hash: string) {
-  const { data, error } = await banco
-    .from("importacoes")
-    .select("id, status, referencia, criado_em")
-    .eq("tipo", "orcamento")
-    .in("status", ["previa", "confirmada"])
-    .contains("arquivos", [{ sha256: hash }])
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
-}
 
 function previaDe(
   lido: OrcamentoLido,
@@ -246,7 +227,7 @@ export async function lerPlanilhaOrcamento(
   const banco = await op();
   const hash = sha256(bytes);
   try {
-    const repetida = await importacaoComMesmoArquivo(banco, hash);
+    const repetida = await importacaoDoArquivo(banco, "orcamento", hash);
     if (repetida)
       return {
         erro:

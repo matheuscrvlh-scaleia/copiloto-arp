@@ -25,17 +25,6 @@ export function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-/** Nome seguro para o caminho do arquivo no disco. */
-export function nomeDoArquivo(nome: string): string {
-  return (
-    nome
-      .normalize("NFD")
-      .replace(/[^\w.-]+/g, "_")
-      .replace(/^[._]+/, "")
-      .slice(-80) || "fatura.pdf"
-  );
-}
-
 export interface ImportacaoEnergisa {
   id: string;
   resumo: Json;

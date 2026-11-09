@@ -1397,6 +1397,9 @@ create table os.ativo_saidas (
   anexos text[] not null default '{}',
   -- Situação do ativo antes da saída (volta a ela se a saída for desfeita).
   situacao_anterior os.situacao_ativo not null,
+  -- Planos preventivos que a saída pausou (gatilho pausar_planos_na_saida):
+  -- desfazer a saída religa exatamente estes.
+  planos_pausados uuid[] not null default '{}',
   registrado_por uuid default auth.uid() references core.usuarios (id) on delete set null,
   registrado_em timestamptz not null default now(),
   desfeita_por uuid references core.usuarios (id) on delete set null,
@@ -1485,7 +1488,9 @@ begin
 end;
 $$;
 
--- Desfaz a saída (com motivo): o ativo volta à situação de antes.
+-- Desfaz a saída (com motivo): o ativo volta à situação de antes e os
+-- planos preventivos que a saída pausou voltam a valer (os que já estavam
+-- parados antes dela continuam parados).
 create function os.desfazer_saida_ativo(p_saida uuid, p_motivo text)
 returns void
 language plpgsql
@@ -1510,6 +1515,8 @@ begin
   where id = p_saida;
   update os.ativos set situacao = v.situacao_anterior, baixa_data = null, baixa_motivo = null
   where id = v.ativo_id;
+  update os.planos_preventivos set ativo = true
+  where id = any (v.planos_pausados) and ativo_id = v.ativo_id and not ativo;
 end;
 $$;
 
