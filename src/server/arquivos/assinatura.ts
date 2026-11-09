@@ -1,9 +1,9 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { BUCKETS, caminhoValido } from "./caminho";
 
-// Links assinados dos arquivos guardados no disco, no lugar dos links
-// assinados do Supabase. O token leva o que se pode fazer (ler ou enviar),
+// Links assinados dos arquivos guardados no disco. O token leva o que se
+// pode fazer (ler ou enviar),
 // o arquivo e o prazo, e um HMAC-SHA256 com ARQUIVOS_CHAVE. Quem gera o link
 // já conferiu a permissão; a rota só confere a assinatura e o prazo.
 // Sem "server-only" para os testes de unidade importarem direto.
@@ -32,12 +32,22 @@ const corpo = z.discriminatedUnion("op", [
 
 export type PermissaoConferida = z.infer<typeof corpo>;
 
+// atalho: em desenvolvimento, sem ARQUIVOS_CHAVE, uma chave por processo
+// (os links abertos vencem quando o servidor reinicia). Em produção, falta
+// da chave é erro.
+let chaveDeDesenvolvimento: Buffer | undefined;
+
 function chave(): Buffer {
   const valor = process.env.ARQUIVOS_CHAVE?.trim();
-  if (!valor)
+  if (!valor) {
+    if (process.env.NODE_ENV !== "production") {
+      chaveDeDesenvolvimento ??= randomBytes(32);
+      return chaveDeDesenvolvimento;
+    }
     throw new Error(
       "Arquivos não configurados: defina ARQUIVOS_CHAVE (32 bytes em base64)",
     );
+  }
   const bytes = Buffer.from(valor, "base64");
   if (bytes.length !== 32)
     throw new Error("ARQUIVOS_CHAVE precisa ter 32 bytes em base64");

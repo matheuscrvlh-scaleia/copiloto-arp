@@ -28,7 +28,6 @@ export async function responderLeitura(
   const p = conferir(token);
   if (!p || p.op !== "ler") return aviso(403, "Link inválido ou vencido.");
   const d = noDisco();
-  if (!d) return aviso(404, "Arquivo não encontrado.");
   const info = await d.info(p.bucket, p.caminho);
   if (!info) return aviso(404, "Arquivo não encontrado.");
 
@@ -77,7 +76,6 @@ export async function responderEnvio(
   const p = conferir(token);
   if (!p || p.op !== "enviar") return aviso(403, "Link inválido ou vencido.");
   const d = noDisco();
-  if (!d) return aviso(404, "Envio indisponível.");
   const declarado = Number(request.headers.get("content-length"));
   if (Number.isFinite(declarado) && declarado > p.maxBytes)
     return aviso(413, "Arquivo grande demais.");

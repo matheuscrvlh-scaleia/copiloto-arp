@@ -1,24 +1,23 @@
 import "server-only";
 import { criarDisco, type Disco } from "./disco";
 
-// Onde os arquivos ficam, pelas variáveis de ambiente:
-//   ARQUIVOS_DIR vazio          → Supabase Storage (Vercel, desenvolvimento)
-//   ARQUIVOS_DIR=/dados/...     → disco da VPS; tudo que é novo grava aqui
-//   ARQUIVOS_RESERVA_SUPABASE   → "0" desliga a leitura de reserva no
-//                                 Supabase, depois da migração conferida
+// Os arquivos ficam só no disco: na VPS, ARQUIVOS_DIR=/dados/arquivos (o
+// docker-compose.yml define); em desenvolvimento, ./dados/arquivos se a
+// variável não estiver definida. O Supabase Storage não é mais consultado
+// (a cópia antiga de lá ficou só como backup; docs/deploy-vps.md).
 
-let disco: Disco | null | undefined;
+const PASTA_DE_DESENVOLVIMENTO = "./dados/arquivos";
 
-/** O disco da VPS, ou null quando os arquivos ficam no Supabase. */
-export function noDisco(): Disco | null {
-  if (disco === undefined) {
+let disco: Disco | undefined;
+
+export function noDisco(): Disco {
+  if (!disco) {
     const raiz = process.env.ARQUIVOS_DIR?.trim();
-    disco = raiz ? criarDisco(raiz) : null;
+    if (!raiz && process.env.NODE_ENV === "production")
+      throw new Error(
+        "Arquivos não configurados: defina ARQUIVOS_DIR (pasta dos arquivos)",
+      );
+    disco = criarDisco(raiz || PASTA_DE_DESENVOLVIMENTO);
   }
   return disco;
-}
-
-/** Na transição, o que não está no disco ainda é procurado no Supabase. */
-export function comReserva(): boolean {
-  return process.env.ARQUIVOS_RESERVA_SUPABASE?.trim() !== "0";
 }

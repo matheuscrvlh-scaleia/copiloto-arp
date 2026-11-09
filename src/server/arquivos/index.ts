@@ -2,14 +2,12 @@ import "server-only";
 import { urlDoSistema } from "@/server/endereco";
 import { assinar } from "./assinatura";
 import { type Bucket, caminhoValido, nomeDoCaminho } from "./caminho";
-import { comReserva, noDisco } from "./config";
-import { ArquivoJaExiste, type Disco } from "./disco";
-import * as supabase from "./supabase";
+import { noDisco } from "./config";
 
-// Ponto único de acesso aos arquivos (fotos, PDFs, planilhas). O resto do
-// sistema não fala com o Supabase Storage nem com o disco direto: chama
-// estas funções, sempre DEPOIS de conferir a permissão de quem pede (aqui
-// não há RLS). Onde os arquivos ficam: ./config.ts.
+// Ponto único de acesso aos arquivos (fotos, PDFs, planilhas), guardados no
+// disco da VPS. O resto do sistema não fala com o disco direto: chama estas
+// funções, sempre DEPOIS de conferir a permissão de quem pede (aqui não há
+// RLS). Onde fica a pasta: ./config.ts.
 
 export type { Bucket } from "./caminho";
 export { ArquivoJaExiste } from "./disco";
@@ -31,38 +29,7 @@ export async function gravarArquivo(
 ): Promise<void> {
   if (!caminhoValido(caminho))
     throw new Error(`Caminho de arquivo inválido: ${caminho}`);
-  const d = noDisco();
-  if (d) {
-    await d.gravar(bucket, caminho, await bytesDe(conteudo), { tipo });
-    return;
-  }
-  await supabase.gravar(
-    bucket,
-    caminho,
-    conteudo instanceof ArrayBuffer ? new Uint8Array(conteudo) : conteudo,
-    tipo,
-  );
-}
-
-/** Lê do Supabase o que ainda não veio para o disco, e já deixa a cópia. */
-async function trazerDoSupabase(
-  d: Disco,
-  bucket: Bucket,
-  caminho: string,
-): Promise<Uint8Array | null> {
-  const blob = await supabase.ler(bucket, caminho);
-  if (!blob) return null;
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  await d
-    .gravar(bucket, caminho, bytes, {
-      tipo: blob.type || undefined,
-      origem: "supabase",
-    })
-    .catch((e) => {
-      if (!(e instanceof ArquivoJaExiste))
-        console.error("copiar arquivo do Supabase", bucket, caminho, e);
-    });
-  return bytes;
+  await noDisco().gravar(bucket, caminho, await bytesDe(conteudo), { tipo });
 }
 
 export async function lerArquivo(
@@ -70,14 +37,7 @@ export async function lerArquivo(
   caminho: string,
 ): Promise<Uint8Array | null> {
   if (!caminhoValido(caminho)) return null;
-  const d = noDisco();
-  if (!d) {
-    const blob = await supabase.ler(bucket, caminho);
-    return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
-  }
-  const local = await d.ler(bucket, caminho);
-  if (local || !comReserva()) return local;
-  return trazerDoSupabase(d, bucket, caminho);
+  return noDisco().ler(bucket, caminho);
 }
 
 /** Os primeiros bytes (conferir o tipo pelo conteúdo sem ler tudo). */
@@ -87,11 +47,7 @@ export async function inicioDoArquivo(
   bytes: number,
 ): Promise<Uint8Array | null> {
   if (!caminhoValido(caminho)) return null;
-  const d = noDisco();
-  if (!d) return supabase.inicio(bucket, caminho, bytes);
-  const local = await d.inicio(bucket, caminho, bytes);
-  if (local || !comReserva()) return local;
-  return supabase.inicio(bucket, caminho, bytes);
+  return noDisco().inicio(bucket, caminho, bytes);
 }
 
 export async function infoDoArquivo(
@@ -99,34 +55,24 @@ export async function infoDoArquivo(
   caminho: string,
 ): Promise<{ tamanho: number; tipo: string } | null> {
   if (!caminhoValido(caminho)) return null;
-  const d = noDisco();
-  if (!d) return supabase.info(bucket, caminho);
-  const local = await d.info(bucket, caminho);
-  if (local) return { tamanho: local.tamanho, tipo: local.tipo };
-  return comReserva() ? supabase.info(bucket, caminho) : null;
+  const info = await noDisco().info(bucket, caminho);
+  return info ? { tamanho: info.tamanho, tipo: info.tipo } : null;
 }
 
-/**
- * Apaga os arquivos (no disco e, na transição, também no Supabase, para a
- * migração não trazer de volta o que foi apagado). false se algo falhou.
- */
+/** Apaga os arquivos; o que já não existe é ignorado. false se algo falhou. */
 export async function removerArquivos(
   bucket: Bucket,
   caminhos: string[],
 ): Promise<boolean> {
   const validos = caminhos.filter((c) => caminhoValido(c));
   if (!validos.length) return true;
-  const d = noDisco();
-  if (!d) return supabase.remover(bucket, validos);
-  let ok = true;
   try {
-    await d.remover(bucket, validos);
+    await noDisco().remover(bucket, validos);
+    return true;
   } catch (e) {
     console.error("remover arquivos do disco", bucket, e);
-    ok = false;
+    return false;
   }
-  if (comReserva()) ok = (await supabase.remover(bucket, validos)) && ok;
-  return ok;
 }
 
 /** Caminhos dos arquivos direto dentro da pasta. */
@@ -135,16 +81,10 @@ export async function listarArquivos(
   pasta: string,
 ): Promise<string[]> {
   if (!caminhoValido(pasta)) return [];
-  const d = noDisco();
-  if (!d) return supabase.listar(bucket, pasta);
-  const [local, remoto] = await Promise.all([
-    d.listar(bucket, pasta),
-    comReserva() ? supabase.listar(bucket, pasta) : Promise.resolve([]),
-  ]);
-  return [...new Set([...local, ...remoto])].sort();
+  return noDisco().listar(bucket, pasta);
 }
 
-function linkDoDisco(
+function linkAssinado(
   bucket: Bucket,
   caminho: string,
   segundos: number,
@@ -173,15 +113,10 @@ export async function linkDeLeitura(
   opcoes: { segundos: number; baixarComo?: string | true },
 ): Promise<string | null> {
   if (!caminhoValido(caminho)) return null;
+  if (!(await noDisco().info(bucket, caminho))) return null;
   const nome =
     opcoes.baixarComo === true ? nomeDoCaminho(caminho) : opcoes.baixarComo;
-  const d = noDisco();
-  if (!d) return supabase.link(bucket, caminho, opcoes.segundos, nome);
-  if (await d.info(bucket, caminho))
-    return linkDoDisco(bucket, caminho, opcoes.segundos, nome);
-  return comReserva()
-    ? supabase.link(bucket, caminho, opcoes.segundos, nome)
-    : null;
+  return linkAssinado(bucket, caminho, opcoes.segundos, nome);
 }
 
 /** Links temporários de vários arquivos (só os que existem entram no mapa). */
@@ -191,22 +126,15 @@ export async function linksDeLeitura(
   segundos: number,
 ): Promise<Map<string, string>> {
   const validos = [...new Set(caminhos.filter((c) => caminhoValido(c)))];
-  if (!validos.length) return new Map();
   const d = noDisco();
-  if (!d) return supabase.links(bucket, validos, segundos);
-  const noDiscoJa = await Promise.all(
+  const existem = await Promise.all(
     validos.map(async (c) => ((await d.info(bucket, c)) ? c : null)),
   );
-  const urls = new Map<string, string>();
-  const faltando: string[] = [];
-  validos.forEach((c, i) => {
-    if (noDiscoJa[i]) urls.set(c, linkDoDisco(bucket, c, segundos));
-    else faltando.push(c);
-  });
-  if (faltando.length && comReserva())
-    for (const [c, url] of await supabase.links(bucket, faltando, segundos))
-      urls.set(c, url);
-  return urls;
+  return new Map(
+    existem
+      .filter((c): c is string => c !== null)
+      .map((c) => [c, linkAssinado(bucket, c, segundos)]),
+  );
 }
 
 /**
@@ -221,10 +149,8 @@ export async function prepararEnvio(
   opcoes: { maxBytes: number; segundos?: number },
 ): Promise<{ url: string } | { erro: "existe" | "falha" }> {
   if (!caminhoValido(caminho)) return { erro: "falha" };
-  const d = noDisco();
-  if (!d) return supabase.linkDeEnvio(bucket, caminho);
-  if (await d.info(bucket, caminho)) return { erro: "existe" };
   try {
+    if (await noDisco().info(bucket, caminho)) return { erro: "existe" };
     const token = assinar(
       { op: "enviar", bucket, caminho, maxBytes: opcoes.maxBytes },
       opcoes.segundos ?? 900,

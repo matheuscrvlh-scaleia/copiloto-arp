@@ -53,7 +53,7 @@ Integrações: [docs/integracoes.md](docs/integracoes.md).
 ## Stack
 
 - **Next.js** (App Router) em **Docker na VPS** (antes na Vercel): front e back (Route Handlers / Server Actions)
-- **Arquivos** no disco da VPS (`src/server/arquivos`); Supabase Storage em desenvolvimento
+- **Arquivos** no disco da VPS (`src/server/arquivos`), não no Supabase Storage
 - **Supabase**: Postgres, Auth e RLS
 - **TypeScript** estrito, **Tailwind CSS**, **Biome**, **Zod**, **Vitest**
 

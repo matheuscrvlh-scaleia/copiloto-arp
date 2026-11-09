@@ -1,7 +1,7 @@
 /**
  * Envia o arquivo, do navegador, para o link preparado pelo servidor
  * (prepararEnvio em src/server/arquivos): PUT com o arquivo no corpo. Serve
- * para o disco da VPS e para o link de envio do Supabase. true se chegou.
+ * para o disco da VPS. true se chegou.
  */
 export async function enviarParaLink(
   url: string,

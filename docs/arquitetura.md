@@ -121,11 +121,11 @@ toda ação que grava nela.
 
 Todo arquivo (foto, PDF, planilha) passa por `src/server/arquivos`:
 `gravarArquivo`, `lerArquivo`, `linkDeLeitura`, `prepararEnvio`,
-`removerArquivos`. Ninguém chama o Supabase Storage nem o disco direto.
+`removerArquivos`. Ninguém chama o disco direto, e o Supabase Storage não
+é mais usado (a migração está em `docs/deploy-vps.md`).
 
-- Onde ficam: no disco da VPS quando `ARQUIVOS_DIR` está definido; sem
-  ela (desenvolvimento), no Supabase Storage. Na transição, o que ainda
-  não está no disco é lido do Supabase (`ARQUIVOS_RESERVA_SUPABASE`).
+- Onde ficam: no disco da VPS (`ARQUIVOS_DIR`); em desenvolvimento, sem
+  ela, em `./dados/arquivos`.
 - Aqui não há RLS: conferir a permissão com `podeAgora()` (ou o token do
   link público) **antes** de chamar.
 - Para o navegador, só link assinado (`/api/arquivos/<token>`, HMAC com

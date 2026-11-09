@@ -1,7 +1,7 @@
 // Buckets e caminhos aceitos pelo armazenamento de arquivos. Sem
 // "server-only" para os testes de unidade importarem direto.
 
-/** Os buckets que já existiam no Supabase Storage; no disco, uma pasta cada. */
+/** Os buckets (vindos do antigo Supabase Storage); no disco, uma pasta cada. */
 export const BUCKETS = [
   "os",
   "comercial",
