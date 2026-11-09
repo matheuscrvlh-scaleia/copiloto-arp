@@ -16,9 +16,10 @@ import { z } from "zod";
 // Dinheiro em centavos inteiros (o PDF já traz 2 casas; nada é arredondado
 // além de converter "1.172,55" em 117255). kWh em número.
 //
-// ATENÇÃO: o layout foi descrito a partir da spec (seção 4.7), sem uma
-// fatura real no repositório. Validar com uma fatura de verdade antes de
-// usar em produção (ver energisa.test.ts, "layout real").
+// Layout conferido com duas faturas reais da Energisa Minas Rio (setembro
+// de 2026, fora do repositório: têm dados do cliente). As fixtures
+// (energisa.fixtures.ts) reproduzem as posições e os rótulos delas, com
+// valores, matrícula, nomes e endereço fictícios.
 
 export interface ItemPdf {
   str: string;
@@ -249,6 +250,16 @@ export function linhasDaPagina(
 // ---------------------------------------------------------------------------
 // Tabela "Itens da Fatura"
 // ---------------------------------------------------------------------------
+//
+// Layout real (Energisa Minas Rio, 2026): o cabeçalho ocupa três linhas, com
+// "Itens da Fatura" na de baixo, e cada rótulo fica em uma, duas ou três
+// delas ("Preço unit (R$)" / "com tributos"; "PIS/" / "COFINS (R$)"). Rótulos
+// vizinhos ficam a 2 ou 3 pt um do outro ("Valor (R$)" e "COFINS (R$)"), então
+// a coluna sai da sobreposição no x entre as linhas, e não da proximidade na
+// mesma linha. À direita, na mesma altura, há um quadro de tributos ("Tributo
+// | Base de Cálc. | Alíquota | Valor") e o histórico de consumo: a tabela
+// termina no rótulo "Tributo". A linha "TOTAL:" fica bem abaixo dos itens
+// (mais de 100 pt), com o histórico no meio.
 
 type Campo =
   | "descricao"
@@ -270,7 +281,7 @@ interface Coluna {
   rotulo: string;
 }
 
-/** Ordem importa: "Base Calc. ICMS" é base, não ICMS; "Alíq. ICMS" é alíquota. */
+/** Ordem importa: "Base Calc. ICMS" é base, não ICMS; "% Alíq. ICMS" é alíquota. */
 const ROTULOS: [Exclude<Campo, "descricao">, RegExp][] = [
   ["baseIcms", /\bbase\b/i],
   ["aliquota", /al[ií]q|%/i],
@@ -284,22 +295,42 @@ const ROTULOS: [Exclude<Campo, "descricao">, RegExp][] = [
 ];
 
 const ANCORA_ITENS = /itens\s+d[ae]\s+fatura/i;
-/** Palavras que só aparecem no cabeçalho da tabela. */
-const PALAVRA_CABECALHO =
-  /^(itens|da|de|fatura|unid\.?|unidade|quant\.?|qtd[e]?\.?|quantidade|pre[cç]o|unit\.?|unit[áa]rio|valor|vl\.?|pis|cofins|pis\/cofins|base|c[áa]lc\.?|c[áa]lculo|icms|al[ií]q\.?|al[ií]quota|%|tarifa|com|sem|c\/|s\/|tributos|impostos|\(r\$\)|r\$|\(%\)|\(kwh\))$/i;
+/** Quadro de tributos à direita dos itens: ali a tabela de itens acaba. */
+const QUADRO_TRIBUTOS = /^tributo/i;
 const SECAO =
   /^(lan[cç]amentos|servi[cç]os|demais|outros|tributos|itens|d[ée]bitos|cr[ée]ditos|informa[cç])/i;
+/** Distância máxima (pt) de uma linha do cabeçalho até a do "Itens da Fatura". */
+const ALTURA_CABECALHO = 12;
+/** Palavras do mesmo rótulo em textos separados: só o espaço entre elas (pt). */
+const ESPACO_PALAVRAS = 1.5;
+/** Fração da largura que um texto precisa ter dentro da coluna para ser dela. */
+const DENTRO = 0.5;
+/** Folga (pt) para o início da descrição e entre as palavras dela. */
+const MARGEM = 4;
+/** Sem a linha "TOTAL:", a tabela acaba num vão maior que este múltiplo do espaço entre linhas. */
+const VAO_FIM = 3;
 
-const ehCabecalho = (l: Linha) =>
-  l.texto.split(/\s+/).every((p) => PALAVRA_CABECALHO.test(p));
+interface Faixa {
+  x: number;
+  w: number;
+}
+
+/** Quanto duas faixas no x se sobrepõem (negativo: o vão entre elas). */
+const sobreposicao = (a: Faixa, b: Faixa) =>
+  Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+
+const temNumero = (l: Linha) => l.itens.some((t) => numeroBr(t.str) !== null);
 
 /**
- * Colunas a partir dos rótulos do cabeçalho (que podem ocupar 2 ou 3 linhas:
- * "Preço unit (R$)" / "com tributos"). Textos da mesma linha bem próximos são
- * do mesmo rótulo; textos de linhas diferentes que se sobrepõem no x, da
- * mesma coluna.
+ * Colunas a partir dos rótulos do cabeçalho. Textos de linhas diferentes que
+ * se sobrepõem no x (metade da largura do menor) são da mesma coluna; na
+ * mesma linha, só se encostam (palavras do mesmo rótulo). Devolve também onde
+ * a tabela acaba à direita (o quadro "Tributo"), se houver.
  */
-function colunasDoCabecalho(linhas: Linha[]): Coluna[] {
+function colunasDoCabecalho(linhas: Linha[]): {
+  colunas: Coluna[];
+  fim: number | null;
+} {
   const tokens = linhas.flatMap((l, li) => l.itens.map((i) => ({ ...i, li })));
   const pai = tokens.map((_, i) => i);
   const raiz = (i: number): number => {
@@ -310,8 +341,11 @@ function colunasDoCabecalho(linhas: Linha[]): Coluna[] {
     for (let j = i + 1; j < tokens.length; j++) {
       const a = tokens[i] as (typeof tokens)[number];
       const b = tokens[j] as (typeof tokens)[number];
-      const vao = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w));
-      const junta = a.li === b.li ? vao <= 4.5 : vao < 0;
+      const s = sobreposicao(a, b);
+      const junta =
+        a.li === b.li
+          ? s >= -ESPACO_PALAVRAS
+          : s >= DENTRO * Math.min(a.w, b.w);
       if (junta) pai[raiz(j)] = raiz(i);
     }
   }
@@ -320,20 +354,20 @@ function colunasDoCabecalho(linhas: Linha[]): Coluna[] {
     const r = raiz(i);
     grupos.set(r, [...(grupos.get(r) ?? []), t]);
   });
-  const colunas: Coluna[] = [];
-  const usados = new Set<Campo>();
   const ordenados = [...grupos.values()]
-    .map((g) => {
-      const esq = Math.min(...g.map((t) => t.x));
-      const dir = Math.max(...g.map((t) => t.x + t.w));
-      const rotulo = g
+    .map((g) => ({
+      esq: Math.min(...g.map((t) => t.x)),
+      dir: Math.max(...g.map((t) => t.x + t.w)),
+      rotulo: g
         .sort((a, b) => a.li - b.li || a.x - b.x)
         .map((t) => t.str)
-        .join(" ");
-      return { esq, dir, rotulo };
-    })
+        .join(" "),
+    }))
     .sort((a, b) => a.esq - b.esq);
+  const colunas: Coluna[] = [];
+  const usados = new Set<Campo>();
   for (const g of ordenados) {
+    if (QUADRO_TRIBUTOS.test(g.rotulo)) return { colunas, fim: g.esq };
     const campo: Campo | undefined = ANCORA_ITENS.test(g.rotulo)
       ? "descricao"
       : ROTULOS.find(([, re]) => re.test(g.rotulo))?.[0];
@@ -341,7 +375,7 @@ function colunasDoCabecalho(linhas: Linha[]): Coluna[] {
     usados.add(campo);
     colunas.push({ campo, ...g, centro: (g.esq + g.dir) / 2 });
   }
-  return colunas;
+  return { colunas, fim: null };
 }
 
 interface Tabela {
@@ -354,44 +388,69 @@ interface Tabela {
   } | null;
 }
 
-/** Celulas de uma linha da tabela: descrição e o texto de cada coluna. */
+interface Celulas {
+  y: number;
+  descricao: string;
+  valores: Map<Campo, string>;
+  total: boolean;
+}
+
+/**
+ * Células de uma linha da tabela. A descrição é o texto que começa na coluna
+ * "Itens da Fatura" (e as palavras seguidas dele, antes da primeira coluna de
+ * dados). O resto vai para a coluna em que cai (ao menos metade da largura
+ * dentro dela) ou, se não cai em nenhuma, para a de centro mais próximo. A
+ * unidade ("KWH") começa antes do rótulo "Unid." e não é descrição.
+ */
 function celulas(
   linha: Linha,
-  colunas: Coluna[],
-  limiteDescricao: number,
-  esquerda: number,
+  dados: Coluna[],
+  inicioDescricao: number,
   direita: number,
-) {
+): Celulas {
+  const primeira = Math.min(...dados.map((c) => c.esq));
   const descricao: string[] = [];
+  let fimDescricao: number | null = null;
   const valores = new Map<Campo, string>();
-  const dados = colunas.filter((c) => c.campo !== "descricao");
   let total = false;
   for (const t of linha.itens) {
-    if (t.x + t.w < esquerda || t.x > direita) continue;
+    if (t.x + t.w <= inicioDescricao - MARGEM || t.x >= direita) continue;
     // O rótulo "TOTAL:" pode estar em qualquer coluna.
     if (/^total:?$/i.test(t.str)) {
       total = true;
       continue;
     }
-    if (t.x < limiteDescricao) {
+    const comecaDescricao =
+      fimDescricao === null && Math.abs(t.x - inicioDescricao) <= MARGEM;
+    const continuaDescricao =
+      fimDescricao !== null && t.x - fimDescricao <= MARGEM;
+    if ((comecaDescricao || continuaDescricao) && t.x < primeira) {
       descricao.push(t.str);
+      fimDescricao = t.x + t.w;
       continue;
     }
-    const centro = t.x + t.w / 2;
-    let melhor: Coluna | undefined;
+    let coluna: Coluna | undefined;
+    let dentro = 0;
     for (const c of dados) {
-      if (
-        !melhor ||
-        Math.abs(c.centro - centro) < Math.abs(melhor.centro - centro)
-      )
-        melhor = c;
+      const s = sobreposicao(t, { x: c.esq, w: c.dir - c.esq });
+      if (s > dentro) [coluna, dentro] = [c, s];
     }
-    if (!melhor) continue;
-    const antes = valores.get(melhor.campo);
-    valores.set(melhor.campo, antes ? `${antes} ${t.str}` : t.str);
+    if (!coluna || dentro < DENTRO * t.w) {
+      const centro = t.x + t.w / 2;
+      coluna = dados.reduce((m, c) =>
+        Math.abs(c.centro - centro) < Math.abs(m.centro - centro) ? c : m,
+      );
+    }
+    const antes = valores.get(coluna.campo);
+    valores.set(coluna.campo, antes ? `${antes} ${t.str}` : t.str);
   }
   const texto = descricao.join(" ").trim();
-  return { descricao: texto, valores, total: total || /^total\b/i.test(texto) };
+  return {
+    y: linha.y,
+    descricao: texto,
+    valores,
+    total: total || /^total\b/i.test(texto),
+  };
 }
 
 const num = (v: Map<Campo, string>, c: Campo) => {
@@ -403,6 +462,39 @@ const cents = (v: Map<Campo, string>, c: Campo) => {
   return t === undefined ? null : centavosBr(t);
 };
 
+const mediana = (xs: number[]) => {
+  const o = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(o.length / 2);
+  return o.length % 2
+    ? (o[m] as number)
+    : ((o[m - 1] as number) + (o[m] as number)) / 2;
+};
+
+/**
+ * Linhas do corpo da tabela: até a linha "TOTAL:" (a primeira abaixo do
+ * cabeçalho, a qualquer distância). Sem ela, até o primeiro vão bem maior que
+ * o espaço normal entre as linhas da tabela.
+ */
+function corpoDaTabela(
+  linhas: Celulas[],
+  fundoCabecalho: number,
+): { corpo: Celulas[]; total: Celulas | null } {
+  const cheias = linhas.filter((l) => l.descricao || l.valores.size || l.total);
+  const i = cheias.findIndex((l) => l.total);
+  if (i >= 0) return { corpo: cheias.slice(0, i), total: cheias[i] ?? null };
+  const vaos: number[] = [];
+  let acima = fundoCabecalho;
+  const corpo: Celulas[] = [];
+  for (const l of cheias) {
+    const vao = acima - l.y;
+    if (vaos.length && vao > VAO_FIM * mediana(vaos)) break;
+    vaos.push(vao);
+    corpo.push(l);
+    acima = l.y;
+  }
+  return { corpo, total: null };
+}
+
 function lerTabela(linhas: Linha[]): Tabela {
   const ancora = linhas.find((l) => ANCORA_ITENS.test(l.texto));
   if (!ancora) {
@@ -411,51 +503,40 @@ function lerTabela(linhas: Linha[]): Tabela {
     );
   }
   const daPagina = linhas.filter((l) => l.pagina === ancora.pagina);
-  // A linha do "Itens da Fatura" e as vizinhas que só têm rótulos.
+  // A linha do "Itens da Fatura" e as vizinhas só com rótulos (sem números).
   const cabecalho = daPagina.filter(
-    (l) => l === ancora || (Math.abs(l.y - ancora.y) <= 16 && ehCabecalho(l)),
+    (l) =>
+      l === ancora ||
+      (Math.abs(l.y - ancora.y) <= ALTURA_CABECALHO && !temNumero(l)),
   );
-  const colunas = colunasDoCabecalho(cabecalho);
-  const valor = colunas.find((c) => c.campo === "valor");
-  if (!valor) {
+  const { colunas, fim } = colunasDoCabecalho(cabecalho);
+  if (!colunas.some((c) => c.campo === "valor")) {
     throw new ErroEnergisa(
       'Achei a tabela "Itens da Fatura", mas não a coluna "Valor". O layout da fatura pode ter mudado: avise a equipe técnica.',
     );
   }
   const dados = colunas.filter((c) => c.campo !== "descricao");
-  const primeira = Math.min(...dados.map((c) => c.esq));
   const descricaoCol = colunas.find((c) => c.campo === "descricao");
-  const esquerda = (descricaoCol?.esq ?? 0) - 10;
-  const direita = Math.max(...dados.map((c) => c.dir)) + 30;
-  const limiteDescricao = primeira - 4;
+  // Onde as descrições começam: o rótulo "Itens da Fatura" (ou o início da linha dele).
+  const inicioDescricao = descricaoCol?.esq ?? ancora.itens[0]?.x ?? 0;
+  const direita = fim ?? Math.max(...dados.map((c) => c.dir)) + 30;
   const fundoCabecalho = Math.min(...cabecalho.map((l) => l.y));
+
+  const { corpo, total: linhaTotal } = corpoDaTabela(
+    daPagina
+      .filter((l) => l.y < fundoCabecalho - 1)
+      .map((l) => celulas(l, dados, inicioDescricao, direita)),
+    fundoCabecalho,
+  );
 
   const itens: ItemFatura[] = [];
   const avisos: Aviso[] = [];
-  let total: Tabela["total"] = null;
   type Anterior = { y: number; item: ItemFatura | null };
   let anterior = null as Anterior | null;
-  for (const linha of daPagina) {
-    if (linha.y >= fundoCabecalho - 1) continue;
-    // Fim da tabela: uma linha vazia grande depois do último item.
-    if (anterior && anterior.y - linha.y > 40) break;
-    const {
-      descricao,
-      valores,
-      total: ehTotal,
-    } = celulas(linha, colunas, limiteDescricao, esquerda, direita);
-    if (!descricao && !valores.size && !ehTotal) continue;
-    if (ehTotal) {
-      total = {
-        valor: cents(valores, "valor"),
-        pisCofins: cents(valores, "pisCofins"),
-        icms: cents(valores, "icms"),
-      };
-      break;
-    }
+  for (const { y, descricao, valores } of corpo) {
     // Subtotal de um grupo de itens não é item: somaria duas vezes.
     if (/^sub-?\s*total/i.test(descricao)) {
-      anterior = { y: linha.y, item: null };
+      anterior = { y, item: null };
       continue;
     }
     const v = cents(valores, "valor");
@@ -467,13 +548,13 @@ function lerTabela(linhas: Linha[]): Tabela {
         descricao &&
         !SECAO.test(descricao) &&
         anterior &&
-        anterior.y - linha.y <= 12
+        anterior.y - y <= 12
       ) {
         ultimo.descricao = `${ultimo.descricao} ${descricao}`.slice(0, 300);
         Object.assign(ultimo, classificar(ultimo.descricao));
-        anterior = { y: linha.y, item: ultimo };
+        anterior = { y, item: ultimo };
       } else if (descricao) {
-        anterior = { y: linha.y, item: null };
+        anterior = { y, item: null };
       }
       continue;
     }
@@ -483,7 +564,7 @@ function lerTabela(linhas: Linha[]): Tabela {
         nivel: "aviso",
         mensagem: `Linha da tabela de itens com valor (${valores.get("valor")}) e sem descrição: ficou de fora.`,
       });
-      anterior = { y: linha.y, item: null };
+      anterior = { y, item: null };
       continue;
     }
     const item: ItemFatura = {
@@ -500,13 +581,18 @@ function lerTabela(linhas: Linha[]): Tabela {
       tarifaUnitaria: num(valores, "tarifa"),
     };
     itens.push(item);
-    anterior = { y: linha.y, item };
+    anterior = { y, item };
   }
   if (!itens.length) {
     throw new ErroEnergisa(
       'A tabela "Itens da Fatura" veio sem itens. O layout da fatura pode ter mudado: avise a equipe técnica.',
     );
   }
+  const total = linhaTotal && {
+    valor: cents(linhaTotal.valores, "valor"),
+    pisCofins: cents(linhaTotal.valores, "pisCofins"),
+    icms: cents(linhaTotal.valores, "icms"),
+  };
   return { itens, avisos, total };
 }
 
@@ -633,15 +719,10 @@ function referenciaDoTexto(linhas: Linha[]): {
     if (new RegExp(DATA).test(l.texto)) return { referencia: ref, linha: l };
     primeira ??= { referencia: ref, linha: l };
   }
-  if (primeira) return primeira;
-  for (const l of linhas) {
-    const m = l.texto.match(/refer[eê]ncia\s*:?\s*(\d{1,2})\/(\d{4})/i);
-    if (m) {
-      const ref = mesIsoDe(Number(m[1]), Number(m[2]));
-      if (ref) return { referencia: ref, linha: l };
-    }
-  }
-  return { referencia: null, linha: null };
+  // Não usar "Referência: 07/2026": na página 2 é o mês dos indicadores de
+  // qualidade (DIC/FIC), não o da fatura. Sem o mês por extenso, vale o do
+  // nome do arquivo.
+  return primeira ?? { referencia: null, linha: null };
 }
 
 interface Leituras {
@@ -696,6 +777,8 @@ function enderecoDoTexto(linhas: Linha[], leituras: Leituras): string | null {
     .filter((t) => t.x < limite)
     .map((t) => t.str)
     .join(" ")
+    // O CEP no fim da linha ("... 1 PAV - 28605270") não é do endereço.
+    .replace(/\s*-\s*\d{5}-?\d{3}$/, "")
     .trim();
   return texto ? texto.slice(0, 300) : null;
 }
@@ -710,6 +793,8 @@ interface Medicao {
 /**
  * Linha do medidor: "NF786075 Energia ativa em kWh Ponta 146.814 147.694 1 880"
  * (número, grandeza, posto, leitura anterior, atual, constante, consumo).
+ * Na mesma linha, à direita, vem texto legal ("Conf. art.14 do RICMS/RJ...
+ * Lei nº 2.657/96"): só contam os números seguidos logo depois do posto.
  */
 function medicao(linhas: Linha[], grandeza: RegExp): Medicao {
   const vazia = { medidor: null, anterior: null, atual: null, consumo: null };
@@ -717,11 +802,15 @@ function medicao(linhas: Linha[], grandeza: RegExp): Medicao {
     const m = l.texto.match(grandeza);
     if (!m || m.index === undefined) continue;
     const antes = l.texto.slice(0, m.index).trim().split(/\s+/).at(-1) ?? "";
-    const numeros = l.texto
+    const numeros: number[] = [];
+    for (const p of l.texto
       .slice(m.index + m[0].length)
-      .split(/\s+/)
-      .map(numeroBr)
-      .filter((n): n is number => n !== null);
+      .trim()
+      .split(/\s+/)) {
+      const n = numeroBr(p);
+      if (n !== null) numeros.push(n);
+      else if (numeros.length) break;
+    }
     if (numeros.length < 3) continue;
     return {
       medidor: /^[A-Z0-9][A-Z0-9-]{3,}$/i.test(antes) ? antes : null,
@@ -733,9 +822,54 @@ function medicao(linhas: Linha[], grandeza: RegExp): Medicao {
   return vazia;
 }
 
+/** Distância máxima (pt) da linha que continua um texto quebrado. */
+const CONTINUA_LINHA = 9;
+
 const LIGACAO = /\b(monof[aá]sic[oa]|bif[aá]sic[oa]|trif[aá]sic[oa])\b/i;
 
+/**
+ * Classificação depois do rótulo "Classificação:". No layout real ela quebra
+ * em duas linhas ("MTC-CONVENCIONAL BAIXA TENSÃO / B3" e, logo abaixo,
+ * "COMERCIAL / COMERCIAL", com "LIGAÇÃO: TRIFASICO" à direita): a linha de
+ * baixo continua a de cima se começa no mesmo x e está logo abaixo; de cada
+ * linha só conta o que vem antes do próximo rótulo ("Algo:").
+ */
+function classificacaoRotulada(linhas: Linha[]): string | null {
+  const ateRotulo = (itens: ItemPdf[]) => {
+    const fim = itens.findIndex((t) => t.str.includes(":"));
+    return itens.slice(0, fim < 0 ? undefined : fim).map((t) => t.str);
+  };
+  for (const [i, l] of linhas.entries()) {
+    const k = l.itens.findIndex((t) => /classifica[cç][aã]o\s*:/i.test(t.str));
+    if (k < 0) continue;
+    const rotulo = l.itens[k] as ItemPdf;
+    const partes = [
+      rotulo.str.replace(/^.*classifica[cç][aã]o\s*:\s*/i, ""),
+      ...ateRotulo(l.itens.slice(k + 1)),
+    ];
+    let acima = l;
+    for (const abaixo of linhas.slice(i + 1, i + 3)) {
+      const primeiro = abaixo.itens[0];
+      if (
+        !primeiro ||
+        abaixo.pagina !== l.pagina ||
+        Math.abs(primeiro.x - rotulo.x) > 2 ||
+        acima.y - abaixo.y > CONTINUA_LINHA ||
+        primeiro.str.includes(":")
+      )
+        break;
+      partes.push(...ateRotulo(abaixo.itens));
+      acima = abaixo;
+    }
+    const texto = partes.join(" ").replace(/\s+/g, " ").trim();
+    if (texto) return texto.slice(0, 200);
+  }
+  return null;
+}
+
 function classificacaoDoTexto(linhas: Linha[]): string | null {
+  const rotulada = classificacaoRotulada(linhas);
+  if (rotulada) return rotulada;
   for (const l of linhas) {
     const m = l.texto.match(
       /\b([A-Z]{2,4}\s*-\s*Convencional[^/]*\/\s*B\d\s+[A-Za-zÀ-ú]+(?:\s+P[uú]blic[oa])?)/i,
@@ -1022,7 +1156,11 @@ export function lerFaturaEnergisa(
     endereco: enderecoDoTexto(linhas, leituras),
     classificacao: classificacaoDoTexto(linhas),
     ligacao: ligacaoDoTexto(linhas),
-    medidor: ativa.medidor,
+    medidor:
+      ativa.medidor ??
+      // No pé da página 2: "Medidor: NF786075".
+      textoTodo.match(/medidor\s*:\s*([A-Z0-9][A-Z0-9-]{3,39})\b/i)?.[1] ??
+      null,
     leituraAnterior: ativa.anterior,
     leituraAtual: ativa.atual,
     consumoMedidoKwh: ativa.consumo,

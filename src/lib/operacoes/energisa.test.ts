@@ -23,10 +23,9 @@ import {
 } from "./energisa.fixtures";
 import { ehPdf, lerPdfEnergisa, textosDoPdf } from "./energisa-pdf";
 
-// ATENÇÃO: não há fatura real no repositório (tem dados do cliente). Estes
-// testes usam uma fatura sintética montada a partir da descrição do layout
-// na spec (seção 4.7). Antes de usar em produção, rode o leitor numa fatura
-// de verdade (fora do repositório) e ajuste o que for diferente.
+// As faturas reais ficam fora do repositório (têm dados do cliente). Estes
+// testes usam uma fatura sintética que reproduz as posições e os rótulos do
+// layout real (energisa.fixtures.ts), com valores fictícios.
 
 const NOME = "ENERGISAMR-Fat-Matricula-0009100001-09-2026.PDF";
 const ler = (f: FaturaSintetica, nome: string | undefined = NOME) =>
@@ -169,7 +168,7 @@ describe("linhas da página", () => {
   });
 });
 
-describe("fatura completa (layout sintético da spec)", () => {
+describe("fatura completa (layout real, valores fictícios)", () => {
   const f = ler(faturaExemplo());
 
   it("lê o cabeçalho", () => {
@@ -178,8 +177,9 @@ describe("fatura completa (layout sintético da spec)", () => {
     expect(f.vencimento).toBe("2026-10-11");
     expect(f.totalAPagar).toBe(34250);
     expect(f.endereco).toBe("RUA DAS FLORES, 100 - BL 01 SL 101 1 PAV");
+    // Quebrada em duas linhas, com "LIGAÇÃO:" à direita da segunda.
     expect(f.classificacao).toBe(
-      "MTC-Convencional Baixa Tensão / B3 Comercial",
+      "MTC-CONVENCIONAL BAIXA TENSÃO / B3 COMERCIAL / COMERCIAL",
     );
     expect(f.ligacao).toBe("Trifásico");
   });
@@ -222,9 +222,18 @@ describe("fatura completa (layout sintético da spec)", () => {
       ["bandeira", null, null, 315],
       ["iluminacao", null, null, 4712],
     ]);
-    // Bandeira sem quantidade nem unidade; iluminação sem tributos.
-    expect(f.itens[3]?.quantidade).toBeNull();
-    expect(f.itens[4]?.icms).toBeNull();
+    // Bandeira e iluminação sem quantidade, unidade, preço nem tarifa.
+    for (const i of f.itens.slice(3)) {
+      expect(i.quantidade).toBeNull();
+      expect(i.unidade).toBeNull();
+      expect(i.precoUnitario).toBeNull();
+      expect(i.tarifaUnitaria).toBeNull();
+    }
+    expect(f.itens[4]).toMatchObject({
+      pisCofins: 0,
+      icms: 0,
+      aliquotaIcms: 0,
+    });
   });
 
   it("calcula consumo, compensação (positiva) e totais", () => {
@@ -366,6 +375,8 @@ describe("variações do layout", () => {
       ],
     });
     expect(f.consumoMedidoKwh).toBeNull();
+    // O número do medidor vem do pé da página 2 ("Medidor: XY123456").
+    expect(f.medidor).toBe("XY123456");
     expect(f.consumoKwh).toBe(1020);
     expect(f.valorConsumo).toBe(132440);
     expect(f.bate).toBe(true);
@@ -420,7 +431,11 @@ describe("conferência e avisos", () => {
     const f = lerFaturaEnergisa(itens, NOME);
     expect(f.total).toBe(34250);
     expect(mensagens(f)).toMatch(/Não achei a linha "TOTAL:"/);
-    expect(mensagens(f)).toMatch(/com valor \(342,50\) e sem descrição/);
+    // A tabela acaba no vão depois do último item: a linha dos números do
+    // total e a do medidor, bem abaixo, não viram itens.
+    expect(f.itens).toHaveLength(5);
+    expect(f.bate).toBe(true);
+    expect(mensagens(f)).not.toMatch(/sem descrição/);
   });
 
   it("matrícula só no nome do arquivo", () => {
@@ -549,9 +564,10 @@ describe("PDF de verdade (pdf-lib → pdf.js → leitor)", () => {
 
   it("devolve os textos com posição", async () => {
     const paginas = await textosDoPdf(await pdfDaFatura(faturaExemplo()));
-    expect(paginas).toHaveLength(1);
+    expect(paginas).toHaveLength(2);
     const consumo = paginas[0]?.find((i) => i.str === "Consumo em kWh");
-    expect(consumo).toMatchObject({ x: 30, y: 580 });
+    expect(consumo?.x).toBeCloseTo(27.1, 1);
+    expect(consumo?.y).toBeCloseTo(489.4, 1);
     expect(consumo?.w).toBeGreaterThan(0);
   }, 20_000);
 

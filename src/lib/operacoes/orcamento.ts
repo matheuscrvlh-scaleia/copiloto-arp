@@ -21,17 +21,22 @@ import {
 //   * Cabeçalho: a linha com mais células de mês (data do Excel, "jul/26",
 //     "07/2026", "01/07/2026", "julho/2026").
 //   * Coluna de realizado: título com "realizado" ou "real." (ex.: "Real. até
-//     06/26"); o mês é o último que aparece no título. Uma faixa "REALIZADO"
-//     acima de colunas de mês também marca essas colunas como realizado. O
+//     06/26"), ou um período ("06/2025 A 06/2026") com "(REALIZADO)" logo
+//     abaixo; o mês é o último que aparece no título. Uma faixa "REALIZADO"
+//     acima (ou sozinha logo abaixo) de colunas de mês também marca essas
+//     colunas como realizado. O
 //     realizado entra no previsto da revisão (é parte do orçamento total) e,
 //     na primeira importação da obra, também como realizado.
 //   * Etapas: a coluna de texto à esquerda dos meses. "Subtotal" confere a
 //     soma das etapas de cima; "Total" é o total escrito e encerra as etapas.
+//     Se a coluna das etapas está vazia na linha, "Total" (e "Subtotal") é
+//     procurado nas outras colunas, com o valor logo à direita do rótulo.
 //   * Revisão (R00, R01…), data e título: no texto acima do cabeçalho; a
 //     revisão também pode vir do nome do arquivo.
-//   * Mês fora de ordem ou repetido no cabeçalho (ex.: "02/12/2026" entre
-//     dez/26 e fev/27) não é corrigido sozinho: a coluna fica pendente, com
-//     uma sugestão, até a pessoa escolher o mês certo na prévia.
+//   * Mês fora de ordem, repetido ou ilegível no cabeçalho: se só um mês cabe
+//     entre os vizinhos (o "02/12/2026" entre dez/26 e fev/27 só pode ser
+//     jan/27), a coluna é lida com esse mês e avisada; senão fica pendente,
+//     com uma sugestão, até a pessoa escolher o mês certo na prévia.
 
 export type Celula = string | number | boolean | Date | null;
 
@@ -73,6 +78,11 @@ export interface ColunaDeMes {
   sugestao: Mes | null;
   /** Mês escolhido pela pessoa (na prévia). */
   escolhido: boolean;
+  /**
+   * Mês deduzido da sequência, sem perguntar: a coluna está entre dois meses
+   * certos com exatamente um mês faltando entre eles (vira aviso).
+   */
+  deduzido: boolean;
   /** Vizinhos, para a pessoa entender o problema ("dez/26 → ? → fev/27"). */
   antes: Mes | null;
   depois: Mes | null;
@@ -200,8 +210,8 @@ const ehRealizado = (texto: string) =>
 const ehTotal = (texto: string) =>
   /^(valor )?total\b/.test(normalizar(texto)) &&
   !/^sub/.test(normalizar(texto));
-const ehSubtotal = (texto: string) =>
-  /^sub\s*-?\s*total/.test(normalizar(texto));
+// "Sub-Total", "Subtotal", "Sub total" e o "Sub-Toal" (sic) da planilha real.
+const ehSubtotal = (texto: string) => /^sub\s*-?\s*to/.test(normalizar(texto));
 const ehObservacao = (texto: string) =>
   /^obs\b|^obs\.|^observa/.test(normalizar(texto));
 const ehTituloDeColuna = (texto: string) =>
@@ -336,6 +346,8 @@ function lerMetadados(linhas: Celula[][], ate: number): Metadados {
             .slice(i + 1)
             .map(dataDaCelula)
             .find((d) => d !== null) ??
+          // A data logo abaixo da revisão ("R00" em F1, 14/07/2026 em F2).
+          dataDaCelula(linhas[r + 1]?.[i] ?? null) ??
           data;
       }
       if (!data && /^data\b/.test(n))
@@ -370,10 +382,26 @@ function lerMetadados(linhas: Celula[][], ate: number): Metadados {
   };
 }
 
-/** Rótulo de faixa acima de uma coluna de mês ("REALIZADO", "PREVISTO"). */
-function faixaAcima(
+/** Linhas logo abaixo do cabeçalho sem nenhum número ("(REALIZADO)" sob o período). */
+function linhasDeSubcabecalho(linhas: Celula[][], cab: number): number[] {
+  const sub: number[] = [];
+  for (let r = cab + 1; r <= cab + 2 && r < linhas.length; r++) {
+    const l = linhas[r] ?? [];
+    if (l.some(ehNumero)) break;
+    sub.push(r);
+  }
+  return sub;
+}
+
+/**
+ * Rótulo de faixa de uma coluna ("REALIZADO", "PREVISTO"): nas duas linhas
+ * acima do cabeçalho (faixa mesclada) ou, sozinho na célula, numa linha de
+ * subcabeçalho logo abaixo (o "(REALIZADO)" sob "06/2025 A 06/2026").
+ */
+function faixaDaColuna(
   linhas: Celula[][],
   cab: number,
+  sub: number[],
   col: number,
 ): "realizado" | "previsto" | null {
   for (let r = cab - 1; r >= Math.max(0, cab - 2); r--) {
@@ -382,13 +410,21 @@ function faixaAcima(
     if (ehRealizado(t)) return "realizado";
     if (/previs/.test(t)) return "previsto";
   }
+  for (const r of sub) {
+    const t = normalizar(textoDe(linhas[r]?.[col] ?? null));
+    if (/^\(?\s*realizados?\s*\)?$/.test(t)) return "realizado";
+    if (/^\(?\s*previstos?\s*\)?$/.test(t)) return "previsto";
+  }
   return null;
 }
 
 /**
  * Confere a sequência dos meses do cabeçalho: cada coluna deve ser o mês
- * seguinte ao da anterior. Repetido ou fora de ordem vira problema, com a
- * sugestão do mês que caberia ali; o que a pessoa escolheu vale.
+ * seguinte ao da anterior. Repetido, fora de ordem ou ilegível vira problema,
+ * com a sugestão do mês que caberia ali. Se a coluna está entre dois meses
+ * certos e só um mês cabe entre eles (o "02/12/2026" entre dez/26 e fev/27),
+ * a sugestão é usada sem perguntar e avisada; senão a coluna fica pendente
+ * até a pessoa escolher. O que a pessoa escolheu sempre vale.
  */
 function conferirSequencia(
   colunas: ColunaDeMes[],
@@ -397,6 +433,8 @@ function conferirSequencia(
 ) {
   const vistos = new Set<Mes>();
   let anterior: Mes | null = null;
+  /** A coluna anterior não teve problema (ou teve o mês escolhido). */
+  let anteriorCerto = false;
   colunas.forEach((c, i) => {
     const escolhido = escolhas[c.coluna];
     const esperado = anterior ? somarMeses(anterior, 1) : null;
@@ -432,7 +470,14 @@ function conferirSequencia(
       c.escolhido = true;
     } else {
       c.mes = problema ? sugestao : c.lido;
+      c.deduzido =
+        problema !== null &&
+        sugestao !== null &&
+        anteriorCerto &&
+        proximo !== null &&
+        proximo === somarMeses(sugestao, 1);
     }
+    anteriorCerto = !problema || c.escolhido;
     const vale = c.mes ?? c.lido;
     if (vale) {
       vistos.add(vale);
@@ -461,6 +506,8 @@ export function lerOrcamento(
   const linhas = aba.linhas;
   const cabecalho = linhas[rCab] ?? [];
   const avisos: AvisoOrcamento[] = [];
+  const sub = linhasDeSubcabecalho(linhas, rCab);
+  const faixa = (col: number) => faixaDaColuna(linhas, rCab, sub, col);
 
   // Colunas: meses (e ilegíveis no meio deles), realizado, total, observação.
   const primeiroMes = cab.meses[0] ?? 0;
@@ -478,8 +525,7 @@ export function lerOrcamento(
     }
     if (
       colRealizado === null &&
-      ((t && ehRealizado(t)) ||
-        (i < primeiroMes && faixaAcima(linhas, rCab, i) === "realizado"))
+      ((t && ehRealizado(t)) || (i < primeiroMes && faixa(i) === "realizado"))
     )
       colRealizado = i;
     else if (t && ehTotal(t) && (colTotal === null || i > ultimoMes))
@@ -499,16 +545,16 @@ export function lerOrcamento(
 
   const colunas: ColunaDeMes[] = indicesDeMes.map((i) => {
     const c = cabecalho[i] ?? null;
-    const faixa = faixaAcima(linhas, rCab, i);
     return {
       coluna: letraDaColuna(i),
       texto: textoDe(c),
       lido: mesDaCelula(c),
       mes: null,
-      realizado: faixa === "realizado",
+      realizado: faixa(i) === "realizado",
       problema: null,
       sugestao: null,
       escolhido: false,
+      deduzido: false,
       antes: null,
       depois: null,
     };
@@ -516,7 +562,7 @@ export function lerOrcamento(
   conferirSequencia(colunas, opcoes.meses ?? {}, avisos);
   const repetidos = new Map<Mes, string[]>();
   for (const c of colunas)
-    if (c.mes && (!c.problema || c.escolhido))
+    if (c.mes && (!c.problema || c.escolhido || c.deduzido))
       repetidos.set(c.mes, [...(repetidos.get(c.mes) ?? []), c.coluna]);
   for (const [mes, cols] of repetidos)
     if (cols.length > 1)
@@ -591,18 +637,85 @@ export function lerOrcamento(
     return v.tipo === "numero" ? v.centavos : null;
   };
 
+  /**
+   * Rótulos "Total" e "Subtotal" fora da coluna das etapas (a planilha real
+   * põe "Total" em G e o valor em H), com o número logo à direita.
+   */
+  const rotulosDaLinha = (l: Celula[]) =>
+    l.flatMap((c, i) => {
+      if (i === colNome || typeof c !== "string") return [];
+      const tipo = ehSubtotal(c) ? "subtotal" : ehTotal(c) ? "total" : null;
+      if (!tipo) return [];
+      const j = l.findIndex((x, k) => k > i && valorDa(x).tipo !== "vazio");
+      const v = j > i ? valorDa(l[j] ?? null) : null;
+      return [
+        {
+          tipo,
+          texto: textoDe(c),
+          coluna: j > i ? j : null,
+          centavos: v?.tipo === "numero" ? v.centavos : null,
+        },
+      ];
+    });
+
+  /** Linha sem nome de etapa com "Total" em outra coluna: o total escrito. */
+  const lerTotalFora = (l: Celula[], nlinha: number) => {
+    const totais = rotulosDaLinha(l).filter(
+      (x): x is typeof x & { coluna: number; centavos: number } =>
+        x.tipo === "total" && x.centavos !== null && x.coluna !== null,
+    );
+    const [primeiro, ...outros] = totais;
+    if (!primeiro) return false;
+    totalArquivo = primeiro.centavos;
+    const onde = (col: number) => `${letraDaColuna(col)}${nlinha}`;
+    for (const o of outros)
+      if (o.centavos !== primeiro.centavos)
+        avisos.push({
+          nivel: "aviso",
+          linha: nlinha,
+          mensagem: `A linha do total tem dois valores diferentes: ${reais(primeiro.centavos)} (${onde(primeiro.coluna)}) e ${reais(o.centavos)} (${onde(o.coluna)}). Vale o primeiro.`,
+        });
+    // Número sem rótulo na mesma linha (ex.: a soma escrita na coluna das etapas).
+    const usadas = new Set(totais.map((x) => x.coluna));
+    l.forEach((c, i) => {
+      const v = valorDa(c);
+      if (
+        usadas.has(i) ||
+        v.tipo !== "numero" ||
+        v.centavos === primeiro.centavos
+      )
+        return;
+      avisos.push({
+        nivel: "info",
+        linha: nlinha,
+        mensagem: `A linha do total também traz ${reais(v.centavos)} sem rótulo (${onde(i)}), ${reais(v.centavos - primeiro.centavos)} de diferença para o total ${reais(primeiro.centavos)} (${onde(primeiro.coluna)}). Vale o que está ao lado de “${primeiro.texto}”.`,
+      });
+    });
+    return true;
+  };
+
   for (let r = rCab + 1; r < linhas.length; r++) {
     const l = linhas[r] ?? [];
     const nlinha = r + 1;
     const nome = textoDe(l[colNome] ?? null);
     const temNumero = valoresDaLinha(l) !== 0 || (totalDaColuna(l) ?? 0) !== 0;
     if (!nome || valorDa(l[colNome] ?? null).tipo === "numero") {
-      if (temNumero)
-        avisos.push({
-          nivel: "info",
-          linha: nlinha,
-          mensagem: `A linha ${nlinha} tem valores sem nome (${reais(totalDaColuna(l) ?? valoresDaLinha(l))}) e não entrou como etapa.`,
-        });
+      if (!fim && lerTotalFora(l, nlinha)) {
+        fim = true;
+        continue;
+      }
+      if (!temNumero) continue;
+      const rotulo = l.map((c) => valorDa(c)).find((v) => v.tipo === "texto");
+      const qual = rotulo?.tipo === "texto" ? ` (“${rotulo.texto}”)` : "";
+      avisos.push({
+        nivel: "info",
+        linha: nlinha,
+        mensagem: fim
+          ? `A linha ${nlinha}${qual} vem depois do total e não entrou como etapa.`
+          : rotulosDaLinha(l).some((x) => x.tipo === "subtotal")
+            ? `A linha ${nlinha} tem subtotais por grupo de meses e não entrou como etapa.`
+            : `A linha ${nlinha} tem valores sem nome (${reais(totalDaColuna(l) ?? valoresDaLinha(l))}) e não entrou como etapa.`,
+      });
       continue;
     }
     if (ehTituloDeColuna(nome)) continue;
@@ -817,9 +930,11 @@ export function lerOrcamento(
     const vizinhos = `${c.antes ? rotuloMesLongo(c.antes) : "início"} e ${c.depois ? rotuloMesLongo(c.depois) : "fim"}`;
     avisos.push({
       nivel: c.escolhido ? "info" : "aviso",
-      mensagem: c.escolhido
-        ? `Coluna ${c.coluna}: “${c.texto || "vazio"}” (${ROTULO_PROBLEMA[c.problema].toLowerCase()}, entre ${vizinhos}) foi lida como ${rotuloMesLongo(c.mes ?? "")}, escolhido na prévia.`
-        : `Coluna ${c.coluna}: “${c.texto || "vazio"}” entre ${vizinhos} (${ROTULO_PROBLEMA[c.problema].toLowerCase()}). Escolha o mês certo.`,
+      mensagem: c.deduzido
+        ? `Coluna ${c.coluna}: “${c.texto || "vazio"}” entre ${vizinhos} (${ROTULO_PROBLEMA[c.problema].toLowerCase()}) foi lida como ${rotuloMesLongo(c.mes ?? "")}, o único mês que cabe entre os dois. Confira na planilha.`
+        : c.escolhido
+          ? `Coluna ${c.coluna}: “${c.texto || "vazio"}” (${ROTULO_PROBLEMA[c.problema].toLowerCase()}, entre ${vizinhos}) foi lida como ${rotuloMesLongo(c.mes ?? "")}, escolhido na prévia.`
+          : `Coluna ${c.coluna}: “${c.texto || "vazio"}” entre ${vizinhos} (${ROTULO_PROBLEMA[c.problema].toLowerCase()}). Escolha o mês certo.`,
     });
   }
 
@@ -843,7 +958,9 @@ export function lerOrcamento(
       realizadoAte,
       diferenca,
       periodo: periodoDe(todosPrevistos),
-      pendentes: colunas.filter((c) => c.problema && !c.escolhido),
+      pendentes: colunas.filter(
+        (c) => c.problema && !c.escolhido && !c.deduzido,
+      ),
       avisos,
     },
   };

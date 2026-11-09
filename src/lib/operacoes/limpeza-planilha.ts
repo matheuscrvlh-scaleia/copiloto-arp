@@ -13,6 +13,14 @@ import {
   valorDoExtra,
   valoresPorLocal,
 } from "./limpeza";
+import {
+  avaliar,
+  endereco,
+  lerFormula,
+  type NoFormula,
+  type Ref,
+  refsDe,
+} from "./limpeza-formula";
 
 // Importação do histórico do rateio (spec 4.8 e 4.11): a planilha "RATEIO BS
 // E MANUTENÇÃO", uma aba por mês ("BS dd.mm.aa", "BS dd.mm.aaaa", às vezes
@@ -26,11 +34,19 @@ import {
 //   F12 total do mês               A13:B40 extras em texto livre
 //
 // Lê os valores já calculados (o resultado das fórmulas), refaz a conta com
-// a regra do Bloco 04 da época e compara com a aba. A planilha não tem os
-// funcionários da área comum nem os rateados: os rateados saem da soma dos
-// blocos ÷ valor por funcionário e a área comum é o resto da base. Os
-// extras (A13:B40) são texto livre; a leitura junta "dias cobrados" ao valor
-// da linha de cima e confere a soma com o que a área comum da aba implica.
+// a regra do Bloco 04 da época e compara com a aba. Os rateados saem da soma
+// dos blocos ÷ valor por funcionário.
+//
+// A área comum é a fórmula de F4 ("5*F3+B23+B28+B31+B37"; na regra antiga
+// "5*F3+F7+B23"; de mai/2022 a jan/2024 com os extras como números dentro
+// dela, "5*F3+F7+278.68+3897*2"): k*F3 dá os funcionários da área comum, F7
+// é o Bloco 04, cada Bnn é um extra (ou um subtotal, aberto nas parcelas) e
+// cada número solto é um extra lançado na fórmula. O que está em A13:B40 e
+// a fórmula não usa (reajuste da base, vigia do caixa) fica fora da soma. O
+// resultado guardado de F4 confere a leitura. Sem fórmula em F4 (arquivo
+// salvo só com valores), os extras são todos os pares A13:B40: "dias
+// cobrados" junta-se ao valor da linha de cima e a soma é conferida com o
+// que a área comum da aba implica.
 
 export const LINHA_PRIMEIRO_BLOCO = 5;
 export const LINHA_ULTIMO_BLOCO = 11;
@@ -42,6 +58,8 @@ export interface AbaDoRateio {
   nome: string;
   /** Valor calculado da célula ("F4"); fórmula vira o resultado. */
   celula: (endereco: string) => ValorCelula;
+  /** Fórmula da célula, sem o "=" (null se é valor). Ausente: só valores. */
+  formula?: (endereco: string) => string | null;
 }
 
 export type NivelAviso = "erro" | "aviso" | "info";
@@ -119,16 +137,21 @@ export interface OpcoesLeitura {
 // ---------------------------------------------------------------------------
 
 const NOME_ABA =
-  /^\s*BS\s+(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})(\s+REV(?:\s*\d*)?)?\s*$/i;
+  /^\s*BS\s+(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})(\s+REV(?:\s*\d*)?)?(\s*\([^()]*\))?\s*$/i;
 
 export interface AbaDeMes {
   referencia: string;
   /** Dia do nome (para escolher entre abas do mesmo mês). */
   dia: number;
+  /** "REV" ou anotação entre parênteses ("(reaj)", "(alter)") no nome. */
   revisada: boolean;
 }
 
-/** "BS 25.09.26" → set/2026; "BS 20.12.25 REV" → dez/2025 revisada. */
+/**
+ * "BS 25.09.26" → set/2026; "BS 20.12.25 REV" → dez/2025 revisada;
+ * "BS 20.02.2024 (reaj)" → fev/2024: mesmo layout, nome anotado (vale como
+ * revisada se houver outra aba do mesmo mês).
+ */
 export function mesDaAba(nome: string): AbaDeMes | null {
   const m = NOME_ABA.exec(nome);
   if (!m) return null;
@@ -140,7 +163,7 @@ export function mesDaAba(nome: string): AbaDeMes | null {
   return {
     referencia: `${ano}-${String(mes).padStart(2, "0")}-01`,
     dia,
-    revisada: Boolean(m[4]),
+    revisada: Boolean(m[4] || m[5]),
   };
 }
 
@@ -281,6 +304,297 @@ export function lerExtras(
 }
 
 // ---------------------------------------------------------------------------
+// Área comum pela fórmula de F4
+// ---------------------------------------------------------------------------
+
+/** Número solto na fórmula de F4, sem descrição na aba. */
+export const ROTULO_NA_FORMULA = "Lançado na fórmula da área comum (F4)";
+/** Rótulo que só diz "valor": a descrição vem do título do grupo. */
+const GENERICO = /^\s*(valor|pre[cç]o)\b/i;
+/** Quantidade de um extra: dias no mês, auxiliares. */
+const MAX_QUANTIDADE = 31;
+/** Subtotal dentro de subtotal: limite contra referência circular. */
+const MAX_PROFUNDIDADE = 8;
+
+const ehLinhaDeExtra = (r: Ref) =>
+  r.coluna === "B" &&
+  r.linha >= LINHAS_EXTRAS.de &&
+  r.linha <= LINHAS_EXTRAS.ate;
+const emCentavos = (v: number) =>
+  Math.abs(v * 100 - Math.round(v * 100)) < 1e-6;
+
+export interface AreaComumDaFormula {
+  /** k de "k*F3". */
+  funcAreaComum: number;
+  /** A fórmula soma o valor do Bloco 04 (regra antiga). */
+  comBl04: boolean;
+  extras: ExtraRateio[];
+  /** Linhas de A13:B40 que a fórmula usa (direto ou por subtotal). */
+  linhasUsadas: Set<number>;
+}
+
+/**
+ * Lê a fórmula de F4. Devolve o motivo (texto) se ela foge do padrão
+ * "k*F3 + [F do Bloco 04] + Bnn… + números": aí a importação segue pelos
+ * valores de A13:B40.
+ */
+export function lerAreaComumDaFormula(
+  aba: AbaDoRateio,
+  formula: string,
+  linhaBl04: number | null,
+): AreaComumDaFormula | string {
+  const raiz = lerFormula(formula);
+  if (!raiz) return "usa função ou referência que a importação não lê";
+
+  const linhasUsadas = new Set<number>();
+  const rotulo = (l: number) =>
+    texto(aba.celula(`A${l}`))?.replace(/\s+/g, " ") ?? null;
+  /** Título do grupo: descrição sem valor logo acima ("Inclusão …"). */
+  const titulo = (l: number) => {
+    for (let k = l - 1; k >= LINHAS_EXTRAS.de; k--) {
+      if (numero(aba.celula(`B${k}`)) !== null) return null;
+      const r = rotulo(k);
+      if (r) return r;
+    }
+    return null;
+  };
+  const descricao = (l: number) =>
+    rotulo(l) ?? titulo(l) ?? `Extra da linha ${l}`;
+  const descricaoDoUnitario = (l: number) => {
+    const r = rotulo(l);
+    return r && !GENERICO.test(r) ? r : (titulo(l) ?? descricao(l));
+  };
+
+  /** Valor da célula: o calculado; sem ele, a fórmula; vazia conta 0. */
+  const valorDe = (r: Ref, prof = 0): number | null => {
+    const v = aba.celula(endereco(r));
+    if (ehErro(v)) return null;
+    const n = numero(v);
+    if (n !== null) return n;
+    const f = aba.formula?.(endereco(r));
+    if (f) {
+      const no = prof < MAX_PROFUNDIDADE ? lerFormula(f) : null;
+      return no ? avaliar(no, (x) => valorDe(x, prof + 1)) : null;
+    }
+    return v === null ? 0 : null;
+  };
+
+  const extra = (desc: string, valor: number, sinal: 1 | -1): ExtraRateio[] => {
+    const c = sinal * centavos(valor);
+    return c === 0
+      ? []
+      : [
+          {
+            descricao: desc.slice(0, 200),
+            quantidade: null,
+            valorUnitario: null,
+            valor: c,
+          },
+        ];
+  };
+
+  /** Dois fatores: qual é a quantidade (dias, auxiliares) e qual o valor. */
+  const quantidadeEUnitario = (
+    lados: { v: number; linha: number | null }[],
+  ) => {
+    const ehQtd = (x: { v: number }) =>
+      Number.isInteger(x.v) && x.v >= 0 && x.v <= MAX_QUANTIDADE;
+    const pelaDescricao = lados.findIndex(
+      (x) => x.linha !== null && QUANTIDADE.test(rotulo(x.linha) ?? ""),
+    );
+    const inteiros = lados.flatMap((x, i) => (ehQtd(x) ? [i] : []));
+    const iq =
+      pelaDescricao >= 0 && ehQtd(lados[pelaDescricao] as { v: number })
+        ? pelaDescricao
+        : inteiros.length === 2
+          ? (lados[0] as { v: number }).v < (lados[1] as { v: number }).v
+            ? 0
+            : 1
+          : (inteiros[0] ?? -1);
+    const q = lados[iq];
+    const u = lados[1 - iq];
+    return q && u && emCentavos(u.v) ? { q, u } : null;
+  };
+
+  function doNo(
+    no: NoFormula,
+    sinal: 1 | -1,
+    linha: number | null,
+    prof: number,
+  ): ExtraRateio[] | string {
+    if (prof > MAX_PROFUNDIDADE) return "subtotais encadeados demais";
+    const fora = refsDe(no).find((r) => !ehLinhaDeExtra(r));
+    if (fora) return `soma ${endereco(fora)}, fora dos extras (B13 a B40)`;
+    const desc = linha === null ? ROTULO_NA_FORMULA : descricao(linha);
+    if (no.t === "ref") return daCelula(no.ref.linha, sinal, prof + 1);
+    if (no.t === "soma") {
+      const out: ExtraRateio[] = [];
+      for (const p of no.parcelas) {
+        const r = doNo(p.no, (sinal * p.sinal) as 1 | -1, linha, prof + 1);
+        if (typeof r === "string") return r;
+        out.push(...r);
+      }
+      return out;
+    }
+    const valor = avaliar(no, valorDe);
+    if (valor === null) return "tem célula sem valor numérico";
+    for (const r of refsDe(no)) linhasUsadas.add(r.linha);
+    // Quantidade × valor por unidade ("3897*4", "B26*B27").
+    if (
+      no.t === "prod" &&
+      no.fatores.length === 2 &&
+      no.fatores.every((f) => f.op === "*")
+    ) {
+      const lados = no.fatores.map((f) => ({
+        v: avaliar(f.no, valorDe),
+        linha: f.no.t === "ref" ? f.no.ref.linha : null,
+      }));
+      const qu = lados.every((x) => x.v !== null)
+        ? quantidadeEUnitario(lados as { v: number; linha: number | null }[])
+        : null;
+      if (qu) {
+        const unitario = sinal * centavos(qu.u.v);
+        const v = valorDoExtra(qu.q.v, unitario, 0);
+        if (v === 0) return [];
+        return [
+          {
+            descricao: (qu.u.linha === null
+              ? desc
+              : descricaoDoUnitario(qu.u.linha)
+            ).slice(0, 200),
+            quantidade: qu.q.v,
+            valorUnitario: unitario,
+            valor: v,
+          },
+        ];
+      }
+    }
+    return extra(desc, valor, sinal);
+  }
+
+  function daCelula(
+    l: number,
+    sinal: 1 | -1,
+    prof: number,
+  ): ExtraRateio[] | string {
+    linhasUsadas.add(l);
+    const f = aba.formula?.(`B${l}`);
+    const no = f ? lerFormula(f) : null;
+    if (no) return doNo(no, sinal, l, prof);
+    const v = valorDe({ coluna: "B", linha: l });
+    return v === null
+      ? `B${l} sem valor numérico`
+      : extra(descricao(l), v, sinal);
+  }
+
+  let funcAreaComum: number | null = null;
+  let comBl04 = false;
+  const extras: ExtraRateio[] = [];
+  const parcelas =
+    raiz.t === "soma" ? raiz.parcelas : [{ sinal: 1 as const, no: raiz }];
+  for (const { sinal, no } of parcelas) {
+    const refs = refsDe(no);
+    if (refs.some((r) => r.coluna === "F" && r.linha === 3)) {
+      const k = fatorDoValorPorFuncionario(no);
+      if (k === null || sinal < 0 || funcAreaComum !== null)
+        return "o termo do valor por funcionário (F3) não é k*F3";
+      funcAreaComum = k;
+      continue;
+    }
+    if (
+      no.t === "ref" &&
+      no.ref.coluna === "F" &&
+      no.ref.linha >= LINHA_PRIMEIRO_BLOCO &&
+      no.ref.linha <= LINHA_ULTIMO_BLOCO
+    ) {
+      if (no.ref.linha !== linhaBl04 || sinal < 0 || comBl04)
+        return `soma ${endereco(no.ref)}, que não é o Bloco 04`;
+      comBl04 = true;
+      continue;
+    }
+    const r = doNo(no, sinal, null, 0);
+    if (typeof r === "string") return r;
+    extras.push(...r);
+  }
+  if (funcAreaComum === null)
+    return "não tem funcionários × valor por funcionário (k*F3)";
+  return { funcAreaComum, comBl04, extras, linhasUsadas };
+}
+
+/** k de "k*F3" ou "F3*k" (k inteiro ≥ 0); null se for outra conta. */
+function fatorDoValorPorFuncionario(no: NoFormula): number | null {
+  const fatores = no.t === "prod" ? no.fatores : [{ op: "*" as const, no }];
+  let k = 1;
+  let f3 = 0;
+  for (const f of fatores) {
+    if (f.op !== "*") return null;
+    if (f.no.t === "ref" && f.no.ref.coluna === "F" && f.no.ref.linha === 3)
+      f3++;
+    else if (f.no.t === "num") k *= f.no.v;
+    else return null;
+  }
+  return f3 === 1 && Number.isInteger(k) && k >= 0 ? k : null;
+}
+
+/** Pares de A13:B40 com valor numérico (para guardar e mostrar). */
+function paresLidos(aba: AbaDoRateio) {
+  const pares: { linha: number; descricao: string; valor: number }[] = [];
+  let titulo: string | null = null;
+  for (let l = LINHAS_EXTRAS.de; l <= LINHAS_EXTRAS.ate; l++) {
+    const a = texto(aba.celula(`A${l}`))?.replace(/\s+/g, " ") ?? null;
+    const b = aba.celula(`B${l}`);
+    const valor = ehErro(b) ? null : numero(b);
+    if (valor === null) {
+      if (a) titulo = a;
+      continue;
+    }
+    pares.push({
+      linha: l,
+      descricao: a ?? titulo ?? `Extra da linha ${l}`,
+      valor: arred2(valor) as number,
+    });
+    titulo = null;
+  }
+  return pares;
+}
+
+/** Extras da fórmula de F4; o resto de A13:B40 fica fora da soma. */
+function extrasDaFormula(
+  aba: AbaDoRateio,
+  f: AreaComumDaFormula,
+  regra: RegraBl04,
+  avisos: AvisoImportacao[],
+): Omit<ExtrasLidos, "avisos"> {
+  if (f.comBl04 !== (regra === "area_comum"))
+    avisos.push({
+      nivel: "aviso",
+      aba: aba.nome,
+      mensagem: `A fórmula da área comum (F4) ${f.comBl04 ? "soma" : "não soma"} o Bloco 04, diferente da regra da data (${ROTULO_REGRA_BL04[regra]}). A conta usou a regra da data.`,
+    });
+  const pares = paresLidos(aba);
+  const fora = pares
+    .filter((p) => !f.linhasUsadas.has(p.linha))
+    .map(({ descricao, valor }) => ({ descricao, valor }));
+  if (fora.length)
+    avisos.push({
+      nivel: "info",
+      aba: aba.nome,
+      mensagem: `${fora.map((x) => `"${x.descricao}" (${reais(centavos(x.valor))})`).join(", ")}: na aba, mas fora da soma da área comum (fórmula de F4). Não entra nos extras.`,
+    });
+  if (f.extras.some((x) => x.descricao === ROTULO_NA_FORMULA))
+    avisos.push({
+      nivel: "info",
+      aba: aba.nome,
+      mensagem: `Extras lançados como número na fórmula da área comum (F4), sem descrição na aba: entram como "${ROTULO_NA_FORMULA}". Descreva-os na tela do rateio, se quiser.`,
+    });
+  return {
+    extras: f.extras,
+    lidos: pares.map(({ descricao, valor }) => ({ descricao, valor })),
+    fora,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Uma aba
 // ---------------------------------------------------------------------------
 
@@ -294,12 +608,6 @@ export function lerAbaDoRateio(
   const regra = regraBl04Do(referencia);
   const rotuloAc = texto(aba.celula("E4"));
   const rotuloDizBl04 = rotuloAc ? /BL\s*0?4\b/i.test(rotuloAc) : false;
-  if (rotuloAc && rotuloDizBl04 !== (regra === "area_comum"))
-    avisos.push({
-      nivel: "aviso",
-      aba: aba.nome,
-      mensagem: `O rótulo "${rotuloAc}" não segue a regra da data (${ROTULO_REGRA_BL04[regra]}). A conta usou a regra da data.`,
-    });
 
   const celulaNum = (end: string) => {
     const v = aba.celula(end);
@@ -325,6 +633,7 @@ export function lerAbaDoRateio(
     if (!bloco) continue;
     linhas.push({
       bloco,
+      linha: l,
       valor: celulaNum(`F${l}`),
       limpeza: Math.max(0, Math.round(celulaNum(`H${l}`) ?? 0)),
       manutencao: Math.max(0, Math.round(celulaNum(`I${l}`) ?? 0)),
@@ -364,30 +673,86 @@ export function lerAbaDoRateio(
         mensagem: `Funcionários rateados não deduzidos da aba: usei ${funcRateados} (parâmetros).`,
       });
   }
-  const funcAreaComum =
+  let funcAreaComum =
     funcBase === null
       ? null
       : funcBase - funcRateados >= 0
         ? funcBase - funcRateados
         : Math.min(opcoes.funcAreaComum, funcBase);
 
-  // Extras que a área comum da aba implica: área comum (sem o Bloco 04, na
-  // regra antiga) − funcionários da área comum × valor por funcionário.
-  const bl04Lido = linhas.find((l) => l.bloco === BLOCO_04)?.valor ?? null;
-  const acSemBl04 =
-    acLido === null
-      ? null
-      : regra === "area_comum"
-        ? bl04Lido === null
-          ? null
-          : acLido - bl04Lido
-        : acLido;
-  const implicito =
-    acSemBl04 !== null && vfLido !== null && funcAreaComum !== null
-      ? centavos(acSemBl04 - funcAreaComum * vfLido)
-      : null;
-  const ex = lerExtras(aba, implicito);
-  avisos.push(...ex.avisos);
+  const bl04 = linhas.find((l) => l.bloco === BLOCO_04);
+  const bl04Lido = bl04?.valor ?? null;
+  const formulaAc = aba.formula?.("F4") ?? null;
+  const pelaFormula = formulaAc
+    ? lerAreaComumDaFormula(aba, formulaAc, bl04?.linha ?? null)
+    : null;
+  let ex: Omit<ExtrasLidos, "avisos">;
+  if (pelaFormula && typeof pelaFormula !== "string") {
+    ex = extrasDaFormula(aba, pelaFormula, regra, avisos);
+    if (
+      funcBase !== null &&
+      pelaFormula.funcAreaComum + funcRateados > funcBase
+    )
+      avisos.push({
+        nivel: "aviso",
+        aba: aba.nome,
+        mensagem: `A área comum (F4) usa ${pelaFormula.funcAreaComum} funcionários e os blocos ${funcRateados}, mais que os ${funcBase} da base (E3).`,
+      });
+    funcAreaComum = pelaFormula.funcAreaComum;
+    // Conferência: a fórmula refeita com os extras lidos (ao centavo) tem de
+    // dar o resultado guardado de F4; tolera meio centavo por parcela.
+    if (acLido !== null && vfLido !== null) {
+      const refeita =
+        pelaFormula.funcAreaComum * vfLido +
+        (pelaFormula.comBl04 ? (bl04Lido ?? 0) : 0) +
+        ex.extras.reduce((s, x) => s + x.valor, 0) / 100;
+      if (Math.abs(refeita - acLido) > 0.005 * (pelaFormula.extras.length + 1))
+        avisos.push({
+          nivel: "aviso",
+          aba: aba.nome,
+          mensagem: `A fórmula da área comum (F4) refeita com os extras lidos dá ${reais(centavos(refeita))}, mas a aba mostra ${reais(centavos(acLido))}. Confira os extras.`,
+        });
+    }
+  } else {
+    if (typeof pelaFormula === "string")
+      avisos.push({
+        nivel: "aviso",
+        aba: aba.nome,
+        mensagem: `A fórmula da área comum (F4: =${formulaAc}) ${pelaFormula}: os extras saíram dos valores de A13:B40.`,
+      });
+    // Extras que a área comum da aba implica: área comum (sem o Bloco 04,
+    // na regra antiga) − funcionários da área comum × valor por funcionário.
+    const acSemBl04 =
+      acLido === null
+        ? null
+        : regra === "area_comum"
+          ? bl04Lido === null
+            ? null
+            : acLido - bl04Lido
+          : acLido;
+    const implicito =
+      acSemBl04 !== null && vfLido !== null && funcAreaComum !== null
+        ? centavos(acSemBl04 - funcAreaComum * vfLido)
+        : null;
+    const lidos = lerExtras(aba, implicito);
+    avisos.push(...lidos.avisos);
+    ex = lidos;
+  }
+  // Rótulo de E4 × regra da data. Se a fórmula de F4 segue a regra, o
+  // rótulo é só um texto que ficou de outra época.
+  if (rotuloAc && rotuloDizBl04 !== (regra === "area_comum")) {
+    const formulaSegue =
+      typeof pelaFormula === "object" &&
+      pelaFormula !== null &&
+      pelaFormula.comBl04 === (regra === "area_comum");
+    avisos.push({
+      nivel: formulaSegue ? "info" : "aviso",
+      aba: aba.nome,
+      mensagem: formulaSegue
+        ? `O rótulo "${rotuloAc}" não segue a regra da data (${ROTULO_REGRA_BL04[regra]}), mas a fórmula da área comum (F4) segue: valeu a fórmula.`
+        : `O rótulo "${rotuloAc}" não segue a regra da data (${ROTULO_REGRA_BL04[regra]}). A conta usou a regra da data.`,
+    });
+  }
 
   const valorBase = baseLida === null ? null : centavos(baseLida);
   const motivos: string[] = [];
@@ -711,6 +1076,11 @@ export async function abasDoExcel(bytes: Uint8Array): Promise<AbaDoRateio[]> {
   return livro.worksheets.map((ws) => ({
     nome: ws.name,
     celula: (endereco: string) => valorDaCelula(ws.getCell(endereco).value),
+    // Fórmula compartilhada vem traduzida para a célula pelo exceljs.
+    formula: (endereco: string) => {
+      const f: unknown = ws.getCell(endereco).formula;
+      return typeof f === "string" && f.trim() ? f.trim() : null;
+    },
   }));
 }
 
