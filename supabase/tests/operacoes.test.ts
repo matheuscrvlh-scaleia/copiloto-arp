@@ -250,6 +250,21 @@ describe("água: importação, confirmação e desfazer", () => {
       ),
     ).toMatch(/row-level security/);
   });
+
+  it("quem importa pode gerar o id da importação (o arquivo vai para importacoes/<tipo>/<id>)", async () => {
+    const id = "00000000-0000-0000-0000-00000000f001";
+    await como(U.agua, () =>
+      db.query(
+        `insert into operacoes.importacoes (id, tipo, referencia, criado_por)
+         values ('${id}', 'agua', '2026-12-01', '${U.agua}')`,
+      ),
+    );
+    expect(
+      await valor<string>(
+        `select status from operacoes.importacoes where id = '${id}'`,
+      ),
+    ).toBe("previa");
+  });
 });
 
 describe("energia: caixas e histórico sigiloso", () => {
