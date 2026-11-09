@@ -2966,6 +2966,1535 @@ export type Database = {
       [_ in never]: never
     }
   }
+  operacoes: {
+    Tables: {
+      agua_leituras: {
+        Row: {
+          bloco: string
+          cliente: string
+          consumo: number
+          data_anterior: string | null
+          data_atual: string | null
+          dias: number | null
+          exemplo: boolean
+          foto: string | null
+          hidrometro: string
+          id: string
+          importacao_id: string
+          leitura_anterior: number | null
+          leitura_atual: number | null
+          linha_arquivo: number | null
+          referencia: string
+          sala: string
+          tipo: string
+          vigente: boolean
+          volume_faturado: number
+        }
+        Insert: {
+          bloco: string
+          cliente?: string
+          consumo?: number
+          data_anterior?: string | null
+          data_atual?: string | null
+          dias?: number | null
+          exemplo?: boolean
+          foto?: string | null
+          hidrometro: string
+          id?: string
+          importacao_id: string
+          leitura_anterior?: number | null
+          leitura_atual?: number | null
+          linha_arquivo?: number | null
+          referencia: string
+          sala?: string
+          tipo: string
+          vigente?: boolean
+          volume_faturado?: number
+        }
+        Update: {
+          bloco?: string
+          cliente?: string
+          consumo?: number
+          data_anterior?: string | null
+          data_atual?: string | null
+          dias?: number | null
+          exemplo?: boolean
+          foto?: string | null
+          hidrometro?: string
+          id?: string
+          importacao_id?: string
+          leitura_anterior?: number | null
+          leitura_atual?: number | null
+          linha_arquivo?: number | null
+          referencia?: string
+          sala?: string
+          tipo?: string
+          vigente?: boolean
+          volume_faturado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agua_leituras_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: false
+            referencedRelation: "importacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agua_valores: {
+        Row: {
+          leitura_id: string
+          valor: number
+        }
+        Insert: {
+          leitura_id: string
+          valor: number
+        }
+        Update: {
+          leitura_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agua_valores_leitura_id_fkey"
+            columns: ["leitura_id"]
+            isOneToOne: true
+            referencedRelation: "agua_leituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agua_vinculos: {
+        Row: {
+          bloco: string
+          criado_em: string
+          criado_por: string | null
+          desde: string
+          hidrometro: string
+          id: string
+          motivo: string
+          sala: string
+        }
+        Insert: {
+          bloco: string
+          criado_em?: string
+          criado_por?: string | null
+          desde: string
+          hidrometro: string
+          id?: string
+          motivo: string
+          sala: string
+        }
+        Update: {
+          bloco?: string
+          criado_em?: string
+          criado_por?: string | null
+          desde?: string
+          hidrometro?: string
+          id?: string
+          motivo?: string
+          sala?: string
+        }
+        Relationships: []
+      }
+      caixa_ocupantes: {
+        Row: {
+          caixa_id: string
+          criado_em: string
+          criado_por: string | null
+          documento: string | null
+          entrada: string | null
+          id: string
+          nome: string
+          origem: string
+          saida: string | null
+        }
+        Insert: {
+          caixa_id: string
+          criado_em?: string
+          criado_por?: string | null
+          documento?: string | null
+          entrada?: string | null
+          id?: string
+          nome: string
+          origem?: string
+          saida?: string | null
+        }
+        Update: {
+          caixa_id?: string
+          criado_em?: string
+          criado_por?: string | null
+          documento?: string | null
+          entrada?: string | null
+          id?: string
+          nome?: string
+          origem?: string
+          saida?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caixa_ocupantes_caixa_id_fkey"
+            columns: ["caixa_id"]
+            isOneToOne: false
+            referencedRelation: "caixas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      caixas: {
+        Row: {
+          atualizado_em: string
+          coluna: number
+          contrato: string | null
+          criado_em: string
+          disjuntor_amperes: number | null
+          disjuntor_texto: string | null
+          exemplo: boolean
+          id: string
+          lado: string
+          ligacao: string | null
+          linha: number
+          locatario_novo: boolean
+          medidor_numero: string | null
+          medidor_situacao: string | null
+          modulo: string | null
+          numero: string
+          numero_antigo: string | null
+          observacoes: string | null
+          ocupante: string | null
+          ocupante_desde: string | null
+          ocupante_documento: string | null
+          ocupante_origem: string | null
+          pavimento: string | null
+          quadro_id: string
+          rota: string | null
+          sala_id: string | null
+          salas_texto: string | null
+          status: string
+        }
+        Insert: {
+          atualizado_em?: string
+          coluna?: number
+          contrato?: string | null
+          criado_em?: string
+          disjuntor_amperes?: number | null
+          disjuntor_texto?: string | null
+          exemplo?: boolean
+          id?: string
+          lado?: string
+          ligacao?: string | null
+          linha?: number
+          locatario_novo?: boolean
+          medidor_numero?: string | null
+          medidor_situacao?: string | null
+          modulo?: string | null
+          numero: string
+          numero_antigo?: string | null
+          observacoes?: string | null
+          ocupante?: string | null
+          ocupante_desde?: string | null
+          ocupante_documento?: string | null
+          ocupante_origem?: string | null
+          pavimento?: string | null
+          quadro_id: string
+          rota?: string | null
+          sala_id?: string | null
+          salas_texto?: string | null
+          status?: string
+        }
+        Update: {
+          atualizado_em?: string
+          coluna?: number
+          contrato?: string | null
+          criado_em?: string
+          disjuntor_amperes?: number | null
+          disjuntor_texto?: string | null
+          exemplo?: boolean
+          id?: string
+          lado?: string
+          ligacao?: string | null
+          linha?: number
+          locatario_novo?: boolean
+          medidor_numero?: string | null
+          medidor_situacao?: string | null
+          modulo?: string | null
+          numero?: string
+          numero_antigo?: string | null
+          observacoes?: string | null
+          ocupante?: string | null
+          ocupante_desde?: string | null
+          ocupante_documento?: string | null
+          ocupante_origem?: string | null
+          pavimento?: string | null
+          quadro_id?: string
+          rota?: string | null
+          sala_id?: string | null
+          salas_texto?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caixas_quadro_id_fkey"
+            columns: ["quadro_id"]
+            isOneToOne: false
+            referencedRelation: "quadros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixas_sala_id_fkey"
+            columns: ["sala_id"]
+            isOneToOne: false
+            referencedRelation: "salas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diario_cadastros: {
+        Row: {
+          atualizado_em: string
+          cadastros: Json | null
+          empresa: Json | null
+          id: boolean
+        }
+        Insert: {
+          atualizado_em?: string
+          cadastros?: Json | null
+          empresa?: Json | null
+          id?: boolean
+        }
+        Update: {
+          atualizado_em?: string
+          cadastros?: Json | null
+          empresa?: Json | null
+          id?: boolean
+        }
+        Relationships: []
+      }
+      diario_obras: {
+        Row: {
+          atualizado_em: string
+          dados: Json
+          data_fim: string | null
+          data_inicio: string | null
+          grupo: string | null
+          id: string
+          lista_de_tarefas: Json | null
+          modificado_no_app: string | null
+          nome: string
+          prazo_a_vencer: number | null
+          prazo_contratual: number | null
+          prazo_decorrido: number | null
+          realizado: number | null
+          responsavel: string | null
+          status_id: number
+          tarefas: Json | null
+        }
+        Insert: {
+          atualizado_em?: string
+          dados: Json
+          data_fim?: string | null
+          data_inicio?: string | null
+          grupo?: string | null
+          id: string
+          lista_de_tarefas?: Json | null
+          modificado_no_app?: string | null
+          nome: string
+          prazo_a_vencer?: number | null
+          prazo_contratual?: number | null
+          prazo_decorrido?: number | null
+          realizado?: number | null
+          responsavel?: string | null
+          status_id: number
+          tarefas?: Json | null
+        }
+        Update: {
+          atualizado_em?: string
+          dados?: Json
+          data_fim?: string | null
+          data_inicio?: string | null
+          grupo?: string | null
+          id?: string
+          lista_de_tarefas?: Json | null
+          modificado_no_app?: string | null
+          nome?: string
+          prazo_a_vencer?: number | null
+          prazo_contratual?: number | null
+          prazo_decorrido?: number | null
+          realizado?: number | null
+          responsavel?: string | null
+          status_id?: number
+          tarefas?: Json | null
+        }
+        Relationships: []
+      }
+      diario_relatorios: {
+        Row: {
+          app: string | null
+          atualizado_em: string
+          autor: string | null
+          autor_cargo: string | null
+          criado_no_app: string | null
+          dados: Json | null
+          data: string
+          data_fim: string | null
+          detalhado_em: string | null
+          id: string
+          modelo: string | null
+          modificado_no_app: string | null
+          numero: number
+          obra_id: string
+          status_id: number
+        }
+        Insert: {
+          app?: string | null
+          atualizado_em?: string
+          autor?: string | null
+          autor_cargo?: string | null
+          criado_no_app?: string | null
+          dados?: Json | null
+          data: string
+          data_fim?: string | null
+          detalhado_em?: string | null
+          id: string
+          modelo?: string | null
+          modificado_no_app?: string | null
+          numero: number
+          obra_id: string
+          status_id: number
+        }
+        Update: {
+          app?: string | null
+          atualizado_em?: string
+          autor?: string | null
+          autor_cargo?: string | null
+          criado_no_app?: string | null
+          dados?: Json | null
+          data?: string
+          data_fim?: string | null
+          detalhado_em?: string | null
+          id?: string
+          modelo?: string | null
+          modificado_no_app?: string | null
+          numero?: number
+          obra_id?: string
+          status_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diario_relatorios_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "diario_obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      energia_fatura_itens: {
+        Row: {
+          descricao: string
+          fatura_id: string
+          icms: number | null
+          id: string
+          mes_geracao: string | null
+          ordem: number
+          origem: string | null
+          pis_cofins: number | null
+          quantidade: number | null
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          descricao: string
+          fatura_id: string
+          icms?: number | null
+          id?: string
+          mes_geracao?: string | null
+          ordem: number
+          origem?: string | null
+          pis_cofins?: number | null
+          quantidade?: number | null
+          tipo: string
+          valor: number
+        }
+        Update: {
+          descricao?: string
+          fatura_id?: string
+          icms?: number | null
+          id?: string
+          mes_geracao?: string | null
+          ordem?: number
+          origem?: string | null
+          pis_cofins?: number | null
+          quantidade?: number | null
+          tipo?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energia_fatura_itens_fatura_id_fkey"
+            columns: ["fatura_id"]
+            isOneToOne: false
+            referencedRelation: "energia_faturas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      energia_faturas: {
+        Row: {
+          arquivo: string | null
+          bandeira: string | null
+          classificacao_gd: string | null
+          compensado_kwh: number
+          consumo_kwh: number
+          dias: number | null
+          exemplo: boolean
+          expirar_kwh: number | null
+          icms: number
+          id: string
+          iluminacao_publica: number
+          importacao_id: string | null
+          importado_em: string
+          importado_por: string | null
+          leitura_anterior: number | null
+          leitura_anterior_data: string | null
+          leitura_atual: number | null
+          leitura_atual_data: string | null
+          matricula: string
+          medidor: string | null
+          nota_fiscal: string | null
+          observacao: string | null
+          pis_cofins: number
+          proxima_leitura: string | null
+          referencia: string
+          saldo_kwh: number | null
+          sha256: string | null
+          total: number
+          valor_bandeira: number
+          valor_compensado: number
+          valor_consumo: number
+          vencimento: string | null
+        }
+        Insert: {
+          arquivo?: string | null
+          bandeira?: string | null
+          classificacao_gd?: string | null
+          compensado_kwh?: number
+          consumo_kwh?: number
+          dias?: number | null
+          exemplo?: boolean
+          expirar_kwh?: number | null
+          icms?: number
+          id?: string
+          iluminacao_publica?: number
+          importacao_id?: string | null
+          importado_em?: string
+          importado_por?: string | null
+          leitura_anterior?: number | null
+          leitura_anterior_data?: string | null
+          leitura_atual?: number | null
+          leitura_atual_data?: string | null
+          matricula: string
+          medidor?: string | null
+          nota_fiscal?: string | null
+          observacao?: string | null
+          pis_cofins?: number
+          proxima_leitura?: string | null
+          referencia: string
+          saldo_kwh?: number | null
+          sha256?: string | null
+          total: number
+          valor_bandeira?: number
+          valor_compensado?: number
+          valor_consumo?: number
+          vencimento?: string | null
+        }
+        Update: {
+          arquivo?: string | null
+          bandeira?: string | null
+          classificacao_gd?: string | null
+          compensado_kwh?: number
+          consumo_kwh?: number
+          dias?: number | null
+          exemplo?: boolean
+          expirar_kwh?: number | null
+          icms?: number
+          id?: string
+          iluminacao_publica?: number
+          importacao_id?: string | null
+          importado_em?: string
+          importado_por?: string | null
+          leitura_anterior?: number | null
+          leitura_anterior_data?: string | null
+          leitura_atual?: number | null
+          leitura_atual_data?: string | null
+          matricula?: string
+          medidor?: string | null
+          nota_fiscal?: string | null
+          observacao?: string | null
+          pis_cofins?: number
+          proxima_leitura?: string | null
+          referencia?: string
+          saldo_kwh?: number | null
+          sha256?: string | null
+          total?: number
+          valor_bandeira?: number
+          valor_compensado?: number
+          valor_consumo?: number
+          vencimento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energia_faturas_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: false
+            referencedRelation: "importacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "energia_faturas_matricula_fkey"
+            columns: ["matricula"]
+            isOneToOne: false
+            referencedRelation: "energia_unidades"
+            referencedColumns: ["matricula"]
+          },
+        ]
+      }
+      energia_unidades: {
+        Row: {
+          apelido: string | null
+          ativa: boolean
+          classificacao: string | null
+          criado_em: string
+          endereco: string | null
+          exemplo: boolean
+          ligacao: string | null
+          matricula: string
+          papel: string
+        }
+        Insert: {
+          apelido?: string | null
+          ativa?: boolean
+          classificacao?: string | null
+          criado_em?: string
+          endereco?: string | null
+          exemplo?: boolean
+          ligacao?: string | null
+          matricula: string
+          papel?: string
+        }
+        Update: {
+          apelido?: string | null
+          ativa?: boolean
+          classificacao?: string | null
+          criado_em?: string
+          endereco?: string | null
+          exemplo?: boolean
+          ligacao?: string | null
+          matricula?: string
+          papel?: string
+        }
+        Relationships: []
+      }
+      importacao_valores: {
+        Row: {
+          importacao_id: string
+          por_bloco: Json
+          valor_arquivo: number | null
+          valor_lido: number | null
+        }
+        Insert: {
+          importacao_id: string
+          por_bloco?: Json
+          valor_arquivo?: number | null
+          valor_lido?: number | null
+        }
+        Update: {
+          importacao_id?: string
+          por_bloco?: Json
+          valor_arquivo?: number | null
+          valor_lido?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "importacao_valores_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: true
+            referencedRelation: "importacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      importacoes: {
+        Row: {
+          arquivos: Json
+          avisos: Json
+          bate: boolean | null
+          confirmado_em: string | null
+          confirmado_por: string | null
+          criado_em: string
+          criado_por: string | null
+          desfeito_em: string | null
+          desfeito_por: string | null
+          exemplo: boolean
+          id: string
+          incompleta: boolean
+          motivo: string | null
+          referencia: string
+          resumo: Json
+          status: string
+          substitui: string | null
+          tipo: string
+        }
+        Insert: {
+          arquivos?: Json
+          avisos?: Json
+          bate?: boolean | null
+          confirmado_em?: string | null
+          confirmado_por?: string | null
+          criado_em?: string
+          criado_por?: string | null
+          desfeito_em?: string | null
+          desfeito_por?: string | null
+          exemplo?: boolean
+          id?: string
+          incompleta?: boolean
+          motivo?: string | null
+          referencia: string
+          resumo?: Json
+          status?: string
+          substitui?: string | null
+          tipo: string
+        }
+        Update: {
+          arquivos?: Json
+          avisos?: Json
+          bate?: boolean | null
+          confirmado_em?: string | null
+          confirmado_por?: string | null
+          criado_em?: string
+          criado_por?: string | null
+          desfeito_em?: string | null
+          desfeito_por?: string | null
+          exemplo?: boolean
+          id?: string
+          incompleta?: boolean
+          motivo?: string | null
+          referencia?: string
+          resumo?: Json
+          status?: string
+          substitui?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "importacoes_substitui_fkey"
+            columns: ["substitui"]
+            isOneToOne: false
+            referencedRelation: "importacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      limpeza_anexos: {
+        Row: {
+          caminho: string
+          enviado_em: string
+          enviado_por: string | null
+          id: string
+          nome: string
+          referencia: string
+          tipo: string
+        }
+        Insert: {
+          caminho: string
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          nome: string
+          referencia: string
+          tipo?: string
+        }
+        Update: {
+          caminho?: string
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          nome?: string
+          referencia?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "limpeza_anexos_referencia_fkey"
+            columns: ["referencia"]
+            isOneToOne: false
+            referencedRelation: "limpeza_meses"
+            referencedColumns: ["referencia"]
+          },
+        ]
+      }
+      limpeza_contrato: {
+        Row: {
+          descricao: string
+          entra_conferencia: boolean
+          id: string
+          ordem: number
+          referencia: string
+          valor: number
+        }
+        Insert: {
+          descricao: string
+          entra_conferencia?: boolean
+          id?: string
+          ordem?: number
+          referencia: string
+          valor: number
+        }
+        Update: {
+          descricao?: string
+          entra_conferencia?: boolean
+          id?: string
+          ordem?: number
+          referencia?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "limpeza_contrato_referencia_fkey"
+            columns: ["referencia"]
+            isOneToOne: false
+            referencedRelation: "limpeza_meses"
+            referencedColumns: ["referencia"]
+          },
+        ]
+      }
+      limpeza_equipe: {
+        Row: {
+          blocos: string[]
+          funcao: string | null
+          grupo: string
+          id: string
+          minutos_dia: number | null
+          nome: string
+          ordem: number
+          referencia: string
+          turno: string | null
+        }
+        Insert: {
+          blocos?: string[]
+          funcao?: string | null
+          grupo: string
+          id?: string
+          minutos_dia?: number | null
+          nome: string
+          ordem?: number
+          referencia: string
+          turno?: string | null
+        }
+        Update: {
+          blocos?: string[]
+          funcao?: string | null
+          grupo?: string
+          id?: string
+          minutos_dia?: number | null
+          nome?: string
+          ordem?: number
+          referencia?: string
+          turno?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "limpeza_equipe_referencia_fkey"
+            columns: ["referencia"]
+            isOneToOne: false
+            referencedRelation: "limpeza_meses"
+            referencedColumns: ["referencia"]
+          },
+        ]
+      }
+      limpeza_extras: {
+        Row: {
+          descricao: string
+          id: string
+          ordem: number
+          quantidade: number | null
+          referencia: string
+          valor: number
+          valor_unitario: number | null
+        }
+        Insert: {
+          descricao: string
+          id?: string
+          ordem?: number
+          quantidade?: number | null
+          referencia: string
+          valor: number
+          valor_unitario?: number | null
+        }
+        Update: {
+          descricao?: string
+          id?: string
+          ordem?: number
+          quantidade?: number | null
+          referencia?: string
+          valor?: number
+          valor_unitario?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "limpeza_extras_referencia_fkey"
+            columns: ["referencia"]
+            isOneToOne: false
+            referencedRelation: "limpeza_meses"
+            referencedColumns: ["referencia"]
+          },
+        ]
+      }
+      limpeza_meses: {
+        Row: {
+          apontamento: string | null
+          atualizado_em: string
+          base_composicao: string | null
+          criado_em: string
+          criado_por: string | null
+          enviado_em: string | null
+          enviado_por: string | null
+          exemplo: boolean
+          fechado_em: string | null
+          fechado_por: string | null
+          func_area_comum: number | null
+          func_base: number | null
+          func_rateados: number | null
+          importacao_id: string | null
+          incompleto: boolean
+          origem: string
+          reaberto_em: string | null
+          reaberto_motivo: string | null
+          reaberto_por: string | null
+          referencia: string
+          regra_bl04: string
+          status: string
+          valor_base: number | null
+          valores_planilha: Json | null
+        }
+        Insert: {
+          apontamento?: string | null
+          atualizado_em?: string
+          base_composicao?: string | null
+          criado_em?: string
+          criado_por?: string | null
+          enviado_em?: string | null
+          enviado_por?: string | null
+          exemplo?: boolean
+          fechado_em?: string | null
+          fechado_por?: string | null
+          func_area_comum?: number | null
+          func_base?: number | null
+          func_rateados?: number | null
+          importacao_id?: string | null
+          incompleto?: boolean
+          origem?: string
+          reaberto_em?: string | null
+          reaberto_motivo?: string | null
+          reaberto_por?: string | null
+          referencia: string
+          regra_bl04?: string
+          status?: string
+          valor_base?: number | null
+          valores_planilha?: Json | null
+        }
+        Update: {
+          apontamento?: string | null
+          atualizado_em?: string
+          base_composicao?: string | null
+          criado_em?: string
+          criado_por?: string | null
+          enviado_em?: string | null
+          enviado_por?: string | null
+          exemplo?: boolean
+          fechado_em?: string | null
+          fechado_por?: string | null
+          func_area_comum?: number | null
+          func_base?: number | null
+          func_rateados?: number | null
+          importacao_id?: string | null
+          incompleto?: boolean
+          origem?: string
+          reaberto_em?: string | null
+          reaberto_motivo?: string | null
+          reaberto_por?: string | null
+          referencia?: string
+          regra_bl04?: string
+          status?: string
+          valor_base?: number | null
+          valores_planilha?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "limpeza_meses_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: false
+            referencedRelation: "importacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      limpeza_minutos: {
+        Row: {
+          bloco: string
+          limpeza: number
+          manutencao: number
+          referencia: string
+        }
+        Insert: {
+          bloco: string
+          limpeza?: number
+          manutencao?: number
+          referencia: string
+        }
+        Update: {
+          bloco?: string
+          limpeza?: number
+          manutencao?: number
+          referencia?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "limpeza_minutos_referencia_fkey"
+            columns: ["referencia"]
+            isOneToOne: false
+            referencedRelation: "limpeza_meses"
+            referencedColumns: ["referencia"]
+          },
+        ]
+      }
+      obra_realizado: {
+        Row: {
+          anexo: string | null
+          descricao: string | null
+          etapa: string
+          exemplo: boolean
+          id: string
+          importacao_id: string | null
+          lancado_em: string
+          lancado_por: string | null
+          mes: string
+          obra_id: string
+          origem: string
+          valor: number
+        }
+        Insert: {
+          anexo?: string | null
+          descricao?: string | null
+          etapa: string
+          exemplo?: boolean
+          id?: string
+          importacao_id?: string | null
+          lancado_em?: string
+          lancado_por?: string | null
+          mes: string
+          obra_id: string
+          origem?: string
+          valor: number
+        }
+        Update: {
+          anexo?: string | null
+          descricao?: string | null
+          etapa?: string
+          exemplo?: boolean
+          id?: string
+          importacao_id?: string | null
+          lancado_em?: string
+          lancado_por?: string | null
+          mes?: string
+          obra_id?: string
+          origem?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_realizado_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: false
+            referencedRelation: "importacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obra_realizado_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obras: {
+        Row: {
+          ativa: boolean
+          criado_em: string
+          diario_obra_id: string | null
+          exemplo: boolean
+          id: string
+          nome: string
+          responsavel: string | null
+        }
+        Insert: {
+          ativa?: boolean
+          criado_em?: string
+          diario_obra_id?: string | null
+          exemplo?: boolean
+          id?: string
+          nome: string
+          responsavel?: string | null
+        }
+        Update: {
+          ativa?: boolean
+          criado_em?: string
+          diario_obra_id?: string | null
+          exemplo?: boolean
+          id?: string
+          nome?: string
+          responsavel?: string | null
+        }
+        Relationships: []
+      }
+      orcamento_etapas: {
+        Row: {
+          id: string
+          nome: string
+          observacao: string | null
+          ordem: number
+          revisao_id: string
+        }
+        Insert: {
+          id?: string
+          nome: string
+          observacao?: string | null
+          ordem: number
+          revisao_id: string
+        }
+        Update: {
+          id?: string
+          nome?: string
+          observacao?: string | null
+          ordem?: number
+          revisao_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamento_etapas_revisao_id_fkey"
+            columns: ["revisao_id"]
+            isOneToOne: false
+            referencedRelation: "orcamento_revisoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orcamento_previsto: {
+        Row: {
+          etapa_id: string
+          mes: string
+          valor: number
+        }
+        Insert: {
+          etapa_id: string
+          mes: string
+          valor: number
+        }
+        Update: {
+          etapa_id?: string
+          mes?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamento_previsto_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "orcamento_etapas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orcamento_revisoes: {
+        Row: {
+          codigo: string
+          criado_em: string
+          data: string | null
+          exemplo: boolean
+          id: string
+          importacao_id: string | null
+          obra_id: string
+          titulo: string | null
+          total: number
+          total_arquivo: number | null
+          vigente: boolean
+        }
+        Insert: {
+          codigo: string
+          criado_em?: string
+          data?: string | null
+          exemplo?: boolean
+          id?: string
+          importacao_id?: string | null
+          obra_id: string
+          titulo?: string | null
+          total: number
+          total_arquivo?: number | null
+          vigente?: boolean
+        }
+        Update: {
+          codigo?: string
+          criado_em?: string
+          data?: string | null
+          exemplo?: boolean
+          id?: string
+          importacao_id?: string | null
+          obra_id?: string
+          titulo?: string | null
+          total?: number
+          total_arquivo?: number | null
+          vigente?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamento_revisoes_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: false
+            referencedRelation: "importacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orcamento_revisoes_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parametros: {
+        Row: {
+          agua_blocos: string[]
+          agua_limite_m3: number
+          agua_modelo: Json
+          agua_parceiro: string
+          agua_tolerancia: number
+          atualizado_em: string
+          atualizado_por: string | null
+          energia_alerta_pct: number
+          energia_disjuntores: string[]
+          energia_ligacoes: string[]
+          energia_medidor_situacoes: string[]
+          id: boolean
+          limpeza_blocos: string[]
+          limpeza_dia_util_envio: number
+          limpeza_empresa: string
+          limpeza_extras_padrao: Json
+          limpeza_func_area_comum: number
+          limpeza_func_base: number
+          limpeza_func_rateados: number
+          obras_dias_relatorio: number[]
+          obras_intervalo_min: number
+          obras_limite_desvio: number
+          obras_limite_orcamento_pct: number
+          solar_fonte: string
+          termo_cidade: string
+          termo_cnpj: string
+          termo_endereco: string
+          termo_nome_arquivo: string
+          termo_qualificacao_cnpj: string
+          termo_qualificacao_cpf: string
+          termo_razao_social: string
+        }
+        Insert: {
+          agua_blocos?: string[]
+          agua_limite_m3?: number
+          agua_modelo?: Json
+          agua_parceiro?: string
+          agua_tolerancia?: number
+          atualizado_em?: string
+          atualizado_por?: string | null
+          energia_alerta_pct?: number
+          energia_disjuntores?: string[]
+          energia_ligacoes?: string[]
+          energia_medidor_situacoes?: string[]
+          id?: boolean
+          limpeza_blocos?: string[]
+          limpeza_dia_util_envio?: number
+          limpeza_empresa?: string
+          limpeza_extras_padrao?: Json
+          limpeza_func_area_comum?: number
+          limpeza_func_base?: number
+          limpeza_func_rateados?: number
+          obras_dias_relatorio?: number[]
+          obras_intervalo_min?: number
+          obras_limite_desvio?: number
+          obras_limite_orcamento_pct?: number
+          solar_fonte?: string
+          termo_cidade?: string
+          termo_cnpj?: string
+          termo_endereco?: string
+          termo_nome_arquivo?: string
+          termo_qualificacao_cnpj?: string
+          termo_qualificacao_cpf?: string
+          termo_razao_social?: string
+        }
+        Update: {
+          agua_blocos?: string[]
+          agua_limite_m3?: number
+          agua_modelo?: Json
+          agua_parceiro?: string
+          agua_tolerancia?: number
+          atualizado_em?: string
+          atualizado_por?: string | null
+          energia_alerta_pct?: number
+          energia_disjuntores?: string[]
+          energia_ligacoes?: string[]
+          energia_medidor_situacoes?: string[]
+          id?: boolean
+          limpeza_blocos?: string[]
+          limpeza_dia_util_envio?: number
+          limpeza_empresa?: string
+          limpeza_extras_padrao?: Json
+          limpeza_func_area_comum?: number
+          limpeza_func_base?: number
+          limpeza_func_rateados?: number
+          obras_dias_relatorio?: number[]
+          obras_intervalo_min?: number
+          obras_limite_desvio?: number
+          obras_limite_orcamento_pct?: number
+          solar_fonte?: string
+          termo_cidade?: string
+          termo_cnpj?: string
+          termo_endereco?: string
+          termo_nome_arquivo?: string
+          termo_qualificacao_cnpj?: string
+          termo_qualificacao_cpf?: string
+          termo_razao_social?: string
+        }
+        Relationships: []
+      }
+      quadros: {
+        Row: {
+          armario: string | null
+          ativo: boolean
+          atualizado_em: string
+          bloco: string
+          codigo: string
+          criado_em: string
+          disjuntor_geral: string | null
+          espacos: number | null
+          exemplo: boolean
+          fotos: string[]
+          id: string
+          nome: string
+          observacoes: string | null
+          ordem: number
+          projeto: string | null
+          roteiro_base: string | null
+          subestacao: string | null
+        }
+        Insert: {
+          armario?: string | null
+          ativo?: boolean
+          atualizado_em?: string
+          bloco: string
+          codigo: string
+          criado_em?: string
+          disjuntor_geral?: string | null
+          espacos?: number | null
+          exemplo?: boolean
+          fotos?: string[]
+          id?: string
+          nome: string
+          observacoes?: string | null
+          ordem?: number
+          projeto?: string | null
+          roteiro_base?: string | null
+          subestacao?: string | null
+        }
+        Update: {
+          armario?: string | null
+          ativo?: boolean
+          atualizado_em?: string
+          bloco?: string
+          codigo?: string
+          criado_em?: string
+          disjuntor_geral?: string | null
+          espacos?: number | null
+          exemplo?: boolean
+          fotos?: string[]
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          ordem?: number
+          projeto?: string | null
+          roteiro_base?: string | null
+          subestacao?: string | null
+        }
+        Relationships: []
+      }
+      salas: {
+        Row: {
+          armario: string | null
+          atualizado_em: string
+          bloco: string
+          codigo: string
+          criado_em: string
+          disjuntor: string | null
+          exemplo: boolean
+          id: string
+          observacoes: string | null
+          pavimento: string | null
+          projeto: string | null
+          rota: string | null
+          sala: string
+        }
+        Insert: {
+          armario?: string | null
+          atualizado_em?: string
+          bloco: string
+          codigo: string
+          criado_em?: string
+          disjuntor?: string | null
+          exemplo?: boolean
+          id?: string
+          observacoes?: string | null
+          pavimento?: string | null
+          projeto?: string | null
+          rota?: string | null
+          sala: string
+        }
+        Update: {
+          armario?: string | null
+          atualizado_em?: string
+          bloco?: string
+          codigo?: string
+          criado_em?: string
+          disjuntor?: string | null
+          exemplo?: boolean
+          id?: string
+          observacoes?: string | null
+          pavimento?: string | null
+          projeto?: string | null
+          rota?: string | null
+          sala?: string
+        }
+        Relationships: []
+      }
+      termos: {
+        Row: {
+          amperes: number | null
+          armario: string | null
+          bloco: string
+          caixa_id: string
+          data_emissao: string
+          documento: string
+          docx: string | null
+          emitido_em: string
+          emitido_por: string | null
+          id: string
+          ligacao: string | null
+          locatario: string
+          observacao_tecnica: string | null
+          pavimento: string | null
+          pdf: string
+          projeto: string | null
+          qualificacao: string | null
+          rota: string | null
+          sala: string
+          versao: number
+        }
+        Insert: {
+          amperes?: number | null
+          armario?: string | null
+          bloco: string
+          caixa_id: string
+          data_emissao: string
+          documento: string
+          docx?: string | null
+          emitido_em?: string
+          emitido_por?: string | null
+          id?: string
+          ligacao?: string | null
+          locatario: string
+          observacao_tecnica?: string | null
+          pavimento?: string | null
+          pdf: string
+          projeto?: string | null
+          qualificacao?: string | null
+          rota?: string | null
+          sala: string
+          versao: number
+        }
+        Update: {
+          amperes?: number | null
+          armario?: string | null
+          bloco?: string
+          caixa_id?: string
+          data_emissao?: string
+          documento?: string
+          docx?: string | null
+          emitido_em?: string
+          emitido_por?: string | null
+          id?: string
+          ligacao?: string | null
+          locatario?: string
+          observacao_tecnica?: string | null
+          pavimento?: string | null
+          pdf?: string
+          projeto?: string | null
+          qualificacao?: string | null
+          rota?: string | null
+          sala?: string
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "termos_caixa_id_fkey"
+            columns: ["caixa_id"]
+            isOneToOne: false
+            referencedRelation: "caixas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      acessa: { Args: never; Returns: boolean }
+      confirmar_importacao: {
+        Args: { p_id: string; p_motivo?: string }
+        Returns: undefined
+      }
+      desfazer_importacao: { Args: { p_id: string }; Returns: number }
+      limpeza_aberto: { Args: { p_ref: string }; Returns: boolean }
+      limpeza_enviar: { Args: { p_ref: string }; Returns: undefined }
+      limpeza_fechar: { Args: { p_ref: string }; Returns: undefined }
+      limpeza_reabrir: {
+        Args: { p_motivo: string; p_ref: string }
+        Returns: undefined
+      }
+      pode_importar: { Args: { p_tipo: string }; Returns: boolean }
+      proxima_versao_termo: { Args: { p_caixa: string }; Returns: number }
+      remover_exemplos: { Args: never; Returns: undefined }
+      trocar_locatario: {
+        Args: { p_caixa: string; p_contrato?: string; p_desde: string; p_documento: string; p_nome: string; p_origem?: string }
+        Returns: undefined
+      }
+      ve_importacao: { Args: { p_tipo: string }; Returns: boolean }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   os: {
     Tables: {
       agenda_bloqueios: {
@@ -3238,6 +4767,89 @@ export type Database = {
           vida_util_padrao_anos?: number | null
         }
         Relationships: []
+      }
+      ativo_saidas: {
+        Row: {
+          anexos: string[]
+          ativo_id: string
+          data: string
+          desfeita_em: string | null
+          desfeita_motivo: string | null
+          desfeita_por: string | null
+          destinatario_documento: string | null
+          destinatario_nome: string | null
+          forma_recebimento: string | null
+          id: string
+          motivo: string | null
+          nota_fiscal: boolean
+          nota_fiscal_numero: string | null
+          observacoes: string | null
+          quantidade: string | null
+          recebido_por: string | null
+          registrado_em: string
+          registrado_por: string | null
+          responsavel_id: string | null
+          situacao_anterior: Database["os"]["Enums"]["situacao_ativo"]
+          tipo: string
+          valor: number | null
+        }
+        Insert: {
+          anexos?: string[]
+          ativo_id: string
+          data: string
+          desfeita_em?: string | null
+          desfeita_motivo?: string | null
+          desfeita_por?: string | null
+          destinatario_documento?: string | null
+          destinatario_nome?: string | null
+          forma_recebimento?: string | null
+          id?: string
+          motivo?: string | null
+          nota_fiscal?: boolean
+          nota_fiscal_numero?: string | null
+          observacoes?: string | null
+          quantidade?: string | null
+          recebido_por?: string | null
+          registrado_em?: string
+          registrado_por?: string | null
+          responsavel_id?: string | null
+          situacao_anterior: Database["os"]["Enums"]["situacao_ativo"]
+          tipo: string
+          valor?: number | null
+        }
+        Update: {
+          anexos?: string[]
+          ativo_id?: string
+          data?: string
+          desfeita_em?: string | null
+          desfeita_motivo?: string | null
+          desfeita_por?: string | null
+          destinatario_documento?: string | null
+          destinatario_nome?: string | null
+          forma_recebimento?: string | null
+          id?: string
+          motivo?: string | null
+          nota_fiscal?: boolean
+          nota_fiscal_numero?: string | null
+          observacoes?: string | null
+          quantidade?: string | null
+          recebido_por?: string | null
+          registrado_em?: string
+          registrado_por?: string | null
+          responsavel_id?: string | null
+          situacao_anterior?: Database["os"]["Enums"]["situacao_ativo"]
+          tipo?: string
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ativo_saidas_ativo_id_fkey"
+            columns: ["ativo_id"]
+            isOneToOne: false
+            referencedRelation: "ativos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ativo_situacoes: {
         Row: {
@@ -5635,6 +7247,10 @@ export type Database = {
           responsavel_id: string
         }[]
       }
+      desfazer_saida_ativo: {
+        Args: { p_motivo: string; p_saida: string }
+        Returns: undefined
+      }
       edita_chamado: {
         Args: {
           p_aberto_por: string
@@ -5678,6 +7294,10 @@ export type Database = {
       pode_ver_chamado: { Args: { p_chamado: string }; Returns: boolean }
       pode_ver_ordem: { Args: { p_ordem: string }; Returns: boolean }
       proximo_codigo_vistoria: { Args: never; Returns: string }
+      registrar_saida_ativo: {
+        Args: { p_anexos?: string[]; p_ativo: string; p_data: string; p_destinatario: string; p_documento: string; p_forma: string; p_motivo: string; p_nf: boolean; p_nf_numero: string; p_observacoes: string; p_quantidade: string; p_recebido_por: string; p_responsavel: string; p_tipo: string; p_valor: number }
+        Returns: string
+      }
       reservar_horario: {
         Args: {
           p_agenda: string
@@ -7310,6 +8930,9 @@ export const Constants = {
     },
   },
   marketing: {
+    Enums: {},
+  },
+  operacoes: {
     Enums: {},
   },
   os: {

@@ -76,6 +76,11 @@ export const TAG = {
     tipos: "calendario:tipos",
   },
 
+  operacoes: {
+    /** Parâmetros do módulo (linha única de operacoes.parametros). */
+    parametros: "operacoes:parametros",
+  },
+
   rh: {
     /** Departamentos (nome, código da folha, id no ponto, ativo). */
     departamentos: "rh:departamentos",

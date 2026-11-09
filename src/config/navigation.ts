@@ -51,7 +51,14 @@ export type Icone =
   | "kit"
   | "simulador"
   | "pesquisa"
-  | "formularios";
+  | "formularios"
+  | "agua"
+  | "energia"
+  | "conta_luz"
+  | "solar"
+  | "limpeza"
+  | "obras"
+  | "diario";
 
 export interface NavItem {
   href: string;
@@ -430,6 +437,77 @@ export const navigation: NavSection[] = [
           "comercial.pesquisa.editar",
           "comercial.relacionamento.registrar",
         ],
+      },
+    ],
+  },
+  {
+    titulo: "Operações",
+    itens: [
+      {
+        href: "/operacoes",
+        label: "Painel",
+        icone: "painel",
+        permissao: "operacoes.painel",
+      },
+      {
+        href: "/operacoes/agua",
+        label: "Água",
+        icone: "agua",
+        permissao: "operacoes.agua.ver",
+      },
+      {
+        href: "/operacoes/energia",
+        label: "Quadros de energia",
+        icone: "energia",
+        permissao: "operacoes.energia.ver",
+      },
+      {
+        href: "/operacoes/energia/contas",
+        label: "Contas de energia",
+        icone: "conta_luz",
+        permissao: "operacoes.energia.contas",
+      },
+      {
+        href: "/operacoes/energia/solar",
+        label: "Energia solar",
+        icone: "solar",
+        permissao: "operacoes.solar.ver",
+      },
+      {
+        href: "/operacoes/limpeza",
+        label: "Rateio da limpeza",
+        icone: "limpeza",
+        permissao: ["operacoes.limpeza.ver", "operacoes.limpeza.fechar"],
+      },
+      {
+        href: "/operacoes/obras",
+        label: "Obras",
+        icone: "obras",
+        permissao: "operacoes.obras.ver",
+      },
+      {
+        href: "/operacoes/diario",
+        label: "Diário de Obra",
+        icone: "diario",
+        permissao: "operacoes.obras.diario",
+      },
+      {
+        href: "/operacoes/importacoes",
+        label: "Importações",
+        icone: "importacao",
+        // Os mesmos tipos de operacoes.pode_importar.
+        permissao: [
+          "operacoes.agua.importar",
+          "operacoes.energia.contas",
+          "operacoes.obras.importar",
+          "operacoes.limpeza.fechar",
+        ],
+      },
+      {
+        href: "/operacoes/parametros",
+        label: "Parâmetros",
+        icone: "parametros",
+        permissao: "operacoes.parametros",
       },
     ],
   },

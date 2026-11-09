@@ -52,6 +52,8 @@ export const PERMISSOES = {
   "os.ativos": "Ver ativos, ficha e histórico de manutenção",
   "os.ativos_gerenciar":
     "Cadastrar, editar e dar baixa em ativos, planos preventivos e etiquetas",
+  "os.ativos_saida":
+    "Registrar a saída de um ativo (venda, doação, descarte, devolução) e desfazer",
   "os.vistorias": "Criar, editar e emitir o laudo de vistoria",
   "os.portal": "Gerar, reenviar e cancelar o link do portal de cada loja",
   "os.portal_agenda": "Configurar horários, limites e bloqueios das agendas",
@@ -131,6 +133,42 @@ export const PERMISSOES = {
     "Ver os itens restritos a outros setores, cargos e pessoas (os privados continuam só de quem criou)",
   "calendario.configurar":
     "Configurar os tipos de item: nome, cor, ícone, campos e quem vê por padrão",
+
+  "operacoes.agua.ver":
+    "Ver leituras do mês, hidrômetros, extrato e galeria de fotos da água",
+  "operacoes.agua.valores": "Ver os valores em reais da água (sem ela, só m³)",
+  "operacoes.agua.importar":
+    "Importar o faturamento da água (planilha ou PDF e fotos), ver a prévia e desfazer",
+  "operacoes.agua.vinculo":
+    "Ligar um hidrômetro a outra sala ou bloco, com registro de quem mudou",
+  "operacoes.energia.ver":
+    "Ver os quadros de medidores e a ficha de cada caixa",
+  "operacoes.energia.editar":
+    "Criar quadro e mudar caixa (status, sala, disjuntor, medidor, observações)",
+  "operacoes.energia.historico":
+    "Ver o histórico de locatários anteriores da caixa (sigiloso, nunca sai no termo)",
+  "operacoes.energia.termo":
+    "Gerar, baixar e reimprimir o termo de autorização de energia",
+  "operacoes.energia.contas":
+    "Ver e importar as faturas da Energisa da área comum",
+  "operacoes.solar.ver":
+    "Ver a consulta da geração solar, da compensação e do saldo de créditos",
+  "operacoes.limpeza.ver":
+    "Ver o rateio da limpeza, a memória de cálculo e o histórico",
+  "operacoes.limpeza.fechar":
+    "Lançar funcionários, minutos e extras do rateio, fechar, reabrir e enviar ao Financeiro",
+  "operacoes.obras.ver":
+    "Ver as obras, o previsto e realizado e o painel de obras",
+  "operacoes.obras.importar":
+    "Importar a planilha de orçamento e lançar o realizado",
+  "operacoes.obras.diario":
+    "Ver as telas do Diário de Obra: painel, obra, relatórios e tarefas",
+  "operacoes.obras.atualizar":
+    "Usar o botão Atualizar agora da consulta ao Diário de Obra",
+  "operacoes.painel": "Ver os cartões e gráficos do Painel de Operações",
+  "operacoes.exportar": "Exportar Excel e PDF nas telas de Operações",
+  "operacoes.parametros":
+    "Editar os parâmetros de Operações (limites, contrato da limpeza, termo, obras)",
 } as const;
 
 export type Permissao = keyof typeof PERMISSOES;
@@ -143,6 +181,7 @@ export const MODULOS_DE_PERMISSAO = [
   { prefixo: "os.", titulo: "Tickets" },
   { prefixo: "marketing.", titulo: "Marketing" },
   { prefixo: "comercial.", titulo: "Comercial" },
+  { prefixo: "operacoes.", titulo: "Operações" },
   { prefixo: "calendario.", titulo: "Calendário" },
   { prefixo: "formularios.", titulo: "Formulários" },
 ] as const;

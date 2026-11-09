@@ -88,6 +88,15 @@ export const TABELAS: Record<string, string> = {
   "formularios.formularios": "Formulário",
   "calendario.tipos": "Tipo de item do calendário",
   "calendario.itens": "Item do calendário",
+  "operacoes.parametros": "Parâmetros de Operações",
+  "operacoes.importacoes": "Importação de Operações",
+  "operacoes.agua_vinculos": "Vínculo de hidrômetro",
+  "operacoes.quadros": "Quadro de medidores",
+  "operacoes.caixas": "Caixa de medidor",
+  "operacoes.termos": "Termo de autorização de energia",
+  "operacoes.limpeza_meses": "Mês do rateio da limpeza",
+  "operacoes.obra_realizado": "Realizado de obra",
+  "os.ativo_saidas": "Saída de ativo",
 };
 
 const ACOES_ALTERACAO: Record<string, string> = {
