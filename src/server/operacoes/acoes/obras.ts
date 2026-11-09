@@ -30,6 +30,7 @@ import { erroDoBanco, primeiroErro } from "@/server/acoes";
 import { gravarArquivo, removerArquivos } from "@/server/arquivos";
 import { podeAgora, usuarioAtual } from "@/server/auth";
 import { op, opAdmin } from "../base";
+import { logImportacaoOp } from "../historico";
 
 // Ações das Obras — previsto e realizado (spec 4.9 e 4.11):
 //   * orçamento: ler a planilha → prévia gravada (importação "previa",
@@ -42,7 +43,8 @@ import { op, opAdmin } from "../base";
 // arquivos e a limpeza de obra criada por prévia descartada só depois de
 // podeAgora. Nada fica em cache no servidor: basta refresh(). O registro de
 // quem fez o quê fica na auditoria do banco (operacoes.importacoes e
-// operacoes.obra_realizado têm o gatilho core.auditar).
+// operacoes.obra_realizado têm o gatilho core.auditar); confirmar e
+// descartar a prévia também vão para o histórico do sistema (core.logs).
 
 const PERMISSAO = "operacoes.obras.importar" as const;
 const LIMITE_MB = 8;
@@ -559,6 +561,20 @@ const campoDoResumo = (resumo: Json, campo: string): Json | undefined =>
     ? resumo[campo]
     : undefined;
 
+/** "Obra X, revisão R02" para o histórico do sistema. */
+function revisaoDaObra(resumo: Json): string | undefined {
+  const obra = campoDoResumo(resumo, "obra");
+  const revisao = campoDoResumo(resumo, "revisao");
+  return (
+    [
+      typeof obra === "string" && obra ? obra : null,
+      typeof revisao === "string" && revisao ? `revisão ${revisao}` : null,
+    ]
+      .filter(Boolean)
+      .join(", ") || undefined
+  );
+}
+
 export async function confirmarOrcamento(
   _: EstadoOrcamento,
   form: FormData,
@@ -581,6 +597,11 @@ export async function confirmarOrcamento(
   const obraId = campoDoResumo(imp.resumo, "obra_id");
   const obraNome = campoDoResumo(imp.resumo, "obra");
   const codigo = campoDoResumo(imp.resumo, "revisao");
+  await logImportacaoOp(
+    "confirmou",
+    { id: imp.id, tipo: "orcamento" },
+    revisaoDaObra(imp.resumo),
+  );
   return {
     confirmado: {
       obraId: typeof obraId === "string" ? obraId : "",
@@ -624,6 +645,11 @@ export async function descartarOrcamento(
   )
     await apagarObraVazia(obraId);
   refresh();
+  await logImportacaoOp(
+    "descartou",
+    { id: imp.id, tipo: "orcamento" },
+    revisaoDaObra(imp.resumo),
+  );
   return { descartado: true };
 }
 

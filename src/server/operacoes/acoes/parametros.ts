@@ -16,6 +16,7 @@ import { erroDoBanco, primeiroErro } from "@/server/acoes";
 import { podeAgora } from "@/server/auth";
 import { TAG } from "@/server/cache";
 import { contextoOp, op, opAdmin } from "@/server/operacoes/base";
+import { logOperacoes } from "@/server/operacoes/historico";
 
 // Operações › Parâmetros (spec 4.12): cada grupo salva só as colunas dele,
 // pelo RLS (operacoes.parametros edita). O gatilho de auditoria guarda quem
@@ -50,6 +51,12 @@ export async function salvarParametros(
   if (!data?.length) return SEM_PERMISSAO;
   updateTag(TAG.operacoes.parametros);
   refresh();
+  // Só os nomes das colunas: o antes e o depois ficam em core.auditoria.
+  await logOperacoes(
+    "operacoes_parametros",
+    `Parâmetros de Operações: ${GRUPOS[grupo]}`,
+    { grupo, campos: Object.keys(d.data as Record<string, unknown>) },
+  );
   return { ok: `${GRUPOS[grupo]}: salvo.` };
 }
 
@@ -63,6 +70,10 @@ export async function removerExemplos(
   const { error } = await (await op()).rpc("remover_exemplos");
   if (error) return erroDoBanco(error);
   refresh();
+  await logOperacoes(
+    "operacoes_exemplos_removidos",
+    "Removeu os dados de exemplo de Operações",
+  );
   return {
     ok: "Dados de exemplo removidos. As telas passam a mostrar só os dados reais.",
   };

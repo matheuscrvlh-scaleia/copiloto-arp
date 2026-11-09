@@ -400,7 +400,7 @@ export const GUIAS_TICKETS: Record<string, Guia> = {
   },
 
   "/os/ativos": {
-    versao: 2,
+    versao: 3,
     passos: [
       abertura(
         "Ativos",
@@ -422,6 +422,67 @@ export const GUIAS_TICKETS: Record<string, Guia> = {
         "Passo 3. Etiqueta e preventiva",
         "Cada ativo tem um código (AT-0001) e uma etiqueta com QR: quem escaneia cai na ficha. Cadastre um plano preventivo e a OS sai sozinha, com responsável e checklist.",
       ),
+      {
+        alvo: "os-ativo-registrar-saida",
+        titulo: "Passo 4. Registre a saída",
+        texto:
+          "Vendeu, doou, descartou ou devolveu? Na ficha do ativo, <b>Registrar saída</b> com o tipo, o destino e o valor. O ativo fica baixado, sai das listas de uso e não recebe nova OS; o histórico continua.",
+      },
+      {
+        alvo: "os-ativo-recibo-saida",
+        titulo: "Recibo da saída",
+        texto:
+          "Cada saída fica na ficha com o recibo em PDF e os anexos. Registrou errado? <b>Desfazer saída</b> pede um motivo e o ativo volta à situação de antes.",
+      },
+      {
+        alvo: "aba:Saídas",
+        titulo: "Passo 5. Relatório de saídas",
+        texto:
+          "Todas as saídas do período, com o total vendido, em Excel e PDF. É também onde se registra a saída de uma sobra sem cadastro.",
+      },
+    ],
+  },
+
+  "/os/ativos/saidas": {
+    versao: 1,
+    passos: [
+      abertura(
+        "Saídas de ativos",
+        "Venda, doação, descarte e devolução de ativos, com o total vendido. A saída de um ativo se registra na ficha dele; aqui ficam o relatório e a saída de sobras que nunca foram cadastradas.",
+      ),
+      {
+        alvo: "os-saidas-filtros",
+        titulo: "Passo 1. Escolha o período",
+        texto:
+          "Período, tipo de saída e responsável. Os números e a lista seguem o filtro.",
+      },
+      {
+        alvo: "cartao:Total vendido",
+        titulo: "Passo 2. Os números",
+        texto:
+          "Quantas saídas, o total vendido, as doações e os descartes do período.",
+      },
+      {
+        alvo: "tabela",
+        titulo: "Passo 3. Saída a saída",
+        texto:
+          "Data, ativo, tipo, quantidade, valor, forma de recebimento, destinatário, responsável e situação. O ícone de recibo baixa o PDF da saída.",
+      },
+      {
+        alvo: "os-ativo-registrar-saida",
+        titulo: "Passo 4. Sobra sem cadastro",
+        texto:
+          "Material que nunca foi cadastrado (ex.: sobra de obra): <b>Registrar saída de sobra</b> cria o ativo já baixado e registra a saída.",
+      },
+      exportar(
+        "<b>Passo 5.</b> Baixe o relatório em Excel ou PDF, com os filtros escritos no arquivo.",
+      ),
+      {
+        alvo: "aba:Lista",
+        titulo: "Passo 6. Volte aos ativos",
+        texto:
+          "Para a saída de um ativo cadastrado, abra a ficha dele na Lista e clique em <b>Registrar saída</b>.",
+      },
     ],
   },
 

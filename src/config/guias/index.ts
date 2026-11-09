@@ -5,6 +5,7 @@ import { encerramento } from "./comum";
 import { GUIAS_FINANCEIRO } from "./financeiro";
 import { GUIAS_FORMULARIOS } from "./formularios";
 import { GUIAS_MARKETING } from "./marketing";
+import { GUIAS_OPERACOES } from "./operacoes";
 import { GUIAS_GESTAO, GUIAS_RH } from "./rh-gestao";
 import { GUIAS_TICKETS } from "./tickets";
 import type { Guia, Passo } from "./tipos";
@@ -22,6 +23,7 @@ export const GUIAS: Record<string, Guia> = {
   ...GUIAS_MARKETING,
   ...GUIAS_COMERCIAL,
   ...GUIAS_FORMULARIOS,
+  ...GUIAS_OPERACOES,
   ...GUIAS_ADMIN,
 };
 

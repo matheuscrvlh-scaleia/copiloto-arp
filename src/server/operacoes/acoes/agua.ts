@@ -20,6 +20,7 @@ import {
   previaAberta,
 } from "@/server/operacoes/agua-importacao";
 import { op } from "@/server/operacoes/base";
+import { logImportacaoOp } from "@/server/operacoes/historico";
 
 // Ações da água: o envio e a prévia da importação (a leitura fica em
 // server/operacoes/agua-importacao.ts), confirmar e descartar, e a correção
@@ -99,6 +100,12 @@ export async function confirmarAgua(entrada: {
     return { erro: "Não foi possível confirmar. Nada foi alterado." };
   }
   refresh();
+  await logImportacaoOp(
+    "confirmou",
+    { id: imp.id, tipo: "agua", referencia: imp.referencia },
+    imp.bate === false ? "marcada incompleta" : undefined,
+    imp.bate === false ? { incompleta: true, motivo } : {},
+  );
   return {
     ok: `${rotuloMes(imp.referencia)} importado${imp.bate === false ? " (marcado incompleto)" : ""}.`,
     referencia: imp.referencia,
@@ -117,6 +124,7 @@ export async function descartarAgua(id: string): Promise<EstadoAcao> {
     return { erro: "Não foi possível descartar. Tente de novo." };
   }
   refresh();
+  await logImportacaoOp("descartou", { id, tipo: "agua" });
   return { ok: "Prévia descartada." };
 }
 

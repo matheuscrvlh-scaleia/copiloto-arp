@@ -6,12 +6,14 @@ import type { EstadoAcao } from "@/components/form-acao";
 import { ehTipo, TIPOS_IMPORTACAO } from "@/lib/operacoes/importacoes";
 import { erroDoBanco } from "@/server/acoes";
 import { contextoOp, op } from "@/server/operacoes/base";
+import { logImportacaoOp } from "@/server/operacoes/historico";
 
 // Desfazer do histórico de Importações de Operações (spec 4.11), para os
 // quatro tipos: operacoes.desfazer_importacao confere a permissão do tipo
 // (pode_importar), apaga o que a importação trouxe e, na água, devolve o mês
 // que ela tinha substituído; numa prévia, só a descarta. A auditoria
-// (core.auditoria) guarda quem desfez e quando.
+// (core.auditoria) guarda quem desfez e quando; o histórico do sistema
+// (core.logs), o que foi desfeito.
 
 const pedido = z.object({ id: z.uuid("importação inválida") });
 
@@ -24,7 +26,7 @@ export async function desfazerImportacao(
   const [ctx, db] = await Promise.all([contextoOp(), op()]);
   const { data: imp, error: erroLer } = await db
     .from("importacoes")
-    .select("tipo, status")
+    .select("tipo, status, referencia")
     .eq("id", d.data.id)
     .maybeSingle();
   if (erroLer) return erroDoBanco(erroLer);
@@ -37,10 +39,17 @@ export async function desfazerImportacao(
   if (error) return erroDoBanco(error);
   refresh();
   const n = apagadas ?? 0;
+  const registros = `${n} ${n === 1 ? "registro removido" : "registros removidos"}`;
+  await logImportacaoOp(
+    imp.status === "previa" ? "descartou" : "desfez",
+    { id: d.data.id, tipo: imp.tipo, referencia: imp.referencia },
+    imp.status === "previa" ? undefined : registros,
+    { registros: n },
+  );
   return {
     ok:
       imp.status === "previa"
         ? "Prévia descartada."
-        : `Importação desfeita: ${n} ${n === 1 ? "registro removido" : "registros removidos"}.${imp.tipo === "agua" ? " Se ela substituía outra, o mês anterior voltou a valer." : ""}`,
+        : `Importação desfeita: ${registros}.${imp.tipo === "agua" ? " Se ela substituía outra, o mês anterior voltou a valer." : ""}`,
   };
 }

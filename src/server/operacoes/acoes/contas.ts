@@ -30,6 +30,7 @@ import {
   sha256,
   TAMANHO_MAXIMO,
 } from "../contas-importacao";
+import { logImportacaoOp } from "../historico";
 
 // Importação das faturas da Energisa (PDF), uma fatura por importação:
 // enviar → prévia (a fatura e os itens já gravados, fora das telas) →
@@ -396,6 +397,12 @@ export async function confirmarFatura(form: FormData): Promise<EstadoAcao> {
   }
   refresh();
   const f = p.resumo.fatura;
+  await logImportacaoOp(
+    "confirmou",
+    { id: v.data.importacao_id, tipo: "energisa", referencia: f.referencia },
+    `matrícula ${f.matricula}${f.bate ? "" : ", itens sem bater com o total"}`,
+    { matricula: f.matricula, motivo: v.data.motivo ?? undefined },
+  );
   return {
     ok: `Fatura da matrícula ${f.matricula} de ${mesAno(f.referencia)} confirmada.`,
   };
@@ -413,5 +420,12 @@ export async function descartarFatura(form: FormData): Promise<EstadoAcao> {
     console.error("descartar prévia da Energisa", e);
     return { erro: "Não foi possível descartar. Tente de novo." };
   }
+  const f = p.resumo.fatura;
+  await logImportacaoOp(
+    "descartou",
+    { id: v.data, tipo: "energisa", referencia: f.referencia },
+    `matrícula ${f.matricula}`,
+    { matricula: f.matricula },
+  );
   return { ok: "Prévia descartada." };
 }

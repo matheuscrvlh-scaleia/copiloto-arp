@@ -33,6 +33,7 @@ import {
 } from "@/server/arquivos";
 import { podeAgora } from "@/server/auth";
 import { op, parametros } from "../base";
+import { logOperacoes } from "../historico";
 import {
   BUCKET_OPERACOES,
   caixaPorId,
@@ -540,6 +541,12 @@ export async function emitirTermo(
     });
     if (!r.error) {
       refresh();
+      // Sem nome nem documento do locatário: só caixa, quadro e versão.
+      await logOperacoes(
+        "operacoes_termo_emitido",
+        `Emitiu o termo de autorização de energia da caixa ${c.numero} do quadro ${c.quadro.codigo} (versão ${versao})`,
+        { caixa: c.id, quadro: c.quadro.id, versao },
+      );
       return {
         ok: `Termo emitido (versão ${versao}). PDF e Word guardados na caixa.`,
       };

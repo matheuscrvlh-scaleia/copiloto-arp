@@ -37,6 +37,7 @@ import { usuariosComPermissao } from "@/server/comercial/usuarios";
 import { notificar } from "@/server/os/base";
 import { TIPO_XLSX } from "@/server/os/relatorios/planilha";
 import { op, parametros } from "../base";
+import { logImportacaoOp, logOperacoes } from "../historico";
 import { detalheDoMes, PERMISSAO_FINANCEIRO } from "../limpeza";
 import { gerarDemonstrativo } from "../limpeza-pdf";
 import { planilhaDoRateio } from "../limpeza-planilha";
@@ -238,6 +239,11 @@ export async function fecharRateio(referencia: string): Promise<EstadoAcao> {
   const { error } = await (await op()).rpc("limpeza_fechar", { p_ref: ref });
   if (error) return erroDoBanco(error, "fechar rateio");
   refresh();
+  await logOperacoes(
+    "operacoes_rateio_fechado",
+    `Fechou o rateio da limpeza de ${nomeDoMes(ref)}`,
+    { referencia: ref },
+  );
   return { ok: `${nomeDoMes(ref)} fechado. Agora é só leitura.` };
 }
 
@@ -256,6 +262,11 @@ export async function reabrirRateio(
   });
   if (error) return erroDoBanco(error, "reabrir rateio");
   refresh();
+  await logOperacoes(
+    "operacoes_rateio_reaberto",
+    `Reabriu o rateio da limpeza de ${nomeDoMes(ref)}`,
+    { referencia: ref, motivo: m.data },
+  );
   return {
     ok: `${nomeDoMes(ref)} reaberto. O envio ao Financeiro foi desfeito; envie de novo depois de fechar.`,
   };
@@ -347,6 +358,11 @@ export async function enviarRateio(referencia: string): Promise<EstadoAcao> {
     });
   }
   refresh();
+  await logOperacoes(
+    "operacoes_rateio_enviado",
+    `Enviou o rateio da limpeza de ${nomeDoMes(ref)} ao Financeiro`,
+    { referencia: ref },
+  );
   return {
     ok: `Rateio de ${nomeDoMes(ref)} enviado ao Financeiro em ${quando}.`,
   };
@@ -715,6 +731,12 @@ export async function confirmarHistorico(entrada: {
     return { erro: "Não foi possível confirmar. Nada foi alterado." };
   }
   refresh();
+  await logImportacaoOp(
+    "confirmou",
+    { id: e.data.id, tipo: "limpeza" },
+    undefined,
+    { motivo: e.data.motivo || undefined },
+  );
   return {
     ok: "Histórico importado. Os meses estão no rateio, com a conta refeita.",
   };
@@ -744,6 +766,7 @@ export async function descartarHistorico(id: string): Promise<EstadoAcao> {
     .filter((c): c is string => typeof c === "string");
   await removerArquivos(BUCKET, caminhos);
   refresh();
+  await logImportacaoOp("descartou", { id: e.data, tipo: "limpeza" });
   return { ok: "Prévia descartada. Nada foi importado." };
 }
 

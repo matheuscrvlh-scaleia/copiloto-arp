@@ -16,8 +16,9 @@ import {
 } from "@/lib/os/saidas";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import { erroDoBanco, primeiroErro } from "@/server/acoes";
-import { podeAgora } from "@/server/auth";
+import { podeAgora, usuarioAtual } from "@/server/auth";
 import { TAG } from "@/server/cache";
+import { registrarDepois } from "@/server/logs";
 import { enviarArquivo, os, removerArquivos } from "@/server/os/base";
 import { exigir, json, NADA_ALTERADO } from "@/server/os/config-acoes";
 import { listasDeSaida } from "@/server/os/saidas";
@@ -96,6 +97,23 @@ async function guardarAnexos(arquivos: File[]): Promise<string[] | null> {
 }
 
 /**
+ * Evento no histórico do sistema. Sem destinatário, documento nem quem
+ * recebeu: só o ativo, o tipo e a data.
+ */
+async function logSaida(
+  descricao: string,
+  detalhes: { ativo: string; tipo: string; data: string; sobra?: boolean },
+): Promise<void> {
+  registrarDepois({
+    modulo: "os",
+    evento: "os_ativo_saida",
+    descricao,
+    usuarioId: (await usuarioAtual()).id,
+    detalhes,
+  });
+}
+
+/**
  * Registrar saída: com `ativo_id`, do ativo da ficha; sem ele, a sobra sem
  * cadastro (nome, categoria e local), que vira um ativo já baixado e abre a
  * ficha dele.
@@ -158,6 +176,10 @@ export async function registrarSaida(
       await removerArquivos(anexos);
       return error ? erroDoBanco(error) : { erro: "Ativo não criado." };
     }
+    await logSaida(
+      `Registrou a saída de "${alvo.data.nome}" (sem cadastro): ${rotuloDaSaida(s.tipo)}`,
+      { ativo: novo, tipo: s.tipo, data: s.data, sobra: true },
+    );
     redirect(`${rotaAtivo(novo)}?saida=1`);
   }
 
@@ -172,6 +194,11 @@ export async function registrarSaida(
     return erroDoBanco(error);
   }
   refresh();
+  await logSaida(`Registrou a saída de um ativo: ${rotuloDaSaida(s.tipo)}`, {
+    ativo: (alvo.data as { ativo_id: string }).ativo_id,
+    tipo: s.tipo,
+    data: s.data,
+  });
   return {
     ok: `Saída registrada: o ativo ficou "Baixado – ${rotuloDaSaida(s.tipo)}".`,
   };
@@ -199,6 +226,13 @@ export async function desfazerSaida(
   });
   if (error) return erroDoBanco(error);
   refresh();
+  registrarDepois({
+    modulo: "os",
+    evento: "os_ativo_saida_desfeita",
+    descricao: "Desfez a saída de um ativo",
+    usuarioId: (await usuarioAtual()).id,
+    detalhes: { saida: d.data.id, motivo: d.data.motivo },
+  });
   return { ok: "Saída desfeita. O ativo voltou à situação de antes." };
 }
 

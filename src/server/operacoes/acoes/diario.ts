@@ -3,9 +3,9 @@
 import { after } from "next/server";
 import type { EstadoAcao } from "@/components/form-acao";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { podeAgora, usuarioAtual } from "@/server/auth";
+import { podeAgora } from "@/server/auth";
 import { diarioDeObras } from "@/server/integracoes";
-import { registrarDepois } from "@/server/logs";
+import { logOperacoes } from "@/server/operacoes/historico";
 import {
   RECURSO_DIARIO,
   SISTEMA_DIARIO,
@@ -59,13 +59,11 @@ export async function atualizarDiarioAgora(
       erro: `A última consulta terminou há pouco. Tente de novo em ${faltaMin} min.`,
     };
 
-  registrarDepois({
-    modulo: "integracoes",
-    evento: "sincronizacao_pedida",
-    descricao: "Pediu a atualização do Diário de Obra",
-    usuarioId: (await usuarioAtual()).id,
-    detalhes: { sistema: SISTEMA_DIARIO },
-  });
+  await logOperacoes(
+    "operacoes_diario_atualizado",
+    "Pediu a atualização do Diário de Obra",
+    { sistema: SISTEMA_DIARIO },
+  );
   after(async () => {
     try {
       await sincronizarDiario();
