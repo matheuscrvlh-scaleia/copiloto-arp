@@ -12,7 +12,8 @@ import {
   faixasDoFormulario,
 } from "@/lib/rh/plano";
 import { createClient } from "@/lib/supabase/server";
-import { pode, podeAgora, usuarioAtual } from "@/server/auth";
+import { gravarArquivo, lerArquivo } from "@/server/arquivos";
+import { podeAgora, usuarioAtual } from "@/server/auth";
 import { TAG } from "@/server/cache";
 import { ehXlsx, lerPlanilhaDoPlano } from "@/server/rh/beneficios";
 import { recalcularEmAberto, tentarRecalcular } from "@/server/rh/custo";
@@ -62,7 +63,8 @@ export async function lerTabelaPlano(
   _: EstadoPlano,
   form: FormData,
 ): Promise<EstadoPlano> {
-  if (!(await pode("rh.beneficios"))) return { erro: SEM_PERMISSAO };
+  // Conferida agora no banco: o arquivo vai para o armazenamento sem RLS.
+  if (!(await podeAgora("rh.beneficios"))) return { erro: SEM_PERMISSAO };
   const dados = envio.safeParse(Object.fromEntries(form));
   if (!dados.success)
     return { erro: dados.error.issues[0]?.message ?? "Confira os campos." };
@@ -119,15 +121,15 @@ export async function lerTabelaPlano(
       .replace(/[^\w.-]+/g, "_")
       .slice(-80) || "tabela.xlsx"
   }`;
-  const envioArquivo = await supabase.storage
-    .from(BUCKET)
-    .upload(caminho, bytes, {
-      contentType:
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      upsert: false,
-    });
-  if (envioArquivo.error) {
-    console.error("upload da tabela do plano", envioArquivo.error);
+  try {
+    await gravarArquivo(
+      BUCKET,
+      caminho,
+      bytes,
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+  } catch (e) {
+    console.error("upload da tabela do plano", e);
     return { erro: "Não foi possível guardar o arquivo. Tente de novo." };
   }
   const registro = await supabase
@@ -187,14 +189,12 @@ export async function confirmarTabelaPlano(
     return { erro: "Importação não encontrada. Envie o arquivo de novo." };
   if (imp.status !== "previa")
     return { erro: "Esta prévia já foi usada. Envie o arquivo de novo." };
-  const arquivo = await supabase.storage
-    .from(BUCKET)
-    .download(imp.arquivo_path);
-  if (arquivo.error)
+  const arquivo = imp.arquivo_path.startsWith("plano_saude/")
+    ? await lerArquivo(BUCKET, imp.arquivo_path)
+    : null;
+  if (!arquivo)
     return { erro: "Não encontrei o arquivo enviado. Envie de novo." };
-  const tabela = await lerPlanilhaDoPlano(
-    new Uint8Array(await arquivo.data.arrayBuffer()),
-  );
+  const tabela = await lerPlanilhaDoPlano(arquivo);
 
   const { error } = await supabase.schema("rh").rpc("importar_tabela_plano", {
     p_importacao_id: dados.data.importacao_id,

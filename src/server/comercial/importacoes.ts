@@ -27,6 +27,12 @@ import { decodificarTexto, lerCsv } from "@/lib/marketing/parametros";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import {
+  type Bucket,
+  gravarArquivo,
+  lerArquivo,
+  removerArquivos,
+} from "@/server/arquivos";
 import { usuarioAtual } from "@/server/auth";
 import { nomesDeUsuarios } from "@/server/comercial/usuarios";
 import { registrarDepois } from "@/server/logs";
@@ -45,7 +51,7 @@ import { registrarDepois } from "@/server/logs";
 // Tudo com a sessão: o RLS de comercial.importacoes e do bucket confere a
 // permissão do tipo (comercial.pode_importar) de novo.
 
-const BUCKET = "comercial";
+const BUCKET: Bucket = "comercial";
 
 /** Erro com mensagem para a tela (o leitor ou a gravação lançam). */
 export class ErroImportacao extends Error {
@@ -181,12 +187,16 @@ export async function prepararPrevia<T>(
   ]);
   const id = randomUUID();
   const caminho = `importacoes/${tipo}/${id}/${nomeSeguro(nome)}`;
-  const envio = await supabase.storage.from(BUCKET).upload(caminho, bytes, {
-    contentType: arquivo.type || "application/octet-stream",
-    upsert: false,
-  });
-  if (envio.error) {
-    console.error("upload da importação", envio.error);
+  // A permissão do tipo foi conferida no banco no começo (podeImportar).
+  try {
+    await gravarArquivo(
+      BUCKET,
+      caminho,
+      bytes,
+      arquivo.type || "application/octet-stream",
+    );
+  } catch (erro) {
+    console.error("upload da importação", erro);
     return { erro: "Não foi possível guardar o arquivo. Tente de novo." };
   }
 
@@ -273,12 +283,9 @@ export async function confirmarImportacao<T>(
       erro: "Este arquivo já foi importado. Marque “Substituir” para trocar a importação anterior.",
     };
 
-  const baixado = await supabase.storage
-    .from(BUCKET)
-    .download(imp.arquivo_path);
-  if (baixado.error)
+  const bytes = await lerArquivo(BUCKET, imp.arquivo_path);
+  if (!bytes)
     return { erro: "Não encontrei o arquivo enviado. Envie de novo." };
-  const bytes = new Uint8Array(await baixado.data.arrayBuffer());
   let resultado: ResultadoLeitura<T>;
   try {
     resultado = await ler(await lerAbas(bytes, imp.arquivo_nome), {
@@ -393,8 +400,8 @@ export async function limparPreviasAbandonadas(): Promise<number> {
     d.arquivo_path ? [d.arquivo_path] : [],
   );
   if (arquivos.length) {
-    const r = await admin.storage.from(BUCKET).remove(arquivos);
-    if (r.error) throw new Error(`Prévias abandonadas: ${r.error.message}`);
+    if (!(await removerArquivos(BUCKET, arquivos)))
+      throw new Error("Prévias abandonadas: falha ao apagar os arquivos");
   }
   const apagadas = await admin
     .schema("comercial")

@@ -9,6 +9,7 @@ import {
 } from "@/lib/marketing/marca";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { linkDeLeitura } from "@/server/arquivos";
 import { podeAgora } from "@/server/auth";
 import { mkt, type Tabela } from "@/server/marketing/base";
 
@@ -186,16 +187,12 @@ export async function linkParaBaixar(id: string): Promise<string | null> {
     .maybeSingle();
   falhar(error);
   if (!data?.arquivo_path) return null;
-  const link = await createAdminClient()
-    .storage.from(BUCKET_MARCA)
-    .createSignedUrl(data.arquivo_path, 60, {
-      download: data.arquivo_nome ?? true,
-    });
-  if (link.error) {
-    console.error("link do arquivo de marca", link.error);
-    return null;
-  }
-  return link.data.signedUrl;
+  const link = await linkDeLeitura(BUCKET_MARCA, data.arquivo_path, {
+    segundos: 60,
+    baixarComo: data.arquivo_nome ?? true,
+  });
+  if (!link) console.error("link do arquivo de marca: não encontrado", id);
+  return link;
 }
 
 /**

@@ -14,6 +14,13 @@ import type { Permissao } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import {
+  type Bucket,
+  gravarArquivo,
+  lerArquivo,
+  linksDeLeitura,
+  removerArquivos as removerDoArmazenamento,
+} from "@/server/arquivos";
 import { type Usuario, usuarioAtual } from "@/server/auth";
 import { TAG } from "@/server/cache";
 
@@ -860,7 +867,7 @@ export async function membrosDoSetor(
 // Arquivos (bucket privado "os") e links públicos
 // ---------------------------------------------------------------------------
 
-const BUCKET = "os";
+const BUCKET: Bucket = "os";
 
 /** Caminho no bucket: <dono>/<id do dono>/<id aleatório>-<nome limpo>. */
 export function caminhoDoArquivo(
@@ -894,18 +901,17 @@ export async function enviarArquivo(
   conteudo: Blob | ArrayBuffer | Uint8Array,
   mime: string,
 ): Promise<void> {
-  const { error } = await createAdminClient()
-    .storage.from(BUCKET)
-    .upload(path, conteudo, { contentType: mime, upsert: false });
-  if (error) throw new Error(`Falha ao enviar o arquivo: ${error.message}`);
+  try {
+    await gravarArquivo(BUCKET, path, conteudo, mime);
+  } catch (e) {
+    throw new Error(
+      `Falha ao enviar o arquivo: ${e instanceof Error ? e.message : e}`,
+    );
+  }
 }
 
 export async function removerArquivos(paths: string[]): Promise<void> {
-  if (!paths.length) return;
-  const { error } = await createAdminClient()
-    .storage.from(BUCKET)
-    .remove(paths);
-  if (error) console.error("remover arquivos", error);
+  await removerDoArmazenamento(BUCKET, paths);
 }
 
 /** Endereços temporários (1 h) para mostrar os arquivos já liberados. */
@@ -913,28 +919,12 @@ export async function urlsAssinadas(
   paths: string[],
   segundos = 3600,
 ): Promise<Map<string, string>> {
-  if (!paths.length) return new Map();
-  const { data, error } = await createAdminClient()
-    .storage.from(BUCKET)
-    .createSignedUrls(paths, segundos);
-  if (error) {
-    console.error("urls assinadas", error);
-    return new Map();
-  }
-  return new Map(
-    (data ?? [])
-      .filter((d) => d.signedUrl && d.path)
-      .map((d) => [d.path as string, d.signedUrl as string]),
-  );
+  return linksDeLeitura(BUCKET, paths, segundos);
 }
 
 /** Lê um arquivo do bucket (PDF do laudo, papel timbrado, fotos). */
 export async function baixarArquivo(path: string): Promise<Uint8Array | null> {
-  const { data, error } = await createAdminClient()
-    .storage.from(BUCKET)
-    .download(path);
-  if (error || !data) return null;
-  return new Uint8Array(await data.arrayBuffer());
+  return lerArquivo(BUCKET, path);
 }
 
 /** Token de link público (portal, terceirizado): 32+ caracteres aleatórios. */
@@ -942,12 +932,4 @@ export function novoToken(): string {
   return randomBytes(24).toString("base64url");
 }
 
-/** Endereço absoluto do sistema (links do WhatsApp). */
-export function urlDoSistema(caminho: string): string {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "http://localhost:3000");
-  return `${base.replace(/\/$/, "")}${caminho}`;
-}
+export { urlDoSistema } from "@/server/endereco";

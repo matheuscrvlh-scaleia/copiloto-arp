@@ -7,7 +7,7 @@ import {
   situacaoDaValidade,
 } from "@/lib/comercial/kit";
 import { formatarData } from "@/lib/formato";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { lerArquivo, linkDeLeitura } from "@/server/arquivos";
 import {
   novaPagina,
   prepararPapel,
@@ -173,16 +173,12 @@ export async function linkDaVersao(versaoId: string): Promise<string | null> {
     .maybeSingle();
   falhar(error);
   if (!data?.arquivo_path) return null;
-  const link = await createAdminClient()
-    .storage.from(BUCKET_COMERCIAL)
-    .createSignedUrl(data.arquivo_path, 60, {
-      download: data.arquivo_nome ?? true,
-    });
-  if (link.error) {
-    console.error("link do kit", link.error);
-    return null;
-  }
-  return link.data.signedUrl;
+  const link = await linkDeLeitura(BUCKET_COMERCIAL, data.arquivo_path, {
+    segundos: 60,
+    baixarComo: data.arquivo_nome ?? true,
+  });
+  if (!link) console.error("link do kit: arquivo não encontrado", versaoId);
+  return link;
 }
 
 /**
@@ -207,23 +203,19 @@ export async function pdfDoKit(opcoes: {
     for (const v of data ?? [])
       if (v.arquivo_path) caminhos.set(v.id, v.arquivo_path);
   }
-  const storage = createAdminClient().storage.from(BUCKET_COMERCIAL);
   const arquivos = await Promise.all(
     itens.map(async (i) => {
       const caminho = i.versaoId ? caminhos.get(i.versaoId) : undefined;
       if (!caminho) return null;
-      const { data, error } = await storage.download(caminho);
-      if (error || !data) {
-        console.error("arquivo do kit", caminho, error);
+      const bytes = await lerArquivo(BUCKET_COMERCIAL, caminho);
+      if (!bytes) {
+        console.error("arquivo do kit não encontrado", caminho);
         return null;
       }
       try {
-        return await PDFDocument.load(
-          new Uint8Array(await data.arrayBuffer()),
-          {
-            ignoreEncryption: true,
-          },
-        );
+        return await PDFDocument.load(bytes, {
+          ignoreEncryption: true,
+        });
       } catch (erro) {
         console.error("PDF do kit inválido", caminho, erro);
         return null;

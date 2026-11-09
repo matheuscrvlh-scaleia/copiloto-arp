@@ -9,8 +9,8 @@ import {
 } from "@/lib/formularios/campos";
 import type { MotivoFechado } from "@/lib/formularios/formulario";
 import { BYTES_DO_TIPO } from "@/lib/os/tipo-arquivo";
-import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
+import { gravarArquivo } from "@/server/arquivos";
 import {
   assinar,
   BUCKET_FORMULARIOS,
@@ -127,10 +127,9 @@ export async function enviarArquivoPeloLink(
 
   const caminho = `${id}/${randomUUID()}.${tipo.ext}`;
   // atalho: arquivo que sobe e não é enviado no formulário fica no bucket.
-  const { error } = await createAdminClient()
-    .storage.from(BUCKET_FORMULARIOS)
-    .upload(caminho, bytes, { contentType: tipo.tipo, upsert: false });
-  if (error) {
+  try {
+    await gravarArquivo(BUCKET_FORMULARIOS, caminho, bytes, tipo.tipo);
+  } catch (error) {
     console.error("arquivo do formulário", id, error);
     return { erro: "Não foi possível guardar o arquivo. Tente de novo." };
   }

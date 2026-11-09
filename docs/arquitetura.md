@@ -16,6 +16,7 @@ src/server/<modulo>/ tudo que roda só no servidor ("server-only"):
                      conferem a permissão, gravam e invalidam o cache
 src/server/cache.ts  tags do cache (TAG), a única lista de nomes
 src/server/auth.ts   usuarioAtual(), pode() e podeAgora()
+src/server/arquivos/ fotos, PDFs e planilhas (ver "Arquivos" abaixo)
 src/lib/             regras puras (sem banco, sem Next), com testes
 src/components/      UI reaproveitável (Server Components por padrão)
 src/connectors/      sistemas externos, sem Next (ver integracoes.md)
@@ -116,6 +117,24 @@ chave única.
 Quem cria uma tabela de configuração nova cria a tag em `TAG` e invalida em
 toda ação que grava nela.
 
+## Arquivos
+
+Todo arquivo (foto, PDF, planilha) passa por `src/server/arquivos`:
+`gravarArquivo`, `lerArquivo`, `linkDeLeitura`, `prepararEnvio`,
+`removerArquivos`. Ninguém chama o Supabase Storage nem o disco direto.
+
+- Onde ficam: no disco da VPS quando `ARQUIVOS_DIR` está definido; sem
+  ela (desenvolvimento), no Supabase Storage. Na transição, o que ainda
+  não está no disco é lido do Supabase (`ARQUIVOS_RESERVA_SUPABASE`).
+- Aqui não há RLS: conferir a permissão com `podeAgora()` (ou o token do
+  link público) **antes** de chamar.
+- Para o navegador, só link assinado (`/api/arquivos/<token>`, HMAC com
+  `ARQUIVOS_CHAVE` e prazo). Envio grande vai direto do navegador, com
+  `prepararEnvio` e `enviarParaLink` (`src/lib/enviar-arquivo.ts`); depois
+  a ação confere tamanho e tipo (`infoDoArquivo`, `inicioDoArquivo`).
+- Os arquivos saem da mesma origem do sistema: só imagem, PDF, vídeo e
+  texto abrem na aba; o resto (SVG, HTML...) sempre baixa.
+
 ## Banco
 
 - Política de RLS chama função de permissão dentro de `(select ...)`:
@@ -136,7 +155,10 @@ toda ação que grava nela.
 
 ## Infraestrutura
 
-- As funções da Vercel rodam em São Paulo (`gru1`, `vercel.json`), a mesma
+- Produção na VPS com Docker (`docs/deploy-vps.md`). A VPS precisa ficar
+  em São Paulo, perto do Supabase (`sa-east-1`), pelo mesmo motivo do item
+  abaixo.
+- Enquanto a Vercel estiver no ar, as funções rodam em São Paulo (`gru1`, `vercel.json`), a mesma
   região do Supabase (`sa-east-1`). Cada consulta ao banco de outra região
   custa ~120 ms.
 - Supabase com chaves JWT assimétricas (Project Settings › JWT Keys): o

@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { lerTudo } from "../supabase-paginas";
 import { cargosDoRh, departamentosDoRh, rubricasDoRh } from "./configuracao";
 
-export const BUCKET = "importacoes";
+export const BUCKET = "importacoes" as const;
 export const TAMANHO_MAXIMO = 10 * 1024 * 1024;
 
 export function sha256(bytes: Uint8Array): string {

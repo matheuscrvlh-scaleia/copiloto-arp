@@ -13,7 +13,7 @@ import {
   type TipoFicha,
 } from "@/lib/comercial/ficha";
 import type { EnetLuc } from "@/lib/comercial/fontes";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { linkDeLeitura } from "@/server/arquivos";
 import { podeAgora } from "@/server/auth";
 import { TAG } from "@/server/cache";
 import { urlDoSistema } from "@/server/os/base";
@@ -576,8 +576,8 @@ export async function enderecoDoDocumento(
   falhar(error);
   if (!data) return "nao_existe";
   registrarAcessoDepois(fichaId, usuarioId, "documento");
-  const { data: url, error: e } = await createAdminClient()
-    .storage.from(BUCKET_COMERCIAL)
-    .createSignedUrl(data.arquivo_path, 300);
-  return e || !url ? "sem_arquivo" : url.signedUrl;
+  const url = await linkDeLeitura(BUCKET_COMERCIAL, data.arquivo_path, {
+    segundos: 300,
+  });
+  return url ?? "sem_arquivo";
 }

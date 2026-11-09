@@ -1,0 +1,6 @@
+# Arquivos que rodam no Linux da VPS: sempre com fim de linha LF, mesmo
+# quando editados no Windows (um \r quebra o sh e o crontab).
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+deploy/**       text eol=lf
+scripts/*.mjs   text eol=lf

@@ -1,0 +1,16 @@
+.git
+.gitignore
+.vercel
+.next
+node_modules
+coverage
+dados
+# Segredos: o .env entra no build só como segredo (docker-compose.yml).
+.env
+.env.*
+!.env.example
+docs
+supabase
+README.md
+docker-compose.yml
+deploy

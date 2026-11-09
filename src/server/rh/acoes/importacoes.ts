@@ -8,7 +8,8 @@ import { formatarMes } from "@/lib/formato";
 import { ErroExtrato } from "@/lib/rh/folha/extrato";
 import { GRUPOS_CLASSIFICAVEIS } from "@/lib/rh/rubricas";
 import { createClient } from "@/lib/supabase/server";
-import { pode, podeAgora, usuarioAtual } from "@/server/auth";
+import { gravarArquivo, lerArquivo } from "@/server/arquivos";
+import { podeAgora, usuarioAtual } from "@/server/auth";
 import { TAG } from "@/server/cache";
 import {
   recalcularCusto,
@@ -48,7 +49,8 @@ export async function lerFolha(
   _: EstadoLeitura,
   form: FormData,
 ): Promise<EstadoLeitura> {
-  if (!(await pode("rh.folha"))) return { erro: SEM_PERMISSAO };
+  // Conferida agora no banco: o arquivo vai para o armazenamento sem RLS.
+  if (!(await podeAgora("rh.folha"))) return { erro: SEM_PERMISSAO };
 
   const arquivo = form.get("arquivo");
   if (!(arquivo instanceof File) || arquivo.size === 0) {
@@ -88,11 +90,10 @@ export async function lerFolha(
       .slice(-80) || "extrato.pdf"
   }`;
 
-  const envio = await supabase.storage
-    .from(BUCKET)
-    .upload(caminho, bytes, { contentType: "application/pdf", upsert: false });
-  if (envio.error) {
-    console.error("upload da folha", envio.error);
+  try {
+    await gravarArquivo(BUCKET, caminho, bytes, "application/pdf");
+  } catch (erro) {
+    console.error("upload da folha", erro);
     return { erro: "Não foi possível guardar o arquivo. Tente de novo." };
   }
 
@@ -168,14 +169,12 @@ export async function confirmarFolha(
   if (importacao.status !== "previa")
     return { erro: "Esta prévia já foi usada. Envie o arquivo de novo." };
 
-  const arquivo = await supabase.storage
-    .from(BUCKET)
-    .download(importacao.arquivo_path);
-  if (arquivo.error)
+  const arquivo = importacao.arquivo_path.startsWith("folha/")
+    ? await lerArquivo(BUCKET, importacao.arquivo_path)
+    : null;
+  if (!arquivo)
     return { erro: "Não encontrei o arquivo enviado. Envie de novo." };
-  const extrato = await lerPdfDaFolha(
-    new Uint8Array(await arquivo.data.arrayBuffer()),
-  );
+  const extrato = await lerPdfDaFolha(arquivo);
 
   const { data: resultado, error: falha } = await supabase
     .schema("rh")

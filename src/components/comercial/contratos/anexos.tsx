@@ -10,6 +10,7 @@ import {
   TIPOS_ANEXO,
   type TipoAnexo,
 } from "@/lib/comercial/contrato";
+import { enviarParaLink } from "@/lib/enviar-arquivo";
 import { formatarDataHora } from "@/lib/formato";
 import {
   linkDoAnexo,
@@ -21,7 +22,7 @@ import type { AnexoDoContrato } from "@/server/comercial/contratos";
 import { BOTAO_SEC, Remover } from "./campos";
 
 // Anexos do contrato (bucket privado "comercial"): o arquivo vai do
-// navegador direto para o bucket por um link assinado que o servidor só
+// navegador direto para o armazenamento por um link assinado que o servidor só
 // gera para quem edita contratos; depois o servidor confere e registra.
 
 async function enviar(
@@ -48,15 +49,7 @@ async function enviar(
       notificar("erro", p.erro);
       return;
     }
-    const corpo = new FormData();
-    corpo.append("cacheControl", "3600");
-    corpo.append("", arquivo);
-    const r = await fetch(p.url, {
-      method: "PUT",
-      body: corpo,
-      headers: { "x-upsert": "false" },
-    });
-    if (!r.ok) {
+    if (!(await enviarParaLink(p.url, arquivo))) {
       notificar("erro", "O envio não terminou. Tente de novo.");
       return;
     }

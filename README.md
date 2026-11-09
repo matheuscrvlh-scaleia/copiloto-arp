@@ -52,7 +52,8 @@ Integrações: [docs/integracoes.md](docs/integracoes.md).
 
 ## Stack
 
-- **Next.js** (App Router) na **Vercel**: front e back (Route Handlers / Server Actions)
+- **Next.js** (App Router) em **Docker na VPS** (antes na Vercel): front e back (Route Handlers / Server Actions)
+- **Arquivos** no disco da VPS (`src/server/arquivos`); Supabase Storage em desenvolvimento
 - **Supabase**: Postgres, Auth e RLS
 - **TypeScript** estrito, **Tailwind CSS**, **Biome**, **Zod**, **Vitest**
 
@@ -166,7 +167,13 @@ npm run db:types             # regenera os tipos do banco depois de uma migratio
 
 Aplicar migrations no banco: `npx supabase db push --db-url "$SUPABASE_DB_URL"`.
 
-## Deploy (Vercel)
+## Deploy
+
+Produção na VPS com Docker, migração dos arquivos e rotinas diárias:
+[docs/deploy-vps.md](docs/deploy-vps.md). Os passos abaixo valem para a
+Vercel enquanto ela estiver no ar.
+
+### Vercel
 
 1. Cadastrar na Vercel as variáveis do `.env.example` (incluindo
    `CRON_SECRET`, que o Vercel Cron envia automaticamente, e

@@ -18,7 +18,7 @@ import {
 } from "@/lib/comercial/ficha";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import { BYTES_DO_TIPO, tipoPeloConteudo } from "@/lib/os/tipo-arquivo";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { gravarArquivo, removerArquivos } from "@/server/arquivos";
 import { comAdmin } from "@/server/comercial/base";
 import {
   BUCKET_COMERCIAL,
@@ -248,12 +248,9 @@ export async function enviarDocumentoPeloLink(
     return { erro: "Envie um PDF ou uma foto (JPG, PNG, WEBP ou HEIC)." };
 
   const path = `fichas/${ficha.id}/${randomUUID()}.${ext}`;
-  const storage = createAdminClient().storage.from(BUCKET_COMERCIAL);
-  const { error: eUp } = await storage.upload(path, bytes, {
-    contentType: mime,
-    upsert: false,
-  });
-  if (eUp) {
+  try {
+    await gravarArquivo(BUCKET_COMERCIAL, path, bytes, mime);
+  } catch (eUp) {
     console.error("documento da ficha", ficha.id, eUp);
     return { erro: "Não foi possível guardar o arquivo. Tente de novo." };
   }
@@ -279,7 +276,7 @@ export async function enviarDocumentoPeloLink(
     .single();
   if (error) {
     console.error("documento da ficha", ficha.id, error);
-    await storage.remove([path]);
+    await removerArquivos(BUCKET_COMERCIAL, [path]);
     return { erro: "Não foi possível guardar o arquivo. Tente de novo." };
   }
   const velhos = antigos.data ?? [];
@@ -291,7 +288,10 @@ export async function enviarDocumentoPeloLink(
         "id",
         velhos.map((v) => v.id),
       );
-    await storage.remove(velhos.map((v) => v.arquivo_path));
+    await removerArquivos(
+      BUCKET_COMERCIAL,
+      velhos.map((v) => v.arquivo_path),
+    );
   }
   if (!ficha.consentimentoEm)
     await comAdmin()
@@ -319,8 +319,9 @@ export async function removerDocumentoPeloLink(
   if (error)
     return { erro: "Não foi possível tirar o arquivo. Tente de novo." };
   if (data?.length)
-    await createAdminClient()
-      .storage.from(BUCKET_COMERCIAL)
-      .remove(data.map((x) => x.arquivo_path));
+    await removerArquivos(
+      BUCKET_COMERCIAL,
+      data.map((x) => x.arquivo_path),
+    );
   return { ok: "Arquivo retirado." };
 }

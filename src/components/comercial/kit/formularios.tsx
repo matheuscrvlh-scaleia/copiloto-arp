@@ -12,6 +12,7 @@ import {
   rotuloSituacao,
   situacaoDaValidade,
 } from "@/lib/comercial/kit";
+import { enviarParaLink } from "@/lib/enviar-arquivo";
 import { formatarData } from "@/lib/formato";
 import {
   editarDocumentoKit,
@@ -22,7 +23,7 @@ import {
 
 // Formulários do Kit de entrega (spec 4.14): subir documento, subir nova
 // versão (ou o arquivo que faltava), corrigir dados e validade, e "Baixar
-// kit do LUC". O PDF vai do navegador direto para o bucket privado por um
+// kit do LUC". O PDF vai do navegador direto para o armazenamento privado por um
 // link de envio assinado; o servidor confere e registra a versão.
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
@@ -62,16 +63,8 @@ async function enviarPdf(
       tamanho: arquivo.size,
     });
     if (!preparo.ok) return { erro: preparo.erro };
-    // Mesmo formato do uploadToSignedUrl do supabase-js.
-    const corpo = new FormData();
-    corpo.append("cacheControl", "3600");
-    corpo.append("", arquivo);
-    const envio = await fetch(preparo.url, {
-      method: "PUT",
-      body: corpo,
-      headers: { "x-upsert": "false" },
-    });
-    if (!envio.ok) return { erro: "O envio não terminou. Tente de novo." };
+    if (!(await enviarParaLink(preparo.url, arquivo)))
+      return { erro: "O envio não terminou. Tente de novo." };
     return await registrarArquivoKit({
       documentoId,
       path: preparo.path,

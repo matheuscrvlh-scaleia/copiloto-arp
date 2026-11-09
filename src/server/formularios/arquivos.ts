@@ -10,7 +10,11 @@ import {
   conteudoBateComExtensao,
   tipoPeloConteudo,
 } from "@/lib/os/tipo-arquivo";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  linkDeLeitura,
+  listarArquivos,
+  removerArquivos,
+} from "@/server/arquivos";
 import { podeAgora } from "@/server/auth";
 
 // Arquivos das perguntas "Envio de arquivo": bucket privado "formularios",
@@ -19,7 +23,7 @@ import { podeAgora } from "@/server/auth";
 // assinatura do servidor; no envio final, só passa arquivo assinado para
 // aquele formulário. A equipe baixa por link assinado de 5 minutos.
 
-export const BUCKET_FORMULARIOS = "formularios";
+export const BUCKET_FORMULARIOS = "formularios" as const;
 
 /** Tipo gravado de cada extensão aceita. */
 const ACEITOS: Record<(typeof EXTENSOES_ARQUIVO)[number], string> = {
@@ -101,23 +105,12 @@ export function caminhosDasRespostas(
 
 /** Apaga arquivos do bucket (depois de conferir quem pede). */
 export async function apagarArquivos(caminhos: string[]): Promise<void> {
-  if (!caminhos.length) return;
-  const { error } = await createAdminClient()
-    .storage.from(BUCKET_FORMULARIOS)
-    .remove(caminhos);
-  if (error) console.error("apagar arquivos do formulário", error);
+  await removerArquivos(BUCKET_FORMULARIOS, caminhos);
 }
 
 /** Todos os arquivos de um formulário (para excluir junto). */
 export async function arquivosDoFormulario(id: string): Promise<string[]> {
-  const storage = createAdminClient().storage.from(BUCKET_FORMULARIOS);
-  const caminhos: string[] = [];
-  for (let de = 0; ; de += 1000) {
-    const { data, error } = await storage.list(id, { limit: 1000, offset: de });
-    if (error) throw error;
-    for (const f of data ?? []) caminhos.push(`${id}/${f.name}`);
-    if ((data?.length ?? 0) < 1000) return caminhos;
-  }
+  return listarArquivos(BUCKET_FORMULARIOS, id);
 }
 
 /**
@@ -140,11 +133,8 @@ export async function linkParaBaixar(
     podeAgora("formularios.editar"),
   ]);
   if (!ve && !edita) return null;
-  const { data, error } = await createAdminClient()
-    .storage.from(BUCKET_FORMULARIOS)
-    .createSignedUrl(caminho, 300, {
-      download: nome.replace(/[^\p{L}\p{N} ._()-]/gu, "").slice(0, 120) || true,
-    });
-  if (error || !data) return null;
-  return data.signedUrl;
+  return linkDeLeitura(BUCKET_FORMULARIOS, caminho, {
+    segundos: 300,
+    baixarComo: nome.replace(/[^\p{L}\p{N} ._()-]/gu, "").slice(0, 120) || true,
+  });
 }

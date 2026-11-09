@@ -5,7 +5,12 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
 import { BYTES_DO_TIPO, tipoPeloConteudo } from "@/lib/os/tipo-arquivo";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  infoDoArquivo,
+  inicioDoArquivo,
+  prepararEnvio,
+  removerArquivos,
+} from "@/server/arquivos";
 import { podeAgora } from "@/server/auth";
 import { com, comAdmin, valoresDaLista } from "@/server/comercial/base";
 import { BUCKET_COMERCIAL } from "@/server/comercial/kit";
@@ -150,32 +155,21 @@ export async function prepararEnvioKit(entrada: {
     .maybeSingle();
   if (!existe.data) return { ok: false, erro: "Documento não encontrado." };
   const path = `kit/${documentoId}/${randomBytes(6).toString("hex")}-${nomeSeguro(nome)}`;
-  const { data, error } = await createAdminClient()
-    .storage.from(BUCKET_COMERCIAL)
-    .createSignedUploadUrl(path);
-  if (error || !data) {
-    console.error("link de envio do kit", error);
+  const envio = await prepararEnvio(BUCKET_COMERCIAL, path, {
+    maxBytes: ARQUIVO_MAX_BYTES,
+  });
+  if ("erro" in envio)
     return {
       ok: false,
       erro: "Não foi possível preparar o envio. Tente de novo.",
     };
-  }
-  return { ok: true, url: data.signedUrl, path: data.path };
+  return { ok: true, url: envio.url, path };
 }
 
-type Bucket = ReturnType<
-  ReturnType<typeof createAdminClient>["storage"]["from"]
->;
-
 /** O arquivo no bucket começa com a assinatura de PDF? Lê só o começo; null se não deu para ler. */
-async function ehPdf(storage: Bucket, path: string): Promise<boolean | null> {
-  const link = await storage.createSignedUrl(path, 60);
-  if (link.error || !link.data) return null;
-  const r = await fetch(link.data.signedUrl, {
-    headers: { Range: `bytes=0-${BYTES_DO_TIPO - 1}` },
-  }).catch(() => null);
-  if (!r?.ok) return null;
-  const inicio = new Uint8Array(await r.arrayBuffer()).slice(0, BYTES_DO_TIPO);
+async function ehPdf(path: string): Promise<boolean | null> {
+  const inicio = await inicioDoArquivo(BUCKET_COMERCIAL, path, BYTES_DO_TIPO);
+  if (!inicio) return null;
   return tipoPeloConteudo(inicio) === "application/pdf";
 }
 
@@ -219,18 +213,16 @@ export async function registrarArquivoKit(entrada: {
     .limit(1);
   if (emUso.error || emUso.data.length) return { erro: "Arquivo inválido." };
 
-  const storage = createAdminClient().storage.from(BUCKET_COMERCIAL);
   const descartar = async (erro: string): Promise<EstadoAcao> => {
-    await storage.remove([path]);
+    await removerArquivos(BUCKET_COMERCIAL, [path]);
     return { erro };
   };
-  const info = await storage.info(path);
-  if (info.error || !info.data)
-    return { erro: "O arquivo não chegou. Tente enviar de novo." };
-  const tamanho = info.data.size ?? 0;
+  const info = await infoDoArquivo(BUCKET_COMERCIAL, path);
+  if (!info) return { erro: "O arquivo não chegou. Tente enviar de novo." };
+  const tamanho = info.tamanho;
   if (tamanho <= 0) return descartar("O arquivo chegou vazio.");
   if (tamanho > ARQUIVO_MAX_BYTES) return descartar("Arquivo maior que 25 MB.");
-  const pdf = await ehPdf(storage, path);
+  const pdf = await ehPdf(path);
   if (pdf === null)
     return descartar("Não foi possível conferir o arquivo. Envie de novo.");
   if (!pdf) return descartar("O arquivo não é um PDF. Envie o arquivo em PDF.");

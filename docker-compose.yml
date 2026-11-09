@@ -1,0 +1,65 @@
+# Produção na VPS: o sistema (app), o nginx na frente (web) e as rotinas
+# diárias que antes eram do Vercel Cron (cron). Como subir, migrar os
+# arquivos e voltar atrás: docs/deploy-vps.md.
+#
+#   docker compose up -d --build        sobe ou atualiza
+#   docker compose logs -f app          acompanha o sistema
+
+name: copiloto-arp
+
+x-logs: &logs
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  app:
+    build:
+      context: .
+      secrets: [env]
+    image: copiloto-arp:latest
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ARQUIVOS_DIR: /dados/arquivos
+    ports:
+      - "3001:3000"
+    volumes:
+      # Fotos, PDFs e planilhas. Fica fora do contêiner: sobrevive a
+      # atualizações e é a pasta que entra no backup.
+      - ${ARQUIVOS_HOST_DIR:-./dados/arquivos}:/dados/arquivos
+    stop_grace_period: 30s
+    logging: *logs
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "8081:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    logging: *logs
+
+  cron:
+    image: alpine:3.20
+    init: true
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      # Só o segredo das rotinas, lido do .env pelo próprio compose.
+      CRON_SECRET: ${CRON_SECRET:?defina CRON_SECRET no .env}
+    volumes:
+      - ./deploy/cron:/etc/copiloto:ro
+    entrypoint: ["/bin/sh", "/etc/copiloto/entrypoint.sh"]
+    logging: *logs
+
+secrets:
+  env:
+    file: .env

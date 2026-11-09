@@ -17,6 +17,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Imagem Docker enxuta para a VPS (Dockerfile, docs/deploy-vps.md).
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   // Perfis de cache dos dados (src/server/cache.ts). Toda gravação chama

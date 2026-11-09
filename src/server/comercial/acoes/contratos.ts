@@ -31,6 +31,12 @@ import {
 import { EVENTOS } from "@/lib/historico";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
+import {
+  infoDoArquivo,
+  linkDeLeitura,
+  prepararEnvio,
+  removerArquivos,
+} from "@/server/arquivos";
 import { pode, podeAgora, usuarioAtual } from "@/server/auth";
 import { com, comAdmin } from "@/server/comercial/base";
 import {
@@ -521,17 +527,15 @@ export async function prepararAnexo(entrada: {
   if (existe.error || !existe.data)
     return { ok: false, erro: "Contrato não encontrado." };
   const path = `contratos/${contratoId}/${tipo}-${randomBytes(4).toString("hex")}-${nomeDoArquivo(nome)}`;
-  const { data, error } = await createAdminClient()
-    .storage.from(BUCKET_COMERCIAL)
-    .createSignedUploadUrl(path);
-  if (error || !data) {
-    console.error("link de envio do anexo", error);
+  const envio = await prepararEnvio(BUCKET_COMERCIAL, path, {
+    maxBytes: ANEXO_MAX_BYTES,
+  });
+  if ("erro" in envio)
     return {
       ok: false,
       erro: "Não foi possível preparar o envio. Tente de novo.",
     };
-  }
-  return { ok: true, url: data.signedUrl, path: data.path };
+  return { ok: true, url: envio.url, path };
 }
 
 /** Depois do envio: confere o arquivo no bucket e registra o anexo. */
@@ -558,13 +562,11 @@ export async function registrarAnexo(entrada: {
     path.includes("..")
   )
     return { erro: "Arquivo inválido." };
-  const storage = createAdminClient().storage.from(BUCKET_COMERCIAL);
-  const info = await storage.info(path);
-  if (info.error || !info.data)
-    return { erro: "O arquivo não chegou. Tente enviar de novo." };
-  const tamanho = info.data.size ?? 0;
+  const info = await infoDoArquivo(BUCKET_COMERCIAL, path);
+  if (!info) return { erro: "O arquivo não chegou. Tente enviar de novo." };
+  const tamanho = info.tamanho;
   if (tamanho > ANEXO_MAX_BYTES) {
-    await storage.remove([path]);
+    await removerArquivos(BUCKET_COMERCIAL, [path]);
     return { erro: "Arquivo maior que 25 MB." };
   }
   const { id: quem } = await usuarioAtual();
@@ -581,7 +583,7 @@ export async function registrarAnexo(entrada: {
     });
   if (error) {
     console.error("registrar anexo", error);
-    await storage.remove([path]);
+    await removerArquivos(BUCKET_COMERCIAL, [path]);
     return { erro: "Não foi possível registrar o anexo. Tente de novo." };
   }
   registrar("contrato_anexo", { contrato: contratoId, tipo, por: quem });
@@ -603,10 +605,7 @@ export async function removerAnexo(anexoId: string): Promise<RespostaContrato> {
   if (error) return { erro: erroDoBanco(error, "remover anexo") };
   const linha = data?.[0];
   if (!linha) return { erro: "Anexo não encontrado." };
-  const r = await createAdminClient()
-    .storage.from(BUCKET_COMERCIAL)
-    .remove([linha.arquivo_path]);
-  if (r.error) console.error("apagar arquivo do anexo", r.error);
+  await removerArquivos(BUCKET_COMERCIAL, [linha.arquivo_path]);
   const { id: quem } = await usuarioAtual();
   registrar("contrato_anexo_removido", {
     contrato: linha.contrato_id,
@@ -628,10 +627,10 @@ export async function linkDoAnexo(
     .eq("id", e.data)
     .maybeSingle();
   if (error || !data) return { erro: "Anexo não encontrado." };
-  const link = await createAdminClient()
-    .storage.from(BUCKET_COMERCIAL)
-    .createSignedUrl(data.arquivo_path, 60, { download: data.arquivo_nome });
-  if (link.error || !link.data)
-    return { erro: "Não foi possível abrir o anexo." };
-  return { url: link.data.signedUrl };
+  const url = await linkDeLeitura(BUCKET_COMERCIAL, data.arquivo_path, {
+    segundos: 60,
+    baixarComo: data.arquivo_nome,
+  });
+  if (!url) return { erro: "Não foi possível abrir o anexo." };
+  return { url };
 }

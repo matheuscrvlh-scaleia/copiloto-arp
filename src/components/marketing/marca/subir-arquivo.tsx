@@ -3,6 +3,7 @@
 import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { notificar } from "@/components/notificacoes";
+import { enviarParaLink } from "@/lib/enviar-arquivo";
 import {
   ARQUIVO_MAX_BYTES,
   TIPOS_ARQUIVO,
@@ -14,7 +15,7 @@ import {
 } from "@/server/marketing/acoes/marca";
 
 // "Subir nova versão" de um arquivo de marca. O arquivo vai do navegador
-// direto para o bucket privado, por um link de envio assinado que o
+// direto para o armazenamento privado, por um link de envio assinado que o
 // servidor só gera para quem tem marketing.marca.editar; depois o servidor
 // confere o arquivo e registra a versão (a anterior fica no histórico).
 
@@ -49,16 +50,7 @@ export async function enviarArquivo(
       notificar("erro", preparo.erro);
       return false;
     }
-    // Mesmo formato do uploadToSignedUrl do supabase-js.
-    const corpo = new FormData();
-    corpo.append("cacheControl", "3600");
-    corpo.append("", arquivo);
-    const envio = await fetch(preparo.url, {
-      method: "PUT",
-      body: corpo,
-      headers: { "x-upsert": "false" },
-    });
-    if (!envio.ok) {
+    if (!(await enviarParaLink(preparo.url, arquivo))) {
       notificar("erro", "O envio não terminou. Tente de novo.");
       return false;
     }

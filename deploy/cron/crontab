@@ -1,0 +1,11 @@
+# Rotinas diárias, nos mesmos horários do vercel.json (UTC; Brasília = UTC-3).
+# Cada linha chama uma rota do sistema com o CRON_SECRET, como o Vercel Cron.
+# min hora dia mês semana  comando
+0  9  * * *  sh /etc/copiloto/chamar.sh /api/sync/secullum     >> /proc/1/fd/1 2>&1
+15 9  * * *  sh /etc/copiloto/chamar.sh /api/sync/rd-station   >> /proc/1/fd/1 2>&1
+20 9  * * *  sh /etc/copiloto/chamar.sh /api/sync/rd-crm       >> /proc/1/fd/1 2>&1
+30 9  * * *  sh /etc/copiloto/chamar.sh /api/sync/copiloto-rh  >> /proc/1/fd/1 2>&1
+45 9  * * *  sh /etc/copiloto/chamar.sh /api/sync/meta         >> /proc/1/fd/1 2>&1
+0  10 * * *  sh /etc/copiloto/chamar.sh /api/sync/wps          >> /proc/1/fd/1 2>&1
+30 10 * * *  sh /etc/copiloto/chamar.sh /api/cron/os           >> /proc/1/fd/1 2>&1
+0  11 * * *  sh /etc/copiloto/chamar.sh /api/cron/comercial    >> /proc/1/fd/1 2>&1

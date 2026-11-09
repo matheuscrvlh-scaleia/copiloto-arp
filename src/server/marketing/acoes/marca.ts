@@ -15,7 +15,11 @@ import {
   type TipoBloco,
   tipoDoArquivo,
 } from "@/lib/marketing/marca";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  infoDoArquivo,
+  prepararEnvio as linkDeEnvio,
+  removerArquivos,
+} from "@/server/arquivos";
 import { pode, podeAgora, usuarioAtual } from "@/server/auth";
 import { TAG } from "@/server/cache";
 import { mkt, mktAdmin } from "@/server/marketing/base";
@@ -233,20 +237,18 @@ export async function prepararEnvio(entrada: {
   if (!grupoAtual)
     return { ok: false, erro: "Arquivo de marca não encontrado." };
   const path = `marca/${grupo}/${grupoAtual.proxima}-${nomeSeguro(nome)}`;
-  const { data, error } = await createAdminClient()
-    .storage.from(BUCKET_MARCA)
-    .createSignedUploadUrl(path);
-  if (error || !data) {
-    console.error("link de envio da marca", error);
+  const envio = await linkDeEnvio(BUCKET_MARCA, path, {
+    maxBytes: ARQUIVO_MAX_BYTES,
+  });
+  if ("erro" in envio)
     return {
       ok: false,
       erro:
-        error?.message?.includes("exists") === true
+        envio.erro === "existe"
           ? "Outra pessoa acabou de enviar esta versão. Recarregue a tela."
           : "Não foi possível preparar o envio. Tente de novo.",
     };
-  }
-  return { ok: true, url: data.signedUrl, path: data.path };
+  return { ok: true, url: envio.url, path };
 }
 
 /**
@@ -273,15 +275,13 @@ export async function registrarArquivo(entrada: {
   )?.[1];
   if (!versao) return { erro: "Arquivo inválido." };
 
-  const storage = createAdminClient().storage.from(BUCKET_MARCA);
   const descartar = async (erro: string): Promise<EstadoAcao> => {
-    await storage.remove([path]);
+    await removerArquivos(BUCKET_MARCA, [path]);
     return { erro };
   };
-  const info = await storage.info(path);
-  if (info.error || !info.data)
-    return { erro: "O arquivo não chegou. Tente enviar de novo." };
-  const tamanho = info.data.size ?? 0;
+  const info = await infoDoArquivo(BUCKET_MARCA, path);
+  if (!info) return { erro: "O arquivo não chegou. Tente enviar de novo." };
+  const tamanho = info.tamanho;
   const mime = tipoDoArquivo(nome);
   if (!mime) return descartar("Envie PDF, PNG, JPG, SVG ou ZIP.");
   if (tamanho > ARQUIVO_MAX_BYTES) return descartar("Arquivo maior que 25 MB.");
