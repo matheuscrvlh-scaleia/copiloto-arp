@@ -119,7 +119,12 @@ export function TabelaAtivos({
     },
     {
       titulo: "Situação",
-      valor: (a) => <SeloSituacaoAtivo situacao={a.ativo.situacao} />,
+      valor: (a) => (
+        <SeloSituacaoAtivo
+          situacao={a.ativo.situacao}
+          motivo={a.ativo.baixa_motivo}
+        />
+      ),
     },
     {
       titulo: "Corretivas 12m",
@@ -192,7 +197,10 @@ export function TabelaAtivos({
                 {a.local}
               </span>
               <span className="flex flex-wrap gap-1.5">
-                <SeloSituacaoAtivo situacao={a.ativo.situacao} />
+                <SeloSituacaoAtivo
+                  situacao={a.ativo.situacao}
+                  motivo={a.ativo.baixa_motivo}
+                />
                 <SeloSinal sinal={a.sinal.sinal} />
                 {a.faltas.length > 0 && a.sinal.sinal !== "incompleto" && (
                   <SeloIncompleto faltas={a.faltas} />

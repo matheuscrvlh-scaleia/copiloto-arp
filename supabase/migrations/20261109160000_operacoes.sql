@@ -811,13 +811,17 @@ begin
     delete from operacoes.obra_realizado where importacao_id = p_id;
     delete from operacoes.orcamento_revisoes where importacao_id = p_id;
     get diagnostics v_apagadas = row_count;
-    -- A revisão mais recente que sobrou volta a ser a vigente.
+    -- A revisão confirmada mais recente que sobrou volta a ser a vigente
+    -- (nunca uma que ainda é prévia).
     if v_obra is not null and not exists (
       select 1 from operacoes.orcamento_revisoes where obra_id = v_obra and vigente
     ) then
       update operacoes.orcamento_revisoes set vigente = true
-        where id = (select id from operacoes.orcamento_revisoes where obra_id = v_obra
-                    order by codigo desc limit 1);
+        where id = (
+          select r.id from operacoes.orcamento_revisoes r
+          left join operacoes.importacoes i on i.id = r.importacao_id
+          where r.obra_id = v_obra and (r.importacao_id is null or i.status = 'confirmada')
+          order by r.codigo desc limit 1);
     end if;
   elsif v.tipo = 'limpeza' then
     delete from operacoes.limpeza_meses where importacao_id = p_id;
@@ -1012,6 +1016,9 @@ begin
   delete from operacoes.obra_realizado where exemplo;
   delete from operacoes.orcamento_revisoes where exemplo;
   delete from operacoes.obras where exemplo;
+  -- Colunas "exemplo" do Diário de Obra vêm de 20261109160600.
+  delete from operacoes.diario_relatorios where exemplo;
+  delete from operacoes.diario_obras where exemplo;
 end;
 $$;
 

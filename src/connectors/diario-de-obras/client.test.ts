@@ -2,8 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import listaDeTarefas from "./__fixtures__/lista-de-tarefas.json";
 import obra from "./__fixtures__/obra.json";
 import relatorio from "./__fixtures__/relatorio.json";
-import { createDiarioDeObrasClient } from "./client";
-import { dataHoraBr, horasEmMinutos, obraResumoSchema } from "./schemas";
+import {
+  createDiarioDeObrasClient,
+  esperaDoLimite,
+  limiteAtingido,
+} from "./client";
+import {
+  dataHoraBr,
+  horasEmMinutos,
+  link,
+  obraResumoSchema,
+  relatorioResumoSchema,
+  tarefaSchema,
+} from "./schemas";
 
 // Fixtures montadas com os exemplos da documentação da API (nomes trocados).
 
@@ -11,7 +22,15 @@ const EMPRESA = {
   _id: "57fa4eebffd18769058b4567",
   nome: "Construtora Exemplo",
   razaoSocial: "CONSTRUTORA EXEMPLO LTDA",
-  log: { totalObras: 8, totalUsuarios: 6, totalRelatorios: 121 },
+  cpfCnpj: "00.000.000/0001-00",
+  logoUrl: "https://exemplo.test/logo.jpg",
+  log: {
+    totalObras: 8,
+    totalUsuarios: 6,
+    totalRelatorios: 121,
+    totalAnexos: 15,
+    ultimoRelatorio: "01/01/2023 00:00:00",
+  },
 };
 
 function cliente(body: unknown, chamadas: string[] = []) {
@@ -36,7 +55,15 @@ describe("diário de obras", () => {
     expect(e).toEqual({
       _id: EMPRESA._id,
       nome: EMPRESA.nome,
-      log: { totalObras: 8, totalRelatorios: 121 },
+      razaoSocial: EMPRESA.razaoSocial,
+      cpfCnpj: EMPRESA.cpfCnpj,
+      logoUrl: EMPRESA.logoUrl,
+      log: {
+        totalObras: 8,
+        totalUsuarios: 6,
+        totalRelatorios: 121,
+        ultimoRelatorio: "2023-01-01T00:00:00",
+      },
     });
   });
 
@@ -52,18 +79,60 @@ describe("diário de obras", () => {
     await expect(client.empresa()).rejects.toThrow(/HTTP 401/);
   });
 
-  it("429 falha na hora, sem repetir dentro da janela de um minuto", async () => {
+  it("429: espera o Retry-After e continua de onde parou", async () => {
+    vi.useFakeTimers({ now: 1_000_000, toFake: ["setTimeout", "Date"] });
+    try {
+      const horarios: number[] = [];
+      const client = createDiarioDeObrasClient({
+        token: "abc",
+        intervaloMs: 0,
+        limite: { jitterMs: 0 },
+        fetch: (async () => {
+          horarios.push(Date.now() - 1_000_000);
+          return horarios.length === 1
+            ? new Response("limite", {
+                status: 429,
+                headers: { "Retry-After": "7" },
+              })
+            : new Response("[]", { status: 200 });
+        }) as typeof fetch,
+      });
+      const obras = client.obras();
+      await vi.advanceTimersByTimeAsync(7_000);
+      await expect(obras).resolves.toEqual([]);
+      expect(horarios).toEqual([0, 7_000]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("429 seguido: desiste depois das esperas e avisa que é o limite", async () => {
     let chamadas = 0;
     const client = createDiarioDeObrasClient({
       token: "abc",
       intervaloMs: 0,
+      limite: { tentativas: 2, esperaMs: 1, maxMs: 1, jitterMs: 0 },
       fetch: (async () => {
         chamadas++;
         return new Response("limite", { status: 429 });
       }) as typeof fetch,
     });
-    await expect(client.obras()).rejects.toThrow(/HTTP 429/);
-    expect(chamadas).toBe(1);
+    const erro = await client.obras().catch((e: unknown) => e);
+    expect(limiteAtingido(erro)).toBe(true);
+    expect(String(erro)).toMatch(/HTTP 429/);
+    expect(chamadas).toBe(3);
+  });
+
+  it("tempo de espera do 429", () => {
+    expect(esperaDoLimite(null, 60_000, 120_000)).toBe(60_000);
+    expect(esperaDoLimite("30", 60_000, 120_000)).toBe(30_000);
+    expect(esperaDoLimite("9999", 60_000, 120_000)).toBe(120_000);
+    expect(esperaDoLimite("0", 60_000, 120_000)).toBe(1_000);
+    const agora = Date.parse("2026-11-09T12:00:00Z");
+    expect(
+      esperaDoLimite("Mon, 09 Nov 2026 12:00:20 GMT", 60_000, 120_000, agora),
+    ).toBe(20_000);
+    expect(esperaDoLimite("depois", 60_000, 120_000)).toBe(60_000);
   });
 
   it("espaça as chamadas pelo intervalo", async () => {
@@ -124,6 +193,7 @@ describe("diário de obras", () => {
         nome: "Obra Exemplo",
         status: { id: 3, descricao: "Em Andamento" },
         totalRelatorios: 35,
+        totalFotos: 23,
         modified: "2023-02-01T09:05:00",
       },
     ]);
@@ -133,8 +203,10 @@ describe("diário de obras", () => {
     const o = await cliente(obra).obra(obra._id);
     expect(o.dataInicio).toBe("2020-04-01");
     expect(o.prazo).toEqual({ contratual: 1005, decorrido: 1005, aVencer: 0 });
-    expect(o.visaoGeral?.total.tarefasCronograma).toBe(429);
-    expect(o).not.toHaveProperty("fotoUrl");
+    expect(o.visaoGeral?.total?.tarefasCronograma).toBe(429);
+    expect(o.fotoUrl).toBe("https://exemplo.test/foto.jpg");
+    expect(o.observacao).toBeNull();
+    expect(o.tipoContratanteContratada).toBe("Contratante");
   });
 
   it("valida o diário completo", async () => {
@@ -156,9 +228,30 @@ describe("diário de obras", () => {
     ]);
     expect(r.controleDeMaterial?.utilizado[0]?.quantidade).toBe("5m");
     expect(r.modified).toBe("2023-01-14T00:00:00");
-    // Comentários e fotos não entram.
-    expect(r).not.toHaveProperty("comentarios");
-    expect(r).not.toHaveProperty("galeriaDeFotos");
+    expect(r.comentarios).toEqual([
+      {
+        descricao: "Comentário",
+        dataHora: "2023-01-01T00:00:00",
+        usuario: { nome: "Usuário" },
+      },
+    ]);
+    expect(r.galeriaDeFotos[0]).toEqual({
+      descricao: "Concretagem dos pilares",
+      url: "https://exemplo.test/g1.jpg",
+      urlMiniatura: "https://exemplo.test/miniatura/g1.jpg",
+      tarefaId: null,
+      ocorrenciaId: null,
+    });
+    // Endereço que não é http(s) nunca chega a um link.
+    expect(r.galeriaDeFotos[1]?.url).toBeNull();
+    expect(r.galeriaDeFotos[1]?.tarefaId).toBe("5cc21c9c33e38246132b9a44");
+    expect(r.videos[0]?.duracao).toBe("00:21");
+    expect(r.anexos[0]).toMatchObject({ extensao: "pdf", tamanho: 1749888 });
+    expect(r.atividades[1]?.fotos[0]?.url).toBe("https://exemplo.test/a.jpeg");
+    expect(r.atividades[1]?.horario?.segundos).toBe(21600);
+    expect(r.linkPdf).toBe("https://diariodeobras.net/");
+    // O detalhe não traz "obra" no formato da lista; e-mails nunca entram.
+    expect(r).not.toHaveProperty("obra");
   });
 
   it("aceita listas ausentes no diário", async () => {
@@ -186,6 +279,66 @@ describe("diário de obras", () => {
     await expect(
       cliente({ ...obra, dataInicio: "2020-04-01" }).obra("o"),
     ).rejects.toThrow(/fora do formato esperado/);
+  });
+
+  it("lista de relatórios: autor sem e-mail", () => {
+    const r = relatorioResumoSchema.parse({
+      _id: "640232c954310533ae33cbe4",
+      data: "03/03/2023",
+      dataFim: null,
+      diaDaSemana: "Sexta-Feira",
+      numero: 1,
+      status: { id: 1, descricao: "Preenchendo" },
+      obra: { _id: "o1", nome: "Escola" },
+      modeloDeRelatorioGlobal: { _id: "m1", descricao: "RDO" },
+      criadoPor: {
+        appIss: "app-web",
+        dataHora: "03/03/2023 14:47",
+        usuario: {
+          _id: "u1",
+          nome: "Pessoa",
+          cargo: "Fiscal",
+          email: "pessoa@exemplo.test",
+        },
+      },
+    });
+    expect(r.criadoPor).toEqual({
+      appIss: "app-web",
+      dataHora: "2023-03-03T14:47:00",
+      usuario: { _id: "u1", nome: "Pessoa", cargo: "Fiscal" },
+    });
+  });
+
+  it("tarefa: ocorrências em formato não documentado não quebram", () => {
+    const t = tarefaSchema.parse({
+      _id: "t",
+      item: "1.3",
+      descricao: "Remoção de piso",
+      porcentagem: 100,
+      totalHoras: "3h e 30min",
+      status: { id: 3, descricao: "Concluída" },
+      relatorios: [
+        {
+          _id: "r",
+          data: "01/06/2022",
+          porcentagem: 35,
+          ocorrencias: ["Chuva", { descricao: "Falta de material" }, 7],
+          fotos: [],
+        },
+      ],
+    });
+    expect(t.relatorios[0]?.ocorrencias).toEqual([
+      { descricao: "Chuva" },
+      { descricao: "Falta de material" },
+    ]);
+  });
+
+  it("links: só http(s)", () => {
+    expect(link.parse(" https://a.test/x.jpg ")).toBe("https://a.test/x.jpg");
+    expect(link.parse("javascript:alert(1)")).toBeNull();
+    expect(link.parse("data:image/png;base64,AAAA")).toBeNull();
+    expect(link.parse("")).toBeNull();
+    expect(link.parse(null)).toBeNull();
   });
 
   it("conversões de data e hora", () => {

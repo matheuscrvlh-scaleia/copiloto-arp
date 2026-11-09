@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { Protegido } from "@/components/protegido";
+import { BlocoSaidasDeAtivos } from "./bloco-saidas";
 import { BlocoAtivos, BlocoCiclo, BlocoOperacoes } from "./blocos";
 import {
   BlocoMetas,
@@ -21,6 +22,7 @@ const INDICE = [
   ["ciclo", "Ciclo"],
   ["operacoes", "Operações"],
   ["ativos", "Ativos"],
+  ["saidas", "Saída de ativos"],
   ["vistorias", "Vistorias"],
   ["portal", "Portal"],
   ["metas", "Metas"],
@@ -32,6 +34,7 @@ const BLOCOS: [string, () => Promise<React.ReactNode>][] = [
   ["ciclo", BlocoCiclo],
   ["operacoes", BlocoOperacoes],
   ["ativos", BlocoAtivos],
+  ["saidas", BlocoSaidasDeAtivos],
   ["vistorias", BlocoVistorias],
   ["portal", BlocoPortal],
   ["metas", BlocoMetas],

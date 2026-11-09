@@ -30,6 +30,10 @@ import { Janela } from "@/components/os/ativos/janela";
 import { PlanosDoAtivo } from "@/components/os/ativos/planos";
 import { QrDoAtivo } from "@/components/os/ativos/qr";
 import {
+  BotaoRegistrarSaida,
+  SaidasDoAtivo,
+} from "@/components/os/ativos/saida";
+import {
   SeloGarantia,
   SeloIncompleto,
   SeloSinal,
@@ -70,6 +74,7 @@ import {
   setores,
   urlDoSistema,
 } from "@/server/os/base";
+import { listasDeSaida, saidasDoAtivo } from "@/server/os/saidas";
 
 export const metadata: Metadata = { title: "Ativo" };
 
@@ -104,19 +109,34 @@ async function Conteudo({ params, searchParams }: Props) {
     return <SemAcesso />;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const agora = new Date();
-  const [ficha, { garantia_aviso_dias: avisoGarantiaDias }] = await Promise.all(
-    [fichaDoAtivo(id, agora), parametros()],
-  );
+  const podeSaida = ctx.pode("os.ativos_saida");
+  const [ficha, { garantia_aviso_dias: avisoGarantiaDias }, saidas] =
+    await Promise.all([
+      fichaDoAtivo(id, agora),
+      parametros(),
+      saidasDoAtivo(id),
+    ]);
   if (!ficha) notFound();
   const hoje = hojeEmBrasilia(agora);
   const gerenciar = ctx.pode("os.ativos_gerenciar");
   const { ativo: a, sinal, resumo } = ficha;
   const baixado = a.situacao === "baixado";
+  const saidaAtiva = saidas.some((s) => s.desfeita_em === null);
+  const registrarSaida =
+    podeSaida && !baixado ? (
+      <RegistrarSaida ativo={a} hoje={hoje} usuarioId={ctx.usuario.id} />
+    ) : null;
 
   return (
     <ProvedorDetalhe exportar={ctx.pode("os.exportar")}>
       <div className="flex flex-col gap-6">
-        <Cabecalho ficha={ficha} gerenciar={gerenciar} agora={agora} />
+        <Cabecalho
+          ficha={ficha}
+          gerenciar={gerenciar}
+          agora={agora}
+          saidaAtiva={saidaAtiva}
+          registrarSaida={registrarSaida}
+        />
 
         {sp.criado === "1" && (
           <output className="flex items-center gap-2 rounded-3xl bg-green-50 px-4 py-3 text-sm text-green-800">
@@ -129,6 +149,13 @@ async function Conteudo({ params, searchParams }: Props) {
           <output className="flex items-center gap-2 rounded-3xl bg-green-50 px-4 py-3 text-sm text-green-800">
             <CircleCheck className="size-4 shrink-0" aria-hidden />
             Cadastro salvo.
+          </output>
+        )}
+        {sp.saida === "1" && (
+          <output className="flex items-center gap-2 rounded-3xl bg-green-50 px-4 py-3 text-sm text-green-800">
+            <CircleCheck className="size-4 shrink-0" aria-hidden />
+            Sobra cadastrada como {a.codigo} e saída registrada. Imprima o
+            recibo em Saída do ativo.
           </output>
         )}
         {sp.foto === "0" && (
@@ -145,6 +172,7 @@ async function Conteudo({ params, searchParams }: Props) {
             <Archive className="mt-0.5 size-4 shrink-0" aria-hidden />
             Baixado em {formatarData(a.baixa_data)}: {a.baixa_motivo}. O
             histórico continua; não recebe chamado nem preventiva.
+            {saidaAtiva && " Para voltar a usar, desfaça a saída."}
           </p>
         )}
         {ficha.faltas.length > 0 && (
@@ -218,6 +246,16 @@ async function Conteudo({ params, searchParams }: Props) {
               />
             </Secao>
 
+            {saidas.length > 0 && (
+              <Secao
+                id="saida"
+                titulo="Saída do ativo"
+                descricao="Venda, doação, descarte ou devolução registrada, com o recibo para quem comprou ou recebeu."
+              >
+                <SaidasDoAtivo saidas={saidas} podeDesfazer={podeSaida} />
+              </Secao>
+            )}
+
             <Secao
               titulo="Planos preventivos"
               descricao="A OS preventiva sai sozinha, já ligada ao ativo, com responsável e checklist."
@@ -284,14 +322,44 @@ async function Conteudo({ params, searchParams }: Props) {
 
 // ---------------------------------------------------------------------------
 
+async function RegistrarSaida({
+  ativo,
+  hoje,
+  usuarioId,
+}: {
+  ativo: { id: string; nome: string };
+  hoje: string;
+  usuarioId: string;
+}) {
+  const [{ tipos, formas }, lista] = await Promise.all([
+    listasDeSaida(),
+    pessoas(),
+  ]);
+  return (
+    <BotaoRegistrarSaida
+      ativo={{ id: ativo.id, nome: ativo.nome }}
+      tipos={tipos}
+      formas={formas}
+      pessoas={lista.map((p) => ({ valor: p.id, rotulo: p.nome }))}
+      hoje={hoje}
+      responsavelPadrao={lista.some((p) => p.id === usuarioId) ? usuarioId : ""}
+    />
+  );
+}
+
 function Cabecalho({
   ficha,
   gerenciar,
   agora,
+  saidaAtiva,
+  registrarSaida,
 }: {
   ficha: Ficha;
   gerenciar: boolean;
   agora: Date;
+  /** Baixado por uma saída: só volta desfazendo a saída. */
+  saidaAtiva: boolean;
+  registrarSaida: React.ReactNode;
 }) {
   const a = ficha.ativo;
   const baixado = a.situacao === "baixado";
@@ -325,7 +393,7 @@ function Cabecalho({
           </h1>
           <p className="mt-2 text-sm text-neutral-500">{ficha.local}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <SeloSituacaoAtivo situacao={a.situacao} />
+            <SeloSituacaoAtivo situacao={a.situacao} motivo={a.baixa_motivo} />
             <SeloSinal sinal={ficha.sinal.sinal} />
             {ficha.faltas.length > 0 && ficha.sinal.sinal !== "incompleto" && (
               <SeloIncompleto faltas={ficha.faltas} />
@@ -356,16 +424,20 @@ function Cabecalho({
         </div>
       )}
 
-      {gerenciar && (
+      {(gerenciar || registrarSaida) && (
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`${rotaAtivo(a.id)}/editar`}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400"
-          >
-            <Pencil className="size-4" aria-hidden />
-            Editar
-          </Link>
+          {registrarSaida}
+          {gerenciar && (
+            <Link
+              href={`${rotaAtivo(a.id)}/editar`}
+              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400"
+            >
+              <Pencil className="size-4" aria-hidden />
+              Editar
+            </Link>
+          )}
           {outras.map((s) => {
+            if (!gerenciar || (baixado && saidaAtiva)) return null;
             const Icone = baixado ? RotateCcw : ICONE[s];
             if (baixado && s !== "em_uso") return null;
             return (
@@ -384,7 +456,7 @@ function Cabecalho({
               />
             );
           })}
-          {!baixado && (
+          {gerenciar && !baixado && (
             <Janela
               acao={darBaixa}
               variante="perigo"

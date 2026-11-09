@@ -3172,6 +3172,7 @@ export type Database = {
           sala_id: string | null
           salas_texto: string | null
           status: string
+          termo_externo: boolean
         }
         Insert: {
           atualizado_em?: string
@@ -3202,6 +3203,7 @@ export type Database = {
           sala_id?: string | null
           salas_texto?: string | null
           status?: string
+          termo_externo?: boolean
         }
         Update: {
           atualizado_em?: string
@@ -3232,6 +3234,7 @@ export type Database = {
           sala_id?: string | null
           salas_texto?: string | null
           status?: string
+          termo_externo?: boolean
         }
         Relationships: [
           {
@@ -3277,6 +3280,7 @@ export type Database = {
           dados: Json
           data_fim: string | null
           data_inicio: string | null
+          exemplo: boolean
           grupo: string | null
           id: string
           lista_de_tarefas: Json | null
@@ -3295,6 +3299,7 @@ export type Database = {
           dados: Json
           data_fim?: string | null
           data_inicio?: string | null
+          exemplo?: boolean
           grupo?: string | null
           id: string
           lista_de_tarefas?: Json | null
@@ -3313,6 +3318,7 @@ export type Database = {
           dados?: Json
           data_fim?: string | null
           data_inicio?: string | null
+          exemplo?: boolean
           grupo?: string | null
           id?: string
           lista_de_tarefas?: Json | null
@@ -3334,16 +3340,20 @@ export type Database = {
           atualizado_em: string
           autor: string | null
           autor_cargo: string | null
+          autor_id: string | null
           criado_no_app: string | null
           dados: Json | null
           data: string
           data_fim: string | null
           detalhado_em: string | null
+          exemplo: boolean
           id: string
           modelo: string | null
+          modelo_id: string | null
           modificado_no_app: string | null
           numero: number
           obra_id: string
+          resumo: Json | null
           status_id: number
         }
         Insert: {
@@ -3351,16 +3361,20 @@ export type Database = {
           atualizado_em?: string
           autor?: string | null
           autor_cargo?: string | null
+          autor_id?: string | null
           criado_no_app?: string | null
           dados?: Json | null
           data: string
           data_fim?: string | null
           detalhado_em?: string | null
+          exemplo?: boolean
           id: string
           modelo?: string | null
+          modelo_id?: string | null
           modificado_no_app?: string | null
           numero: number
           obra_id: string
+          resumo?: Json | null
           status_id: number
         }
         Update: {
@@ -3368,16 +3382,20 @@ export type Database = {
           atualizado_em?: string
           autor?: string | null
           autor_cargo?: string | null
+          autor_id?: string | null
           criado_no_app?: string | null
           dados?: Json | null
           data?: string
           data_fim?: string | null
           detalhado_em?: string | null
+          exemplo?: boolean
           id?: string
           modelo?: string | null
+          modelo_id?: string | null
           modificado_no_app?: string | null
           numero?: number
           obra_id?: string
+          resumo?: Json | null
           status_id?: number
         }
         Relationships: [
@@ -3392,6 +3410,8 @@ export type Database = {
       }
       energia_fatura_itens: {
         Row: {
+          aliquota_icms: number | null
+          base_icms: number | null
           descricao: string
           fatura_id: string
           icms: number | null
@@ -3400,11 +3420,16 @@ export type Database = {
           ordem: number
           origem: string | null
           pis_cofins: number | null
+          preco_unitario: number | null
           quantidade: number | null
+          tarifa_unitaria: number | null
           tipo: string
+          unidade: string | null
           valor: number
         }
         Insert: {
+          aliquota_icms?: number | null
+          base_icms?: number | null
           descricao: string
           fatura_id: string
           icms?: number | null
@@ -3413,11 +3438,16 @@ export type Database = {
           ordem: number
           origem?: string | null
           pis_cofins?: number | null
+          preco_unitario?: number | null
           quantidade?: number | null
+          tarifa_unitaria?: number | null
           tipo: string
+          unidade?: string | null
           valor: number
         }
         Update: {
+          aliquota_icms?: number | null
+          base_icms?: number | null
           descricao?: string
           fatura_id?: string
           icms?: number | null
@@ -3426,8 +3456,11 @@ export type Database = {
           ordem?: number
           origem?: string | null
           pis_cofins?: number | null
+          preco_unitario?: number | null
           quantidade?: number | null
+          tarifa_unitaria?: number | null
           tipo?: string
+          unidade?: string | null
           valor?: number
         }
         Relationships: [
@@ -3456,6 +3489,7 @@ export type Database = {
           importacao_id: string | null
           importado_em: string
           importado_por: string | null
+          injetada_kwh: number | null
           leitura_anterior: number | null
           leitura_anterior_data: string | null
           leitura_atual: number | null
@@ -3474,6 +3508,7 @@ export type Database = {
           valor_compensado: number
           valor_consumo: number
           vencimento: string | null
+          vigente: boolean
         }
         Insert: {
           arquivo?: string | null
@@ -3490,6 +3525,7 @@ export type Database = {
           importacao_id?: string | null
           importado_em?: string
           importado_por?: string | null
+          injetada_kwh?: number | null
           leitura_anterior?: number | null
           leitura_anterior_data?: string | null
           leitura_atual?: number | null
@@ -3508,6 +3544,7 @@ export type Database = {
           valor_compensado?: number
           valor_consumo?: number
           vencimento?: string | null
+          vigente?: boolean
         }
         Update: {
           arquivo?: string | null
@@ -3524,6 +3561,7 @@ export type Database = {
           importacao_id?: string | null
           importado_em?: string
           importado_por?: string | null
+          injetada_kwh?: number | null
           leitura_anterior?: number | null
           leitura_anterior_data?: string | null
           leitura_atual?: number | null
@@ -3542,6 +3580,7 @@ export type Database = {
           valor_compensado?: number
           valor_consumo?: number
           vencimento?: string | null
+          vigente?: boolean
         }
         Relationships: [
           {
@@ -4181,6 +4220,9 @@ export type Database = {
           agua_modelo: Json
           agua_parceiro: string
           agua_tolerancia: number
+          agua_variacao_meses: number
+          agua_variacao_min_m3: number
+          agua_variacao_pct: number
           atualizado_em: string
           atualizado_por: string | null
           energia_alerta_pct: number
@@ -4214,6 +4256,9 @@ export type Database = {
           agua_modelo?: Json
           agua_parceiro?: string
           agua_tolerancia?: number
+          agua_variacao_meses?: number
+          agua_variacao_min_m3?: number
+          agua_variacao_pct?: number
           atualizado_em?: string
           atualizado_por?: string | null
           energia_alerta_pct?: number
@@ -4247,6 +4292,9 @@ export type Database = {
           agua_modelo?: Json
           agua_parceiro?: string
           agua_tolerancia?: number
+          agua_variacao_meses?: number
+          agua_variacao_min_m3?: number
+          agua_variacao_pct?: number
           atualizado_em?: string
           atualizado_por?: string | null
           energia_alerta_pct?: number
@@ -4472,16 +4520,38 @@ export type Database = {
         Returns: undefined
       }
       desfazer_importacao: { Args: { p_id: string }; Returns: number }
+      enet_contratos: { Args: never; Returns: Json }
+      gravar_fatura_energisa: {
+        Args: { p_arquivo: string; p_fatura: Json; p_importacao: string; p_itens: Json; p_sha256: string }
+        Returns: string
+      }
+      liberar_caixa: {
+        Args: { p_caixa: string; p_saida: string; p_status?: string }
+        Returns: undefined
+      }
       limpeza_aberto: { Args: { p_ref: string }; Returns: boolean }
       limpeza_enviar: { Args: { p_ref: string }; Returns: undefined }
       limpeza_fechar: { Args: { p_ref: string }; Returns: undefined }
+      limpeza_gravar_previa: {
+        Args: { p_importacao: string; p_meses: Json }
+        Returns: number
+      }
       limpeza_reabrir: {
         Args: { p_motivo: string; p_ref: string }
         Returns: undefined
       }
+      limpeza_salvar: {
+        Args: { p_dados: Json; p_ref: string }
+        Returns: undefined
+      }
       pode_importar: { Args: { p_tipo: string }; Returns: boolean }
       proxima_versao_termo: { Args: { p_caixa: string }; Returns: number }
+      registrar_termo: {
+        Args: { p_amperes: number; p_armario: string; p_bloco: string; p_caixa: string; p_data_emissao: string; p_documento: string; p_docx: string; p_ligacao: string; p_locatario: string; p_observacao_tecnica: string; p_pavimento: string; p_pdf: string; p_projeto: string; p_qualificacao: string; p_rota: string; p_sala: string; p_versao: number }
+        Returns: string
+      }
       remover_exemplos: { Args: never; Returns: undefined }
+      resumo_quadros: { Args: never; Returns: Json }
       trocar_locatario: {
         Args: { p_caixa: string; p_contrato?: string; p_desde: string; p_documento: string; p_nome: string; p_origem?: string }
         Returns: undefined
@@ -6357,6 +6427,8 @@ export type Database = {
           aceite_dias_uteis: number
           almoco_fim: string
           almoco_inicio: string
+          ativos_saida_formas: string[]
+          ativos_saida_tipos: string[]
           atualizado_em: string
           aviso_vencimento_horas: number
           causas_falha: string[]
@@ -6387,6 +6459,8 @@ export type Database = {
           aceite_dias_uteis?: number
           almoco_fim?: string
           almoco_inicio?: string
+          ativos_saida_formas?: string[]
+          ativos_saida_tipos?: string[]
           atualizado_em?: string
           aviso_vencimento_horas?: number
           causas_falha?: string[]
@@ -6417,6 +6491,8 @@ export type Database = {
           aceite_dias_uteis?: number
           almoco_fim?: string
           almoco_inicio?: string
+          ativos_saida_formas?: string[]
+          ativos_saida_tipos?: string[]
           atualizado_em?: string
           aviso_vencimento_horas?: number
           causas_falha?: string[]
@@ -7297,6 +7373,32 @@ export type Database = {
       registrar_saida_ativo: {
         Args: { p_anexos?: string[]; p_ativo: string; p_data: string; p_destinatario: string; p_documento: string; p_forma: string; p_motivo: string; p_nf: boolean; p_nf_numero: string; p_observacoes: string; p_quantidade: string; p_recebido_por: string; p_responsavel: string; p_tipo: string; p_valor: number }
         Returns: string
+      }
+      registrar_saida_sobra: {
+        Args: {
+          p_anexos?: string[]
+          p_area: string
+          p_bloco: string
+          p_categoria: string
+          p_data: string
+          p_destinatario: string
+          p_documento: string
+          p_forma: string
+          p_motivo: string
+          p_nf: boolean
+          p_nf_numero: string
+          p_nome: string
+          p_observacoes: string
+          p_quantidade: string
+          p_recebido_por: string
+          p_responsavel: string
+          p_tipo: string
+          p_valor: number
+        }
+        Returns: {
+          ativo_id: string
+          saida_id: string
+        }[]
       }
       reservar_horario: {
         Args: {

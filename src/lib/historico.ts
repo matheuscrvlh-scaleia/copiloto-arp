@@ -12,6 +12,7 @@ export const MODULOS = {
   financeiro: "Financeiro",
   os: "Tickets",
   comercial: "Comercial",
+  operacoes: "Operações",
   integracoes: "Integrações",
 } as const;
 export type Modulo = keyof typeof MODULOS;
@@ -141,6 +142,17 @@ export const EVENTOS = {
   comercial_contrato_anexo: "Anexou arquivo ao contrato",
   comercial_contrato_anexo_removido: "Removeu anexo do contrato",
   comercial_rotina: "Rodou a rotina do Comercial",
+  operacoes_importacao_confirmada: "Confirmou importação de Operações",
+  operacoes_importacao_desfeita: "Desfez importação de Operações",
+  operacoes_parametros: "Alterou os parâmetros de Operações",
+  operacoes_exemplos_removidos: "Removeu os dados de exemplo de Operações",
+  operacoes_rateio_fechado: "Fechou o rateio da limpeza",
+  operacoes_rateio_reaberto: "Reabriu o rateio da limpeza",
+  operacoes_rateio_enviado: "Enviou o rateio da limpeza ao Financeiro",
+  operacoes_termo_emitido: "Emitiu termo de autorização de energia",
+  operacoes_diario_atualizado: "Pediu a atualização do Diário de Obra",
+  os_ativo_saida: "Registrou a saída de um ativo",
+  os_ativo_saida_desfeita: "Desfez a saída de um ativo",
 } as const;
 export type Evento = keyof typeof EVENTOS;
 

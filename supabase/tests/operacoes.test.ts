@@ -178,7 +178,9 @@ describe("ponto de partida", () => {
       db.query("update operacoes.parametros set agua_limite_m3 = 99"),
     );
     expect(
-      await valor<string>("select agua_limite_m3::text from operacoes.parametros"),
+      await valor<string>(
+        "select agua_limite_m3::text from operacoes.parametros",
+      ),
     ).toBe("30.00");
   });
 });
@@ -264,17 +266,23 @@ describe("energia: caixas e histórico sigiloso", () => {
       );
     });
     await como(U.energiaVer, () =>
-      db.query(`update operacoes.caixas set status = 'livre' where id = '${caixa}'`),
+      db.query(
+        `update operacoes.caixas set status = 'livre' where id = '${caixa}'`,
+      ),
     );
     expect(
-      await valor<string>(`select status from operacoes.caixas where id = '${caixa}'`),
+      await valor<string>(
+        `select status from operacoes.caixas where id = '${caixa}'`,
+      ),
     ).toBe("ocupado");
   });
 
   it("o ocupante não muda direto, só pela troca de locatário", async () => {
     expect(
       await como(U.energia, () =>
-        erro(`update operacoes.caixas set ocupante = 'X' where id = '${caixa}'`),
+        erro(
+          `update operacoes.caixas set ocupante = 'X' where id = '${caixa}'`,
+        ),
       ),
     ).toMatch(/permission denied/);
   });
@@ -390,7 +398,9 @@ describe("chamados: saída do ativo", () => {
       ),
     );
     expect(
-      await valor<string>(`select situacao from os.ativos where id = '${ativo}'`),
+      await valor<string>(
+        `select situacao from os.ativos where id = '${ativo}'`,
+      ),
     ).toBe("em_uso");
   });
 

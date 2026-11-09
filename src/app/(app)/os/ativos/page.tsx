@@ -259,6 +259,7 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Busca> }) {
               href: link(sp, { visao: "decisao" }),
               rotulo: "Decisão de troca",
             },
+            { href: `${ROTAS_OS.ativos}/saidas`, rotulo: "Saídas" },
           ]}
         />
         <FiltrosAtivos

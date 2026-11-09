@@ -82,12 +82,23 @@ const SITUACAO: Record<
   baixado: { Icone: Archive, tom: "neutro" },
 };
 
-export function SeloSituacaoAtivo({ situacao }: { situacao: SituacaoAtivo }) {
+export function SeloSituacaoAtivo({
+  situacao,
+  motivo,
+}: {
+  situacao: SituacaoAtivo;
+  /** Baixa: "Vendido", "Doado"… (saída do ativo) ou o motivo digitado. */
+  motivo?: string | null;
+}) {
   const { Icone, tom } = SITUACAO[situacao];
+  const texto =
+    situacao === "baixado" && motivo
+      ? `${SITUACOES_ATIVO[situacao]} – ${motivo}`
+      : SITUACOES_ATIVO[situacao];
   return (
-    <span className={`${PILULA} ${TOM[tom]}`}>
-      <Icone className="size-3.5" aria-hidden />
-      {SITUACOES_ATIVO[situacao]}
+    <span className={`${PILULA} ${TOM[tom]} max-w-64`} title={texto}>
+      <Icone className="size-3.5 shrink-0" aria-hidden />
+      <span className="truncate">{texto}</span>
     </span>
   );
 }

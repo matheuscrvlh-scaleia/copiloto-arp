@@ -7,7 +7,11 @@ import { createClient } from "@/lib/supabase/server";
 
 export type Busca = Record<string, string | string[] | undefined>;
 
-export const MODULOS_COM_FILTROS = ["marketing", "comercial"] as const;
+export const MODULOS_COM_FILTROS = [
+  "marketing",
+  "comercial",
+  "operacoes",
+] as const;
 export type ModuloComFiltros = (typeof MODULOS_COM_FILTROS)[number];
 
 export const chaveDosFiltros = (modulo: ModuloComFiltros, tela: string) =>

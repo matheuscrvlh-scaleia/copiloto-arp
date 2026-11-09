@@ -213,10 +213,10 @@ describe("estrutura e dados iniciais", () => {
     expect(rows).toEqual([]);
   });
 
-  it("18 permissões os.*, todas no Administrador; a Diretoria acompanha", async () => {
+  it("19 permissões os.*, todas no Administrador; a Diretoria acompanha", async () => {
     expect(
       await linhas("select 1 from core.permissoes where codigo like 'os.%'"),
-    ).toBe(18);
+    ).toBe(19);
     const permissoesDe = async (cargo: string) =>
       (
         await db.query<{ p: string }>(
@@ -225,7 +225,7 @@ describe("estrutura e dados iniciais", () => {
            where c.nome = '${cargo}' and cp.permissao like 'os.%' order by 1`,
         )
       ).rows.map((r) => r.p);
-    expect(await permissoesDe("Administrador")).toHaveLength(18);
+    expect(await permissoesDe("Administrador")).toHaveLength(19);
     expect(await permissoesDe("Diretoria")).toEqual([
       "os.acessar",
       "os.ativos",
