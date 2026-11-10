@@ -26,6 +26,7 @@ import {
 } from "@/lib/integracoes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { podeAgora } from "./auth";
+import { situacaoDasCameras } from "./cameras/situacao";
 import { decifrar } from "./cofre";
 import { env } from "./env";
 import { TESTES_MARKETING } from "./marketing/conexoes";
@@ -324,6 +325,8 @@ const TESTES: Record<Sistema, Teste> = {
       );
     return "Autorizado. As oportunidades são lidas todo dia e em Sincronizar agora.";
   },
+  // Sem API: endereço para as câmeras e o último contato de cada uma.
+  cameras: (c) => situacaoDasCameras(c),
   async copiloto_rh(c) {
     const api = createCopilotoRhClient(configCopiloto(c));
     const me = await api.me();

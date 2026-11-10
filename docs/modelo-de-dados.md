@@ -72,6 +72,8 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 | `cursores` | Até onde cada recurso foi sincronizado; só avança em sucesso |
 | `registros_brutos` | Payload já validado pelo conector, com hash. Serve para reprocessar sem chamar a API e para provar de onde veio um número |
 | `credenciais` | Acesso de cada integração: parâmetros abertos (usuário, banco, URL) e o segredo cifrado no servidor (AES-256-GCM, chave `INTEGRACOES_CHAVE`). A tela usa `core.integracoes_configuradas()`, `core.salvar_integracao()` e afins, que conferem `core.pode_integracao()` (`admin.integracoes` em todas; `marketing.parametros` nas `mkt_` do Marketing), nunca devolvem o segredo e gravam na auditoria sem ele |
+| `cameras` | Uma linha por câmera de contagem de pessoas (Intelbras), pelo `deviceid` que ela manda; criada no primeiro envio aceito. `ultimo_contato` vem do heartbeat ou da contagem |
+| `camera_contagens` | Entradas e saídas de cada período da câmera (não acumuladas), com início e fim em UTC. Chave `(deviceid, inicio)`: o reenvio do mesmo período regrava em vez de somar |
 
 ## rh
 

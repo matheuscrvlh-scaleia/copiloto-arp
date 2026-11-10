@@ -2362,6 +2362,59 @@ export type Database = {
   }
   integracao: {
     Tables: {
+      camera_contagens: {
+        Row: {
+          deviceid: string
+          entradas: number
+          fim: string
+          inicio: string
+          recebido_em: string
+          saidas: number
+        }
+        Insert: {
+          deviceid: string
+          entradas: number
+          fim: string
+          inicio: string
+          recebido_em?: string
+          saidas: number
+        }
+        Update: {
+          deviceid?: string
+          entradas?: number
+          fim?: string
+          inicio?: string
+          recebido_em?: string
+          saidas?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camera_contagens_deviceid_fkey"
+            columns: ["deviceid"]
+            isOneToOne: false
+            referencedRelation: "cameras"
+            referencedColumns: ["deviceid"]
+          },
+        ]
+      }
+      cameras: {
+        Row: {
+          criado_em: string
+          deviceid: string
+          ultimo_contato: string
+        }
+        Insert: {
+          criado_em?: string
+          deviceid: string
+          ultimo_contato?: string
+        }
+        Update: {
+          criado_em?: string
+          deviceid?: string
+          ultimo_contato?: string
+        }
+        Relationships: []
+      }
       credenciais: {
         Row: {
           ativa: boolean

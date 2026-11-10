@@ -894,9 +894,50 @@ describe("administração: credenciais das integrações", () => {
         ),
       ).toBeNull();
       await db.query("select core.remover_integracao('rd_crm')");
+      // Câmeras (20261110120000).
+      expect(
+        await erro(
+          `select core.salvar_integracao('cameras', '{"usuario": "u", "heartbeat_min": 5}', 'v1.cifrado', true)`,
+        ),
+      ).toBeNull();
+      await db.query("select core.remover_integracao('cameras')");
       await db.query("select core.remover_integracao('copiloto_rh')");
     });
     expect(await linhas("select * from integracao.credenciais")).toBe(0);
+  });
+
+  it("câmeras: o reenvio do mesmo período regrava sem somar; só o servidor lê", async () => {
+    const enviar = (entradas: number) =>
+      db.query(
+        `insert into integracao.camera_contagens (deviceid, inicio, fim, entradas, saidas)
+         values ('ARP-ENTRADA', '2026-11-10T18:00:00Z', '2026-11-10T18:01:00Z', ${entradas}, 2)
+         on conflict (deviceid, inicio) do update
+           set fim = excluded.fim, entradas = excluded.entradas, saidas = excluded.saidas`,
+      );
+    await db.query(
+      "insert into integracao.cameras (deviceid) values ('ARP-ENTRADA')",
+    );
+    await enviar(6);
+    await enviar(6);
+    const { rows } = await db.query<{ n: number; entradas: number }>(
+      "select count(*)::int as n, sum(entradas)::int as entradas from integracao.camera_contagens",
+    );
+    expect(rows[0]).toEqual({ n: 1, entradas: 6 });
+    expect(
+      await erro(
+        "insert into integracao.cameras (deviceid) values ('ARP ENTRADA; x')",
+      ),
+    ).toMatch(/check/);
+    await como(U.gestora, async () => {
+      expect(await erro("select * from integracao.camera_contagens")).toMatch(
+        /permission denied/,
+      );
+      expect(await erro("select * from integracao.cameras")).toMatch(
+        /permission denied/,
+      );
+    });
+    await db.query("delete from integracao.cameras");
+    expect(await linhas("select * from integracao.camera_contagens")).toBe(0);
   });
 
   it("o histórico traz os avisos de cada execução", async () => {

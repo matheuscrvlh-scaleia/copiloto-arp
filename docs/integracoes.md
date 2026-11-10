@@ -14,7 +14,8 @@ nenhum sistema, mesmo quando a API permite.
 | Folha (Sousa e Couto) | RH: rubricas, salários, bases e encargos | Upload mensal (PDF ou Excel) | Extrato de 07/2026 recebido | — |
 | Copiloto RH | RH: nascimento, tipo de contrato, admissões, desligamentos, turnover | API (OAuth client_credentials) | **Funcionando**: fonte de colaboradores, nascimento, contrato, admissões, desligamentos e turnover (cálculo do Copiloto). A base da ARP não tem desligados | `src/connectors/copiloto-rh` |
 | WPS ParkingPlus | Estacionamento: entradas, saídas e pagamentos | API, 1x por dia | **Sincronizando** (homologação; falta o acesso de produção) | `src/connectors/wps` |
-| Diário de Obras | Obras: diários (RDO), mão de obra, atividades, ocorrências | API | Token salvo em Integrações (10/11/2026); todas as rotas conferidas com a base real (2 obras). Sem sincronização: o Operações ainda mostra o Diário de exemplo | `src/connectors/diario-de-obras` |
+| Diário de Obras | Obras: diários (RDO), mão de obra, atividades, ocorrências | API, a cada 30 min (intervalo nos Parâmetros de Operações) | **Funcionando** desde 10/11/2026: 2 obras e 373 relatórios em `operacoes.diario_*` | `src/connectors/diario-de-obras`, `src/server/sync/diario-de-obras.ts` |
+| Câmeras Intelbras (contagem de pessoas) | Entradas e saídas de pessoas por câmera | A câmera envia sozinha (POST em `/api/cameras/contagem`) | Endpoint no ar desde 10/11/2026; câmeras a configurar | `src/server/cameras` |
 | Serviços públicos (BrasilAPI, ViaCEP, Banco Central) | Comercial: CEP, CNPJ, feriados nacionais, IGP-M e IPCA | API pública, na hora (sem cadastro) | **Funcionando**, sem credencial | `src/connectors/publicos` |
 | RD Station CRM | Comercial: oportunidades, funis, etapas, motivos de perda (Funil comercial e leads do Painel) | API v2 (OAuth do app do CRM na RD Station App Store), sincronizada 1x por dia em `comercial.rd_oportunidades` | Falta criar o app do CRM e clicar em **Conectar com o RD Station CRM** (o app do RD Station Marketing não abre o CRM: conferido em 04/11/2026). Até a primeira leitura, o Comercial mostra o RD de exemplo, com aviso | `src/connectors/rd-crm.ts`, `src/server/sync/rd-crm.ts` |
 
@@ -551,6 +552,29 @@ quantidade de entradas e saídas por dia. Saíram a tela, a permissão
 Os anúncios precisam de UTM com o nome da campanha (`traffic_campaign` no
 RD): sem isso o custo por lead por campanha não fecha, e o lead aparece como
 "origem não identificada".
+
+## Câmeras Intelbras (contagem de pessoas)
+
+- **Como chega:** a própria câmera manda por POST
+  (`application/x-www-form-urlencoded`) para `https://<domínio>/api/cameras/contagem`.
+  Em cada câmera: Contagem de Pessoas › Enviar para servidor, com o endereço,
+  um deviceID fixo (ARP-ENTRADA, ARP-GUARITA, ARP-CASARAO...) e o usuário e a
+  senha do cartão **Câmeras** de Administração › Integrações (não os da câmera).
+  Intervalo de envio de 60 min (ou 5 a 15 para quase tempo real), heartbeat de
+  5 min, pausa 0.
+- **Formato** (capturado da ARP-ENTRADA em 10/11/2026): `status` 0 = heartbeat
+  (`data={"deviceid":"..."}`), 1 = contagem (`data` com `deviceid`,
+  `dateTimeStart`, `dateTimeEnd` no horário de Brasília sem fuso, `in` e
+  `out` do período); `account` e `password`.
+- **Resposta:** 401 sem gravar se usuário ou senha não batem; 400 se o formato
+  não for o esperado; 200 `{"result":"ok"}` gravado. Com essa resposta a
+  câmera ainda reenvia o mesmo período (~1 s depois): a chave
+  `(deviceid, inicio)` regrava em vez de somar.
+- **Sem comunicação:** sem contato por mais de 3 intervalos de heartbeat (o
+  intervalo fica no cartão). Por enquanto aparece no teste do cartão; o
+  alerta ativo entra com o painel de fluxo de pessoas.
+- **Ainda não há tela** com as contagens: os dados ficam em
+  `integracao.cameras` e `integracao.camera_contagens`.
 
 ## Serviços públicos (Comercial)
 

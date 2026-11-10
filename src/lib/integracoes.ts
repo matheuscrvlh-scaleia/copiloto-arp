@@ -13,6 +13,7 @@ export const SISTEMAS = [
   "diario_de_obras",
   "copiloto_rh",
   "rd_crm",
+  "cameras",
   "mkt_google",
   "mkt_youtube",
   "mkt_meta",
@@ -152,6 +153,44 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
       },
     ],
     parametros: z.object({}),
+  },
+  cameras: {
+    nome: "Câmeras (contagem de pessoas)",
+    modulo: "admin",
+    serve:
+      "Entradas e saídas de pessoas que as câmeras Intelbras enviam sozinhas. Em cada câmera: Contagem de Pessoas › Enviar para servidor, com o endereço, o usuário e a senha daqui.",
+    campos: [
+      {
+        nome: "usuario",
+        rotulo: "Usuário",
+        tipo: "text",
+        ajuda:
+          "O mesmo usuário configurado nas câmeras (não é o login da câmera)",
+      },
+      {
+        nome: "heartbeat_min",
+        rotulo: "Heartbeat (min)",
+        tipo: "number",
+        ajuda:
+          "Intervalo do heartbeat configurado nas câmeras. Sem contato por 3 intervalos, a câmera fica sem comunicação",
+        exemplo: "5",
+      },
+    ],
+    segredos: [
+      {
+        nome: "segredo",
+        rotulo: "Senha",
+        ajuda: "A mesma configurada nas câmeras",
+      },
+    ],
+    parametros: z.object({
+      usuario: texto,
+      heartbeat_min: z.coerce
+        .number({ error: "só números" })
+        .int("só números")
+        .min(1, "no mínimo 1")
+        .max(1440, "no máximo 1440"),
+    }),
   },
   rd_crm: {
     nome: "RD Station CRM",

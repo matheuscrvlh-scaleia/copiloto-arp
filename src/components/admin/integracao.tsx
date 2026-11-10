@@ -1,6 +1,7 @@
 import {
   CalendarClock,
   Car,
+  Cctv,
   Filter,
   Globe,
   HardHat,
@@ -43,6 +44,7 @@ const ICONE: Record<Sistema, LucideIcon> = {
   diario_de_obras: HardHat,
   copiloto_rh: Users,
   rd_crm: Filter,
+  cameras: Cctv,
   mkt_google: Search,
   mkt_youtube: Play,
   mkt_meta: Megaphone,

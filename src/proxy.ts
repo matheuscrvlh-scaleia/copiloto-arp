@@ -16,6 +16,6 @@ export const config = {
   // Prefetch continua passando: o esqueleto das telas internas só sai para
   // quem está logado e já definiu a própria senha.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|brand/|api/sync/|api/cron/|api/arquivos/|api/saude|portal/|ordem/|vistoria/|ficha/|censo/|responder/|.*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|woff2?|txt|xml|webmanifest)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|brand/|api/sync/|api/cron/|api/cameras/|api/arquivos/|api/saude|portal/|ordem/|vistoria/|ficha/|censo/|responder/|.*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|woff2?|txt|xml|webmanifest)$).*)",
   ],
 };
