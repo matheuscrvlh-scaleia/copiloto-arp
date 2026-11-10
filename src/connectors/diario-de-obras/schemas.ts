@@ -295,6 +295,31 @@ const maoDeObraPersonalizada = z.object({
   categoria: referencia.nullish(),
 });
 
+const normalizar = (s: string) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+const STATUS_TAREFA_POR_TEXTO: Record<string, number> = {
+  "nao iniciada": 1,
+  "em andamento": 2,
+  concluida: 3,
+};
+
+/**
+ * Status da atividade. Nas atividades não iniciadas a API manda o id em texto
+ * ({"id":"Não Iniciada"}, visto na ARP em 10/11/2026): vira o número da
+ * tarefa; texto desconhecido fica sem status, sem derrubar o relatório.
+ */
+const statusDaAtividade = z
+  .object({ id: z.union([z.number(), z.string()]), descricao: z.string() })
+  .transform((s) => {
+    const id =
+      typeof s.id === "number"
+        ? s.id
+        : /^\d+$/.test(s.id.trim())
+          ? Number(s.id)
+          : STATUS_TAREFA_POR_TEXTO[normalizar(s.id)];
+    return id === undefined ? null : { id, descricao: s.descricao };
+  });
+
 const atividade = z.object({
   /**
    * Id da tarefa do cronograma quando `cronograma` é true; fora dele é um id
@@ -308,7 +333,7 @@ const atividade = z.object({
   porcentagem: numero.nullish(),
   porcentagemAnterior: numero.nullish(),
   controleDeProducao: controleDeProducao.nullish(),
-  status: status.nullish(),
+  status: statusDaAtividade.nullish(),
   etapa: z.object({ _id: texto, item: texto, descricao: texto }).nullish(),
   horario: horario.nullish(),
   fotos: lista(foto),

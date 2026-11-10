@@ -266,6 +266,32 @@ describe("diário de obras", () => {
     expect(r.maoDeObra?.personalizada).toEqual([]);
   });
 
+  it("status da atividade com id em texto vira o número da tarefa", async () => {
+    const atividade = (id: number | string) => ({
+      tarefaId: "t",
+      descricao: "Pintura",
+      status: { id, descricao: "x" },
+    });
+    const r = await cliente({
+      _id: "x",
+      data: "02/01/2023",
+      numero: 1,
+      status: { id: 1, descricao: "Preenchendo" },
+      atividades: [
+        atividade("Não Iniciada"),
+        atividade(2),
+        atividade("3"),
+        atividade("Outro"),
+      ],
+    }).relatorio("o", "x");
+    expect(r.atividades.map((a) => a.status?.id ?? null)).toEqual([
+      1,
+      2,
+      3,
+      null,
+    ]);
+  });
+
   it("percentuais do cronograma em texto viram número", async () => {
     const l = await cliente(listaDeTarefas).listaDeTarefas("o");
     expect(l.realizado).toBe(18.67);
