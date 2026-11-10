@@ -19,6 +19,7 @@ import {
   Fonte,
   fontesReais,
   hrefCom,
+  juntarAvisos,
   TopoDaTela,
   variacaoContra,
 } from "@/components/dashboard/tela";
@@ -266,9 +267,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           filtros={linhaFiltros}
           reais={fontesReais(
             anuncios.metaReal && "Meta Ads",
+            anuncios.googleReal && "Google Ads",
             rd.lidoEm && "leads do RD Station",
           )}
-          aviso={anuncios.avisoMeta}
+          aviso={juntarAvisos(anuncios.avisoMeta, anuncios.avisoGoogle)}
           acoes={
             exportar ? (
               <BotaoExportar

@@ -731,6 +731,173 @@ describe("rd station: autorização", () => {
   });
 });
 
+describe("google: leitura dos dados", () => {
+  const cliente = (respostas: unknown[], chamadas: Chamada[] = []) =>
+    createGoogleClient({
+      sistema: "mkt_google",
+      clientId: "id",
+      clientSecret: "s",
+      refreshToken: "r",
+      fetch: falso([TOKEN, ...respostas], chamadas),
+    });
+
+  it("Ads: lê todas as páginas, métrica omitida vira zero e vídeo vem do trueview", async () => {
+    const chamadas: Chamada[] = [];
+    const campanha = {
+      id: "241",
+      name: "[SEARCH] Institucional",
+      advertisingChannelType: "SEARCH",
+      status: "ENABLED",
+    };
+    const linhas = await cliente(
+      [
+        {
+          results: [
+            {
+              campaign: campanha,
+              segments: { date: "2026-08-07" },
+              // Como a API manda: int64 em texto, conversões zeradas omitidas.
+              metrics: {
+                clicks: "10",
+                costMicros: "43090000",
+                ctr: 0.1176,
+                averageCpc: 4309000,
+                impressions: "85",
+              },
+            },
+          ],
+          nextPageToken: "p2",
+        },
+        {
+          results: [
+            {
+              campaign: { ...campanha, id: "242" },
+              segments: { date: "2026-08-08" },
+              metrics: { impressions: "5", videoTrueviewViews: "3" },
+            },
+          ],
+        },
+      ],
+      chamadas,
+    ).adsCampanhasPorDia("100", "2026-07-06", "2026-11-09");
+    expect(linhas).toHaveLength(2);
+    expect(linhas[0]).toEqual({
+      campaign: {
+        id: "241",
+        name: "[SEARCH] Institucional",
+        advertising_channel_type: "SEARCH",
+        status: "ENABLED",
+      },
+      segments: { date: "2026-08-07" },
+      metrics: {
+        cost_micros: 43_090_000,
+        impressions: 85,
+        clicks: 10,
+        ctr: 0.1176,
+        average_cpc: 4_309_000,
+        conversions: 0,
+        cost_per_conversion: 0,
+        video_views: 0,
+      },
+    });
+    expect(linhas[1]?.metrics.video_views).toBe(3);
+    const pedidos = chamadas.slice(1).map((c) => JSON.parse(c.corpo));
+    expect(pedidos[0].query).toContain("BETWEEN '2026-07-06' AND '2026-11-09'");
+    expect(pedidos[0].query).toContain("metrics.video_trueview_views");
+    expect(pedidos[0].pageToken).toBeUndefined();
+    expect(pedidos[1].pageToken).toBe("p2");
+  });
+
+  it("Ads: termos de pesquisa no formato da tela", async () => {
+    const termos = await cliente([
+      {
+        results: [
+          {
+            campaign: { id: "241" },
+            segments: { date: "2026-08-07" },
+            searchTermView: { searchTerm: "arp nova friburgo" },
+            metrics: { clicks: "1", costMicros: "2830000", impressions: "2" },
+          },
+        ],
+      },
+    ]).adsTermos("100", "2026-07-06", "2026-11-09");
+    expect(termos).toEqual([
+      {
+        campaign_id: "241",
+        segments: { date: "2026-08-07" },
+        search_term_view: { search_term: "arp nova friburgo" },
+        metrics: { impressions: 2, clicks: 1, cost_micros: 2_830_000 },
+      },
+    ]);
+  });
+
+  it("GA4: data aaaammdd vira aaaa-mm-dd e pagina pelo rowCount", async () => {
+    const chamadas: Chamada[] = [];
+    const linha = (data: string) => ({
+      dimensionValues: [
+        { value: data },
+        { value: "Organic Search" },
+        { value: "google / organic" },
+        { value: "(organic)" },
+        { value: "mobile" },
+      ],
+      metricValues: ["40", "31", "28", "40", "1", "40.23", "59", "118"].map(
+        (value) => ({ value }),
+      ),
+    });
+    const ga4 = await cliente(
+      [
+        { rows: [linha("20260905")], rowCount: 2 },
+        { rows: [linha("20260906")], rowCount: 2 },
+      ],
+      chamadas,
+    ).ga4Relatorio("375", "2026-07-06", "2026-11-09");
+    expect(ga4.map((l) => l.date)).toEqual(["2026-09-05", "2026-09-06"]);
+    expect(ga4[0]).toMatchObject({
+      sessionDefaultChannelGroup: "Organic Search",
+      deviceCategory: "mobile",
+      sessions: 40,
+      averageSessionDuration: 40.23,
+      keyEvents: 118,
+    });
+    expect(JSON.parse(chamadas[2]?.corpo ?? "{}").offset).toBe(1);
+  });
+
+  it("Search Console: chaves viram data, termo e página", async () => {
+    const chamadas: Chamada[] = [];
+    const buscas = await cliente(
+      [
+        {
+          rows: [
+            {
+              keys: ["2026-11-01", "espaço arp", "https://espacoarp.com.br/"],
+              clicks: 3,
+              impressions: 10,
+              ctr: 0.3,
+              position: 1.2,
+            },
+          ],
+        },
+      ],
+      chamadas,
+    ).buscas("sc-domain:espacoarp.com.br", "2026-07-06", "2026-11-09");
+    expect(buscas).toEqual([
+      {
+        date: "2026-11-01",
+        query: "espaço arp",
+        page: "https://espacoarp.com.br/",
+        clicks: 3,
+        impressions: 10,
+        ctr: 0.3,
+        position: 1.2,
+      },
+    ]);
+    expect(chamadas[1]?.url).toContain(
+      "/sites/sc-domain%3Aespacoarp.com.br/searchAnalytics/query",
+    );
+  });
+});
+
 describe("google: só leitura", () => {
   it("o escopo adwords permite escrita: o conector nunca chama mutate", () => {
     const fonte = readFileSync(new URL("./google.ts", import.meta.url), "utf8");

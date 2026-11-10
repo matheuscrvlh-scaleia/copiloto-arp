@@ -4,7 +4,6 @@ import { gerarAnuncios } from "./anuncios";
 import { gerarRd } from "./rd";
 import { gerarRedes } from "./redes";
 import { gerarReputacao } from "./reputacao";
-import { gerarSite } from "./site";
 
 // Os dados de exemplo trazem os casos de teste da etapa 1 do spec e o
 // volume da seção 6, e não mudam de um dia para o outro.
@@ -14,13 +13,11 @@ const anuncios = gerarAnuncios(HOJE);
 const rd = gerarRd(HOJE, anuncios);
 
 describe("anúncios e RD", () => {
-  it("só Google e TikTok: 4 Google (1 YouTube) e 2 TikTok (a Meta é real)", () => {
-    const por = (p: string) =>
-      anuncios.campanhas.filter((c) => c.plataforma === p);
-    expect(anuncios.campanhas).toHaveLength(6);
-    expect(por("google")).toHaveLength(4);
-    expect(por("google").filter((c) => c.tipo === "VIDEO")).toHaveLength(1);
-    expect(por("tiktok")).toHaveLength(2);
+  it("só TikTok: 2 campanhas (Meta e Google são reais)", () => {
+    expect(anuncios.campanhas.map((c) => c.plataforma)).toEqual([
+      "tiktok",
+      "tiktok",
+    ]);
   });
 
   it("dezenas de leads por semana, com lead sem campanha e contato que converte duas vezes", () => {
@@ -30,7 +27,7 @@ describe("anúncios e RD", () => {
     expect(semana.length).toBeGreaterThan(25);
     expect(semana.length).toBeLessThan(90);
     const pagasSemUtm = rd.conversoes.filter(
-      (c) => c.traffic_medium === "cpc" && c.traffic_campaign === "",
+      (c) => c.traffic_medium === "paid_social" && c.traffic_campaign === "",
     );
     expect(pagasSemUtm.length).toBeGreaterThan(0);
     const porContato = new Map<string, Set<string>>();
@@ -53,19 +50,13 @@ describe("anúncios e RD", () => {
   it("o mesmo dia dá os mesmos números amanhã", () => {
     const amanha = gerarAnuncios(somarDias(HOJE, 1));
     const dia = "2026-10-20";
-    const a = anuncios.google.linhas.filter((l) => l.segments.date === dia);
-    const b = amanha.google.linhas.filter((l) => l.segments.date === dia);
+    const a = anuncios.tiktok.linhas.filter((l) => l.stat_time_day === dia);
+    const b = amanha.tiktok.linhas.filter((l) => l.stat_time_day === dia);
     expect(b).toEqual(a);
   });
 });
 
-describe("site, redes, Asana e reputação", () => {
-  it("GA4 e Search Console têm linhas todos os dias", () => {
-    const site = gerarSite(HOJE, anuncios);
-    expect(site.ga4.some((l) => l.date === "2026-10-28")).toBe(true);
-    expect(site.buscas.some((l) => l.date === "2026-10-28")).toBe(true);
-  });
-
+describe("redes, Asana e reputação", () => {
   it("redes de exemplo só do YouTube e do TikTok (Instagram e Facebook são reais)", () => {
     const r = gerarRedes(HOJE);
     expect(Object.keys(r)).toEqual(["youtube", "tiktok"]);

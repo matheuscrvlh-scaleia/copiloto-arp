@@ -8,20 +8,20 @@ import { gerarAnuncios } from "./exemplo/anuncios";
 import { type DadosRd, gerarRd } from "./exemplo/rd";
 import { gerarRedes } from "./exemplo/redes";
 import { type DadosReputacao, gerarReputacao } from "./exemplo/reputacao";
-import { type DadosSite, gerarSite } from "./exemplo/site";
+import { anunciosGoogle, type SiteGoogle, siteGoogle } from "./google";
 import { anunciosMeta, redesMeta } from "./meta";
 import { rdReal } from "./rd";
 
 // Dados das ferramentas, nos campos das APIs (lib/marketing/fontes.ts).
-// Reais: Meta (anúncios, Instagram e Facebook), RD Station e Asana. Ainda
-// de exemplo (mockup, spec seção 6), até serem ligados: Google (Ads,
-// YouTube, GA4, Search Console, Perfil da Empresa) e TikTok. Nas telas, os
-// reais e os de exemplo se somam. As telas conferem a permissão (Protegido)
+// Reais: Meta (anúncios, Instagram e Facebook), Google (Ads, GA4 e Search
+// Console), RD Station e Asana. Ainda de exemplo (mockup, spec seção 6), até
+// serem ligados: YouTube, Perfil da Empresa e TikTok. Nas telas, os reais e
+// os de exemplo se somam. Fonte real que falha fica vazia, com aviso: nunca
+// volta ao exemplo. As telas conferem a permissão (Protegido)
 // antes de chamar; nada daqui vai para o navegador sem passar pela tela.
 
 const anunciosDoDia = memo(gerarAnuncios);
 const rdDoDia = memo((hoje) => gerarRd(hoje, anunciosDoDia(hoje)));
-const siteDoDia = memo((hoje) => gerarSite(hoje, anunciosDoDia(hoje)));
 const redesDoDia = memo(gerarRedes);
 const reputacaoDoDia = memo((chave) => {
   const { hoje, locais, temas } = JSON.parse(chave) as {
@@ -51,20 +51,29 @@ export interface DadosAnuncios extends FontesAnuncios {
   /** A Meta foi lida da API (senão, Meta fica vazia e avisoMeta diz por quê). */
   metaReal: boolean;
   avisoMeta?: string;
+  /** O Google Ads foi lido da API (senão, fica vazio e avisoGoogle diz por quê). */
+  googleReal: boolean;
+  avisoGoogle?: string;
 }
 
-/** Meta Ads (real) com Google Ads e TikTok Ads (de exemplo), dia a dia. */
+/** Meta Ads e Google Ads (reais) com TikTok Ads (de exemplo), dia a dia. */
 export const dadosAnuncios = cache(async (): Promise<DadosAnuncios> => {
-  const [exemplo, meta] = await Promise.all([
+  const [exemplo, meta, google] = await Promise.all([
     hoje().then(anunciosDoDia),
     anunciosMeta(),
+    anunciosGoogle(),
   ]);
   const dadosMeta = meta.ok
     ? meta.dados
     : { campanhas: [], insights: [], quebras: [] };
+  const dadosGoogle = google.ok ? google.dados : { linhas: [], termos: [] };
+  // As linhas são por campanha e dia: uma entrada por campanha.
+  const doGoogle = new Map(
+    dadosGoogle.linhas.map((l) => [l.campaign.id, l.campaign]),
+  );
   return {
     meta: dadosMeta,
-    google: exemplo.google,
+    google: dadosGoogle,
     tiktok: exemplo.tiktok,
     campanhas: [
       ...dadosMeta.campanhas.map((c) => ({
@@ -73,6 +82,13 @@ export const dadosAnuncios = cache(async (): Promise<DadosAnuncios> => {
         nome: c.campaign_name,
         tipo: c.objective,
         situacao: c.effective_status,
+      })),
+      ...[...doGoogle.values()].map((c) => ({
+        id: c.id,
+        plataforma: "google" as const,
+        nome: c.name,
+        tipo: c.advertising_channel_type,
+        situacao: c.status,
       })),
       ...exemplo.campanhas.map(({ id, plataforma, nome, tipo, situacao }) => ({
         id,
@@ -84,6 +100,8 @@ export const dadosAnuncios = cache(async (): Promise<DadosAnuncios> => {
     ],
     metaReal: meta.ok,
     ...(meta.ok ? {} : { avisoMeta: meta.aviso }),
+    googleReal: google.ok,
+    ...(google.ok ? {} : { avisoGoogle: google.aviso }),
   };
 });
 
@@ -97,8 +115,8 @@ export const dadosRd = cache(
 
 /**
  * Leads para o custo por lead dos anúncios (traffic_campaign = nome da
- * campanha): os reais do RD casam com as campanhas reais da Meta; os de
- * exemplo entram só nas campanhas de exemplo do Google e do TikTok. Lead
+ * campanha): os reais do RD casam com as campanhas reais da Meta e do Google;
+ * os de exemplo entram só nas campanhas de exemplo do TikTok. Lead
  * real com investimento de exemplo daria um custo por lead que não existe.
  */
 export const dadosRdDosAnuncios = cache(async (): Promise<DadosRd> => {
@@ -117,10 +135,19 @@ export const dadosRdDosAnuncios = cache(async (): Promise<DadosRd> => {
   };
 });
 
-/** Google Analytics 4 e Search Console. */
-export const dadosSite = cache(
-  async (): Promise<DadosSite> => siteDoDia(await hoje()),
-);
+export interface DadosSite extends SiteGoogle {
+  /** O GA4 foi lido da API (senão, fica vazio e avisoSite diz por quê). */
+  siteReal: boolean;
+  avisoSite?: string;
+}
+
+/** Google Analytics 4 e Search Console (reais). */
+export const dadosSite = cache(async (): Promise<DadosSite> => {
+  const site = await siteGoogle();
+  return site.ok
+    ? { ...site.dados, siteReal: true }
+    : { ga4: [], buscas: [], siteReal: false, avisoSite: site.aviso };
+});
 
 export interface DadosRedes extends FontesRedes {
   /** Instagram e Facebook lidos da Meta (senão, vazios e avisoMeta diz por quê). */

@@ -9,6 +9,7 @@ import {
   type DiarioDeObrasConfig,
 } from "@/connectors/diario-de-obras/client";
 import { ConnectorError, mensagemSegura } from "@/connectors/http";
+import { createGoogleClient } from "@/connectors/marketing/google";
 import { createMetaClient } from "@/connectors/marketing/meta";
 import { createRdStationClient } from "@/connectors/marketing/rd-station";
 import {
@@ -239,6 +240,35 @@ export async function meta() {
     contaDeAnuncios: String(p.ad_account_id ?? ""),
     pagina: String(p.page_id ?? ""),
     instagram: String(p.instagram_id ?? ""),
+  };
+}
+
+/**
+ * Google com o acesso salvo (Conectar com o Google) e os ids de cada produto
+ * ("" no que a ARP não usa).
+ */
+export async function google() {
+  const def = INTEGRACOES.mkt_google;
+  const c = await credencialEmUso("mkt_google");
+  const p = def.parametros.parse(c.parametros);
+  const s = separarSegredos(def, c.segredo);
+  if (!s.refresh_token)
+    throw new IntegracaoNaoConfigurada(
+      "mkt_google",
+      "falta clicar em Conectar com o Google",
+    );
+  const id = (k: string) => String(p[k as keyof typeof p] ?? "").trim();
+  return {
+    api: createGoogleClient({
+      sistema: "mkt_google",
+      clientId: id("client_id"),
+      clientSecret: s.client_secret ?? "",
+      refreshToken: s.refresh_token,
+    }),
+    contaAds: id("customer_id").replace(/-/g, ""),
+    loginAds: id("login_customer_id").replace(/-/g, ""),
+    propriedadeGa4: id("property_id"),
+    siteSearchConsole: id("site_url"),
   };
 }
 

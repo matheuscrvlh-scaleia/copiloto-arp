@@ -29,6 +29,14 @@ export function fontesReais(
     : `${lista.slice(0, -1).join(", ")} e ${lista.at(-1)}`;
 }
 
+/** Avisos de várias fontes numa linha só (undefined se nenhum). */
+export function juntarAvisos(
+  ...avisos: (string | undefined)[]
+): string | undefined {
+  const lista = avisos.filter((a): a is string => !!a);
+  return lista.length ? lista.join(" · ") : undefined;
+}
+
 /** Topo: "Dados de dd/mm/aaaa às hh:mm", linha de filtros e exportação. */
 export function TopoDaTela({
   dadosDe,

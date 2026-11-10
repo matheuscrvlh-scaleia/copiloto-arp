@@ -52,6 +52,8 @@ export const TAG = {
     eventosSite: "marketing:eventos_site",
     /** Anúncios, posts e demografia lidos da Meta (relidos a cada hora). */
     meta: "marketing:meta",
+    /** Google Ads, GA4 e Search Console lidos ao vivo (relidos a cada hora). */
+    google: "marketing:google",
     /** Projetos e tarefas lidos do Asana (relidos a cada hora ou no teste). */
     asana: "marketing:asana",
   },

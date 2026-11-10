@@ -19,6 +19,7 @@ import {
   Cartoes,
   Fonte,
   fontesReais,
+  juntarAvisos,
   TopoDaTela,
   variacaoContra,
 } from "@/components/dashboard/tela";
@@ -265,11 +266,18 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         filtros={linhaFiltros}
         reais={fontesReais(
           anuncios.metaReal && "Meta Ads",
+          anuncios.googleReal && "Google Ads",
           redes.metaReal && "Instagram e Facebook",
+          site.siteReal && "Google Analytics",
           rd.lidoEm && "leads do RD Station",
           asana.lidoEm && "radar do Asana",
         )}
-        aviso={anuncios.avisoMeta ?? redes.avisoMeta}
+        aviso={juntarAvisos(
+          anuncios.avisoMeta,
+          anuncios.avisoGoogle,
+          redes.avisoMeta,
+          site.avisoSite,
+        )}
         acoes={
           pode("marketing.exportar") ? (
             <BotaoExportar

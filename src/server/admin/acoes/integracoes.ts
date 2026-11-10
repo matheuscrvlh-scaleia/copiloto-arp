@@ -173,6 +173,7 @@ export async function salvarIntegracao(
   if (salvo.error) return erroDoBanco(salvo.error);
   if (sistema === "mkt_site") updateTag(TAG.marketing.eventosSite);
   if (sistema === "mkt_meta") updateTag(TAG.marketing.meta);
+  if (sistema === "mkt_google") updateTag(TAG.marketing.google);
   if (sistema === "mkt_asana") updateTag(TAG.marketing.asana);
   if (teste) {
     const r = await core.rpc("registrar_teste_integracao", {
@@ -211,6 +212,7 @@ export async function testarIntegracao(
   // Testar a agenda do site ou o Asana também relê os dados na tela.
   if (sistema === "mkt_site" && teste.ok) updateTag(TAG.marketing.eventosSite);
   if (sistema === "mkt_meta" && teste.ok) updateTag(TAG.marketing.meta);
+  if (sistema === "mkt_google" && teste.ok) updateTag(TAG.marketing.google);
   if (sistema === "mkt_asana" && teste.ok) updateTag(TAG.marketing.asana);
   // Só a credencial salva na tela guarda o resultado (a do .env não tem linha).
   if (await credencialSalva(sistema).catch(() => null)) {

@@ -1,4 +1,10 @@
 import { z } from "zod";
+import type {
+  BuscaLinha,
+  Ga4Linha,
+  GoogleLinha,
+  GoogleTermo,
+} from "@/lib/marketing/fontes";
 import { ConnectorError, parseWith, requestJson } from "../http";
 
 // Google (Ads, Analytics 4, Search Console, YouTube e Perfil da Empresa).
@@ -123,6 +129,119 @@ const contasPerfilSchema = z.object({
     .array(z.object({ name: z.string(), accountName: z.string().default("") }))
     .default([]),
 });
+
+// Leituras dos dados. A Google Ads API omite as métricas zeradas e manda os
+// int64 em texto: tudo com default 0 e coerção.
+
+const zero = numero.default(0);
+
+const adsCampanhaDiaSchema = z.object({
+  results: z
+    .array(
+      z.object({
+        campaign: z.object({
+          id: z.coerce.string(),
+          name: z.string().default(""),
+          advertisingChannelType: z.string().default(""),
+          status: z.string().default(""),
+        }),
+        segments: z.object({ date: z.string() }),
+        metrics: z
+          .object({
+            costMicros: zero,
+            impressions: zero,
+            clicks: zero,
+            ctr: zero,
+            averageCpc: zero,
+            conversions: zero,
+            costPerConversion: zero,
+            videoTrueviewViews: zero,
+          })
+          .default({
+            costMicros: 0,
+            impressions: 0,
+            clicks: 0,
+            ctr: 0,
+            averageCpc: 0,
+            conversions: 0,
+            costPerConversion: 0,
+            videoTrueviewViews: 0,
+          }),
+      }),
+    )
+    .default([]),
+  nextPageToken: z.string().optional(),
+});
+
+const adsTermoSchema = z.object({
+  results: z
+    .array(
+      z.object({
+        campaign: z.object({ id: z.coerce.string() }),
+        segments: z.object({ date: z.string() }),
+        searchTermView: z.object({ searchTerm: z.string() }),
+        metrics: z
+          .object({ impressions: zero, clicks: zero, costMicros: zero })
+          .default({ impressions: 0, clicks: 0, costMicros: 0 }),
+      }),
+    )
+    .default([]),
+  nextPageToken: z.string().optional(),
+});
+
+const ga4RelatorioSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        dimensionValues: z.array(z.object({ value: z.string().default("") })),
+        metricValues: z.array(z.object({ value: zero })),
+      }),
+    )
+    .default([]),
+  rowCount: z.number().int().default(0),
+});
+
+const buscasSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        keys: z.array(z.string()),
+        clicks: zero,
+        impressions: zero,
+        ctr: zero,
+        position: zero,
+      }),
+    )
+    .default([]),
+});
+
+/** Dimensões e métricas do GA4, na ordem de Ga4Linha. */
+const GA4_DIMENSOES = [
+  "date",
+  "sessionDefaultChannelGroup",
+  "sessionSourceMedium",
+  "sessionCampaignName",
+  "deviceCategory",
+] as const;
+const GA4_METRICAS = [
+  "sessions",
+  "totalUsers",
+  "newUsers",
+  "engagedSessions",
+  "engagementRate",
+  "averageSessionDuration",
+  "screenPageViews",
+  "keyEvents",
+] as const;
+/** Linhas por página do GA4 e do Search Console. */
+const POR_PAGINA_GA4 = 100_000;
+const POR_PAGINA_BUSCAS = 25_000;
+/** Teto de páginas: a janela do módulo (18 semanas) cabe com folga. */
+const MAX_PAGINAS = 20;
+
+/** "20260905" → "2026-09-05". */
+const dataGa4 = (v: string) =>
+  /^\d{8}$/.test(v) ? `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6)}` : v;
 
 /** Conta de anúncio que a conta Google alcança; `login` é a MCC, se for por ela. */
 export interface ContaAds {
@@ -257,7 +376,186 @@ export function createGoogleClient(config: GoogleConfig) {
     });
   }
 
+  /** GAQL com todas as páginas (a API devolve até 10 mil linhas por página). */
+  async function gaql<T extends { nextPageToken?: string }>(
+    customerId: string,
+    loginCustomerId: string | undefined,
+    query: string,
+    schema: z.ZodType<T>,
+  ): Promise<T[]> {
+    const paginas: T[] = [];
+    let pageToken: string | undefined;
+    for (let n = 0; n < MAX_PAGINAS; n++) {
+      const r = await chamar(
+        `https://googleads.googleapis.com/${VERSAO_ADS}/customers/${customerId}/googleAds:search`,
+        {
+          method: "POST",
+          body: { query, ...(pageToken ? { pageToken } : {}) },
+          headers: loginCustomerId
+            ? { "login-customer-id": loginCustomerId }
+            : {},
+        },
+      );
+      const p = parseWith(sistema, schema, r);
+      paginas.push(p);
+      pageToken = p.nextPageToken;
+      if (!pageToken) break;
+    }
+    return paginas;
+  }
+
   return {
+    /**
+     * Campanhas por dia (aaaa-mm-dd, inclusive), só os dias com impressão.
+     * video_views saiu da API (v26): vem de video_trueview_views.
+     */
+    async adsCampanhasPorDia(
+      customerId: string,
+      desde: string,
+      ate: string,
+      loginCustomerId?: string,
+    ): Promise<GoogleLinha[]> {
+      const paginas = await gaql(
+        customerId,
+        loginCustomerId,
+        `SELECT campaign.id, campaign.name, campaign.advertising_channel_type, campaign.status, segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.ctr, metrics.average_cpc, metrics.conversions, metrics.cost_per_conversion, metrics.video_trueview_views FROM campaign WHERE segments.date BETWEEN '${desde}' AND '${ate}' AND metrics.impressions > 0`,
+        adsCampanhaDiaSchema,
+      );
+      return paginas.flatMap((p) =>
+        p.results.map(({ campaign: c, segments, metrics: m }) => ({
+          campaign: {
+            id: c.id,
+            name: c.name,
+            advertising_channel_type: c.advertisingChannelType,
+            status: c.status,
+          },
+          segments: { date: segments.date },
+          metrics: {
+            cost_micros: m.costMicros,
+            impressions: m.impressions,
+            clicks: m.clicks,
+            ctr: m.ctr,
+            average_cpc: m.averageCpc,
+            conversions: m.conversions,
+            cost_per_conversion: m.costPerConversion,
+            video_views: m.videoTrueviewViews,
+          },
+        })),
+      );
+    },
+
+    /** Termos de pesquisa que dispararam os anúncios, por campanha e dia. */
+    async adsTermos(
+      customerId: string,
+      desde: string,
+      ate: string,
+      loginCustomerId?: string,
+    ): Promise<GoogleTermo[]> {
+      const paginas = await gaql(
+        customerId,
+        loginCustomerId,
+        `SELECT campaign.id, segments.date, search_term_view.search_term, metrics.impressions, metrics.clicks, metrics.cost_micros FROM search_term_view WHERE segments.date BETWEEN '${desde}' AND '${ate}'`,
+        adsTermoSchema,
+      );
+      return paginas.flatMap((p) =>
+        p.results.map((t) => ({
+          campaign_id: t.campaign.id,
+          segments: { date: t.segments.date },
+          search_term_view: { search_term: t.searchTermView.searchTerm },
+          metrics: {
+            impressions: t.metrics.impressions,
+            clicks: t.metrics.clicks,
+            cost_micros: t.metrics.costMicros,
+          },
+        })),
+      );
+    },
+
+    /** Sessões do GA4 por dia × canal × origem/mídia × campanha × dispositivo. */
+    async ga4Relatorio(
+      propertyId: string,
+      desde: string,
+      ate: string,
+    ): Promise<Ga4Linha[]> {
+      const linhas: Ga4Linha[] = [];
+      for (let n = 0; n < MAX_PAGINAS; n++) {
+        const r = await chamar(
+          `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+          {
+            method: "POST",
+            body: {
+              dateRanges: [{ startDate: desde, endDate: ate }],
+              dimensions: GA4_DIMENSOES.map((name) => ({ name })),
+              metrics: GA4_METRICAS.map((name) => ({ name })),
+              limit: POR_PAGINA_GA4,
+              offset: linhas.length,
+            },
+          },
+        );
+        const p = parseWith(sistema, ga4RelatorioSchema, r);
+        for (const { dimensionValues: d, metricValues: m } of p.rows) {
+          const dim = (i: number) => d[i]?.value ?? "";
+          const met = (i: number) => m[i]?.value ?? 0;
+          linhas.push({
+            date: dataGa4(dim(0)),
+            sessionDefaultChannelGroup: dim(1),
+            sessionSourceMedium: dim(2),
+            sessionCampaignName: dim(3),
+            deviceCategory: dim(4),
+            sessions: met(0),
+            totalUsers: met(1),
+            newUsers: met(2),
+            engagedSessions: met(3),
+            engagementRate: met(4),
+            averageSessionDuration: met(5),
+            screenPageViews: met(6),
+            keyEvents: met(7),
+          });
+        }
+        if (p.rows.length === 0 || linhas.length >= p.rowCount) break;
+      }
+      return linhas;
+    },
+
+    /** Buscas do Search Console por dia × termo × página. */
+    async buscas(
+      siteUrl: string,
+      desde: string,
+      ate: string,
+    ): Promise<BuscaLinha[]> {
+      const linhas: BuscaLinha[] = [];
+      for (let n = 0; n < MAX_PAGINAS; n++) {
+        const r = await chamar(
+          `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+          {
+            method: "POST",
+            body: {
+              startDate: desde,
+              endDate: ate,
+              dimensions: ["date", "query", "page"],
+              rowLimit: POR_PAGINA_BUSCAS,
+              startRow: linhas.length,
+            },
+          },
+        );
+        const p = parseWith(sistema, buscasSchema, r);
+        for (const b of p.rows) {
+          const [date = "", query = "", page = ""] = b.keys;
+          linhas.push({
+            date,
+            query,
+            page,
+            clicks: b.clicks,
+            impressions: b.impressions,
+            ctr: b.ctr,
+            position: b.position,
+          });
+        }
+        if (p.rows.length < POR_PAGINA_BUSCAS) break;
+      }
+      return linhas;
+    },
+
     /** Conta que autorizou e os escopos que ela concedeu. */
     async conta() {
       const t = await renovar();

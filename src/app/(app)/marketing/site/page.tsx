@@ -18,6 +18,7 @@ import {
   CartaoDaTela,
   Cartoes,
   Fonte,
+  fontesReais,
   hrefCom,
   TopoDaTela,
   variacaoContra,
@@ -272,7 +273,12 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         <TopoDaTela
           dadosDe={ctx.dadosDe}
           filtros={linhaFiltros}
-          reais={rd.lidoEm ? "leads e landing pages do RD Station" : undefined}
+          reais={fontesReais(
+            site.siteReal && "Google Analytics",
+            site.buscas.length > 0 && "Search Console",
+            rd.lidoEm && "leads e landing pages do RD Station",
+          )}
+          aviso={site.avisoSite}
           acoes={
             exportar ? (
               <>
@@ -475,7 +481,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             colunas={COLUNAS_BUSCA}
             ordemInicial={{ coluna: 1, desc: true }}
             placeholder="Buscar termo…"
-            vazio="Nenhuma busca no período."
+            vazio={site.avisoBuscas ?? "Nenhuma busca no período."}
             linhas={buscas.map((b) => ({
               chave: b.termo,
               busca: b.termo,

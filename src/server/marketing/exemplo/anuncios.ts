@@ -1,29 +1,24 @@
-import type {
-  GoogleLinha,
-  GoogleTermo,
-  TikTokCampanha,
-  TikTokLinha,
-} from "@/lib/marketing/fontes";
+import type { TikTokCampanha, TikTokLinha } from "@/lib/marketing/fontes";
 import { diaDaSemana, somarDias } from "@/lib/marketing/periodo";
 import { arred, sorteio } from "@/lib/sorteio";
 
-// Anúncios de exemplo de Google e TikTok (a Meta é real: server/marketing/
-// meta.ts): 6 campanhas (4 Google com 1 de YouTube, 2 TikTok), dia a dia nas
-// últimas 18 semanas. Cada campanha tem o custo por lead "real" dela, que
-// define quantos leads chegam no RD de exemplo (rd.ts usa a mesma conta).
-// Saem daqui quando Google e TikTok forem ligados.
+// Anúncios de exemplo do TikTok (Meta e Google são reais: server/marketing/
+// meta.ts e google.ts): 2 campanhas, dia a dia nas últimas 18 semanas. Cada
+// campanha tem o custo por lead "real" dela, que define quantos leads chegam
+// no RD de exemplo (rd.ts usa a mesma conta). Sai daqui quando o TikTok for
+// ligado.
 
 export const JANELA_DIAS = 126;
 
-export type Plataforma = "google" | "tiktok";
+export type Plataforma = "tiktok";
 
 export interface CampanhaExemplo {
   id: string;
   plataforma: Plataforma;
   nome: string;
-  /** advertising_channel_type (Google), objective_type (TikTok). */
+  /** objective_type. */
   tipo: string;
-  /** campaign.status; TikTok não entra nos campos usados. */
+  /** O TikTok não entra nos campos usados. */
   situacao: string | null;
   /** Gasto médio por dia, em reais. */
   verba: number;
@@ -36,60 +31,6 @@ export interface CampanhaExemplo {
 }
 
 const CAMPANHAS: CampanhaExemplo[] = [
-  {
-    id: "2104401",
-    plataforma: "google",
-    nome: "Pesquisa | Aluguel de loja Nova Friburgo",
-    tipo: "SEARCH",
-    situacao: "ENABLED",
-    verba: 34,
-    cpl: 44,
-    inflacao: 1.2,
-    destinos: [
-      ["lp-lojas-disponiveis", 4],
-      ["lp-espacos-coworking", 1],
-    ],
-  },
-  {
-    id: "2104402",
-    plataforma: "google",
-    nome: "Pesquisa | Espaço para eventos",
-    tipo: "SEARCH",
-    situacao: "ENABLED",
-    verba: 44,
-    cpl: 36,
-    inflacao: 1.25,
-    destinos: [
-      ["lp-casamentos-e-festas", 3],
-      ["lp-eventos-corporativos", 2],
-    ],
-  },
-  {
-    id: "2104403",
-    plataforma: "google",
-    nome: "PMax | Espaço ARP",
-    tipo: "PERFORMANCE_MAX",
-    situacao: "ENABLED",
-    verba: 30,
-    cpl: 48,
-    inflacao: 1.7,
-    destinos: [
-      ["lp-casamentos-e-festas", 2],
-      ["lp-lojas-disponiveis", 2],
-      ["lp-newsletter-agenda", 1],
-    ],
-  },
-  {
-    id: "2104404",
-    plataforma: "google",
-    nome: "YouTube | Institucional 108 anos",
-    tipo: "VIDEO",
-    situacao: "ENABLED",
-    verba: 16,
-    cpl: 160,
-    inflacao: 1.1,
-    destinos: [["lp-newsletter-agenda", 1]],
-  },
   {
     id: "1789001",
     plataforma: "tiktok",
@@ -121,41 +62,8 @@ export function campanhasDeExemplo(): CampanhaExemplo[] {
   return CAMPANHAS;
 }
 
-const TERMOS = {
-  "2104401": [
-    "aluguel de loja nova friburgo",
-    "loja para alugar centro nova friburgo",
-    "ponto comercial nova friburgo",
-    "sala comercial nova friburgo",
-    "aluguel loja shopping friburgo",
-    "espaço arp lojas",
-    "quiosque para alugar nova friburgo",
-    "loja rua do relógio",
-    "aluguel de sala para consultório friburgo",
-    "imóvel comercial região serrana",
-    "galpão para alugar nova friburgo",
-    "coworking nova friburgo",
-  ],
-  "2104402": [
-    "espaço para eventos nova friburgo",
-    "salão de festas nova friburgo",
-    "local para casamento região serrana",
-    "espaço para casamento nova friburgo",
-    "espaço para festa de 15 anos friburgo",
-    "local para evento corporativo serra rj",
-    "espaço arp eventos",
-    "aluguel de espaço para aniversário",
-    "casamento ao ar livre nova friburgo",
-    "espaço para formatura nova friburgo",
-    "buffet e espaço de festas friburgo",
-    "local para palestra nova friburgo",
-    "espaço para feira nova friburgo",
-  ],
-} as const;
-
 export interface DadosAnuncios {
   campanhas: CampanhaExemplo[];
-  google: { linhas: GoogleLinha[]; termos: GoogleTermo[] };
   tiktok: { campanhas: TikTokCampanha[]; linhas: TikTokLinha[] };
   /** Leads que cada campanha mandou ao RD por dia: id → data → quantidade. */
   leadsNoRd: Map<string, Map<string, number>>;
@@ -175,7 +83,6 @@ export function gerarAnuncios(hoje: string): DadosAnuncios {
   );
   const out: DadosAnuncios = {
     campanhas: CAMPANHAS,
-    google: { linhas: [], termos: [] },
     tiktok: { campanhas: [], linhas: [] },
     leadsNoRd: new Map(),
   };
@@ -183,28 +90,18 @@ export function gerarAnuncios(hoje: string): DadosAnuncios {
   for (const c of CAMPANHAS) {
     const leads = new Map<string, number>();
     out.leadsNoRd.set(c.id, leads);
-    if (c.plataforma === "tiktok")
-      out.tiktok.campanhas.push({
-        campaign_id: c.id,
-        campaign_name: c.nome,
-        objective_type: c.tipo,
-      });
+    out.tiktok.campanhas.push({
+      campaign_id: c.id,
+      campaign_name: c.nome,
+      objective_type: c.tipo,
+    });
 
     for (const data of dias) {
       const s = sorteio(`anuncio:${c.id}:${data}`);
       const spend = arred(s.perto(c.verba * fatorDoDia(data), 0.28));
-      const cpm =
-        c.plataforma === "google"
-          ? c.tipo === "SEARCH"
-            ? s.perto(62, 0.2)
-            : s.perto(14, 0.25)
-          : s.perto(9, 0.25);
+      const cpm = s.perto(9, 0.25);
       const impressions = Math.round((spend / cpm) * 1000);
-      const ctrBase = c.tipo === "SEARCH" ? 0.072 : 0.014;
-      const clicks = Math.max(
-        1,
-        Math.round(impressions * s.perto(ctrBase, 0.3)),
-      );
+      const clicks = Math.max(1, Math.round(impressions * s.perto(0.014, 0.3)));
       const rd = c.cpl === null ? 0 : s.contagem(spend / c.cpl);
       if (rd > 0) leads.set(data, rd);
       const conversoes =
@@ -212,72 +109,23 @@ export function gerarAnuncios(hoje: string): DadosAnuncios {
           ? 0
           : Math.round(rd * c.inflacao + (s.chance(0.3) ? 1 : 0));
 
-      if (c.plataforma === "google") {
-        const video =
-          c.tipo === "VIDEO"
-            ? Math.round(impressions * s.perto(0.31, 0.15))
-            : 0;
-        out.google.linhas.push({
-          campaign: {
-            id: c.id,
-            name: c.nome,
-            advertising_channel_type: c.tipo,
-            status: c.situacao ?? "ENABLED",
-          },
-          segments: { date: data },
-          metrics: {
-            cost_micros: Math.round(spend * 1_000_000),
-            impressions,
-            clicks,
-            ctr: clicks / impressions,
-            average_cpc: Math.round((spend / clicks) * 1_000_000),
-            conversions: conversoes,
-            cost_per_conversion: conversoes
-              ? Math.round((spend / conversoes) * 1_000_000)
-              : 0,
-            video_views: video,
-          },
-        });
-        const termos = TERMOS[c.id as keyof typeof TERMOS];
-        if (termos) {
-          // Os primeiros termos levam a maior parte (cauda longa).
-          const pesos = termos.map((_, k) => 1 / (k + 1.4));
-          const soma = pesos.reduce((a, b) => a + b, 0);
-          termos.forEach((termo, k) => {
-            const parte = ((pesos[k] as number) / soma) * s.perto(1, 0.35);
-            const cl = Math.round(clicks * parte);
-            if (cl === 0 && s.chance(0.6)) return;
-            out.google.termos.push({
-              campaign_id: c.id,
-              segments: { date: data },
-              search_term_view: { search_term: termo },
-              metrics: {
-                impressions: Math.round(impressions * parte * s.perto(1, 0.3)),
-                clicks: cl,
-                cost_micros: Math.round(spend * parte * 1_000_000),
-              },
-            });
-          });
-        }
-      } else {
-        const reach = Math.round(impressions / s.perto(1.18, 0.1));
-        const plays = Math.round(impressions * s.perto(0.42, 0.15));
-        out.tiktok.linhas.push({
-          campaign_id: c.id,
-          stat_time_day: data,
-          spend,
-          impressions,
-          reach,
-          clicks,
-          ctr: arred((clicks / impressions) * 100, 4),
-          cpc: arred(spend / clicks, 4),
-          cpm: arred((spend / impressions) * 1000, 4),
-          conversion: conversoes,
-          cost_per_conversion: conversoes ? arred(spend / conversoes) : 0,
-          video_play_actions: plays,
-          video_views_p100: Math.round(plays * s.perto(0.12, 0.25)),
-        });
-      }
+      const reach = Math.round(impressions / s.perto(1.18, 0.1));
+      const plays = Math.round(impressions * s.perto(0.42, 0.15));
+      out.tiktok.linhas.push({
+        campaign_id: c.id,
+        stat_time_day: data,
+        spend,
+        impressions,
+        reach,
+        clicks,
+        ctr: arred((clicks / impressions) * 100, 4),
+        cpc: arred(spend / clicks, 4),
+        cpm: arred((spend / impressions) * 1000, 4),
+        conversion: conversoes,
+        cost_per_conversion: conversoes ? arred(spend / conversoes) : 0,
+        video_play_actions: plays,
+        video_views_p100: Math.round(plays * s.perto(0.12, 0.25)),
+      });
     }
   }
   return out;

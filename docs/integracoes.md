@@ -380,10 +380,16 @@ rescisória sem dividir por 12).
 
 ## Módulo Marketing (só consulta)
 
-Dados reais: Meta (anúncios, Instagram e Facebook), RD Station e a agenda do
-site. Ainda de exemplo, nos campos das APIs, até serem ligados: Google (Ads,
-YouTube, GA4, Search Console, Perfil da Empresa), TikTok e Asana; nas telas
-os reais e os de exemplo se somam, e o topo mostra o selo de cada um. Campos usados por fonte:
+Dados reais: Meta (anúncios, Instagram e Facebook), Google (Ads, Analytics 4
+e Search Console, lidos ao vivo com cache de 1 hora: `src/server/marketing/google.ts`),
+RD Station, Asana e a agenda do site. Ainda de exemplo, nos campos das APIs,
+até serem ligados: YouTube, Perfil da Empresa e TikTok; nas telas os reais e
+os de exemplo se somam, e o topo mostra o selo de cada um. Fonte real que
+falha fica vazia, com aviso no topo: nunca volta ao exemplo. Conferido em
+10/11/2026: o Ads não roda campanha desde 31/08/2026; as sessões do GA4
+caíram de ~2.900/mês (jul) para 16 em 1–10/11 (a tag pode ter saído do site);
+o Search Console não abre: a conta conectada é usuário não verificado de
+`sc-domain:espacoarp.com.br` (falta dar acesso e preencher a propriedade). Campos usados por fonte:
 `src/lib/marketing/fontes.ts`. Nada é publicado, pausado, respondido ou
 alterado nas ferramentas.
 
