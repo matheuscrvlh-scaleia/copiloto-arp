@@ -161,22 +161,27 @@ export function createRdCrmClient(config: {
       fetch: config.fetch,
     });
 
-  /** Todas as páginas de uma lista, conferindo cada item no schema. */
-  async function listar<T extends z.ZodType>(
+  /**
+   * Todas as páginas de uma lista, conferindo cada item no schema. A ordem
+   * entre páginas não é estável (o mesmo id veio em duas páginas na primeira
+   * leitura da ARP, 10/11/2026): fica a última versão de cada id.
+   */
+  async function listar<T extends z.ZodType<{ id: string }>>(
     caminho: string,
     schema: T,
   ): Promise<z.infer<T>[]> {
-    const out: z.infer<T>[] = [];
+    const porId = new Map<string, z.infer<T>>();
     for (let n = 1; n <= MAX_PAGINAS; n++) {
       const p = parseWith(
         SISTEMA,
         paginaSchema,
         await ler(caminho, { "page[number]": n, "page[size]": POR_PAGINA }),
       );
-      out.push(...parseWith(SISTEMA, z.array(schema), p.data));
+      for (const item of parseWith(SISTEMA, z.array(schema), p.data))
+        porId.set(item.id, item);
       if (!p.links?.next || p.data.length < POR_PAGINA) break;
     }
-    return out;
+    return [...porId.values()];
   }
 
   return {

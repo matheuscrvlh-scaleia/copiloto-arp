@@ -14,7 +14,7 @@ nenhum sistema, mesmo quando a API permite.
 | Folha (Sousa e Couto) | RH: rubricas, salários, bases e encargos | Upload mensal (PDF ou Excel) | Extrato de 07/2026 recebido | — |
 | Copiloto RH | RH: nascimento, tipo de contrato, admissões, desligamentos, turnover | API (OAuth client_credentials) | **Funcionando**: fonte de colaboradores, nascimento, contrato, admissões, desligamentos e turnover (cálculo do Copiloto). A base da ARP não tem desligados | `src/connectors/copiloto-rh` |
 | WPS ParkingPlus | Estacionamento: entradas, saídas e pagamentos | API, 1x por dia | **Sincronizando** (homologação; falta o acesso de produção) | `src/connectors/wps` |
-| Diário de Obras | Obras: diários (RDO), mão de obra, atividades, ocorrências | API | Falta o token. Cliente de todas as rotas pronto, sem sincronização (módulo não definido) | `src/connectors/diario-de-obras` |
+| Diário de Obras | Obras: diários (RDO), mão de obra, atividades, ocorrências | API | Token salvo em Integrações (10/11/2026); todas as rotas conferidas com a base real (2 obras). Sem sincronização: o Operações ainda mostra o Diário de exemplo | `src/connectors/diario-de-obras` |
 | Serviços públicos (BrasilAPI, ViaCEP, Banco Central) | Comercial: CEP, CNPJ, feriados nacionais, IGP-M e IPCA | API pública, na hora (sem cadastro) | **Funcionando**, sem credencial | `src/connectors/publicos` |
 | RD Station CRM | Comercial: oportunidades, funis, etapas, motivos de perda (Funil comercial e leads do Painel) | API v2 (OAuth do app do CRM na RD Station App Store), sincronizada 1x por dia em `comercial.rd_oportunidades` | Falta criar o app do CRM e clicar em **Conectar com o RD Station CRM** (o app do RD Station Marketing não abre o CRM: conferido em 04/11/2026). Até a primeira leitura, o Comercial mostra o RD de exemplo, com aviso | `src/connectors/rd-crm.ts`, `src/server/sync/rd-crm.ts` |
 
@@ -204,8 +204,7 @@ App de diário de obra (RDO). Ainda **sem módulo definido** no Centralizador.
 O cliente cobre todas as rotas; falta decidir o que sincronizar.
 
 - **Documentação:** <https://api.diariodeobra.app/documentacao/> (página em
-  JavaScript, lida em 21/10/2026). Os schemas seguem os exemplos de lá:
-  conferir com o primeiro retorno real da ARP.
+  JavaScript, lida em 21/10/2026). Os schemas passaram no retorno real da ARP em 10/11/2026 (empresa, cadastros, obras, relatórios, relatório, lista de tarefas).
 - **Base:** `https://apiexterna.diariodeobra.app/v1`
 - **Autenticação:** header `token: <token da empresa>` (JWT), gerado no
   Diário de Obras em Cadastros › Empresa › Gerar token.

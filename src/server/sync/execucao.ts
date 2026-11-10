@@ -92,10 +92,13 @@ export async function executar<T extends ResultadoExecucao>(
       .update({
         status: "erro",
         finalizado_em: agora(),
-        erro: (erro instanceof Error ? erro.message : String(erro)).slice(
-          0,
-          2000,
-        ),
+        // O erro do Supabase é objeto com message, não Error.
+        erro: (erro instanceof Error
+          ? erro.message
+          : typeof erro === "object" && erro && "message" in erro
+            ? String(erro.message)
+            : String(erro)
+        ).slice(0, 2000),
       })
       .eq("id", runId);
     throw erro;

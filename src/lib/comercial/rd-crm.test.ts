@@ -53,7 +53,11 @@ describe("RD Station CRM (API v2)", () => {
       });
       const n = Number(url.searchParams.get("page[number]"));
       return Response.json({
-        data: n === 1 ? Array(100).fill(NEGOCIACAO) : [NEGOCIACAO],
+        // O d99 volta na página 2 (ordem instável no RD): conta uma vez só.
+        data: Array.from(n === 1 ? { length: 100 } : [99, 100], (v, i) => ({
+          ...NEGOCIACAO,
+          id: `d${v ?? i}`,
+        })),
         links: { next: n === 1 ? "https://api.rd.services/x?page=2" : null },
       });
     };

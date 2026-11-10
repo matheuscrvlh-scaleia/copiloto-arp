@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { concluirAutorizacaoGoogle } from "@/server/marketing/autorizacao-google";
+import { origem } from "@/server/marketing/autorizacao-rd";
 
 // Volta da autorização do Google (URL cadastrada no app do Google Cloud),
 // para o Google e para o YouTube. Conclui e leva de volta ao cartão do
@@ -11,7 +12,8 @@ export async function GET(request: NextRequest) {
     state: q.get("state") ?? "",
     erro: q.get("error") ?? "",
   });
-  const destino = request.nextUrl.clone();
+  // Atrás do nginx, request.nextUrl traz o endereço interno (0.0.0.0:3000).
+  const destino = new URL(await origem());
   destino.pathname = "/marketing/configuracoes/integracoes";
   destino.search = new URLSearchParams({
     google: resultado,
