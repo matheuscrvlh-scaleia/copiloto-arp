@@ -10,31 +10,21 @@ describe("catálogo de permissões", () => {
       .filter((f) => f.endsWith(".sql"))
       .map((f) => readFileSync(join(dir, f), "utf8"))
       .join("\n");
-    // Todas as migrations que inserem no catálogo.
-    const blocos = [
-      ...sql.matchAll(/insert into core\.permissoes[\s\S]*?values([\s\S]*?);/g),
-    ].map((m) => m[1] ?? "");
-    // Menos as que uma migration depois tirou.
-    const tiradas = [
-      ...sql.matchAll(
-        /delete from core\.permissoes where codigo in \(([^)]*)\)/g,
-      ),
-    ].flatMap((m) =>
-      [...(m[1] ?? "").matchAll(/'([a-z_.]+)'/g)].map((c) => c[1]),
-    );
-    // E com o código novo das que uma migration depois renomeou.
-    const renomeadas = new Map(
-      [
-        ...sql.matchAll(
-          /update core\.permissoes\s+set codigo = '([a-z_.]+)'[\s\S]*?where codigo = '([a-z_.]+)'/g,
-        ),
-      ].map((m) => [m[2], m[1]]),
-    );
-    const noBanco = blocos
-      .flatMap((b) => [...b.matchAll(/\('([a-z_.]+)',/g)].map((m) => m[1]))
-      .map((c) => (c && renomeadas.get(c)) ?? c)
-      .filter((c) => !tiradas.includes(c));
-    expect(noBanco.sort()).toEqual(Object.keys(PERMISSOES).sort());
+    // Inclusões, remoções e renomeações do catálogo, na ordem das
+    // migrations (uma permissão tirada pode voltar numa migration depois).
+    const banco = new Set<string>();
+    for (const m of sql.matchAll(
+      /insert into core\.permissoes[\s\S]*?values([\s\S]*?);|delete from core\.permissoes where codigo in \(([^)]*)\)|update core\.permissoes\s+set codigo = '([a-z_.]+)'[\s\S]*?where codigo = '([a-z_.]+)'/g,
+    )) {
+      if (m[1] !== undefined)
+        for (const c of m[1].matchAll(/\('([a-z_.]+)',/g))
+          if (c[1]) banco.add(c[1]);
+      if (m[2] !== undefined)
+        for (const c of m[2].matchAll(/'([a-z_.]+)'/g))
+          if (c[1]) banco.delete(c[1]);
+      if (m[3] && m[4] && banco.delete(m[4])) banco.add(m[3]);
+    }
+    expect([...banco].sort()).toEqual(Object.keys(PERMISSOES).sort());
   });
 
   it("toda permissão aparece num módulo da tela de cargos", () => {

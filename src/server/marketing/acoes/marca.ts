@@ -9,6 +9,7 @@ import {
   ARQUIVO_MAX_BYTES,
   conteudoDosItens,
   conteudoDoTexto,
+  ehImagem,
   lerConteudo,
   mesmoConteudo,
   paraJson,
@@ -149,18 +150,23 @@ export type ArquivoCriado =
 export async function novoArquivo(entrada: {
   titulo: string;
   descricao: string;
+  /** Imagem de referência (Marca › Imagens de referência). */
+  referencia?: boolean;
 }): Promise<ArquivoCriado> {
   const e = z
     .object({
       titulo: z.string().trim().min(1).max(120),
       descricao: z.string().trim().max(300),
+      referencia: z.boolean().default(false),
     })
     .safeParse(entrada);
   if (!e.success)
     return { ok: false, erro: "Dê um título de até 120 caracteres." };
+  if (e.data.referencia && !e.data.descricao)
+    return { ok: false, erro: "Diga para que serve a imagem de referência." };
   if (!(await podeAgora("marketing.marca.editar")))
     return { ok: false, erro: SEM_PERMISSAO.erro as string };
-  const { titulo, descricao } = e.data;
+  const { titulo, descricao, referencia } = e.data;
   // Grupo legível e sem colisão: título sem acento + sufixo aleatório.
   const base = nomeSeguro(titulo)
     .replace(/[^a-z0-9]+/g, "_")
@@ -169,7 +175,7 @@ export async function novoArquivo(entrada: {
   const grupo = `${base || "arquivo"}_${randomBytes(3).toString("hex")}`;
   const { error } = await mktAdmin()
     .from("marca_arquivos")
-    .insert({ grupo, titulo, descricao: descricao || null });
+    .insert({ grupo, titulo, descricao: descricao || null, referencia });
   if (error) {
     console.error("novo arquivo da marca", error);
     return {
@@ -191,7 +197,7 @@ const grupoValido = z.string().regex(/^[a-z0-9_]+$/);
 async function situacaoDoGrupo(grupo: string) {
   const { data, error } = await mktAdmin()
     .from("marca_arquivos")
-    .select("id, versao, atual, arquivo_path, titulo, descricao")
+    .select("id, versao, atual, arquivo_path, titulo, descricao, referencia")
     .eq("grupo", grupo)
     .order("versao", { ascending: false });
   if (error) throw new Error(`Falha ao ler os arquivos: ${error.message}`);
@@ -236,6 +242,8 @@ export async function prepararEnvio(entrada: {
   const grupoAtual = await situacaoDoGrupo(grupo);
   if (!grupoAtual)
     return { ok: false, erro: "Arquivo de marca não encontrado." };
+  if (grupoAtual.atual?.referencia && !ehImagem(nome))
+    return { ok: false, erro: "Imagem de referência: envie PNG, JPG ou SVG." };
   const path = `marca/${grupo}/${grupoAtual.proxima}-${nomeSeguro(nome)}`;
   const envio = await linkDeEnvio(BUCKET_MARCA, path, {
     maxBytes: ARQUIVO_MAX_BYTES,
@@ -288,6 +296,8 @@ export async function registrarArquivo(entrada: {
 
   const grupoAtual = await situacaoDoGrupo(grupo);
   if (!grupoAtual?.atual) return descartar("Arquivo de marca não encontrado.");
+  if (grupoAtual.atual.referencia && !mime.startsWith("image/"))
+    return descartar("Imagem de referência: envie PNG, JPG ou SVG.");
   if (grupoAtual.proxima !== Number(versao))
     return descartar(
       "Outra pessoa enviou uma versão deste arquivo agora há pouco. Recarregue a tela e envie de novo.",
@@ -333,6 +343,7 @@ export async function registrarArquivo(entrada: {
     grupo,
     titulo: atual.titulo,
     descricao: atual.descricao,
+    referencia: atual.referencia,
     versao: Number(versao),
     atual: true,
   });

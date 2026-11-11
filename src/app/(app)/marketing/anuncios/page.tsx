@@ -40,7 +40,7 @@ import {
   type Totais,
 } from "@/lib/marketing/anuncios";
 import { linhaDeFiltros, mesesAte, semanasAte } from "@/lib/marketing/periodo";
-import { metaMkt } from "@/server/marketing/base";
+import { metaMkt, quadrosVisiveis } from "@/server/marketing/base";
 import {
   type Busca,
   INTERESSES,
@@ -81,6 +81,7 @@ const ehAtiva = (s: string | null) => s === "ACTIVE" || s === "ENABLED";
 
 async function Tela({ busca }: { busca: Promise<Busca> }) {
   const f = await lerFiltros("anuncios", await busca, "semana_passada");
+  const ve = await quadrosVisiveis("anuncios");
   const { ctx, periodo, anterior } = f;
   const plataforma = f.um("plataforma") as Plataforma | "";
   const tipo = f.um("tipo");
@@ -284,140 +285,146 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           }
         />
 
-        <Cartoes modulo="marketing">
-          <CartaoDaTela
-            titulo="Investimento"
-            exemplo={
-              plataforma !== "meta" &&
-              "investimento do Google Ads e do TikTok Ads (os da Meta são reais)"
-            }
-            valor={formatarMoeda(t.investimento)}
-            variacao={variacaoContra(
-              t.investimento,
-              ta.investimento,
-              f.rotuloAnterior,
-              "neutro",
-            )}
-            detalhe={`${base.length} ${base.length === 1 ? "campanha" : "campanhas"} com gasto`}
-            fonte="Meta Ads, Google Ads e TikTok Ads"
-            href={cartao ? hrefCom(BASE, f.busca, { cartao: null }) : undefined}
-          />
-          <CartaoDaTela
-            titulo="Leads no RD vindos de anúncio"
-            exemplo={
-              plataforma !== "meta" &&
-              "leads do Google Ads e do TikTok Ads (os da Meta são reais)"
-            }
-            valor={formatarNumero(t.leadsRd)}
-            variacao={variacaoContra(t.leadsRd, ta.leadsRd, f.rotuloAnterior)}
-            detalhe={`Conversões da plataforma: ${formatarNumero(t.conversoesPlataforma)} (contadas do jeito dela, não somam)`}
-            calculo="Conversões do RD Station cuja campanha de origem (traffic_campaign) é uma das campanhas da lista."
-            fonte="RD Station"
-            href={hrefCartao("com_lead")}
-            ativo={cartao === "com_lead"}
-          />
-          <CartaoDaTela
-            titulo="Custo por lead"
-            exemplo={
-              plataforma !== "meta" &&
-              "investimento e leads do Google Ads e do TikTok Ads (os da Meta são reais)"
-            }
-            valor={formatarMoeda(t.custoPorLead)}
-            variacao={
-              t.custoPorLead !== null && ta.custoPorLead !== null
-                ? variacaoContra(
-                    t.custoPorLead,
-                    ta.custoPorLead,
-                    f.rotuloAnterior,
-                    "menor_melhor",
-                  )
-                : undefined
-            }
-            status={
-              metaCpl && t.custoPorLead !== null
-                ? status(t.custoPorLead, metaCpl)
-                : undefined
-            }
-            direcao="menor_melhor"
-            meta={
-              meta !== null
-                ? `Meta: até ${formatarMoeda(meta)}`
-                : "Defina a meta em Configurações"
-            }
-            calculo="Investimento ÷ leads do RD Station vindos dessas campanhas. Nunca usa as conversões da plataforma."
-            fonte="Anúncios e RD Station"
-            href={hrefCartao("acima_meta")}
-            ativo={cartao === "acima_meta"}
-          />
-          <CartaoDaTela
-            titulo="Cliques no link"
-            exemplo={
-              plataforma !== "meta" &&
-              "cliques do Google Ads e do TikTok Ads (os da Meta são reais)"
-            }
-            valor={formatarNumero(t.cliques)}
-            variacao={variacaoContra(t.cliques, ta.cliques, f.rotuloAnterior)}
-            detalhe={`CTR ${formatarPct(t.ctr)} · CPC ${formatarMoeda(t.cpc)}`}
-            fonte="Meta Ads, Google Ads e TikTok Ads"
-          />
-        </Cartoes>
+        {ve("cartoes") && (
+          <Cartoes modulo="marketing">
+            <CartaoDaTela
+              titulo="Investimento"
+              exemplo={
+                plataforma !== "meta" &&
+                "investimento do Google Ads e do TikTok Ads (os da Meta são reais)"
+              }
+              valor={formatarMoeda(t.investimento)}
+              variacao={variacaoContra(
+                t.investimento,
+                ta.investimento,
+                f.rotuloAnterior,
+                "neutro",
+              )}
+              detalhe={`${base.length} ${base.length === 1 ? "campanha" : "campanhas"} com gasto`}
+              fonte="Meta Ads, Google Ads e TikTok Ads"
+              href={
+                cartao ? hrefCom(BASE, f.busca, { cartao: null }) : undefined
+              }
+            />
+            <CartaoDaTela
+              titulo="Leads no RD vindos de anúncio"
+              exemplo={
+                plataforma !== "meta" &&
+                "leads do Google Ads e do TikTok Ads (os da Meta são reais)"
+              }
+              valor={formatarNumero(t.leadsRd)}
+              variacao={variacaoContra(t.leadsRd, ta.leadsRd, f.rotuloAnterior)}
+              detalhe={`Conversões da plataforma: ${formatarNumero(t.conversoesPlataforma)} (contadas do jeito dela, não somam)`}
+              calculo="Conversões do RD Station cuja campanha de origem (traffic_campaign) é uma das campanhas da lista."
+              fonte="RD Station"
+              href={hrefCartao("com_lead")}
+              ativo={cartao === "com_lead"}
+            />
+            <CartaoDaTela
+              titulo="Custo por lead"
+              exemplo={
+                plataforma !== "meta" &&
+                "investimento e leads do Google Ads e do TikTok Ads (os da Meta são reais)"
+              }
+              valor={formatarMoeda(t.custoPorLead)}
+              variacao={
+                t.custoPorLead !== null && ta.custoPorLead !== null
+                  ? variacaoContra(
+                      t.custoPorLead,
+                      ta.custoPorLead,
+                      f.rotuloAnterior,
+                      "menor_melhor",
+                    )
+                  : undefined
+              }
+              status={
+                metaCpl && t.custoPorLead !== null
+                  ? status(t.custoPorLead, metaCpl)
+                  : undefined
+              }
+              direcao="menor_melhor"
+              meta={
+                meta !== null
+                  ? `Meta: até ${formatarMoeda(meta)}`
+                  : "Defina a meta em Configurações"
+              }
+              calculo="Investimento ÷ leads do RD Station vindos dessas campanhas. Nunca usa as conversões da plataforma."
+              fonte="Anúncios e RD Station"
+              href={hrefCartao("acima_meta")}
+              ativo={cartao === "acima_meta"}
+            />
+            <CartaoDaTela
+              titulo="Cliques no link"
+              exemplo={
+                plataforma !== "meta" &&
+                "cliques do Google Ads e do TikTok Ads (os da Meta são reais)"
+              }
+              valor={formatarNumero(t.cliques)}
+              variacao={variacaoContra(t.cliques, ta.cliques, f.rotuloAnterior)}
+              detalhe={`CTR ${formatarPct(t.ctr)} · CPC ${formatarMoeda(t.cpc)}`}
+              fonte="Meta Ads, Google Ads e TikTok Ads"
+            />
+          </Cartoes>
+        )}
 
-        <Secao
-          titulo="Campanhas"
-          descricao={`${f.rotulo} · uma linha por campanha, da que mais investiu para a que menos investiu. Clique para ver o dia a dia.`}
-        >
-          <TabelaLista
-            colunas={COLUNAS}
-            ordemInicial={{ coluna: 4, desc: true }}
-            placeholder="Buscar nesta lista…"
-            rotuloGrupo="Subtotal por plataforma"
-            subtotais={subtotais}
-            vazio="Nenhuma campanha com gasto nesse filtro."
-            linhas={lista.map((l) => ({
-              chave: l.id,
-              grupo: l.plataforma,
-              busca: `${l.nome} ${l.rotuloPlataforma} ${rotuloTipo(l.tipo)}`,
-              href: hrefCom(`${BASE}/${l.id}`, f.busca, {
-                cartao: null,
-                q: null,
-              }),
-              tom:
-                acimaDaMeta(l) && l.custoPorLead === null
-                  ? "atencao"
-                  : undefined,
-              celulas: celulas(l, meta),
-              ordem: [
-                l.rotuloPlataforma,
-                l.nome,
-                rotuloTipo(l.tipo),
-                rotuloSituacao(l.situacao),
-                l.investimento,
-                l.impressoes,
-                l.alcance,
-                l.cliques,
-                l.ctr,
-                l.cpc,
-                l.conversoesPlataforma,
-                l.leadsRd,
-                l.custoPorLead,
-                l.visualizacoes,
-              ],
-            }))}
-            rodape={[
-              "Total",
-              `${lista.length} campanhas`,
-              "",
-              "",
-              ...celulasTotais(tl).slice(4),
-            ]}
-          />
-          <Fonte>
-            {FONTE}. Alcance: o Google não informa alcance por campanha (célula
-            vazia, não zero); no Meta e no TikTok é a soma dos dias. Situação: o
-            TikTok não a entrega nos campos usados. Linha em amarelo: gastou e
-            não trouxe lead no RD.
-          </Fonte>
-        </Secao>
+        {ve("campanhas") && (
+          <Secao
+            titulo="Campanhas"
+            descricao={`${f.rotulo} · uma linha por campanha, da que mais investiu para a que menos investiu. Clique para ver o dia a dia.`}
+          >
+            <TabelaLista
+              colunas={COLUNAS}
+              ordemInicial={{ coluna: 4, desc: true }}
+              placeholder="Buscar nesta lista…"
+              rotuloGrupo="Subtotal por plataforma"
+              subtotais={subtotais}
+              vazio="Nenhuma campanha com gasto nesse filtro."
+              linhas={lista.map((l) => ({
+                chave: l.id,
+                grupo: l.plataforma,
+                busca: `${l.nome} ${l.rotuloPlataforma} ${rotuloTipo(l.tipo)}`,
+                href: hrefCom(`${BASE}/${l.id}`, f.busca, {
+                  cartao: null,
+                  q: null,
+                }),
+                tom:
+                  acimaDaMeta(l) && l.custoPorLead === null
+                    ? "atencao"
+                    : undefined,
+                celulas: celulas(l, meta),
+                ordem: [
+                  l.rotuloPlataforma,
+                  l.nome,
+                  rotuloTipo(l.tipo),
+                  rotuloSituacao(l.situacao),
+                  l.investimento,
+                  l.impressoes,
+                  l.alcance,
+                  l.cliques,
+                  l.ctr,
+                  l.cpc,
+                  l.conversoesPlataforma,
+                  l.leadsRd,
+                  l.custoPorLead,
+                  l.visualizacoes,
+                ],
+              }))}
+              rodape={[
+                "Total",
+                `${lista.length} campanhas`,
+                "",
+                "",
+                ...celulasTotais(tl).slice(4),
+              ]}
+            />
+            <Fonte>
+              {FONTE}. Alcance: o Google não informa alcance por campanha
+              (célula vazia, não zero); no Meta e no TikTok é a soma dos dias.
+              Situação: o TikTok não a entrega nos campos usados. Linha em
+              amarelo: gastou e não trouxe lead no RD.
+            </Fonte>
+          </Secao>
+        )}
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <Secao
@@ -485,46 +492,48 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             />
             <Fonte>Anúncios e RD Station; meta em Configurações</Fonte>
           </Secao>
-          <Secao
-            titulo="Onde a verba rende"
-            calculo="Um ponto por campanha com lead no período. Horizontal: investimento no período. Vertical: custo por lead = investimento ÷ leads no RD da campanha. Campanha sem lead não aparece (não tem custo por lead). Cor: plataforma. Fontes: anúncios e RD Station."
-            exemplo={
-              plataforma !== "meta" &&
-              "campanhas do Google Ads e do TikTok Ads (os da Meta são reais)"
-            }
-            descricao="Cada campanha com lead no período: investimento × custo por lead. Abaixo e à direita: investe muito e o lead sai barato."
-          >
-            <Dispersao
-              descricao="Investimento por custo por lead de cada campanha"
-              pontos={base
-                .filter((l) => l.custoPorLead !== null)
-                .map((l) => ({
-                  chave: l.id,
-                  rotulo: l.nome,
-                  x: l.investimento,
-                  y: l.custoPorLead as number,
-                  cor: PLATAFORMAS[l.plataforma].cor,
-                  href: hrefCom(`${BASE}/${l.id}`, f.busca, {
-                    cartao: null,
-                    q: null,
-                  }),
+          {ve("verba") && (
+            <Secao
+              titulo="Onde a verba rende"
+              calculo="Um ponto por campanha com lead no período. Horizontal: investimento no período. Vertical: custo por lead = investimento ÷ leads no RD da campanha. Campanha sem lead não aparece (não tem custo por lead). Cor: plataforma. Fontes: anúncios e RD Station."
+              exemplo={
+                plataforma !== "meta" &&
+                "campanhas do Google Ads e do TikTok Ads (os da Meta são reais)"
+              }
+              descricao="Cada campanha com lead no período: investimento × custo por lead. Abaixo e à direita: investe muito e o lead sai barato."
+            >
+              <Dispersao
+                descricao="Investimento por custo por lead de cada campanha"
+                pontos={base
+                  .filter((l) => l.custoPorLead !== null)
+                  .map((l) => ({
+                    chave: l.id,
+                    rotulo: l.nome,
+                    x: l.investimento,
+                    y: l.custoPorLead as number,
+                    cor: PLATAFORMAS[l.plataforma].cor,
+                    href: hrefCom(`${BASE}/${l.id}`, f.busca, {
+                      cartao: null,
+                      q: null,
+                    }),
+                  }))}
+                eixoX={{ rotulo: "Investimento", unidade: "moeda0" }}
+                eixoY={{ rotulo: "Custo por lead", unidade: "moeda0" }}
+                quadrantes={[
+                  "Lead caro, pouca verba",
+                  "Lead caro, muita verba",
+                  "Lead barato, pouca verba",
+                  "Lead barato, muita verba",
+                ]}
+                legenda={plats.map((p) => ({
+                  chave: p,
+                  rotulo: PLATAFORMAS[p].rotulo,
+                  cor: PLATAFORMAS[p].cor,
                 }))}
-              eixoX={{ rotulo: "Investimento", unidade: "moeda0" }}
-              eixoY={{ rotulo: "Custo por lead", unidade: "moeda0" }}
-              quadrantes={[
-                "Lead caro, pouca verba",
-                "Lead caro, muita verba",
-                "Lead barato, pouca verba",
-                "Lead barato, muita verba",
-              ]}
-              legenda={plats.map((p) => ({
-                chave: p,
-                rotulo: PLATAFORMAS[p].rotulo,
-                cor: PLATAFORMAS[p].cor,
-              }))}
-            />
-            <Fonte>Anúncios e RD Station</Fonte>
-          </Secao>
+              />
+              <Fonte>Anúncios e RD Station</Fonte>
+            </Secao>
+          )}
         </div>
 
         <Secao

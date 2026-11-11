@@ -9,5 +9,8 @@
 0  10 * * *  sh /etc/copiloto/chamar.sh /api/sync/wps          >> /proc/1/fd/1 2>&1
 30 10 * * *  sh /etc/copiloto/chamar.sh /api/cron/os           >> /proc/1/fd/1 2>&1
 0  11 * * *  sh /etc/copiloto/chamar.sh /api/cron/comercial    >> /proc/1/fd/1 2>&1
+# Marketing: aquece o cache do dia (00h10 e 07h50 em Brasília).
+10 3  * * *  sh /etc/copiloto/chamar.sh /api/cron/marketing    >> /proc/1/fd/1 2>&1
+50 10 * * *  sh /etc/copiloto/chamar.sh /api/cron/marketing    >> /proc/1/fd/1 2>&1
 # Diário de Obra: a cada 30 min; a rota respeita o intervalo dos Parâmetros.
 */30 * * * * sh /etc/copiloto/chamar.sh /api/sync/diario-de-obras >> /proc/1/fd/1 2>&1

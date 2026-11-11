@@ -7,6 +7,7 @@ const BASE = "/marketing/configuracoes";
 
 const ABAS = [
   { href: BASE, rotulo: "Cadastros e regras" },
+  { href: `${BASE}/visualizacao`, rotulo: "Visualização" },
   { href: `${BASE}/integracoes`, rotulo: "Integrações" },
   { href: `${BASE}/historico`, rotulo: "Histórico" },
 ];

@@ -16,12 +16,14 @@ import {
   locatarios,
   metasMkt,
   parametros,
+  referenciasBenchmark,
   regrasAlerta,
   temasEcodigos,
 } from "@/server/marketing/base";
 import { dadosRd } from "@/server/marketing/fontes";
 import { historicoMkt } from "@/server/marketing/parametros";
 import {
+  BlocoBenchmark,
   BlocoLandingPages,
   BlocoLocatarios,
   BlocoMetas,
@@ -43,6 +45,7 @@ const CADASTROS = [
   "regras",
   "reputacao",
   "ronda",
+  "benchmark",
 ] as const satisfies Bloco[];
 type Cadastro = (typeof CADASTROS)[number];
 
@@ -67,7 +70,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     ? (pedido as Cadastro)
     : "locatarios";
 
-  const [ctx, p, locs, lps, regras, temasCodigos, metas, rd, historico] =
+  const [ctx, p, locs, lps, regras, temasCodigos, metas, rd, historico, refs] =
     await Promise.all([
       contextoMkt(),
       parametros(),
@@ -78,6 +81,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       metasMkt(),
       dadosRd(),
       historicoMkt(1),
+      referenciasBenchmark(),
     ]);
 
   // Avisos das abas: o que pede atenção em cada bloco.
@@ -132,6 +136,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         <BlocoReputacao parametros={p} temas={temasCodigos.temas} />
       )}
       {bloco === "ronda" && <BlocoRonda codigos={temasCodigos.codigos} />}
+      {bloco === "benchmark" && (
+        <BlocoBenchmark referencias={refs} termos={p.termos_marca} />
+      )}
     </div>
   );
 }

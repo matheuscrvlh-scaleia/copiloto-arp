@@ -144,6 +144,21 @@ export function anteriorMkt(p: PeriodoMkt): PeriodoMkt {
   return { de: somarDias(p.de, -n), ate: somarDias(p.de, -1), atalho: null };
 }
 
+/** O mesmo período um ano antes (29/02 vira 28/02). */
+export function anoAnteriorMkt(p: PeriodoMkt): PeriodoMkt {
+  const menos = (d: string) => {
+    const a = String(Number(d.slice(0, 4)) - 1);
+    const md = d.slice(5) === "02-29" ? "02-28" : d.slice(5);
+    return `${a}-${md}`;
+  };
+  return { de: menos(p.de), ate: menos(p.ate), atalho: null };
+}
+
+/** Com o que a tela compara: o período anterior ou o do ano passado. */
+export const COMPARACOES = [
+  { valor: "ano", rotulo: "Mesmo período do ano passado" },
+] as const;
+
 /** "20/10/2026 a 26/10/2026" (um dia só: "20/10/2026"). */
 export function descreverPeriodoMkt(p: Pick<PeriodoMkt, "de" | "ate">): string {
   return p.de === p.ate

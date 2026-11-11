@@ -289,13 +289,14 @@ grava em tabelas próprias e `src/server/marketing/fontes.ts` passa a lê-las.
 |---|---|---|
 | `marca_blocos` | Um bloco por item da base da marca (`texto`, `lista` ou `cores`); as listas `palavras_proprietarias` e `palavras_proibidas` alimentam o revisor | lê `marketing.marca`; edita só `conteudo` com `marketing.marca.editar` |
 | `marca_versoes` | Cada alteração (trigger): versão, antes, depois, quem, quando; `desfaz` aponta a versão desfeita | lê `marketing.marca` |
-| `marca_arquivos` | Arquivos de marca no bucket privado `marketing` (só o servidor grava/lê); versão nova marca a anterior como `atual = false` | lê `marketing.marca` |
+| `marca_arquivos` | Arquivos de marca no bucket privado `marketing` (só o servidor grava/lê); versão nova marca a anterior como `atual = false`; `referencia` = imagem de referência da marca (`20261111220000`) | lê `marketing.marca` |
 | `locatarios` | Locatários monitorados: nome (único sem maiúscula/espaço), categoria, perfil no Google, forma de acesso, ativo, entrada e saída | lê quem tem alguma `marketing.*`; grava `marketing.parametros` |
 | `landing_pages` | Interesse de cada landing page do RD (`null` = Sem tipo) | idem |
 | `regras_alerta` | As 8 regras fixas do Painel com limite, nível e ativa | idem (só update) |
 | `temas` | Lista fechada de temas das avaliações | idem |
 | `ronda_codigos` | Código da ronda e a área (Marketing ou Operações) | idem |
-| `parametros` | Linha única: reputação, Asana (nomes de projeto e tag), estacionamento | idem (só update) |
+| `parametros` | Linha única: reputação, Asana (nomes de projeto e tag), `quadros_ocultos` (visualização padrão, `tela.quadro` escondidos para todos) e `termos_marca` (buscas pela marca) | idem (só update) |
+| `benchmark` | Referências do Benchmark (Reputação): nome (único), cidade, Instagram (só o usuário) e site | idem |
 | `rd_contatos` | Contatos do RD que converteram nas últimas 18 semanas (nome, e-mail, telefone, etapa do funil, `ultima_conversao`), gravados pela sincronização (`20261030140000`) | lê `marketing.site` (dado pessoal; nome, e-mail e telefone só aparecem com `marketing.site.dados_lead`); só o servidor grava |
 | `rd_conversoes` | Cada conversão: contato, identificador (landing page ou formulário), data e a origem da sessão que converteu (`origem`, `meio`, `campanha` das UTMs) | lê quem tem alguma `marketing.*`; só o servidor grava |
 | `rd_landing_pages_dia` | Foto diária de cada landing page (visitas e conversões); o plano Pro só lê 45 dias para trás, a foto guarda o resto | idem |

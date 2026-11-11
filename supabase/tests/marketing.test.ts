@@ -97,19 +97,19 @@ beforeAll(async () => {
 }, 60_000);
 
 describe("permissões e ponto de partida", () => {
-  it("cadastra as 12 permissões (sem Público e visitação, com Eventos) e dá todas ao Administrador", async () => {
+  it("cadastra as 13 permissões (com Eventos e Público das câmeras) e dá todas ao Administrador", async () => {
     expect(
       await valor<number>(
         "select count(*)::int from core.permissoes where codigo like 'marketing.%'",
       ),
-    ).toBe(12);
+    ).toBe(13);
     expect(
       await valor<number>(
         `select count(*)::int from core.cargo_permissoes cp
          join core.cargos c on c.id = cp.cargo_id
          where c.nome = 'Administrador' and cp.permissao like 'marketing.%'`,
       ),
-    ).toBe(12);
+    ).toBe(13);
   });
 
   it("deixa os parâmetros preenchidos com os valores iniciais da 4.12", async () => {
@@ -486,5 +486,65 @@ describe("Instagram e Facebook com dados reais (20261030160000)", () => {
         "insert into marketing.redes_dia (rede, dia, seguidores) values ('facebook', '2026-10-30', -1)",
       ),
     ).toMatch(/check/);
+  });
+});
+
+describe("ajustes V1 (20261111220000)", () => {
+  it("benchmark: quem usa o módulo lê; só Parâmetros grava; outro módulo não vê", async () => {
+    await como(U.parametros, async () => {
+      expect(
+        await erro(
+          "insert into marketing.benchmark (nome, cidade, instagram) values ('Outro Espaço', 'Rio', 'outro.espaco')",
+        ),
+      ).toBeNull();
+    });
+    await como(U.painel, async () => {
+      expect(
+        await valor<number>("select count(*)::int from marketing.benchmark"),
+      ).toBe(1);
+      expect(
+        await erro("insert into marketing.benchmark (nome) values ('Mais um')"),
+      ).toMatch(/row-level security/);
+    });
+    await como(U.fora, async () =>
+      expect(
+        await valor<number>("select count(*)::int from marketing.benchmark"),
+      ).toBe(0),
+    );
+  });
+
+  it("benchmark: Instagram só com o usuário, nome repetido não salva", async () => {
+    expect(
+      await erro(
+        "insert into marketing.benchmark (nome, instagram) values ('X', '@com espaco')",
+      ),
+    ).toMatch(/check/);
+    expect(
+      await erro(
+        "insert into marketing.benchmark (nome) values ('outro espaço ')",
+      ),
+    ).toMatch(/duplicate|unique/);
+  });
+
+  it("visualização e termos da marca começam no padrão; referência da marca é falsa", async () => {
+    expect(
+      await valor<string[]>("select quadros_ocultos from marketing.parametros"),
+    ).toEqual([]);
+    expect(
+      await valor<string[]>("select termos_marca from marketing.parametros"),
+    ).toEqual(["arp"]);
+    expect(
+      await valor<boolean>(
+        "select column_default from information_schema.columns where table_schema = 'marketing' and table_name = 'marca_arquivos' and column_name = 'referencia'",
+      ),
+    ).toBe("false");
+  });
+
+  it("quem vê o Painel ganhou Público e visitação", async () => {
+    expect(
+      await valor<number>(
+        "select count(*)::int from core.permissoes where codigo = 'marketing.publico'",
+      ),
+    ).toBe(1);
   });
 });

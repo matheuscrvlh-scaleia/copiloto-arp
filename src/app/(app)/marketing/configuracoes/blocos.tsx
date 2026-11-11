@@ -24,6 +24,7 @@ import {
   NIVEIS,
   REGRAS,
 } from "@/lib/marketing/parametros";
+import { TELAS_VISUALIZACAO } from "@/lib/marketing/visualizacao";
 import { totalDePaginas } from "@/lib/os/paginacao";
 import {
   alterarMeta,
@@ -33,13 +34,17 @@ import {
   removerCodigoRonda,
   removerLocatario,
   removerMeta,
+  removerReferencia,
   salvarAsana,
   salvarCodigoRonda,
   salvarLandingPage,
   salvarLocatario,
+  salvarReferencia,
   salvarRegra,
   salvarReputacao,
   salvarTema,
+  salvarTermosMarca,
+  salvarVisualizacao,
 } from "@/server/marketing/acoes/parametros";
 import {
   type CodigoRonda,
@@ -48,6 +53,7 @@ import {
   type Locatario,
   type MetaMkt,
   type Parametros,
+  type Referencia,
   type RegraAlerta,
   type Tema,
 } from "@/server/marketing/base";
@@ -690,6 +696,168 @@ export function BlocoRonda({ codigos }: { codigos: CodigoRonda[] }) {
             opcoes={opcoes(AREAS)}
           />
         </label>
+      </FormAcao>
+    </Secao>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+export function BlocoBenchmark({
+  referencias,
+  termos,
+}: {
+  referencias: Referencia[];
+  termos: string[];
+}) {
+  const campos = (r?: Referencia) => (
+    <>
+      <label className={rotulo}>
+        Nome
+        <input
+          name="nome"
+          required
+          maxLength={80}
+          defaultValue={r?.nome ?? ""}
+          className={classeCampo}
+        />
+      </label>
+      <label className={rotulo}>
+        Cidade
+        <input
+          name="cidade"
+          maxLength={80}
+          defaultValue={r?.cidade ?? ""}
+          className={classeCampo}
+        />
+      </label>
+      <label className={rotulo}>
+        Instagram
+        <input
+          name="instagram"
+          maxLength={31}
+          placeholder="usuario, sem @"
+          defaultValue={r?.instagram ?? ""}
+          className={classeCampo}
+        />
+      </label>
+      <label className={rotulo}>
+        Site
+        <input
+          name="site"
+          maxLength={200}
+          placeholder="www.exemplo.com.br"
+          defaultValue={r?.site ?? ""}
+          className={classeCampo}
+        />
+      </label>
+      <Marcar nome="ativo" marcado={r?.ativo ?? true} texto="Ativa" />
+    </>
+  );
+  const grade =
+    "grid flex-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_9rem_10rem_1fr_5rem_auto]";
+  return (
+    <>
+      <Secao
+        titulo="Referências do benchmark"
+        descricao="Espaços parecidos com a ARP, comparados na aba Benchmark de Reputação: seguidores, posts no período e os posts com mais curtidas e comentários. Os números vêm do Instagram (só contas comerciais ou de criador). O botão Ver anúncios abre a biblioteca de anúncios da Meta e do Google."
+      >
+        <div className={lista}>
+          {referencias.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-end gap-3 py-3">
+              <FormAcao acao={salvarReferencia} className={grade}>
+                <input type="hidden" name="id" value={r.id} />
+                {campos(r)}
+              </FormAcao>
+              <FormAcao
+                acao={removerReferencia}
+                rotulo="Remover"
+                rotuloEnviando="Removendo…"
+                variante="perigo"
+                confirmar={`Remover “${r.nome}” do benchmark?`}
+              >
+                <input type="hidden" name="id" value={r.id} />
+              </FormAcao>
+            </div>
+          ))}
+          {!referencias.length && (
+            <p className="py-3 text-sm text-neutral-500">
+              Nenhuma referência ainda. Inclua a primeira abaixo.
+            </p>
+          )}
+        </div>
+        <FormAcao
+          acao={salvarReferencia}
+          rotulo="Incluir referência"
+          rotuloEnviando="Incluindo…"
+          className={`mt-4 border-t border-neutral-900/[0.06] pt-4 ${grade}`}
+        >
+          {campos()}
+        </FormAcao>
+      </Secao>
+      <Secao
+        titulo="Termos da marca"
+        descricao="O que conta como busca pela ARP no Google (Search Console): a busca entra se tiver um destes termos. Separe por vírgula."
+      >
+        <FormAcao
+          acao={salvarTermosMarca}
+          className="grid items-end gap-3 sm:grid-cols-[1fr_auto]"
+        >
+          <label className={rotulo}>
+            Termos
+            <input
+              name="termos_marca"
+              required
+              defaultValue={termos.join(", ")}
+              className={classeCampo}
+            />
+          </label>
+        </FormAcao>
+      </Secao>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+export function BlocoVisualizacao({ ocultos }: { ocultos: string[] }) {
+  const fora = new Set(ocultos);
+  return (
+    <Secao
+      titulo="Visualização padrão"
+      descricao="Quais quadros e gráficos aparecem em cada tela do Marketing. Vale para todas as pessoas do módulo: não há escolha por pessoa. Desmarque para esconder; quadro novo nasce visível."
+    >
+      <FormAcao acao={salvarVisualizacao} className="flex flex-col gap-5">
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {Object.entries(TELAS_VISUALIZACAO).map(([tela, d]) => (
+            <fieldset
+              key={tela}
+              className="rounded-2xl border border-neutral-900/10 bg-white/50 p-4"
+            >
+              <legend className="px-1 text-sm font-semibold">{d.rotulo}</legend>
+              <div className="flex flex-col">
+                {Object.entries(d.quadros).map(([q, nome]) => {
+                  const chave = `${tela}.${q}`;
+                  return (
+                    <label
+                      key={chave}
+                      className="flex items-center gap-2 py-1 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        name="visivel"
+                        value={chave}
+                        defaultChecked={!fora.has(chave)}
+                        className="size-4 accent-neutral-900"
+                      />
+                      {nome}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ))}
+        </div>
       </FormAcao>
     </Secao>
   );

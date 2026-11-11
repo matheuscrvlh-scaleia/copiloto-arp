@@ -9,7 +9,7 @@ import {
   TopoDaTela,
 } from "@/components/dashboard/tela";
 import { TOM } from "@/components/estilos";
-import { Arquivos } from "@/components/marketing/marca/arquivos";
+import { Arquivos, Referencias } from "@/components/marketing/marca/arquivos";
 import { BlocoEditavel } from "@/components/marketing/marca/bloco-editavel";
 import { ConteudoBloco } from "@/components/marketing/marca/conteudo";
 import { Historico } from "@/components/marketing/marca/historico";
@@ -101,7 +101,9 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   const [blocos, versoes, arquivos] = await Promise.all([
     blocosDaMarca(),
     aba === "historico" ? versoesDaMarca() : Promise.resolve([]),
-    aba === "arquivos" ? arquivosDaMarca() : Promise.resolve([]),
+    aba === "arquivos" || aba === "referencias"
+      ? arquivosDaMarca()
+      : Promise.resolve([]),
   ]);
   const nomes = await nomesDe([
     ...versoes.map((v) => v.por),
@@ -197,10 +199,29 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
       {aba === "arquivos" && (
         <div>
-          <Arquivos arquivos={arquivos} nomes={nomes} podeEditar={podeEditar} />
+          <Arquivos
+            arquivos={arquivos.filter((a) => !a.referencia)}
+            nomes={nomes}
+            podeEditar={podeEditar}
+          />
           <Fonte>
             arquivos enviados pelo Marketing (PDF, PNG, JPG, SVG ou ZIP, até 25
             MB). Uma versão nova não apaga a anterior.
+          </Fonte>
+        </div>
+      )}
+
+      {aba === "referencias" && (
+        <div>
+          <Referencias
+            arquivos={arquivos.filter((a) => a.referencia)}
+            nomes={nomes}
+            podeEditar={podeEditar}
+          />
+          <Fonte>
+            imagens enviadas pelo Marketing (PNG, JPG ou SVG, até 25 MB): o
+            padrão ideal da marca, para o time e para o Copiloto ao criar peças.
+            Trocar a imagem não apaga a anterior.
           </Fonte>
         </div>
       )}

@@ -9,6 +9,7 @@ export const ABAS_MARCA = {
   tom_de_voz: "Tom de voz e palavras",
   publico: "Público",
   identidade: "Identidade visual",
+  referencias: "Imagens de referência",
   arquivos: "Arquivos",
   revisor: "Revisor de texto",
   historico: "Histórico",
@@ -335,6 +336,11 @@ export const TIPOS_ARQUIVO: Record<string, string> = {
 export function tipoDoArquivo(nome: string): string | null {
   const ext = nome.toLowerCase().split(".").pop() ?? "";
   return TIPOS_ARQUIVO[ext] ?? null;
+}
+
+/** Imagem de referência: só PNG, JPG ou SVG. */
+export function ehImagem(nome: string): boolean {
+  return tipoDoArquivo(nome)?.startsWith("image/") ?? false;
 }
 
 /** "2,4 MB", "830 KB". */

@@ -64,11 +64,13 @@ import {
   SITUACOES,
   type Situacao,
 } from "@/lib/marketing/reputacao";
+import type { QuadroDe } from "@/lib/marketing/visualizacao";
 import {
   type Locatario,
   locatarios,
   metaMkt,
   parametros,
+  quadrosVisiveis,
   temasEcodigos,
 } from "@/server/marketing/base";
 import {
@@ -77,6 +79,7 @@ import {
   lerFiltros,
 } from "@/server/marketing/filtros";
 import { dadosReputacao } from "@/server/marketing/fontes";
+import { AbaBenchmark } from "./benchmark";
 
 export const metadata: Metadata = { title: "Reputação" };
 
@@ -115,13 +118,20 @@ type Fontes = Awaited<ReturnType<typeof dadosReputacao>>;
 
 async function Tela({ busca }: { busca: Promise<Busca> }) {
   const f = await lerFiltros("reputacao", await busca, "ultimos_30");
-  const aba = f.um("aba") === "locatarios" ? "locatarios" : "arp";
-  const [fontes, p, lista, { temas }] = await Promise.all([
+  const [fontes, p, lista, { temas }, ve] = await Promise.all([
     dadosReputacao(),
     parametros(),
     locatarios(),
     temasEcodigos(),
+    quadrosVisiveis("reputacao"),
   ]);
+  const pedida = f.um("aba");
+  const aba =
+    pedida === "locatarios"
+      ? "locatarios"
+      : pedida === "benchmark" && ve("benchmark")
+        ? "benchmark"
+        : "arp";
   const temasAtivos = temas.filter((t) => t.ativo).map((t) => t.nome);
   const ativos = lista.filter((l) => l.ativo);
   const tema = temasAtivos.includes(f.um("tema")) ? f.um("tema") : "";
@@ -153,9 +163,23 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             href: hrefCom(BASE, f.busca, { aba: "locatarios", cartao: null }),
             aviso: emAlerta ? String(emAlerta) : undefined,
           },
+          ...(ve("benchmark")
+            ? [
+                {
+                  chave: "benchmark",
+                  rotulo: "Benchmark",
+                  href: hrefCom(BASE, f.busca, {
+                    aba: "benchmark",
+                    cartao: null,
+                  }),
+                },
+              ]
+            : []),
         ]}
       />
-      {aba === "arp" ? (
+      {aba === "benchmark" ? (
+        <AbaBenchmark f={f} />
+      ) : aba === "arp" ? (
         <AbaArp
           f={f}
           fontes={fontes}
@@ -163,6 +187,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           temasAtivos={temasAtivos}
           tema={tema}
           ativos={ativos}
+          ve={ve}
         />
       ) : (
         <AbaLocatarios
@@ -172,6 +197,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           temasAtivos={temasAtivos}
           tema={tema}
           ativos={ativos}
+          ve={ve}
           linhas={linhas}
         />
       )}
@@ -180,6 +206,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 }
 
 interface PropsAba {
+  ve: (quadro: QuadroDe<"reputacao">) => boolean;
   f: FiltrosLidos;
   fontes: Fontes;
   p: ParametrosReputacao;
@@ -201,7 +228,15 @@ const selecaoTema = (temasAtivos: string[], tema: string) => ({
 // Aba ARP
 // ---------------------------------------------------------------------------
 
-async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
+async function AbaArp({
+  f,
+  fontes,
+  p,
+  temasAtivos,
+  tema,
+  ativos,
+  ve,
+}: PropsAba) {
   const { ctx, periodo } = f;
   const hoje = ctx.hoje;
   const mesAtual = `${hoje.slice(0, 7)}-01`;
@@ -307,94 +342,98 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
         }
       />
 
-      <Cartoes modulo="marketing">
-        <CartaoDaTela
-          titulo="Nota média"
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
-          valor={nota(notaArp)}
-          detalhe={
-            local
-              ? `${formatarNumero(local.totalReviewCount)} avaliações no Google`
-              : "Perfil da ARP sem dados"
-          }
-          status={metaNota ? stNota : undefined}
-          direcao="maior_melhor"
-          meta={
-            metaNota
-              ? `Meta: ${nota(metaNota.meta)}`
-              : "Defina a meta em Configurações"
-          }
-          calculo="Nota que o Google mostra no perfil (averageRating), de todas as avaliações desde sempre."
-          fonte={GOOGLE}
-        />
-        <CartaoDaTela
-          titulo="Avaliações novas no mês"
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
-          valor={formatarNumero(mes.novas)}
-          variacao={variacaoContra(
-            mes.novas,
-            mesAnt.novas,
-            "mesmos dias do mês passado",
-          )}
-          status={ritmo ? stNovas : undefined}
-          direcao="maior_melhor"
-          meta={
-            metaNovas && ritmo
-              ? `Meta: ${formatarNumero(metaNovas.meta)} no mês · no ritmo, ${formatarNumero(Math.round(ritmo.meta))} até hoje`
-              : "Defina a meta em Configurações"
-          }
-          calculo="Avaliações criadas do dia 1 até hoje. A situação compara com a meta proporcional aos dias que já passaram."
-          fonte={GOOGLE}
-        />
-        <CartaoDaTela
-          titulo="Reclamações no mês"
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
-          valor={formatarNumero(mes.reclamacoes)}
-          variacao={variacaoContra(
-            mes.reclamacoes,
-            mesAnt.reclamacoes,
-            "mesmos dias do mês passado",
-            "menor_melhor",
-          )}
-          detalhe={`Avaliações de ${estrelasRecl} ${p.estrelas_reclamacao.length === 1 && p.estrelas_reclamacao[0] === 1 ? "estrela" : "estrelas"} (Configurações)`}
-          fonte={GOOGLE}
-          href={hrefCartao("reclamacoes")}
-          ativo={cartao === "reclamacoes"}
-        />
-        <CartaoDaTela
-          titulo="Sem resposta"
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
-          valor={formatarNumero(mes.semResposta)}
-          detalhe={`No mês. Taxa de resposta ${formatarPct(mes.taxaResposta)}${mes.tempoMedianoResposta !== null ? ` · tempo mediano ${textoDias(mes.tempoMedianoResposta)}` : ""}`}
-          calculo="Avaliações do mês sem resposta do dono (reviewReply). Responder é no Google: o link fica em cada linha."
-          fonte={GOOGLE}
-          href={hrefCartao("sem_resposta")}
-          ativo={cartao === "sem_resposta"}
-        />
-      </Cartoes>
+      {ve("cartoes_arp") && (
+        <Cartoes modulo="marketing">
+          <CartaoDaTela
+            titulo="Nota média"
+            exemplo={
+              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+            }
+            valor={nota(notaArp)}
+            detalhe={
+              local
+                ? `${formatarNumero(local.totalReviewCount)} avaliações no Google`
+                : "Perfil da ARP sem dados"
+            }
+            status={metaNota ? stNota : undefined}
+            direcao="maior_melhor"
+            meta={
+              metaNota
+                ? `Meta: ${nota(metaNota.meta)}`
+                : "Defina a meta em Configurações"
+            }
+            calculo="Nota que o Google mostra no perfil (averageRating), de todas as avaliações desde sempre."
+            fonte={GOOGLE}
+          />
+          <CartaoDaTela
+            titulo="Avaliações novas no mês"
+            exemplo={
+              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+            }
+            valor={formatarNumero(mes.novas)}
+            variacao={variacaoContra(
+              mes.novas,
+              mesAnt.novas,
+              "mesmos dias do mês passado",
+            )}
+            status={ritmo ? stNovas : undefined}
+            direcao="maior_melhor"
+            meta={
+              metaNovas && ritmo
+                ? `Meta: ${formatarNumero(metaNovas.meta)} no mês · no ritmo, ${formatarNumero(Math.round(ritmo.meta))} até hoje`
+                : "Defina a meta em Configurações"
+            }
+            calculo="Avaliações criadas do dia 1 até hoje. A situação compara com a meta proporcional aos dias que já passaram."
+            fonte={GOOGLE}
+          />
+          <CartaoDaTela
+            titulo="Reclamações no mês"
+            exemplo={
+              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+            }
+            valor={formatarNumero(mes.reclamacoes)}
+            variacao={variacaoContra(
+              mes.reclamacoes,
+              mesAnt.reclamacoes,
+              "mesmos dias do mês passado",
+              "menor_melhor",
+            )}
+            detalhe={`Avaliações de ${estrelasRecl} ${p.estrelas_reclamacao.length === 1 && p.estrelas_reclamacao[0] === 1 ? "estrela" : "estrelas"} (Configurações)`}
+            fonte={GOOGLE}
+            href={hrefCartao("reclamacoes")}
+            ativo={cartao === "reclamacoes"}
+          />
+          <CartaoDaTela
+            titulo="Sem resposta"
+            exemplo={
+              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+            }
+            valor={formatarNumero(mes.semResposta)}
+            detalhe={`No mês. Taxa de resposta ${formatarPct(mes.taxaResposta)}${mes.tempoMedianoResposta !== null ? ` · tempo mediano ${textoDias(mes.tempoMedianoResposta)}` : ""}`}
+            calculo="Avaliações do mês sem resposta do dono (reviewReply). Responder é no Google: o link fica em cada linha."
+            fonte={GOOGLE}
+            href={hrefCartao("sem_resposta")}
+            ativo={cartao === "sem_resposta"}
+          />
+        </Cartoes>
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <Secao
-          titulo="Avaliações da ARP"
-          descricao={`${f.rotulo} · a mais recente primeiro. Linha em amarelo: reclamação sem resposta.`}
-        >
-          <ListaDeAvaliacoes
-            avaliacoes={lista}
-            mapsUri={local?.mapsUri ?? null}
-          />
-          <Fonte>
-            {GOOGLE}. Tema: classificação automática na lista de temas de
-            Configurações. Tempo para responder: da avaliação até a resposta.
-          </Fonte>
-        </Secao>
+        {ve("avaliacoes") && (
+          <Secao
+            titulo="Avaliações da ARP"
+            descricao={`${f.rotulo} · a mais recente primeiro. Linha em amarelo: reclamação sem resposta.`}
+          >
+            <ListaDeAvaliacoes
+              avaliacoes={lista}
+              mapsUri={local?.mapsUri ?? null}
+            />
+            <Fonte>
+              {GOOGLE}. Tema: classificação automática na lista de temas de
+              Configurações. Tempo para responder: da avaliação até a resposta.
+            </Fonte>
+          </Secao>
+        )}
         <div className="flex flex-col gap-4">
           <Secao
             tom="escuro"
@@ -454,35 +493,40 @@ async function AbaArp({ f, fontes, p, temasAtivos, tema, ativos }: PropsAba) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Secao
-          titulo="Nota média por mês"
-          calculo="Média das estrelas das avaliações feitas em cada mês (createTime), últimos 12 meses. Não é a nota acumulada do perfil. Linha tracejada: meta de nota média (Configurações › Metas). Fonte: Google Perfil da Empresa."
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
-          descricao="Últimos 12 meses: média das estrelas das avaliações de cada mês"
-        >
-          <Linhas
-            pontos={pontos}
-            unidade="nota"
-            zero={false}
-            descricao="Nota média das avaliações da ARP por mês"
-            series={[
-              {
-                chave: "nota",
-                rotulo: "Nota média",
-                cor: 1,
-                valores: mensal.map((m) => m.nota),
-              },
-            ]}
-            meta={
-              metaNota
-                ? { valor: metaNota.meta, texto: `Meta ${nota(metaNota.meta)}` }
-                : undefined
+        {ve("nota_mes") && (
+          <Secao
+            titulo="Nota média por mês"
+            calculo="Média das estrelas das avaliações feitas em cada mês (createTime), últimos 12 meses. Não é a nota acumulada do perfil. Linha tracejada: meta de nota média (Configurações › Metas). Fonte: Google Perfil da Empresa."
+            exemplo={
+              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
             }
-          />
-          <Fonte>{GOOGLE}; meta em Configurações</Fonte>
-        </Secao>
+            descricao="Últimos 12 meses: média das estrelas das avaliações de cada mês"
+          >
+            <Linhas
+              pontos={pontos}
+              unidade="nota"
+              zero={false}
+              descricao="Nota média das avaliações da ARP por mês"
+              series={[
+                {
+                  chave: "nota",
+                  rotulo: "Nota média",
+                  cor: 1,
+                  valores: mensal.map((m) => m.nota),
+                },
+              ]}
+              meta={
+                metaNota
+                  ? {
+                      valor: metaNota.meta,
+                      texto: `Meta ${nota(metaNota.meta)}`,
+                    }
+                  : undefined
+              }
+            />
+            <Fonte>{GOOGLE}; meta em Configurações</Fonte>
+          </Secao>
+        )}
         <Secao
           tom="escuro"
           titulo="Reclamações por mês"
@@ -565,6 +609,7 @@ function AbaLocatarios({
   tema,
   ativos,
   linhas,
+  ve,
 }: PropsAba & { linhas: LinhaLocatario[] }) {
   const { ctx, periodo, anterior } = f;
   const hoje = ctx.hoje;
@@ -702,138 +747,145 @@ function AbaLocatarios({
         }
       />
 
-      <Cartoes modulo="marketing">
-        <CartaoDaTela
-          titulo="Locatários monitorados"
-          valor={formatarNumero(base.length)}
-          detalhe={`${parciais} com dados parciais · ${semDados} sem dados`}
-          calculo="Locatários ativos cadastrados em Configurações, nos filtros da barra."
-          fonte="Configurações (locatários monitorados)"
-        />
-        <CartaoDaTela
-          titulo="Nota média geral"
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
-          valor={nota(notaGeral)}
-          detalhe={`Média simples de ${comNota.length} ${comNota.length === 1 ? "locatário" : "locatários"} com nota`}
-          calculo="Média das notas do Google (averageRating) dos locatários com dados; quem está sem dados fica de fora."
-          fonte={GOOGLE}
-        />
-        <CartaoDaTela
-          titulo="Reclamações no período"
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
-          valor={formatarNumero(reclamacoes)}
-          variacao={variacaoContra(
-            reclamacoes,
-            reclAnterior,
-            f.rotuloAnterior,
-            "menor_melhor",
-          )}
-          detalhe={`Avaliações de ${listaPt(p.estrelas_reclamacao)} estrelas · ${comReclamacao.length} ${comReclamacao.length === 1 ? "loja" : "lojas"}`}
-          fonte={GOOGLE}
-          href={hrefCom(BASE, f.busca, {
-            cartao: cartao === "com_reclamacao" ? null : "com_reclamacao",
-          })}
-          ativo={cartao === "com_reclamacao"}
-        />
-        <CartaoDaTela
-          titulo="Lojas em alerta"
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
-          valor={formatarNumero(conta("alerta"))}
-          detalhe={`${conta("atencao")} em atenção · últimos ${p.janela_reputacao_dias} dias`}
-          calculo={`${regra} (Configurações).`}
-          fonte={`${GOOGLE} e Configurações`}
-          href={hrefCom(BASE, f.busca, {
-            situacao: situacao === "alerta" ? null : "alerta",
-          })}
-          ativo={situacao === "alerta"}
-        />
-      </Cartoes>
+      {ve("locatarios") && (
+        <Cartoes modulo="marketing">
+          <CartaoDaTela
+            titulo="Locatários monitorados"
+            valor={formatarNumero(base.length)}
+            detalhe={`${parciais} com dados parciais · ${semDados} sem dados`}
+            calculo="Locatários ativos cadastrados em Configurações, nos filtros da barra."
+            fonte="Configurações (locatários monitorados)"
+          />
+          <CartaoDaTela
+            titulo="Nota média geral"
+            exemplo={
+              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+            }
+            valor={nota(notaGeral)}
+            detalhe={`Média simples de ${comNota.length} ${comNota.length === 1 ? "locatário" : "locatários"} com nota`}
+            calculo="Média das notas do Google (averageRating) dos locatários com dados; quem está sem dados fica de fora."
+            fonte={GOOGLE}
+          />
+          <CartaoDaTela
+            titulo="Reclamações no período"
+            exemplo={
+              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+            }
+            valor={formatarNumero(reclamacoes)}
+            variacao={variacaoContra(
+              reclamacoes,
+              reclAnterior,
+              f.rotuloAnterior,
+              "menor_melhor",
+            )}
+            detalhe={`Avaliações de ${listaPt(p.estrelas_reclamacao)} estrelas · ${comReclamacao.length} ${comReclamacao.length === 1 ? "loja" : "lojas"}`}
+            fonte={GOOGLE}
+            href={hrefCom(BASE, f.busca, {
+              cartao: cartao === "com_reclamacao" ? null : "com_reclamacao",
+            })}
+            ativo={cartao === "com_reclamacao"}
+          />
+          <CartaoDaTela
+            titulo="Lojas em alerta"
+            exemplo={
+              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+            }
+            valor={formatarNumero(conta("alerta"))}
+            detalhe={`${conta("atencao")} em atenção · últimos ${p.janela_reputacao_dias} dias`}
+            calculo={`${regra} (Configurações).`}
+            fonte={`${GOOGLE} e Configurações`}
+            href={hrefCom(BASE, f.busca, {
+              situacao: situacao === "alerta" ? null : "alerta",
+            })}
+            ativo={situacao === "alerta"}
+          />
+        </Cartoes>
+      )}
 
-      <Secao
-        titulo="Locatários-chave"
-        descricao={`${f.rotulo} · uma linha por locatário, primeiro os em alerta e depois os com mais reclamações. Clique para ver as avaliações.`}
-      >
-        <TabelaLista
-          colunas={COLUNAS_LOCATARIOS}
-          placeholder="Buscar nesta lista…"
-          vazio="Nenhum locatário nesse filtro."
-          linhas={lista.map((l) => ({
-            chave: l.id,
-            busca: `${l.nome} ${l.titulo ?? ""} ${l.categoria}`,
-            href: hrefDetalhe(l.id),
-            tom:
-              l.situacao === "alerta"
-                ? "alerta"
-                : l.situacao === "atencao"
-                  ? "atencao"
-                  : undefined,
-            celulas: celulasLocatario(l, p.nota_atencao),
-            ordem: [
-              l.nome,
-              l.categoria,
-              l.nota,
-              l.total,
-              l.semDados ? null : l.periodo.novas,
-              l.periodo.notaDasNovas,
-              l.semDados ? null : l.periodo.reclamacoes,
-              l.periodo.temaMaisCitado,
-              SITUACOES[l.situacao].ordem,
-            ],
-          }))}
-          rodape={[
-            "Total",
-            `${lista.length} locatários`,
-            "",
-            formatarNumero(lista.reduce((s, l) => s + (l.total ?? 0), 0)),
-            formatarNumero(totalNovas),
-            totalNovas ? nota(somaNotasNovas / totalNovas) : "—",
-            formatarNumero(
-              lista.reduce((s, l) => s + l.periodo.reclamacoes, 0),
-            ),
-            temaGeral ?? "",
-            "",
-          ]}
-        />
-        <Fonte>
-          {GOOGLE} e Configurações. Situação: últimos {p.janela_reputacao_dias}{" "}
-          dias até hoje, qualquer que seja o período ({regra}; regra inicial, a
-          confirmar). Dados parciais: o perfil não é administrado pela ARP, e o
-          Google entrega só a nota, o total e até 5 avaliações, sem garantia de
-          serem as mais novas. Sem dados: link inválido ou perfil sem acesso.
-        </Fonte>
-        <ComoAdicionarAArp />
-      </Secao>
+      {ve("locatarios") && (
+        <Secao
+          titulo="Locatários-chave"
+          descricao={`${f.rotulo} · uma linha por locatário, primeiro os em alerta e depois os com mais reclamações. Clique para ver as avaliações.`}
+        >
+          <TabelaLista
+            colunas={COLUNAS_LOCATARIOS}
+            placeholder="Buscar nesta lista…"
+            vazio="Nenhum locatário nesse filtro."
+            linhas={lista.map((l) => ({
+              chave: l.id,
+              busca: `${l.nome} ${l.titulo ?? ""} ${l.categoria}`,
+              href: hrefDetalhe(l.id),
+              tom:
+                l.situacao === "alerta"
+                  ? "alerta"
+                  : l.situacao === "atencao"
+                    ? "atencao"
+                    : undefined,
+              celulas: celulasLocatario(l, p.nota_atencao),
+              ordem: [
+                l.nome,
+                l.categoria,
+                l.nota,
+                l.total,
+                l.semDados ? null : l.periodo.novas,
+                l.periodo.notaDasNovas,
+                l.semDados ? null : l.periodo.reclamacoes,
+                l.periodo.temaMaisCitado,
+                SITUACOES[l.situacao].ordem,
+              ],
+            }))}
+            rodape={[
+              "Total",
+              `${lista.length} locatários`,
+              "",
+              formatarNumero(lista.reduce((s, l) => s + (l.total ?? 0), 0)),
+              formatarNumero(totalNovas),
+              totalNovas ? nota(somaNotasNovas / totalNovas) : "—",
+              formatarNumero(
+                lista.reduce((s, l) => s + l.periodo.reclamacoes, 0),
+              ),
+              temaGeral ?? "",
+              "",
+            ]}
+          />
+          <Fonte>
+            {GOOGLE} e Configurações. Situação: últimos{" "}
+            {p.janela_reputacao_dias} dias até hoje, qualquer que seja o período
+            ({regra}; regra inicial, a confirmar). Dados parciais: o perfil não
+            é administrado pela ARP, e o Google entrega só a nota, o total e até
+            5 avaliações, sem garantia de serem as mais novas. Sem dados: link
+            inválido ou perfil sem acesso.
+          </Fonte>
+          <ComoAdicionarAArp />
+        </Secao>
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Secao
-          titulo="Reclamações por tema"
-          calculo="Reclamações dos locatários no período (avaliações com as estrelas de reclamação), todos juntos, por tema. O tema é a classificação automática do texto da avaliação numa lista fixa (Configurações › Reputação). Fonte: Google Perfil da Empresa."
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
-          descricao={`${f.rotulo} · todos os locatários juntos`}
-        >
-          <BarrasHorizontais
-            descricao="Reclamações dos locatários por tema"
-            vazio="Nenhuma reclamação com tema no período."
-            itens={temasAtivos
-              .map((t) => ({
-                chave: t,
-                rotulo: t,
-                valor: porTema[t] ?? 0,
-                texto: formatarNumero(porTema[t] ?? 0),
-              }))
-              .filter((i) => i.valor > 0)
-              .sort((a, b) => b.valor - a.valor)}
-          />
-          <Fonte>{GOOGLE}; temas da lista de Configurações</Fonte>
-        </Secao>
+        {ve("temas") && (
+          <Secao
+            titulo="Reclamações por tema"
+            calculo="Reclamações dos locatários no período (avaliações com as estrelas de reclamação), todos juntos, por tema. O tema é a classificação automática do texto da avaliação numa lista fixa (Configurações › Reputação). Fonte: Google Perfil da Empresa."
+            exemplo={
+              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
+            }
+            descricao={`${f.rotulo} · todos os locatários juntos`}
+          >
+            <BarrasHorizontais
+              descricao="Reclamações dos locatários por tema"
+              vazio="Nenhuma reclamação com tema no período."
+              itens={temasAtivos
+                .map((t) => ({
+                  chave: t,
+                  rotulo: t,
+                  valor: porTema[t] ?? 0,
+                  texto: formatarNumero(porTema[t] ?? 0),
+                }))
+                .filter((i) => i.valor > 0)
+                .sort((a, b) => b.valor - a.valor)}
+            />
+            <Fonte>{GOOGLE}; temas da lista de Configurações</Fonte>
+          </Secao>
+        )}
         <Secao
           titulo="Locatário × tema"
           calculo="Cada célula: reclamações daquele locatário naquele tema, no período. Cor mais forte, mais reclamações. Tema pela lista de Configurações. Fonte: Google Perfil da Empresa dos locatários que deram acesso à ARP."

@@ -56,6 +56,12 @@ export const TAG = {
     google: "marketing:google",
     /** Projetos e tarefas lidos do Asana (relidos a cada hora ou no teste). */
     asana: "marketing:asana",
+    /** Referências do Benchmark (cadastro em Configurações). */
+    benchmark: "marketing:benchmark",
+    /** Números das referências lidos da Meta (relidos a cada hora). */
+    benchmarkMeta: "marketing:benchmark_meta",
+    /** Contagem de pessoas das câmeras (relida a cada 5 minutos). */
+    cameras: "marketing:cameras",
   },
 
   comercial: {

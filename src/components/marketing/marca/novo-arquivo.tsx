@@ -4,7 +4,11 @@ import { FileArchive, Plus, Upload, X } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import { notificar } from "@/components/notificacoes";
-import { formatarTamanho, tipoDoArquivo } from "@/lib/marketing/marca";
+import {
+  ehImagem,
+  formatarTamanho,
+  tipoDoArquivo,
+} from "@/lib/marketing/marca";
 import { novoArquivo } from "@/server/marketing/acoes/marca";
 import { ACEITA, enviarArquivo, erroDoArquivo } from "./subir-arquivo";
 
@@ -47,7 +51,10 @@ function Previa({ arquivo }: { arquivo: File }) {
   );
 }
 
-export function NovoArquivo() {
+/** Aba Imagens de referência: só imagem, e "para que serve" é obrigatório. */
+const IMAGENS = ".png,.jpg,.jpeg,.svg";
+
+export function NovoArquivo({ referencia = false }: { referencia?: boolean }) {
   const [aberto, setAberto] = useState(false);
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -66,6 +73,8 @@ export function NovoArquivo() {
     if (!a) return;
     const erro = erroDoArquivo(a);
     if (erro) return notificar("erro", erro);
+    if (referencia && !ehImagem(a.name))
+      return notificar("erro", "Imagem de referência: envie PNG, JPG ou SVG.");
     setArquivo(a);
     // Sem título ainda: sugere o nome do arquivo, sem a extensão.
     if (!titulo.trim()) setTitulo(a.name.replace(/\.[^.]+$/, ""));
@@ -73,8 +82,9 @@ export function NovoArquivo() {
 
   async function salvar() {
     if (!arquivo || !titulo.trim()) return;
+    if (referencia && !descricao.trim()) return;
     setEnviando(true);
-    const r = await novoArquivo({ titulo, descricao });
+    const r = await novoArquivo({ titulo, descricao, referencia });
     if (!r.ok) notificar("erro", r.erro);
     else {
       // Se o envio falhar, o cartão novo fica como "Aguardando envio".
@@ -95,7 +105,7 @@ export function NovoArquivo() {
           <span className="grid size-10 place-items-center rounded-full bg-neutral-900/[0.05]">
             <Plus className="size-5" aria-hidden />
           </span>
-          Adicionar arquivo
+          {referencia ? "Adicionar imagem de referência" : "Adicionar arquivo"}
         </button>
       </li>
     );
@@ -109,7 +119,9 @@ export function NovoArquivo() {
           void salvar();
         }}
       >
-        <h2 className="font-semibold tracking-tight">Novo arquivo</h2>
+        <h2 className="font-semibold tracking-tight">
+          {referencia ? "Nova imagem de referência" : "Novo arquivo"}
+        </h2>
         <label className="flex flex-col gap-1">
           <span className="text-xs text-neutral-500">Título</span>
           <input
@@ -117,15 +129,22 @@ export function NovoArquivo() {
             onChange={(e) => setTitulo(e.target.value)}
             maxLength={120}
             required
-            placeholder="Ex.: Manual de fotografia"
+            placeholder={
+              referencia
+                ? "Ex.: Foto de evento no padrão da marca"
+                : "Ex.: Manual de fotografia"
+            }
             // biome-ignore lint/a11y/noAutofocus: abriu por clique em "Adicionar arquivo"
             autoFocus
             className={classeCampo}
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-neutral-500">Descrição</span>
+          <span className="text-xs text-neutral-500">
+            {referencia ? "Para que serve" : "Descrição"}
+          </span>
           <textarea
+            required={referencia}
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             maxLength={300}
@@ -138,7 +157,7 @@ export function NovoArquivo() {
         <input
           id={id}
           type="file"
-          accept={ACEITA}
+          accept={referencia ? IMAGENS : ACEITA}
           className="sr-only"
           onChange={(e) => {
             escolher(e.target.files?.[0]);
@@ -176,7 +195,9 @@ export function NovoArquivo() {
               <Upload className="size-5" aria-hidden />
               Escolha ou arraste o arquivo
               <span className="text-xs text-neutral-500">
-                PDF, PNG, JPG, SVG ou ZIP, até 25 MB
+                {referencia
+                  ? "PNG, JPG ou SVG, até 25 MB"
+                  : "PDF, PNG, JPG, SVG ou ZIP, até 25 MB"}
               </span>
             </span>
           )}
@@ -185,7 +206,12 @@ export function NovoArquivo() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="submit"
-            disabled={enviando || !arquivo || !titulo.trim()}
+            disabled={
+              enviando ||
+              !arquivo ||
+              !titulo.trim() ||
+              (referencia && !descricao.trim())
+            }
             className="rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {enviando ? "Enviando…" : "Adicionar"}

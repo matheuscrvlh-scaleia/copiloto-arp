@@ -2574,6 +2574,39 @@ export type Database = {
   }
   marketing: {
     Tables: {
+      benchmark: {
+        Row: {
+          ativo: boolean
+          cidade: string | null
+          criado_em: string
+          id: string
+          instagram: string | null
+          nome: string
+          site: string | null
+          atualizado_em: string
+        }
+        Insert: {
+          ativo?: boolean
+          cidade?: string | null
+          criado_em?: string
+          id?: string
+          instagram?: string | null
+          nome: string
+          site?: string | null
+          atualizado_em?: string
+        }
+        Update: {
+          ativo?: boolean
+          cidade?: string | null
+          criado_em?: string
+          id?: string
+          instagram?: string | null
+          nome?: string
+          site?: string | null
+          atualizado_em?: string
+        }
+        Relationships: []
+      }
       landing_pages: {
         Row: {
           atualizado_em: string
@@ -2644,6 +2677,7 @@ export type Database = {
           enviado_por: string | null
           grupo: string
           id: string
+          referencia: boolean
           tamanho: number | null
           tipo_mime: string | null
           titulo: string
@@ -2658,6 +2692,7 @@ export type Database = {
           enviado_por?: string | null
           grupo: string
           id?: string
+          referencia?: boolean
           tamanho?: number | null
           tipo_mime?: string | null
           titulo: string
@@ -2672,6 +2707,7 @@ export type Database = {
           enviado_por?: string | null
           grupo?: string
           id?: string
+          referencia?: boolean
           tamanho?: number | null
           tipo_mime?: string | null
           titulo?: string
@@ -2765,9 +2801,11 @@ export type Database = {
           id: boolean
           janela_reputacao_dias: number
           nota_atencao: number
+          quadros_ocultos: string[]
           reclamacoes_alerta: number
           reclamacoes_atencao: number
           sinalizacao_antiga_dias: number
+          termos_marca: string[]
         }
         Insert: {
           asana_projeto_calendario?: string | null
@@ -2782,9 +2820,11 @@ export type Database = {
           id?: boolean
           janela_reputacao_dias?: number
           nota_atencao?: number
+          quadros_ocultos?: string[]
           reclamacoes_alerta?: number
           reclamacoes_atencao?: number
           sinalizacao_antiga_dias?: number
+          termos_marca?: string[]
         }
         Update: {
           asana_projeto_calendario?: string | null
@@ -2799,9 +2839,11 @@ export type Database = {
           id?: boolean
           janela_reputacao_dias?: number
           nota_atencao?: number
+          quadros_ocultos?: string[]
           reclamacoes_alerta?: number
           reclamacoes_atencao?: number
           sinalizacao_antiga_dias?: number
+          termos_marca?: string[]
         }
         Relationships: []
       }

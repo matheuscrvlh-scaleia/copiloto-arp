@@ -29,6 +29,10 @@ import {
   TABELAS_MKT,
   type Voltar,
 } from "@/lib/marketing/parametros";
+import {
+  CHAVES_QUADROS,
+  ocultosDoFormulario,
+} from "@/lib/marketing/visualizacao";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import { createClient } from "@/lib/supabase/server";
 import { podeAgora } from "@/server/auth";
@@ -168,6 +172,45 @@ const reputacaoCampos = z.object({
   reclamacoes_atencao: inteiro(1, 999),
   reclamacoes_alerta: inteiro(1, 999),
   nota_atencao: numero.refine((v) => v >= 1 && v <= 5, "entre 1 e 5"),
+});
+const visualizacaoCampos = z.object({
+  quadros_ocultos: z.array(z.string().max(80)).max(200),
+});
+const termosCampos = z.object({
+  termos_marca: z
+    .array(z.string().trim().min(2, "cada termo com 2 letras ou mais").max(60))
+    .min(1, "informe ao menos um termo")
+    .max(20, "até 20 termos"),
+});
+const referenciaCampos = z.object({
+  nome: texto(80, "informe o nome"),
+  cidade: textoOpcional(80),
+  instagram: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim().replace(/^@/, "") : v),
+    z.preprocess(
+      vazioNulo,
+      z
+        .string()
+        .regex(
+          /^[A-Za-z0-9._]{1,30}$/,
+          "só o usuário, sem espaço (ex.: espacoarp)",
+        )
+        .nullable()
+        .default(null),
+    ),
+  ),
+  site: z.preprocess(
+    vazioNulo,
+    z
+      .string()
+      .trim()
+      .max(200)
+      .transform((v) => normalizarLink(v) ?? "")
+      .refine((v) => /^https?:\/\/\S+$/i.test(v), "link do site inválido")
+      .nullable()
+      .default(null),
+  ),
+  ativo: marcado,
 });
 const asanaCampos = z.object({
   asana_projetos_marketing: z.array(z.string().trim().min(1).max(200)).max(30),
@@ -666,6 +709,85 @@ export async function removerCodigoRonda(
 }
 
 // ---------------------------------------------------------------------------
+// Visualização padrão, termos da marca e referências do Benchmark
+// ---------------------------------------------------------------------------
+
+/** Escondidos = os quadros que existem e não vieram marcados. */
+export async function salvarVisualizacao(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const r = z
+    .array(z.enum(CHAVES_QUADROS as [string, ...string[]]))
+    .safeParse(form.getAll("visivel"));
+  if (!r.success) return { erro: "Formulário inválido. Recarregue a tela." };
+  if (!(await podeAgora("marketing.parametros"))) return SEM_PERMISSAO;
+  const { error } = await (await mkt())
+    .from("parametros")
+    .update({ quadros_ocultos: ocultosDoFormulario(r.data) })
+    .eq("id", true);
+  if (error) return erroDoBanco(error);
+  return salvo(TAG.marketing.parametros);
+}
+
+export async function salvarTermosMarca(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const termos = String(form.get("termos_marca") ?? "")
+    .split(/[,\n]/)
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  const r = termosCampos.safeParse({ termos_marca: [...new Set(termos)] });
+  if (!r.success) return primeiroErro(r.error);
+  if (!(await podeAgora("marketing.parametros"))) return SEM_PERMISSAO;
+  const { error } = await (await mkt())
+    .from("parametros")
+    .update(r.data)
+    .eq("id", true);
+  if (error) return erroDoBanco(error);
+  return salvo(TAG.marketing.parametros);
+}
+
+export async function salvarReferencia(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const r = referenciaCampos
+    .extend({ id: z.preprocess(vazioNulo, id.nullable().default(null)) })
+    .safeParse(Object.fromEntries(form));
+  if (!r.success) return primeiroErro(r.error);
+  if (!(await podeAgora("marketing.parametros"))) return SEM_PERMISSAO;
+  const { id: alvo, ...valores } = r.data;
+  const db = await mkt();
+  const { error } = alvo
+    ? await db.from("benchmark").update(valores).eq("id", alvo)
+    : await db.from("benchmark").insert(valores);
+  if (error)
+    return erroDoBanco(
+      error,
+      `Referência repetida: já existe “${valores.nome}”.`,
+    );
+  return salvo(TAG.marketing.benchmark);
+}
+
+export async function removerReferencia(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const alvo = id.safeParse(form.get("id"));
+  if (!alvo.success) return primeiroErro(alvo.error);
+  if (!(await podeAgora("marketing.parametros"))) return SEM_PERMISSAO;
+  const { error } = await (await mkt())
+    .from("benchmark")
+    .delete()
+    .eq("id", alvo.data);
+  if (error) return erroDoBanco(error);
+  salvo(TAG.marketing.benchmark);
+  return { ok: "Removida. Dá para voltar pelo Histórico." };
+}
+
+// ---------------------------------------------------------------------------
 // Histórico: voltar uma alteração
 // ---------------------------------------------------------------------------
 
@@ -678,9 +800,13 @@ const TAG_DA_TABELA: Record<string, string> = {
   "marketing.temas": TAG.marketing.parametros,
   "marketing.ronda_codigos": TAG.marketing.parametros,
   "marketing.parametros": TAG.marketing.parametros,
+  "marketing.benchmark": TAG.marketing.benchmark,
 };
 
-const parametrosCampos = reputacaoCampos.extend(asanaCampos.shape);
+const parametrosCampos = reputacaoCampos
+  .extend(asanaCampos.shape)
+  .extend(visualizacaoCampos.shape)
+  .extend(termosCampos.shape);
 
 /** Os valores do "antes" passam pelas mesmas regras dos formulários. */
 function validar<T extends z.ZodObject>(
@@ -719,7 +845,9 @@ async function aplicarVoltar(
             ? await db.from("landing_pages").delete().eq("identificador", valor)
             : v.tabela === "marketing.temas"
               ? await db.from("temas").delete().eq("id", valor)
-              : await db.from("ronda_codigos").delete().eq("codigo", valor);
+              : v.tabela === "marketing.benchmark"
+                ? await db.from("benchmark").delete().eq("id", valor)
+                : await db.from("ronda_codigos").delete().eq("codigo", valor);
     return r.error ? erroDoBanco(r.error) : null;
   }
   const chave = v.tipo === "alterar" ? String(v.chave.valor) : "";
@@ -821,6 +949,18 @@ async function aplicarVoltar(
             })
           : await db.from("ronda_codigos").update(p.data).eq("codigo", chave);
       return r.error ? erroDoBanco(r.error, "Código da ronda repetido.") : null;
+    }
+    case "marketing.benchmark": {
+      const p = validar(referenciaCampos, v);
+      if (!p.success) return invalido;
+      const r =
+        v.tipo === "incluir"
+          ? await db.from("benchmark").insert({
+              ...referenciaCampos.parse(v.valores),
+              id: id.parse(v.valores.id),
+            })
+          : await db.from("benchmark").update(p.data).eq("id", chave);
+      return r.error ? erroDoBanco(r.error, "Referência repetida.") : null;
     }
     case "marketing.parametros": {
       const p = validar(parametrosCampos, v);

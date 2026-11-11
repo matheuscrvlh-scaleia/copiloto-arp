@@ -1,4 +1,11 @@
-import { AlertTriangle, ArrowRight, Bell, Info } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Bell,
+  GitCompare,
+  Info,
+  Sparkles,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -36,24 +43,39 @@ import {
   type UnidadeResumo,
 } from "@/lib/marketing/painel";
 import {
+  COMPARACOES,
   linhaDeFiltros,
   mesesAte,
   paramsDoPeriodoMkt,
   semanasAte,
 } from "@/lib/marketing/periodo";
-import { resumoRadar, tarefasDoTime } from "@/lib/marketing/radar";
-import { resumoRedes } from "@/lib/marketing/redes";
+import { entradasPorDia, resumoFluxo } from "@/lib/marketing/publico";
+import {
+  eventosDoCalendario,
+  resumoRadar,
+  type SinalizacaoLinha,
+  sinalizacoesDoMarketing,
+  tarefasDoTime,
+} from "@/lib/marketing/radar";
+import { linhasPorRede, resumoRedes } from "@/lib/marketing/redes";
 import {
   fracaoDoMes,
   mesAteHoje,
   metaNoRitmo,
   resumoReputacao,
 } from "@/lib/marketing/reputacao";
-import { resumoSite } from "@/lib/marketing/site";
+import {
+  buscasDaMarca,
+  buscasDoPeriodo,
+  ga4Do,
+  resumoSite,
+  totalTrafego,
+} from "@/lib/marketing/site";
 import {
   locatarios,
   metaMkt,
   parametros,
+  quadrosVisiveis,
   regrasAlerta,
   temasEcodigos,
 } from "@/server/marketing/base";
@@ -71,6 +93,7 @@ import {
   dadosReputacao,
   dadosSite,
 } from "@/server/marketing/fontes";
+import { dadosPublico } from "@/server/marketing/publico";
 
 export const metadata: Metadata = { title: "Painel do Marketing" };
 
@@ -79,7 +102,7 @@ export default function Page({ searchParams }: PageProps<"/marketing">) {
     <>
       <PageHeader
         title="Painel do Marketing"
-        description="A semana do Marketing numa tela: o que aconteceu, contra a semana anterior e a meta, e onde agir primeiro."
+        description="Três perguntas numa tela: estamos atraindo mais pessoas? Nossa marca está ficando mais forte? Onde precisamos agir?"
       />
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="marketing.painel">
@@ -114,6 +137,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     metaLeads,
     metaNovas,
     metaNota,
+    publico,
+    ve,
   ] = await Promise.all([
     dadosAnuncios(),
     dadosRd(),
@@ -131,6 +156,8 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     metaMkt("marketing.leads_mes", mesAtual),
     metaMkt("marketing.avaliacoes_novas_arp", mesAtual),
     metaMkt("marketing.nota_media_arp", mesAtual),
+    dadosPublico(hoje),
+    quadrosVisiveis("painel"),
   ]);
 
   // Cada frente, na semana e na anterior.
@@ -162,9 +189,60 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
   });
   const radar = resumoRadar(asana, params, codigos, regras, hoje);
 
+  // As três perguntas: público (câmeras), marca (buscas) e onde agir.
+  const porDia = publico ? entradasPorDia(publico.contagens) : null;
+  const fluxo = porDia ? resumoFluxo(porDia, periodo) : null;
+  const fluxoAnt = porDia ? resumoFluxo(porDia, anterior) : null;
+  const marca = buscasDaMarca(site.buscas, periodo, params.termos_marca);
+  const marcaAnt = buscasDaMarca(site.buscas, anterior, params.termos_marca);
+  const organica = (p: typeof periodo) =>
+    totalTrafego(ga4Do(site.ga4, p, "Organic Search")).sessoes;
+  const eventos = eventosDoCalendario(
+    asana.tarefas,
+    params,
+    periodo.de,
+    periodo.ate,
+  );
+  const eventosAnt = eventosDoCalendario(
+    asana.tarefas,
+    params,
+    anterior.de,
+    anterior.ate,
+  );
+  const campanhasAnt = linhasDeCampanha(
+    anuncios,
+    rdAnuncios.conversoes,
+    anterior,
+  );
+  const ambiencia = pode("marketing.radar")
+    ? sinalizacoesDoMarketing(
+        asana.tarefas,
+        params.asana_projeto_ronda,
+        codigos,
+        hoje,
+      )
+        .filter((s) => !s.concluida)
+        .sort((a, b) => b.diasEmAberto - a.diasEmAberto)
+    : [];
+  const termos = buscasDoPeriodo(site.buscas, periodo, 8);
+  const redesReais = linhasPorRede(redes, periodo, ["instagram", "facebook"]);
+
   const query = new URLSearchParams(paramsDoPeriodoMkt(periodo)).toString();
   const resumo = linhasDoResumo(
     {
+      ...(fluxo && fluxoAnt
+        ? {
+            publico: {
+              atual: fluxo.diasComDado ? fluxo.total : null,
+              anterior: fluxoAnt.diasComDado ? fluxoAnt.total : null,
+            },
+          }
+        : {}),
+      marca: {
+        atual: marca?.impressoes ?? null,
+        anterior: marcaAnt?.impressoes ?? null,
+      },
+      eventos: { atual: eventos.length, anterior: eventosAnt.length },
       anuncios: {
         atual: ads,
         anterior: adsAnt,
@@ -246,7 +324,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         .custoPorLead,
   );
 
-  const linhaFiltros = linhaDeFiltros([{ rotulo: "Semana", valor: f.rotulo }]);
+  const linhaFiltros = linhaDeFiltros([
+    { rotulo: "Período", valor: f.rotulo },
+    { rotulo: "Comparação", valor: f.rotuloAnterior },
+  ]);
   const cartaoLeads = pode("marketing.site");
 
   return (
@@ -258,7 +339,17 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         hoje={hoje}
         lembrado={f.lembrado}
         atalhos={["semana_passada", "esta_semana", "ultimos_30", "mes_passado"]}
-        selecoes={[]}
+        selecoes={[
+          {
+            chave: "comparar",
+            rotulo: "Comparar com",
+            todos: "Período anterior",
+            valor: f.comparar,
+            icone: <GitCompare className="size-4" />,
+            largura: "w-64",
+            opcoes: COMPARACOES.map((c) => ({ ...c })),
+          },
+        ]}
       />
 
       <TopoDaTela
@@ -271,6 +362,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           site.siteReal && "Google Analytics",
           rd.lidoEm && "leads do RD Station",
           asana.lidoEm && "radar do Asana",
+          !!publico?.contagens.length && "câmeras de contagem",
         )}
         aviso={juntarAvisos(
           anuncios.avisoMeta,
@@ -292,12 +384,88 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       />
 
       <Cartoes modulo="marketing">
-        {pode("marketing.anuncios") && (
+        {ve("fluxo") && fluxo && fluxoAnt && (
+          <CartaoDaTela
+            titulo="Fluxo de visitantes"
+            valor={fluxo.diasComDado ? formatarNumero(fluxo.total) : "—"}
+            variacao={
+              fluxo.diasComDado && fluxoAnt.diasComDado
+                ? variacaoContra(fluxo.total, fluxoAnt.total, f.rotuloAnterior)
+                : undefined
+            }
+            detalhe={
+              fluxo.diasComDado
+                ? `Média ${formatarNumero(Math.round(fluxo.mediaPorDia ?? 0))}/dia em ${fluxo.diasComDado} dias com contagem`
+                : "As câmeras ainda não contaram neste período"
+            }
+            calculo="Entradas contadas pelas câmeras no período, somando todas. Dia sem contagem fica de fora."
+            fonte="Câmeras de contagem"
+            href={`/marketing/publico?${query}`}
+          />
+        )}
+        {ve("buscas_marca") && pode("marketing.site") && (
+          <CartaoDaTela
+            titulo="Buscas pela marca ARP"
+            valor={marca ? formatarNumero(marca.impressoes) : "—"}
+            variacao={
+              marca && marcaAnt
+                ? variacaoContra(
+                    marca.impressoes,
+                    marcaAnt.impressoes,
+                    f.rotuloAnterior,
+                  )
+                : undefined
+            }
+            detalhe={
+              marca
+                ? `${formatarNumero(marca.cliques)} cliques para o site`
+                : `Search Console sem dados. Busca orgânica no site: ${formatarNumero(organica(periodo))} sessões`
+            }
+            calculo="Vezes em que a ARP apareceu no Google em buscas com os termos da marca (Configurações › Benchmark e marca). Sem o Search Console, mostra as sessões que vieram da busca orgânica (GA4)."
+            fonte="Google Search Console e GA4"
+            href={`/marketing/site?${query}`}
+          />
+        )}
+        {ve("eventos") && pode("marketing.radar") && (
+          <CartaoDaTela
+            titulo="Eventos e ativações"
+            valor={formatarNumero(eventos.length)}
+            variacao={variacaoContra(
+              eventos.length,
+              eventosAnt.length,
+              f.rotuloAnterior,
+              "neutro",
+            )}
+            detalhe={`${formatarNumero(radar.eventosProximos30)} nos próximos 30 dias`}
+            calculo="Eventos do calendário do Asana com algum dia dentro do período."
+            fonte="Calendário do Asana"
+            href="/marketing/radar?aba=calendario"
+          />
+        )}
+        {ve("campanhas") && pode("marketing.anuncios") && (
+          <CartaoDaTela
+            titulo="Campanhas ativas"
+            exemplo="campanhas do TikTok Ads (Meta e Google são reais)"
+            valor={formatarNumero(campanhas.linhas.length)}
+            variacao={variacaoContra(
+              campanhas.linhas.length,
+              campanhasAnt.linhas.length,
+              f.rotuloAnterior,
+              "neutro",
+            )}
+            detalhe={`${formatarMoeda(ads.investimento)} investidos`}
+            calculo="Campanhas com gasto no período, nas três plataformas."
+            fonte="Meta Ads, Google Ads e TikTok Ads"
+            href={`/marketing/anuncios?${query}`}
+          />
+        )}
+      </Cartoes>
+
+      <Cartoes modulo="marketing">
+        {ve("investimento") && pode("marketing.anuncios") && (
           <CartaoDaTela
             titulo="Investimento em anúncios"
-            exemplo={
-              "investimento do Google Ads e do TikTok Ads (o da Meta é real)"
-            }
+            exemplo="investimento do TikTok Ads (Meta e Google são reais)"
             valor={formatarMoeda(ads.investimento)}
             variacao={variacaoContra(
               ads.investimento,
@@ -310,7 +478,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             href={`/marketing/anuncios?${query}`}
           />
         )}
-        {cartaoLeads && (
+        {ve("leads") && cartaoLeads && (
           <CartaoDaTela
             titulo="Leads no RD"
             exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
@@ -326,12 +494,10 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             href={`/marketing/site?${query}`}
           />
         )}
-        {pode("marketing.anuncios") && (
+        {ve("custo_por_lead") && pode("marketing.anuncios") && (
           <CartaoDaTela
             titulo="Custo por lead"
-            exemplo={
-              "investimento e leads do Google Ads e do TikTok Ads (os da Meta são reais)"
-            }
+            exemplo="investimento e leads do TikTok Ads (Meta e Google são reais)"
             valor={formatarMoeda(ads.custoPorLead)}
             variacao={
               ads.custoPorLead !== null && adsAnt.custoPorLead !== null
@@ -361,9 +527,104 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         )}
       </Cartoes>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+      {ve("onde_agir") && (
         <Secao
-          className="xl:col-span-3"
+          tom="escuro"
+          titulo="Onde agir"
+          descricao="Primeiro a ambiência (sinalizações da ronda abertas para o Marketing), depois os alertas, do mais grave ao mais leve. As regras e os limites ficam em Configurações."
+        >
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {pode("marketing.radar") && <Ambiencia lista={ambiencia} />}
+            <ListaDeAlertas alertas={alertas} />
+          </div>
+          <Fonte>
+            Ronda de ambiência no Asana; regras de alerta de Configurações sobre
+            os dados de cada tela
+          </Fonte>
+        </Secao>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {ve("buscas_site") && pode("marketing.site") && (
+          <Secao
+            titulo="Buscas no Google que levam ao site"
+            descricao="Os termos com mais cliques no período"
+            calculo="Cliques e impressões de cada termo no Google Search Console, no período. Fonte: Google Search Console."
+          >
+            {termos.length ? (
+              <TabelaLista
+                semBusca
+                caber
+                colunas={[
+                  { titulo: "Termo", classe: "whitespace-normal" },
+                  { titulo: "Cliques", numero: true },
+                  { titulo: "Impressões", numero: true },
+                  { titulo: "Posição", numero: true },
+                ]}
+                linhas={termos.map((t) => ({
+                  chave: t.termo,
+                  busca: t.termo,
+                  href: `/marketing/site?${query}`,
+                  ordem: [t.termo, t.cliques, t.impressoes, t.posicao],
+                  celulas: [
+                    t.termo,
+                    formatarNumero(t.cliques),
+                    formatarNumero(t.impressoes),
+                    t.posicao === null ? "—" : formatarNumero(t.posicao, 1),
+                  ],
+                }))}
+              />
+            ) : (
+              <p className="py-6 text-center text-sm text-neutral-500">
+                {site.avisoBuscas ??
+                  "O Search Console não trouxe buscas neste período."}{" "}
+                Pela busca orgânica vieram {formatarNumero(organica(periodo))}{" "}
+                sessões ao site (GA4).
+              </p>
+            )}
+            <Fonte>Google Search Console; sessões orgânicas do GA4</Fonte>
+          </Secao>
+        )}
+        {ve("redes") && pode("marketing.redes") && (
+          <Secao
+            titulo="Redes sociais: engajamento"
+            descricao="Seguidores, novos seguidores e interações de cada rede no período"
+            calculo="Interações: curtidas, comentários, compartilhamentos e salvamentos. Taxa: interações ÷ alcance. O Facebook não entrega interações. Fonte: Meta (Instagram e Facebook)."
+          >
+            <TabelaLista
+              semBusca
+              caber
+              colunas={[
+                { titulo: "Rede" },
+                { titulo: "Seguidores", numero: true },
+                { titulo: "Novos", numero: true },
+                { titulo: "Interações", numero: true },
+                { titulo: "Taxa", numero: true },
+              ]}
+              linhas={redesReais.map((r) => ({
+                chave: r.rede,
+                busca: r.rotulo,
+                href: `/marketing/redes?${query}`,
+                ordem: [r.rotulo, r.seguidores, r.novos, r.interacoes, r.taxa],
+                celulas: [
+                  r.rotulo,
+                  r.seguidores === null ? "—" : formatarNumero(r.seguidores),
+                  r.novos === null ? "—" : formatarNumero(r.novos),
+                  r.interacoes === null ? "—" : formatarNumero(r.interacoes),
+                  r.taxa === null ? "—" : formatarPct(r.taxa),
+                ],
+              }))}
+            />
+            <Fonte>
+              Instagram e Facebook (Meta). YouTube e TikTok entram quando forem
+              ligados.
+            </Fonte>
+          </Secao>
+        )}
+      </div>
+
+      {ve("resumo") && (
+        <Secao
           titulo="Resumo por frente"
           descricao={`${f.rotulo} contra a ${f.rotuloAnterior}. Clique numa linha para abrir a tela no mesmo período.`}
         >
@@ -389,28 +650,17 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             }))}
           />
           <Fonte>
-            Anúncios: Meta, Google e TikTok Ads; leads: RD Station; site: Google
-            Analytics 4; redes: Instagram, Facebook, YouTube e TikTok;
+            Público: câmeras; marca: Search Console; eventos: calendário do
+            Asana; anúncios: Meta, Google e TikTok Ads; leads: RD Station; site:
+            Google Analytics 4; redes: Instagram, Facebook, YouTube e TikTok;
             reputação: Google Meu Negócio; radar: Asana. Reputação e radar não
-            seguem a semana: mês até hoje ou foto de agora.
+            seguem o período: mês até hoje ou foto de agora.
           </Fonte>
         </Secao>
-
-        <Secao
-          tom="escuro"
-          className="xl:col-span-2"
-          titulo="Onde agir"
-          descricao="Do mais grave ao mais leve. As regras e os limites ficam em Configurações."
-        >
-          <ListaDeAlertas alertas={alertas} />
-          <Fonte>
-            Regras de alerta de Configurações sobre os dados de cada tela
-          </Fonte>
-        </Secao>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {cartaoLeads && (
+        {ve("leads_semana") && cartaoLeads && (
           <Secao
             tom="verde"
             titulo="Leads no RD por semana"
@@ -447,14 +697,12 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
             <Fonte>RD Station; tipo da landing page em Configurações</Fonte>
           </Secao>
         )}
-        {pode("marketing.anuncios") && (
+        {ve("cpl_semana") && pode("marketing.anuncios") && (
           <Secao
             tom="verde"
             titulo="Custo por lead por semana"
             calculo="Investimento da semana em anúncios ÷ leads no RD vindos dessas campanhas (traffic_campaign = nome da campanha). Semana sem lead fica sem ponto. Linha tracejada: meta do mês (Configurações › Metas). Fontes: Meta Ads, Google Ads, TikTok Ads e RD Station."
-            exemplo={
-              "investimentos e leads do Google Ads e do TikTok Ads (os da Meta são reais)"
-            }
+            exemplo="investimento e leads do TikTok Ads (Meta e Google são reais)"
             descricao="Investimento ÷ leads do RD, com a linha da meta"
           >
             <Linhas
@@ -497,7 +745,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 const COLUNAS = [
   { titulo: "Frente" },
   { titulo: "Indicador", classe: "whitespace-normal" },
-  { titulo: "Semana", numero: true },
+  { titulo: "Período", numero: true },
   { titulo: "Anterior", numero: true },
   { titulo: "Variação", numero: true },
   { titulo: "Meta", numero: true },
@@ -558,6 +806,64 @@ function celulas(l: LinhaResumo): React.ReactNode[] {
   ];
 }
 
+/** Ambiência no topo do Onde agir: as sinalizações abertas, as mais antigas primeiro. */
+function Ambiencia({ lista }: { lista: SinalizacaoLinha[] }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+        <Sparkles className="size-3.5" aria-hidden />
+        Ambiência
+      </p>
+      {!lista.length ? (
+        <p className="py-4 text-sm text-neutral-500">
+          Nenhuma sinalização da ronda aberta para o Marketing.
+        </p>
+      ) : (
+        <ul className="-mx-2 flex max-h-[420px] flex-col gap-1 overflow-y-auto px-2">
+          {lista.slice(0, 8).map((s) => (
+            <li key={s.gid}>
+              <a
+                href={s.link}
+                target="_blank"
+                rel="noreferrer"
+                className="group flex gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-neutral-900/[0.04]"
+              >
+                <span className="mt-0.5 inline-flex h-6 shrink-0 items-center rounded-full bg-neutral-900/[0.06] px-2 font-mono text-[11px] font-semibold">
+                  {s.codigo}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">
+                    {s.descricao}
+                  </span>
+                  <span className="block text-xs text-neutral-500">
+                    {[
+                      s.local,
+                      `aberta há ${formatarNumero(s.diasEmAberto)} dias`,
+                      s.responsavel,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                </span>
+              </a>
+            </li>
+          ))}
+          {lista.length > 8 && (
+            <li>
+              <Link
+                href="/marketing/radar?aba=sinalizacoes"
+                className="px-2 text-xs font-medium text-neutral-600 underline-offset-4 hover:underline"
+              >
+                Ver as {formatarNumero(lista.length)} sinalizações abertas
+              </Link>
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 const ICONE_NIVEL = {
   urgente: { icone: AlertTriangle, classe: "bg-red-600/10 text-red-700" },
   atencao: { icone: Bell, classe: "bg-amber-500/15 text-amber-900" },
@@ -610,7 +916,7 @@ function ListaDeAlertas({ alertas }: { alertas: Alerta[] }) {
 const COLUNAS_EXPORTAR = [
   { titulo: "Frente" },
   { titulo: "Indicador" },
-  { titulo: "Semana" },
+  { titulo: "Período" },
   { titulo: "Anterior" },
   { titulo: "Variação" },
   { titulo: "Meta" },

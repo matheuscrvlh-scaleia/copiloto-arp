@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type {
   RdContato,
   RdConversao,
@@ -54,8 +55,11 @@ async function ultimaLeitura(): Promise<string | null> {
   return data?.finalizado_em ?? null;
 }
 
-/** Dados reais do RD, ou null se o RD ainda não foi sincronizado. */
-export async function rdReal(): Promise<DadosRd | null> {
+/**
+ * Dados reais do RD, ou null se o RD ainda não foi sincronizado. Uma leitura
+ * por requisição (o Painel pede duas vezes: leads e leads dos anúncios).
+ */
+export const rdReal = cache(async (): Promise<DadosRd | null> => {
   // Confere o acesso ao módulo antes da service role (ultimaLeitura).
   const ctx = await contextoMkt();
   if (!ctx.usuario.permissoes.some((p) => p.startsWith("marketing.")))
@@ -132,4 +136,4 @@ export async function rdReal(): Promise<DadosRd | null> {
       }),
     ),
   };
-}
+});

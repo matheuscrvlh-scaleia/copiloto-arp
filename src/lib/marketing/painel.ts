@@ -42,6 +42,12 @@ export interface MetasPainel {
 }
 
 export interface EntradaResumo {
+  /** Fluxo de visitantes das câmeras (entradas no período). */
+  publico?: { atual: number | null; anterior: number | null };
+  /** Buscas pela marca no Google (impressões no Search Console). */
+  marca?: { atual: number | null; anterior: number | null };
+  /** Eventos do calendário no período. */
+  eventos?: { atual: number; anterior: number };
   anuncios?: { atual: Totais; anterior: Totais; semCampanha: number };
   site?: { atual: ResumoSite; anterior: ResumoSite; leadsNoMes: number };
   redes?: { atual: TotaisRedes; anterior: TotaisRedes };
@@ -93,6 +99,49 @@ export function linhasDoResumo(
   const q = e.query ? `?${e.query}` : "";
   const out: LinhaResumo[] = [];
   const { metas } = e;
+
+  if (e.publico)
+    out.push(
+      linha({
+        chave: "fluxo",
+        frente: "Público",
+        indicador: "Fluxo de visitantes (câmeras)",
+        atual: e.publico.atual,
+        anterior: e.publico.anterior,
+        unidade: "numero",
+        direcao: "maior_melhor",
+        href: `/marketing/publico${q}`,
+        permissao: "marketing.publico",
+      }),
+    );
+  if (e.marca)
+    out.push(
+      linha({
+        chave: "buscas_marca",
+        frente: "Marca",
+        indicador: "Buscas pela marca no Google",
+        atual: e.marca.atual,
+        anterior: e.marca.anterior,
+        unidade: "numero",
+        direcao: "maior_melhor",
+        href: `/marketing/site${q}`,
+        permissao: "marketing.site",
+      }),
+    );
+  if (e.eventos)
+    out.push(
+      linha({
+        chave: "eventos_periodo",
+        frente: "Cultura e eventos",
+        indicador: "Eventos e ativações no calendário",
+        atual: e.eventos.atual,
+        anterior: e.eventos.anterior,
+        unidade: "numero",
+        direcao: "neutro",
+        href: "/marketing/radar?aba=calendario",
+        permissao: "marketing.radar",
+      }),
+    );
 
   if (e.anuncios) {
     const { atual: a, anterior: b } = e.anuncios;

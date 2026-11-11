@@ -7,16 +7,28 @@ import type { Guia } from "./tipos";
 
 export const GUIAS_MARKETING: Record<string, Guia> = {
   "/marketing": {
-    versao: 2,
+    versao: 3,
     passos: [
       abertura(
-        "Painel do Marketing: a rotina da semana",
-        "Use esta tela toda segunda-feira, antes da reunião. O caminho é: escolher a semana, ler os três números, resolver o que está em <b>Onde agir</b> e descer para a tela de cada canal.",
+        "Painel do Marketing: três perguntas",
+        "A tela responde: <b>estamos atraindo mais pessoas?</b> (fluxo das câmeras e eventos), <b>nossa marca está ficando mais forte?</b> (buscas pela ARP e redes) e <b>onde precisamos agir?</b> (ambiência e alertas). Use toda segunda-feira, antes da reunião.",
       ),
       filtros(
-        "<b>Passo 1.</b> Escolha a semana. <b>Semana passada</b> é a da reunião; também há esta semana, últimos 30 dias e mês passado. Tudo é comparado com o período anterior do mesmo tamanho.",
+        "<b>Passo 1.</b> Escolha o período e com o que comparar: o período anterior do mesmo tamanho ou o mesmo período do ano passado.",
       ),
       fonte(),
+      {
+        alvo: "cartao:Fluxo de visitantes",
+        titulo: "Estamos atraindo mais pessoas?",
+        texto:
+          "Entradas contadas pelas câmeras no período. Clique para abrir Público e visitação, com o fluxo por dia, hora e dia da semana.",
+      },
+      {
+        alvo: "cartao:Buscas pela marca ARP",
+        titulo: "A marca está mais forte?",
+        texto:
+          "Quantas vezes a ARP apareceu no Google em buscas com o nome dela. Os termos ficam em Configurações › Benchmark e marca.",
+      },
       {
         alvo: "cartao:Investimento em anúncios",
         titulo: "Passo 2. Quanto foi investido",
@@ -37,15 +49,15 @@ export const GUIAS_MARKETING: Record<string, Guia> = {
       },
       {
         alvo: "secao:Onde agir",
-        titulo: "Passo 3. Comece por aqui",
+        titulo: "Passo 3. Onde agir",
         texto:
-          "Os alertas da semana, do mais grave ao mais leve. <b>Clique num alerta</b> para abrir a tela com o problema já filtrado. Os limites de cada alerta ficam em Configurações › Regras de alerta.",
+          "Primeiro a <b>ambiência</b>: as sinalizações da ronda abertas para o Marketing, das mais antigas. Depois os alertas, do mais grave ao mais leve. <b>Clique num alerta</b> para abrir a tela com o problema já filtrado. Os limites de cada alerta ficam em Configurações › Regras de alerta.",
       },
       {
         alvo: "secao:Resumo por frente",
         titulo: "Passo 4. Uma linha por frente",
         texto:
-          "Anúncios, site, redes, reputação e radar: cada indicador contra o período anterior e a meta. <b>Clique numa linha</b> para abrir a tela daquela frente no mesmo período.",
+          "Público, marca, eventos, anúncios, site, redes, reputação e radar: cada indicador contra a comparação escolhida e a meta. <b>Clique numa linha</b> para abrir a tela daquela frente no mesmo período.",
       },
       {
         alvo: "secao:Leads no RD por semana",
@@ -63,7 +75,7 @@ export const GUIAS_MARKETING: Record<string, Guia> = {
         "<b>Passo 6.</b> Baixe o resumo semanal com os alertas (cabe numa folha A4) para levar à reunião.",
       ),
       menuDoModulo(
-        "Cada canal tem a sua tela: Anúncios, Site e leads, Redes sociais, Reputação e Eventos. Marca guarda a base do rebranding; Radar operacional, o que vinha do Asana; Configurações, metas, regras e integrações.",
+        "Cada frente tem a sua tela: Público e visitação, Anúncios, Site e leads, Redes sociais, Reputação (com o Benchmark) e Eventos. Marca guarda a base do rebranding e as imagens de referência; Radar operacional, o que vinha do Asana; Configurações, metas, regras, a visualização padrão e as integrações.",
       ),
     ],
   },
@@ -326,6 +338,43 @@ export const GUIAS_MARKETING: Record<string, Guia> = {
         alvo: "secao:Eventos por mês",
         titulo: "Volume por mês",
         texto: "Quantos eventos houve em cada mês, para comparar a agenda.",
+      },
+    ],
+  },
+
+  "/marketing/publico": {
+    versao: 1,
+    passos: [
+      abertura(
+        "Público e visitação: estamos atraindo mais pessoas?",
+        "O fluxo de pessoas contado pelas câmeras das entradas, sem imagem. Use para ver se o movimento cresce, em que dias e horários, e quanto cada evento traz.",
+      ),
+      filtros(
+        "Escolha o período e com o que comparar: o período anterior ou o mesmo período do ano passado. O dia da semana vale para o comparativo anual.",
+      ),
+      {
+        alvo: "cartao:Fluxo de visitantes",
+        titulo: "Passo 1. Quantas pessoas vieram",
+        texto:
+          "Soma das entradas no período, contra a comparação escolhida. Dia sem contagem fica de fora, não conta como zero.",
+      },
+      {
+        alvo: "cartao:Incremento em dias de evento",
+        titulo: "Passo 2. O que os eventos trazem",
+        texto:
+          "Média dos dias com evento no calendário do Asana contra a dos dias sem evento.",
+      },
+      {
+        alvo: "secao:Fluxo por dia",
+        titulo: "Passo 3. Dia a dia",
+        texto:
+          "Os dias com evento ficam destacados. Passe o mouse para ver o nome do evento.",
+      },
+      {
+        alvo: "secao:Fluxo por hora",
+        titulo: "Os horários de pico",
+        texto:
+          "Média de entradas em cada hora. Ajuda a decidir horário de ativação e de equipe.",
       },
     ],
   },

@@ -1,6 +1,7 @@
 import "server-only";
 import {
   type AtalhoMkt,
+  anoAnteriorMkt,
   anteriorMkt,
   descreverPeriodoMkt,
   lerPeriodoMkt,
@@ -26,6 +27,8 @@ export interface FiltrosLidos {
   rotulo: string;
   /** "semana anterior", "período anterior"… para a variação dos cartões. */
   rotuloAnterior: string;
+  /** Comparação contra o mesmo período do ano passado (?comparar=ano). */
+  comparar: "" | "ano";
   /** Valor de um filtro de seleção ("" = todos). */
   um: (chave: string) => string;
 }
@@ -40,13 +43,16 @@ export async function lerFiltros(
     filtrosLembrados("marketing", tela, buscaUrl),
   ]);
   const periodo = lerPeriodoMkt(busca, padrao, ctx.hoje);
-  const anterior = anteriorMkt(periodo);
   const um = (chave: string) => {
     const v = busca[chave];
     return (Array.isArray(v) ? v[0] : v) ?? "";
   };
-  const rotuloAnterior =
-    periodo.atalho === "semana_passada" || periodo.atalho === "esta_semana"
+  // ?comparar=ano: contra o mesmo período do ano passado.
+  const doAno = um("comparar") === "ano";
+  const anterior = doAno ? anoAnteriorMkt(periodo) : anteriorMkt(periodo);
+  const rotuloAnterior = doAno
+    ? `mesmo período de ${anterior.de.slice(0, 4)}`
+    : periodo.atalho === "semana_passada" || periodo.atalho === "esta_semana"
       ? "semana anterior"
       : periodo.atalho === "mes" || periodo.atalho === "mes_passado"
         ? "período anterior"
@@ -61,6 +67,7 @@ export async function lerFiltros(
     anterior,
     rotulo: descreverPeriodoMkt(periodo),
     rotuloAnterior,
+    comparar: doAno ? "ano" : "",
     um,
   };
 }

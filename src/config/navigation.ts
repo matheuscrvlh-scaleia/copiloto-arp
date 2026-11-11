@@ -41,6 +41,7 @@ export type Icone =
   | "reputacao"
   | "radar"
   | "eventos"
+  | "publico"
   | "funil"
   | "ocupacao"
   | "vencimentos"
@@ -307,6 +308,12 @@ export const navigation: NavSection[] = [
         label: "Painel",
         icone: "painel",
         permissao: "marketing.painel",
+      },
+      {
+        href: "/marketing/publico",
+        label: "Público e visitação",
+        icone: "publico",
+        permissao: "marketing.publico",
       },
       {
         href: "/marketing/marca",

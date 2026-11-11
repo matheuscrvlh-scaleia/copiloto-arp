@@ -513,6 +513,32 @@ export function buscasDoPeriodo(
   return top;
 }
 
+/**
+ * Buscas pela marca no período: impressões e cliques das buscas que têm um
+ * dos termos (Configurações › Benchmark e marca), sem diferença de
+ * maiúscula e acento. null quando o Search Console não entregou nada.
+ */
+export function buscasDaMarca(
+  buscas: BuscaLinha[],
+  periodo: Periodo,
+  termos: string[],
+): { impressoes: number; cliques: number } | null {
+  if (!buscas.length) return null;
+  const norm = (t: string) =>
+    t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const ts = termos.map(norm).filter(Boolean);
+  let impressoes = 0;
+  let cliques = 0;
+  for (const b of buscas) {
+    if (!dentro(b.date, periodo)) continue;
+    const q = norm(b.query);
+    if (!ts.some((t) => q.includes(t))) continue;
+    impressoes += b.impressions;
+    cliques += b.clicks;
+  }
+  return { impressoes, cliques };
+}
+
 // ---------------------------------------------------------------------------
 // Exportação do Quadro 3 (com ou sem contato, conforme a permissão)
 // ---------------------------------------------------------------------------

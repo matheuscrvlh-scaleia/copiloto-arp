@@ -86,6 +86,11 @@ export async function anunciosGoogle(): Promise<Leitura<AnunciosGoogle>> {
   return { ok: true, dados: lido.dados, lidoEm: new Date().toISOString() };
 }
 
+/** Aquece o cache do dia (ver aquecerMeta). */
+export async function aquecerGoogle(hoje: string): Promise<void> {
+  await Promise.all([lerAds(hoje), lerSite(hoje)]);
+}
+
 async function lerSite(hoje: string): Promise<Lido<SiteGoogle | null>> {
   "use cache";
   cacheTag(TAG.marketing.google);

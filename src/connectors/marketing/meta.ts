@@ -53,6 +53,35 @@ const instagramSchema = z.object({
 
 const num = z.coerce.number().default(0);
 
+/** Conta pública de outra empresa (business_discovery): sem alcance. */
+const descobertaSchema = z.object({
+  business_discovery: z.object({
+    username: z.string(),
+    name: z.string().default(""),
+    followers_count: z.number().default(0),
+    media_count: z.number().default(0),
+    media: z
+      .object({
+        data: z.array(
+          z.object({
+            id: z.string(),
+            timestamp: z.string(),
+            permalink: z.string().default(""),
+            caption: z.string().default(""),
+            media_type: z.string().default(""),
+            // Conta que esconde curtidas não manda o campo.
+            like_count: num,
+            comments_count: num,
+          }),
+        ),
+      })
+      .default({ data: [] }),
+  }),
+});
+export type ContaPublica = z.infer<
+  typeof descobertaSchema
+>["business_discovery"];
+
 const paginado = <T extends z.ZodType>(item: T) =>
   z.object({
     data: z.array(item),
@@ -405,6 +434,26 @@ export function createMetaClient(config: MetaConfig) {
               });
       }
       return out;
+    },
+
+    /**
+     * Números públicos de outra conta comercial ou de criador do Instagram
+     * (business_discovery), pelo Instagram da ARP: seguidores, total de
+     * posts e os `posts` mais recentes com curtidas e comentários.
+     */
+    async contaPublica(
+      instagramId: string,
+      usuario: string,
+      posts = 50,
+    ): Promise<ContaPublica> {
+      const campos = `username,name,followers_count,media_count,media.limit(${posts}){id,timestamp,permalink,caption,media_type,like_count,comments_count}`;
+      return parseWith(
+        sistema,
+        descobertaSchema,
+        await ler(instagramId, {
+          fields: `business_discovery.username(${usuario}){${campos}}`,
+        }),
+      ).business_discovery;
     },
   };
 }

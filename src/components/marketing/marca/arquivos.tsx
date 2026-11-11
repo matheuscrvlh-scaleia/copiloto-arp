@@ -160,3 +160,78 @@ export function Arquivos({
     </ul>
   );
 }
+
+/**
+ * Imagens de referência: o padrão ideal da marca, em grade, com título e
+ * para que serve. Guia o time e o Copiloto ao criar peças. Trocar a imagem
+ * sobe uma versão nova (a anterior não se apaga).
+ */
+export function Referencias({
+  arquivos,
+  nomes,
+  podeEditar,
+}: {
+  arquivos: ArquivoMarca[];
+  nomes: Map<string, string>;
+  podeEditar: boolean;
+}) {
+  const atuais = arquivos
+    .filter((a) => a.atual)
+    .sort((a, b) => b.enviado_em.localeCompare(a.enviado_em));
+  return (
+    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {atuais.map((a) => {
+        const enviado = Boolean(a.arquivo_path);
+        return (
+          <li
+            key={a.grupo}
+            className="vidro flex flex-col gap-3 overflow-hidden rounded-[1.75rem] p-3"
+          >
+            {enviado ? (
+              <a
+                href={`/marketing/marca/arquivo/${a.id}`}
+                target="_blank"
+                rel="noreferrer"
+                title="Abrir a imagem em tamanho real"
+              >
+                {/* biome-ignore lint/performance/noImgElement: bucket privado, link assinado pela rota de download */}
+                <img
+                  src={`/marketing/marca/arquivo/${a.id}`}
+                  alt={a.titulo}
+                  loading="lazy"
+                  className="aspect-[4/3] w-full rounded-2xl bg-neutral-900/[0.04] object-cover"
+                />
+              </a>
+            ) : (
+              <span className="grid aspect-[4/3] place-items-center rounded-2xl bg-neutral-900/[0.04] text-xs text-amber-800">
+                Aguardando envio
+              </span>
+            )}
+            <div className="flex flex-col gap-1 px-2">
+              <h2 className="font-semibold tracking-tight">{a.titulo}</h2>
+              {a.descricao && (
+                <p className="text-sm text-neutral-600">{a.descricao}</p>
+              )}
+              {enviado && (
+                <p className="text-xs text-neutral-500">
+                  <Dados a={a} nomes={nomes} />
+                </p>
+              )}
+            </div>
+            {podeEditar && (
+              <div className="px-2 pb-2">
+                <SubirArquivo grupo={a.grupo} primeiro={!enviado} />
+              </div>
+            )}
+          </li>
+        );
+      })}
+      {podeEditar && <NovoArquivo referencia />}
+      {!atuais.length && !podeEditar && (
+        <li className="text-sm text-neutral-500">
+          Nenhuma imagem de referência ainda.
+        </li>
+      )}
+    </ul>
+  );
+}

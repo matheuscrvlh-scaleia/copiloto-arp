@@ -44,6 +44,7 @@ import {
   TIPOS_POST,
   type TipoPost,
 } from "@/lib/marketing/redes";
+import { quadrosVisiveis } from "@/server/marketing/base";
 import { type Busca, lerFiltros } from "@/server/marketing/filtros";
 import { dadosRedes } from "@/server/marketing/fontes";
 
@@ -72,6 +73,7 @@ export default function Page({ searchParams }: PageProps<"/marketing/redes">) {
 
 async function Tela({ busca }: { busca: Promise<Busca> }) {
   const f = await lerFiltros("redes", await busca, "semana_passada");
+  const ve = await quadrosVisiveis("redes");
   const { ctx, periodo, anterior } = f;
   const rede = f.um("rede") as Rede | "";
   const tipo = f.um("tipo") as TipoPost | "";
@@ -168,75 +170,77 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         }
       />
 
-      <Cartoes modulo="marketing">
-        <CartaoDaTela
-          titulo="Seguidores"
-          exemplo={
-            redes.some((r) => r === "youtube" || r === "tiktok") &&
-            "seguidores do YouTube e do TikTok (Instagram e Facebook são reais)"
-          }
-          valor={formatarNumero(t.seguidores)}
-          variacao={variacaoContra(
-            t.seguidores,
-            ta.seguidores,
-            f.rotuloAnterior,
-          )}
-          detalhe={
-            rede
-              ? `${REDES[rede].rotulo}, no fim do período`
-              : "Soma das 4 redes, no fim do período"
-          }
-          fonte="Foto diária de cada rede"
-        />
-        <CartaoDaTela
-          titulo="Novos seguidores no período"
-          exemplo={
-            redes.some((r) => r === "youtube" || r === "tiktok") &&
-            "seguidores do YouTube e do TikTok (Instagram e Facebook são reais)"
-          }
-          valor={formatarNumero(t.novos)}
-          variacao={variacaoContra(t.novos, ta.novos, f.rotuloAnterior)}
-          detalhe={
-            parcial
-              ? "Alguma rede começou a contar no meio do período"
-              : undefined
-          }
-          calculo="Seguidores no fim menos no início do período. YouTube: inscritos ganhos menos perdidos."
-          fonte="Foto diária; YouTube Analytics"
-        />
-        <CartaoDaTela
-          titulo="Alcance e visualizações"
-          exemplo={
-            redes.some((r) => r === "youtube" || r === "tiktok") &&
-            "visualizações do YouTube e do TikTok (Instagram e Facebook são reais)"
-          }
-          valor={formatarNumero(t.alcanceEVisualizacoes)}
-          variacao={variacaoContra(
-            t.alcanceEVisualizacoes,
-            ta.alcanceEVisualizacoes,
-            f.rotuloAnterior,
-          )}
-          detalhe="Instagram pelo alcance; YouTube e TikTok pelas visualizações; Facebook sem dado"
-          calculo="Instagram: reach (soma dos dias). YouTube: views. TikTok: video_views. O Facebook não entra: a Meta não entrega mais esse número da página."
-          fonte="Instagram, YouTube e TikTok"
-        />
-        <CartaoDaTela
-          titulo="Interações"
-          exemplo={
-            redes.some((r) => r === "youtube" || r === "tiktok") &&
-            "interações do YouTube e do TikTok (Instagram e Facebook são reais)"
-          }
-          valor={formatarNumero(t.interacoes)}
-          variacao={variacaoContra(
-            t.interacoes,
-            ta.interacoes,
-            f.rotuloAnterior,
-          )}
-          detalhe={`Taxa de interação ${formatarPct(t.taxa)}`}
-          calculo="Instagram: total_interactions. YouTube: curtidas + comentários dos vídeos publicados no período. TikTok: likes + comments + shares. Taxa: interações ÷ alcance ou visualizações."
-          fonte="Instagram, YouTube e TikTok"
-        />
-      </Cartoes>
+      {ve("cartoes") && (
+        <Cartoes modulo="marketing">
+          <CartaoDaTela
+            titulo="Seguidores"
+            exemplo={
+              redes.some((r) => r === "youtube" || r === "tiktok") &&
+              "seguidores do YouTube e do TikTok (Instagram e Facebook são reais)"
+            }
+            valor={formatarNumero(t.seguidores)}
+            variacao={variacaoContra(
+              t.seguidores,
+              ta.seguidores,
+              f.rotuloAnterior,
+            )}
+            detalhe={
+              rede
+                ? `${REDES[rede].rotulo}, no fim do período`
+                : "Soma das 4 redes, no fim do período"
+            }
+            fonte="Foto diária de cada rede"
+          />
+          <CartaoDaTela
+            titulo="Novos seguidores no período"
+            exemplo={
+              redes.some((r) => r === "youtube" || r === "tiktok") &&
+              "seguidores do YouTube e do TikTok (Instagram e Facebook são reais)"
+            }
+            valor={formatarNumero(t.novos)}
+            variacao={variacaoContra(t.novos, ta.novos, f.rotuloAnterior)}
+            detalhe={
+              parcial
+                ? "Alguma rede começou a contar no meio do período"
+                : undefined
+            }
+            calculo="Seguidores no fim menos no início do período. YouTube: inscritos ganhos menos perdidos."
+            fonte="Foto diária; YouTube Analytics"
+          />
+          <CartaoDaTela
+            titulo="Alcance e visualizações"
+            exemplo={
+              redes.some((r) => r === "youtube" || r === "tiktok") &&
+              "visualizações do YouTube e do TikTok (Instagram e Facebook são reais)"
+            }
+            valor={formatarNumero(t.alcanceEVisualizacoes)}
+            variacao={variacaoContra(
+              t.alcanceEVisualizacoes,
+              ta.alcanceEVisualizacoes,
+              f.rotuloAnterior,
+            )}
+            detalhe="Instagram pelo alcance; YouTube e TikTok pelas visualizações; Facebook sem dado"
+            calculo="Instagram: reach (soma dos dias). YouTube: views. TikTok: video_views. O Facebook não entra: a Meta não entrega mais esse número da página."
+            fonte="Instagram, YouTube e TikTok"
+          />
+          <CartaoDaTela
+            titulo="Interações"
+            exemplo={
+              redes.some((r) => r === "youtube" || r === "tiktok") &&
+              "interações do YouTube e do TikTok (Instagram e Facebook são reais)"
+            }
+            valor={formatarNumero(t.interacoes)}
+            variacao={variacaoContra(
+              t.interacoes,
+              ta.interacoes,
+              f.rotuloAnterior,
+            )}
+            detalhe={`Taxa de interação ${formatarPct(t.taxa)}`}
+            calculo="Instagram: total_interactions. YouTube: curtidas + comentários dos vídeos publicados no período. TikTok: likes + comments + shares. Taxa: interações ÷ alcance ou visualizações."
+            fonte="Instagram, YouTube e TikTok"
+          />
+        </Cartoes>
+      )}
 
       <Secao
         tom="escuro"
@@ -281,109 +285,113 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         </Fonte>
       </Secao>
 
-      <Secao
-        titulo="Posts do período"
-        descricao={`${f.rotulo} · do que mais engajou para o que menos (curtidas + comentários + compartilhamentos + salvos).`}
-      >
-        {posts.length > 0 && (
-          <ol className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
-            {posts.slice(0, 3).map((p, i) => (
-              <MelhorPost key={p.id} post={p} posicao={i + 1} />
-            ))}
-          </ol>
-        )}
-        <TabelaLista
-          colunas={COLUNAS_POST}
-          ordemInicial={{ coluna: 11, desc: true }}
-          placeholder="Buscar post…"
-          vazio="Nenhum post nesse filtro."
-          alturaMax="max-h-[36rem]"
-          linhas={posts.map((p) => ({
-            chave: p.id,
-            busca: `${p.texto} ${REDES[p.rede].rotulo} ${TIPOS_POST[p.tipo]}`,
-            celulas: celulasDoPost(p),
-            ordem: [
-              p.data,
-              REDES[p.rede].rotulo,
-              TIPOS_POST[p.tipo],
-              p.texto,
-              null,
-              p.alcance,
-              p.visualizacoes,
-              p.curtidas,
-              p.comentarios,
-              p.compartilhamentos,
-              p.salvos,
-              p.interacoes,
-            ],
-          }))}
-        />
-        <Fonte>
-          {FONTE}. Data: timestamp, publishedAt ou create_time. Alcance e salvos
-          só no Instagram; YouTube e TikTok não entregam compartilhamentos por
-          vídeo, e o TikTok não entrega comentários por vídeo nos campos usados
-          (célula vazia, não zero).
-        </Fonte>
-      </Secao>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      {ve("posts") && (
         <Secao
-          titulo="Seguidores por rede"
-          calculo="Seguidores no fim de cada semana, pela foto diária de cada rede. Instagram e Facebook: followers_count gravado todo dia pela sincronização da Meta (06h45). YouTube: inscritos de hoje, voltando os ganhos e perdas de cada dia. TikTok: followers_count. Antes da primeira foto não há número. Cada mini-gráfico tem a própria escala."
-          exemplo={
-            redes.some((r) => r === "youtube" || r === "tiktok") &&
-            "YouTube e TikTok (Instagram e Facebook são reais)"
-          }
-          descricao="Últimas 12 semanas, no fim de cada semana. Cada rede na sua escala."
+          titulo="Posts do período"
+          descricao={`${f.rotulo} · do que mais engajou para o que menos (curtidas + comentários + compartilhamentos + salvos).`}
         >
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {historico.map((h) => {
-              const primeiro = h.itens[0];
-              const ultimo = h.itens.at(-1);
-              const ganho =
-                primeiro && ultimo ? ultimo.valor - primeiro.valor : null;
-              return (
-                <li key={h.rede} className="flex flex-col gap-1">
-                  <p className="flex items-baseline justify-between gap-2 text-sm">
-                    <span className="inline-flex items-center gap-1 font-medium">
-                      {REDES[h.rede].rotulo}
-                      {(h.rede === "youtube" || h.rede === "tiktok") && (
-                        <TriangleAlert
-                          className="size-3 text-amber-500"
-                          aria-label="Dados de exemplo"
-                        />
-                      )}
-                    </span>
-                    <span className="tabular-nums text-neutral-600">
-                      {ultimo ? formatarNumero(ultimo.valor) : "—"}
-                    </span>
-                  </p>
-                  {h.itens.length >= 2 ? (
-                    <MiniArea
-                      itens={h.itens}
-                      descricao={`Seguidores do ${REDES[h.rede].rotulo} por semana`}
-                    />
-                  ) : (
-                    <p className="py-3 text-xs text-neutral-500">
-                      Histórico ainda curto.
-                    </p>
-                  )}
-                  {ganho !== null && h.itens.length >= 2 && (
-                    <p className="text-xs text-neutral-500">
-                      {ganho >= 0 ? "+" : ""}
-                      {formatarNumero(ganho)} desde {primeiro?.rotulo}
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          {posts.length > 0 && (
+            <ol className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+              {posts.slice(0, 3).map((p, i) => (
+                <MelhorPost key={p.id} post={p} posicao={i + 1} />
+              ))}
+            </ol>
+          )}
+          <TabelaLista
+            colunas={COLUNAS_POST}
+            ordemInicial={{ coluna: 11, desc: true }}
+            placeholder="Buscar post…"
+            vazio="Nenhum post nesse filtro."
+            alturaMax="max-h-[36rem]"
+            linhas={posts.map((p) => ({
+              chave: p.id,
+              busca: `${p.texto} ${REDES[p.rede].rotulo} ${TIPOS_POST[p.tipo]}`,
+              celulas: celulasDoPost(p),
+              ordem: [
+                p.data,
+                REDES[p.rede].rotulo,
+                TIPOS_POST[p.tipo],
+                p.texto,
+                null,
+                p.alcance,
+                p.visualizacoes,
+                p.curtidas,
+                p.comentarios,
+                p.compartilhamentos,
+                p.salvos,
+                p.interacoes,
+              ],
+            }))}
+          />
           <Fonte>
-            Foto diária de cada rede. Como as APIs só dão o número de hoje, o
-            histórico começa a contar no dia em que a ligação for feita (o
-            sistema guarda uma foto por dia).
+            {FONTE}. Data: timestamp, publishedAt ou create_time. Alcance e
+            salvos só no Instagram; YouTube e TikTok não entregam
+            compartilhamentos por vídeo, e o TikTok não entrega comentários por
+            vídeo nos campos usados (célula vazia, não zero).
           </Fonte>
         </Secao>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {ve("seguidores") && (
+          <Secao
+            titulo="Seguidores por rede"
+            calculo="Seguidores no fim de cada semana, pela foto diária de cada rede. Instagram e Facebook: followers_count gravado todo dia pela sincronização da Meta (06h45). YouTube: inscritos de hoje, voltando os ganhos e perdas de cada dia. TikTok: followers_count. Antes da primeira foto não há número. Cada mini-gráfico tem a própria escala."
+            exemplo={
+              redes.some((r) => r === "youtube" || r === "tiktok") &&
+              "YouTube e TikTok (Instagram e Facebook são reais)"
+            }
+            descricao="Últimas 12 semanas, no fim de cada semana. Cada rede na sua escala."
+          >
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {historico.map((h) => {
+                const primeiro = h.itens[0];
+                const ultimo = h.itens.at(-1);
+                const ganho =
+                  primeiro && ultimo ? ultimo.valor - primeiro.valor : null;
+                return (
+                  <li key={h.rede} className="flex flex-col gap-1">
+                    <p className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className="inline-flex items-center gap-1 font-medium">
+                        {REDES[h.rede].rotulo}
+                        {(h.rede === "youtube" || h.rede === "tiktok") && (
+                          <TriangleAlert
+                            className="size-3 text-amber-500"
+                            aria-label="Dados de exemplo"
+                          />
+                        )}
+                      </span>
+                      <span className="tabular-nums text-neutral-600">
+                        {ultimo ? formatarNumero(ultimo.valor) : "—"}
+                      </span>
+                    </p>
+                    {h.itens.length >= 2 ? (
+                      <MiniArea
+                        itens={h.itens}
+                        descricao={`Seguidores do ${REDES[h.rede].rotulo} por semana`}
+                      />
+                    ) : (
+                      <p className="py-3 text-xs text-neutral-500">
+                        Histórico ainda curto.
+                      </p>
+                    )}
+                    {ganho !== null && h.itens.length >= 2 && (
+                      <p className="text-xs text-neutral-500">
+                        {ganho >= 0 ? "+" : ""}
+                        {formatarNumero(ganho)} desde {primeiro?.rotulo}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <Fonte>
+              Foto diária de cada rede. Como as APIs só dão o número de hoje, o
+              histórico começa a contar no dia em que a ligação for feita (o
+              sistema guarda uma foto por dia).
+            </Fonte>
+          </Secao>
+        )}
         <Secao
           tom="escuro"
           titulo="O que engaja no Instagram"
@@ -408,7 +416,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         </Secao>
       </div>
 
-      {comInstagram && (
+      {ve("demografia") && comInstagram && (
         <Secao
           titulo={DEMOGRAFIA.titulo}
           descricao={DEMOGRAFIA.aviso}

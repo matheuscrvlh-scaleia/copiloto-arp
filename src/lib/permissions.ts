@@ -81,6 +81,8 @@ export const PERMISSOES = {
   "marketing.reputacao": "Ver avaliações da ARP e dos locatários-chave",
   "marketing.radar": "Ver tarefas, eventos e sinalizações do Asana",
   "marketing.eventos": "Ver a agenda de eventos publicada no site da ARP",
+  "marketing.publico":
+    "Ver o fluxo de pessoas contado pelas câmeras (sem imagem)",
   "marketing.parametros":
     "Editar as configurações do Marketing: locatários, landing pages, metas, regras de alerta, ronda e integrações",
   "marketing.exportar": "Baixar Excel e PDF das telas do Marketing que já vê",

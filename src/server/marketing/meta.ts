@@ -81,6 +81,14 @@ async function lerAnuncios(hoje: string): Promise<Lido<AnunciosMeta | null>> {
   }
 }
 
+/**
+ * Aquece o cache do dia (rotina das 00h10 e das 07h50): a chave tem "hoje",
+ * então sem isso a primeira pessoa do dia esperaria a leitura ao vivo.
+ */
+export async function aquecerMeta(hoje: string): Promise<void> {
+  await Promise.all([lerAnuncios(hoje), lerInstagram(hoje)]);
+}
+
 /** Meta Ads das últimas 18 semanas. */
 export async function anunciosMeta(): Promise<Leitura<AnunciosMeta>> {
   const { hoje } = await exigirModulo();

@@ -14,6 +14,8 @@ export const BLOCOS = {
   reputacao: "Reputação",
   asana: "Asana",
   ronda: "Ronda de ambiência",
+  benchmark: "Benchmark e marca",
+  visualizacao: "Visualização padrão",
   historico: "Histórico",
 } as const;
 export type Bloco = keyof typeof BLOCOS;
@@ -781,14 +783,26 @@ export const TABELAS_MKT: Record<string, TabelaMkt> = {
       "asana_tag_gratuita",
       "asana_tag_paga",
       "sinalizacao_antiga_dias",
+      "quadros_ocultos",
+      "termos_marca",
     ],
     fixas: [],
     incluiRemove: false,
+  },
+  "marketing.benchmark": {
+    bloco: "benchmark",
+    rotulo: "Referência do benchmark",
+    chave: "id",
+    editaveis: ["nome", "cidade", "instagram", "site", "ativo"],
+    fixas: [],
+    incluiRemove: true,
   },
 };
 
 /** A linha única de parâmetros guarda dois blocos: o da alteração vem dos campos. */
 function blocoDosParametros(campos: string[]): Bloco {
+  if (campos.includes("quadros_ocultos")) return "visualizacao";
+  if (campos.includes("termos_marca")) return "benchmark";
   if (
     campos.some(
       (c) => c.startsWith("asana_") || c === "sinalizacao_antiga_dias",
@@ -834,6 +848,11 @@ export const CAMPOS: Record<string, string> = {
   asana_tag_gratuita: "Tag de gratuita",
   asana_tag_paga: "Tag de paga",
   sinalizacao_antiga_dias: "Sinalização antiga (dias)",
+  quadros_ocultos: "Quadros escondidos",
+  termos_marca: "Termos da marca",
+  cidade: "Cidade",
+  instagram: "Instagram",
+  site: "Site",
 };
 
 /** Colunas que mudam sozinhas ou são a identidade da linha. */

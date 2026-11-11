@@ -3,6 +3,11 @@ import { cacheLife, cacheTag } from "next/cache";
 import { connection } from "next/server";
 import { cache } from "react";
 import { metaVigente } from "@/lib/indicadores";
+import {
+  type QuadroDe,
+  type TelaVisualizacao,
+  visiveisDa,
+} from "@/lib/marketing/visualizacao";
 import { hojeEmBrasilia } from "@/lib/os/tempo";
 import type { Permissao } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -24,6 +29,7 @@ export type LandingPage = Tabela<"landing_pages">;
 export type RegraAlerta = Tabela<"regras_alerta">;
 export type Tema = Tabela<"temas">;
 export type CodigoRonda = Tabela<"ronda_codigos">;
+export type Referencia = Tabela<"benchmark">;
 
 function falhar(erro: { message: string } | null): asserts erro is null {
   if (erro) throw new Error(`Falha ao ler o banco: ${erro.message}`);
@@ -142,6 +148,34 @@ async function regrasDoModulo(): Promise<RegraAlerta[]> {
   cacheLife("referencia");
   cacheTag(TAG.marketing.regras);
   const { data, error } = await mktAdmin().from("regras_alerta").select("*");
+  falhar(error);
+  return data ?? [];
+}
+
+/**
+ * Quais quadros da tela aparecem (visualização padrão de Configurações, igual
+ * para todos do módulo).
+ */
+export async function quadrosVisiveis<T extends TelaVisualizacao>(
+  tela: T,
+): Promise<(quadro: QuadroDe<T>) => boolean> {
+  return visiveisDa(tela, (await parametros()).quadros_ocultos);
+}
+
+/** Referências do Benchmark (ativas e inativas), por nome. */
+export const referenciasBenchmark = cache(async (): Promise<Referencia[]> => {
+  await exigirModulo();
+  return referenciasDoModulo();
+});
+
+async function referenciasDoModulo(): Promise<Referencia[]> {
+  "use cache";
+  cacheLife("referencia");
+  cacheTag(TAG.marketing.benchmark);
+  const { data, error } = await mktAdmin()
+    .from("benchmark")
+    .select("*")
+    .order("nome");
   falhar(error);
   return data ?? [];
 }
