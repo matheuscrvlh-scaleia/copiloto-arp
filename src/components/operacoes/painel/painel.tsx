@@ -45,7 +45,7 @@ export const ROTAS = {
   solar: "/operacoes/energia/solar",
   limpeza: "/operacoes/limpeza",
   obras: "/operacoes/obras",
-  diario: "/operacoes/diario",
+  diario: "/operacoes/obras",
   importacoes: "/operacoes/importacoes",
 } as const;
 
@@ -621,7 +621,7 @@ export function QuadroDiario({ d }: { d: PainelDiario }) {
           aplicativo for cadastrado em Administração › Integrações.
         </Vazio>
       )}
-      <AbrirTela href={ROTAS.diario} rotulo="Abrir Diário de Obra" />
+      <AbrirTela href={ROTAS.diario} rotulo="Abrir Obras" />
     </Secao>
   );
 }

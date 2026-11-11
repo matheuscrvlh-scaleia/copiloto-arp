@@ -29,7 +29,9 @@ import type { EstadoDiario } from "@/server/operacoes/diario";
 // texto), topo com "Dados do Diário de Obra de…" e o botão Atualizar agora,
 // avisos de falha e de token não configurado, e os formatos dos números.
 
-export const BASE = "/operacoes/diario";
+/** Tela única das obras (orçamento e execução). */
+export const OBRAS = "/operacoes/obras";
+export const BASE = `${OBRAS}/diario`;
 export const INTEGRACOES = "/admin/integracoes";
 export const FONTE = "Diário de Obra (aplicativo)";
 
@@ -245,11 +247,14 @@ export function TopoDiario({
   filtros,
   exportar,
   podeAtualizar,
+  outroExemplo,
 }: {
   estado: EstadoDiario;
   filtros?: string;
   exportar?: React.ReactNode;
   podeAtualizar: boolean;
+  /** Outra fonte da tela ainda de exemplo (ex.: o orçamento das obras). */
+  outroExemplo?: string;
 }) {
   const dadosDoApp = estado.ultima
     ? `Dados do Diário de Obra de ${quando(estado.ultima.em)}`
@@ -279,9 +284,14 @@ export function TopoDiario({
       filtros={filtros}
       aviso={aviso}
       exemplo={
-        estado.exemplo
-          ? "Diário de Obra (obras e relatórios fictícios até a primeira consulta)"
-          : undefined
+        [
+          estado.exemplo
+            ? "Diário de Obra (obras e relatórios fictícios até a primeira consulta)"
+            : null,
+          outroExemplo,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined
       }
       acoes={
         exportar || atualizar ? (

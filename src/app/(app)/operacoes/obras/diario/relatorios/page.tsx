@@ -14,6 +14,7 @@ import {
   AvisosDoDiario,
   BASE,
   FONTE,
+  OBRAS,
   quando,
   SemDados,
   TopoDiario,
@@ -77,7 +78,7 @@ const STATUS: Record<string, { rotulo: string; ids: number[] }> = {
 
 export default function Page({
   searchParams,
-}: PageProps<"/operacoes/diario/relatorios">) {
+}: PageProps<"/operacoes/obras/diario/relatorios">) {
   return (
     <>
       <PageHeader
@@ -173,7 +174,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Voltar href={BASE}>Painel de obras</Voltar>
+      <Voltar href={OBRAS}>Obras</Voltar>
       <FiltrosDiario
         periodo={{ de: periodo.de, ate: periodo.ate, max: ctx.hoje }}
         selecoes={[

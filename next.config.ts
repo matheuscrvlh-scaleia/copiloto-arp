@@ -62,6 +62,22 @@ const nextConfig: NextConfig = {
         destination: "/rh/configuracoes/cadastros#beneficios",
         permanent: false,
       },
+      // Diário de Obra entrou na tela única de Obras (11/11/2026).
+      {
+        source: "/operacoes/diario",
+        destination: "/operacoes/obras",
+        permanent: false,
+      },
+      {
+        source: "/operacoes/obras/diario",
+        destination: "/operacoes/obras",
+        permanent: false,
+      },
+      {
+        source: "/operacoes/diario/:path+",
+        destination: "/operacoes/obras/diario/:path+",
+        permanent: false,
+      },
     ];
   },
   headers() {

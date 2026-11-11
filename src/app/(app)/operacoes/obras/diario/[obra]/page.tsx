@@ -1,5 +1,6 @@
-import { ListChecks } from "lucide-react";
+import { ListChecks, Wallet } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import {
@@ -23,6 +24,7 @@ import {
   dias,
   FONTE,
   Negativo,
+  OBRAS,
   pct,
   pontos,
   SeloObra,
@@ -58,6 +60,7 @@ import {
   partesDosRelatorios,
   relatoriosDoPeriodo,
 } from "@/server/operacoes/diario";
+import { obraLigadaAoDiario } from "@/server/operacoes/obras";
 
 export const metadata: Metadata = { title: "Obra — Diário de Obra" };
 
@@ -82,7 +85,7 @@ type Obra = NonNullable<Awaited<ReturnType<typeof obraDoDiario>>>;
 export default function Page({
   params,
   searchParams,
-}: PageProps<"/operacoes/diario/[obra]">) {
+}: PageProps<"/operacoes/obras/diario/[obra]">) {
   return (
     <Suspense fallback={<Esqueleto />}>
       <Protegido permissao="operacoes.obras.diario">
@@ -105,7 +108,13 @@ async function Tela({
     contextoOp(),
     estadoDoDiario(),
   ]);
-  const obra = await obraDoDiario(decodeURIComponent(id));
+  const idDoApp = decodeURIComponent(id);
+  const [obra, orcamento] = await Promise.all([
+    obraDoDiario(idDoApp),
+    ctx.pode("operacoes.obras.ver")
+      ? obraLigadaAoDiario(idDoApp)
+      : Promise.resolve(null),
+  ]);
   if (!obra) notFound();
   const ficha = obra.ficha;
   const aba = (um(b, "aba") in ABAS ? um(b, "aba") : "cronograma") as Aba;
@@ -127,14 +136,23 @@ async function Tela({
 
   return (
     <div className="flex flex-col gap-6">
-      <Voltar href={BASE}>Painel de obras</Voltar>
+      <Voltar href={OBRAS}>Obras</Voltar>
       <div className="flex items-start gap-4">
         <FotoGrande url={ficha?.fotoUrl ?? null} nome={obra.nome} />
         <div className="min-w-0 flex-1">
           <PageHeader
             title={obra.nome}
-            description="Ficha, cronograma e o que os relatórios do aplicativo registraram. Só consulta."
+            description="Execução da obra: ficha, cronograma e o que os relatórios do aplicativo Diário de Obra registraram. Só consulta."
           />
+          {orcamento && (
+            <Link
+              href={`${OBRAS}/${orcamento.id}`}
+              className="-mt-2 inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400"
+            >
+              <Wallet className="size-4" aria-hidden />
+              Ver orçamento (previsto × realizado)
+            </Link>
+          )}
         </div>
       </div>
       <TopoDiario

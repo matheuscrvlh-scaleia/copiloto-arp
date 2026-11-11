@@ -265,11 +265,11 @@ async function Tela({
           )}
           {d.obra.diarioObraId && ctx.pode("operacoes.obras.diario") && (
             <Link
-              href={`/operacoes/diario/${encodeURIComponent(d.obra.diarioObraId)}`}
+              href={`/operacoes/obras/diario/${encodeURIComponent(d.obra.diarioObraId)}`}
               className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400"
             >
               <ClipboardList className="size-4" aria-hidden />
-              Ver no Diário de Obra
+              Ver execução (Diário de Obra)
             </Link>
           )}
         </div>

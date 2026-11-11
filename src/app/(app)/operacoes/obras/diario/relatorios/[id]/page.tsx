@@ -25,7 +25,7 @@ export const metadata: Metadata = { title: "Relatório do Diário de Obra" };
 
 export default function Page({
   params,
-}: PageProps<"/operacoes/diario/relatorios/[id]">) {
+}: PageProps<"/operacoes/obras/diario/relatorios/[id]">) {
   return (
     <Suspense
       fallback={

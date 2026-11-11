@@ -1,7 +1,6 @@
 import { HardHat, OctagonAlert, TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { type Coluna, Tabela } from "@/components/dashboard/tabela";
-import { formatarData, formatarNumero } from "@/lib/formato";
+import { formatarData } from "@/lib/formato";
 import {
   type AlertaDoPainel,
   type LinhaDoPainel,
@@ -10,24 +9,21 @@ import {
   statusDe,
 } from "@/lib/operacoes/diario";
 import type { CelulaExportar, ColunaExportar } from "@/lib/os/exportar";
-import {
-  BASE,
-  Barra,
-  dias,
-  Negativo,
-  pct,
-  pontos,
-  SeloObra,
-  SeloRelatorio,
-} from "./comum";
+import { BASE, Negativo, pct, pontos } from "./comum";
 
-// Tela 1 — Painel de obras: a lista, o gráfico de avanço físico × prazo
-// consumido e os alertas.
+// Peças da execução na tela de Obras: foto, exportação, o gráfico de avanço
+// físico × prazo consumido e os alertas.
 
-const hrefDaObra = (id: string) => `${BASE}/${encodeURIComponent(id)}`;
+export const hrefDaObra = (id: string) => `${BASE}/${encodeURIComponent(id)}`;
 
 /** Foto da obra direto do aplicativo (só endereço http(s), validado na entrada). */
-function FotoDaObra({ url, nome }: { url: string | null; nome: string }) {
+export function FotoDaObra({
+  url,
+  nome,
+}: {
+  url: string | null;
+  nome: string;
+}) {
   if (!url)
     return (
       <span
@@ -46,157 +42,6 @@ function FotoDaObra({ url, nome }: { url: string | null; nome: string }) {
       referrerPolicy="no-referrer"
       className="size-10 shrink-0 rounded-xl object-cover ring-1 ring-neutral-900/10"
     />
-  );
-}
-
-const COLUNAS: Coluna<LinhaDoPainel>[] = [
-  {
-    titulo: "Obra",
-    inteiro: true,
-    valor: (l) => (
-      <Link
-        href={hrefDaObra(l.obra.id)}
-        className="flex items-center gap-3 font-medium text-neutral-900 underline-offset-4 hover:underline"
-      >
-        <FotoDaObra url={l.obra.ficha?.fotoUrl ?? null} nome={l.obra.nome} />
-        <span className="flex flex-col">
-          {l.obra.nome}
-          <span className="text-xs font-normal text-neutral-500">
-            {[l.obra.grupo, l.obra.responsavel].filter(Boolean).join(" · ") ||
-              "—"}
-          </span>
-        </span>
-      </Link>
-    ),
-  },
-  { titulo: "Status", valor: (l) => <SeloObra id={l.obra.statusId} /> },
-  {
-    titulo: "Cliente · contrato",
-    classe: "hidden xl:table-cell",
-    valor: (l) => (
-      <span className="flex flex-col">
-        {l.obra.ficha?.cliente ?? "—"}
-        <span className="text-xs text-neutral-500">
-          {l.obra.ficha?.numeroContrato
-            ? `Contrato ${l.obra.ficha.numeroContrato}`
-            : "Sem contrato"}
-        </span>
-      </span>
-    ),
-  },
-  {
-    titulo: "Início · fim",
-    valor: (l) => (
-      <span className="flex flex-col whitespace-nowrap tabular-nums">
-        {formatarData(l.obra.dataInicio)}
-        <span className="text-xs text-neutral-500">
-          {formatarData(l.obra.dataFim)}
-        </span>
-      </span>
-    ),
-  },
-  {
-    titulo: "Prazo",
-    numero: true,
-    valor: (l) => dias(l.obra.prazo.contratual),
-  },
-  {
-    titulo: "Decorrido",
-    numero: true,
-    valor: (l) => dias(l.obra.prazo.decorrido),
-  },
-  {
-    titulo: "A vencer",
-    numero: true,
-    valor: (l) => (
-      <span className={l.vencido ? "font-medium text-red-700" : ""}>
-        {dias(l.obra.prazo.aVencer)}
-      </span>
-    ),
-  },
-  {
-    titulo: "Avanço físico",
-    numero: true,
-    valor: (l) => <Barra valor={l.obra.realizado} />,
-  },
-  { titulo: "Prazo consumido", numero: true, valor: (l) => pct(l.consumido) },
-  {
-    titulo: "Desvio",
-    numero: true,
-    valor: (l) => <Negativo valor={l.desvio} texto={pontos(l.desvio)} />,
-  },
-  {
-    titulo: "Relatórios",
-    numero: true,
-    valor: (l) => formatarNumero(l.relatorios),
-  },
-  {
-    titulo: "Fotos",
-    numero: true,
-    valor: (l) =>
-      l.obra.ficha?.visaoGeral?.total?.fotos === null ||
-      l.obra.ficha?.visaoGeral?.total?.fotos === undefined
-        ? "—"
-        : formatarNumero(l.obra.ficha.visaoGeral.total.fotos),
-  },
-  {
-    titulo: "Último relatório",
-    valor: (l) =>
-      l.ultimo ? (
-        <Link
-          href={`${BASE}/relatorios/${encodeURIComponent(l.ultimo.id)}`}
-          className="flex flex-col items-start gap-1 whitespace-nowrap underline-offset-4 hover:underline"
-        >
-          <span className="tabular-nums">
-            {formatarData(l.ultimo.data)} · nº {l.ultimo.numero}
-          </span>
-          <SeloRelatorio id={l.ultimo.statusId} />
-        </Link>
-      ) : (
-        <span className="text-neutral-400">Nenhum</span>
-      ),
-  },
-  {
-    titulo: "Dias sem relatório",
-    numero: true,
-    valor: (l) =>
-      l.semRelatorio.length > 0 ? (
-        <span className="inline-flex items-center gap-1 font-medium text-amber-900">
-          <TriangleAlert className="size-3.5" aria-hidden />
-          {formatarNumero(l.semRelatorio.length)}
-        </span>
-      ) : (
-        "0"
-      ),
-  },
-];
-
-export function TabelaDoPainel({ linhas }: { linhas: LinhaDoPainel[] }) {
-  return (
-    <div data-guia="op-diario-obras">
-      <Tabela
-        colunas={COLUNAS}
-        linhas={linhas}
-        chave={(l) => l.obra.id}
-        vazio="Nenhuma obra com estes filtros."
-        rodape={[
-          `${formatarNumero(linhas.length)} ${linhas.length === 1 ? "obra" : "obras"}`,
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          formatarNumero(linhas.reduce((s, l) => s + l.relatorios, 0)),
-          "",
-          "",
-          formatarNumero(linhas.reduce((s, l) => s + l.semRelatorio.length, 0)),
-        ]}
-      />
-    </div>
   );
 }
 
@@ -316,19 +161,37 @@ export function AvancoPorPrazo({ linhas }: { linhas: LinhaDoPainel[] }) {
   );
 }
 
-export function Alertas({ alertas }: { alertas: AlertaDoPainel[] }) {
+/** Alerta da tela de Obras (do Diário ou do orçamento), já com o link. */
+export interface AlertaDaTela {
+  chave: string;
+  grave: boolean;
+  texto: string;
+  href: string;
+}
+
+/** Alertas do Diário com o link para a obra no Diário. */
+export const alertasDoDiario = (alertas: AlertaDoPainel[]): AlertaDaTela[] =>
+  alertas.map((a) => ({
+    chave: `diario-${a.obraId}-${a.tipo}`,
+    grave: a.grave,
+    texto: a.texto,
+    href: hrefDaObra(a.obraId),
+  }));
+
+export function Alertas({
+  alertas,
+  vazio,
+}: {
+  alertas: AlertaDaTela[];
+  vazio: string;
+}) {
   if (alertas.length === 0)
-    return (
-      <p className="py-2 text-sm text-neutral-500">
-        Nenhum alerta: sem prazo vencido, desvio abaixo do limite, dia sem
-        relatório ou obra paralisada.
-      </p>
-    );
+    return <p className="py-2 text-sm text-neutral-500">{vazio}</p>;
   return (
     <ul className="flex flex-col gap-2" data-guia="op-diario-alertas">
       {alertas.map((a) => (
         <li
-          key={`${a.obraId}-${a.tipo}`}
+          key={a.chave}
           className={`flex items-start gap-2 rounded-2xl px-4 py-3 text-sm ${a.grave ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-900"}`}
         >
           {a.grave ? (
@@ -338,10 +201,7 @@ export function Alertas({ alertas }: { alertas: AlertaDoPainel[] }) {
           )}
           <span>
             <span className="sr-only">{a.grave ? "Grave: " : "Atenção: "}</span>
-            <Link
-              href={hrefDaObra(a.obraId)}
-              className="underline-offset-4 hover:underline"
-            >
+            <Link href={a.href} className="underline-offset-4 hover:underline">
               {a.texto}
             </Link>
           </span>

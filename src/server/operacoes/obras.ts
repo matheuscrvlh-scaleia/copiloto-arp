@@ -355,3 +355,21 @@ export async function obrasDoDiario(): Promise<ObraDoDiario[]> {
   falhar(error);
   return data ?? [];
 }
+
+/**
+ * Obra do orçamento ligada a uma obra do Diário de Obra, para o atalho da
+ * ficha do Diário. Com a sessão (RLS de operacoes.obras.ver).
+ */
+export async function obraLigadaAoDiario(
+  diarioObraId: string,
+): Promise<{ id: string; nome: string } | null> {
+  const { data, error } = await (await op())
+    .from("obras")
+    .select("id, nome")
+    .eq("diario_obra_id", diarioObraId)
+    .order("nome")
+    .limit(1)
+    .maybeSingle();
+  falhar(error);
+  return data;
+}

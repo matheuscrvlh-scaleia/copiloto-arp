@@ -483,13 +483,8 @@ export const navigation: NavSection[] = [
         href: "/operacoes/obras",
         label: "Obras",
         icone: "obras",
-        permissao: "operacoes.obras.ver",
-      },
-      {
-        href: "/operacoes/diario",
-        label: "Diário de Obra",
-        icone: "diario",
-        permissao: "operacoes.obras.diario",
+        // Orçamento (previsto × realizado) e execução (Diário de Obra).
+        permissao: ["operacoes.obras.ver", "operacoes.obras.diario"],
       },
       {
         href: "/operacoes/importacoes",

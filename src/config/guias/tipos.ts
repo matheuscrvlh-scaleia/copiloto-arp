@@ -129,7 +129,6 @@ export type Alvo =
   | "op-obras-confirmar"
   // Operações: Diário de Obra
   | "op-diario-atualizar"
-  | "op-diario-obras"
   | "op-diario-avanco-prazo"
   | "op-diario-alertas"
   | "op-diario-cronograma"

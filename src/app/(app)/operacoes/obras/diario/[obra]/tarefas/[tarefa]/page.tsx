@@ -91,7 +91,7 @@ const COLUNAS: Coluna<PassoDaTarefa>[] = [
 
 export default function Page({
   params,
-}: PageProps<"/operacoes/diario/[obra]/tarefas/[tarefa]">) {
+}: PageProps<"/operacoes/obras/diario/[obra]/tarefas/[tarefa]">) {
   return (
     <Suspense
       fallback={

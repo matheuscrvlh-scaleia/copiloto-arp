@@ -600,27 +600,47 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
   // Obras
   // -------------------------------------------------------------------------
   "/operacoes/obras": {
-    versao: 1,
+    versao: 2,
     passos: [
       abertura(
-        "Obras · previsto e realizado",
-        "O desembolso de cada obra: o previsto na planilha de orçamento contra o realizado lançado, mês a mês. A obra entra pela importação da planilha de orçamento; avanço físico e relatórios ficam no Diário de Obra.",
+        "Obras",
+        "Cada obra num lugar só: a execução lançada no aplicativo Diário de Obra (status, prazo, avanço físico e relatórios) e o orçamento da planilha (previsto × realizado, mês a mês). Só o orçamento entra por aqui; o Diário é só consulta e chega sozinho.",
       ),
       p(
         "op-obras-importar-botao",
         "Passo 1. Importe o orçamento",
         "Envie a planilha de estimativa de custo e desembolso como veio. Cada planilha nova da mesma obra vira uma revisão (R00, R01…); a anterior fica guardada.",
       ),
+      p(
+        "op-diario-atualizar",
+        "Passo 2. De quando são os dados",
+        "A última consulta ao aplicativo que deu certo. A consulta é automática, no intervalo de Parâmetros; <b>Atualizar agora</b> busca na hora.",
+      ),
       filtros(
-        "<b>Passo 2.</b> Escolha a situação e o mês de referência: o ritmo é medido até ele.",
+        "<b>Passo 3.</b> Filtre por status da obra no aplicativo, grupo e responsável.",
       ),
       cartoes(
-        "<b>Passo 3.</b> Orçado nas revisões vigentes, realizado acumulado e quantas obras estão fora do ritmo ou com estouro. Clique num cartão para filtrar.",
+        "<b>Passo 4.</b> Em cima, a execução: obras em andamento, prazo vencido, avanço físico médio e relatórios a aprovar. Embaixo, o orçamento: orçado, realizado e obras fora do ritmo ou com estouro. Clique num cartão para filtrar.",
       ),
       p(
         "op-obras-cartao",
-        "Passo 4. Abra a obra",
-        "Revisão vigente, orçado, realizado, % executado e o ritmo (realizado ÷ previsto até o mês). Fora do limite de Parâmetros, fica em alerta. Clique para abrir.",
+        "Passo 5. Obra a obra",
+        "Cada cartão junta a execução (avanço físico contra o prazo consumido, prazos, relatórios) e o orçamento (orçado, realizado, ritmo) da mesma obra. <b>Abrir</b> leva ao detalhe de cada parte.",
+      ),
+      p(
+        "op-diario-avanco-prazo",
+        "Passo 6. Avanço × prazo",
+        "Duas barras por obra, na mesma escala. Avanço físico abaixo do prazo consumido é atraso.",
+      ),
+      p(
+        "op-diario-alertas",
+        "Passo 7. Alertas",
+        "Prazo vencido, desvio abaixo do limite, dia sem relatório, obra paralisada, estouro do orçamento e desembolso abaixo do previsto. Clique para abrir a obra.",
+      ),
+      p(
+        "op-obras-editar",
+        "Na obra: ligue ao Diário",
+        "Em <b>Dados da obra</b>, escolha a obra correspondente no Diário de Obra: o cartão passa a juntar orçamento e execução da mesma obra.",
       ),
       p(
         "op-obras-curva",
@@ -628,19 +648,9 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
         "Previsto da revisão e realizado lançado, acumulados mês a mês. Realizado abaixo da linha é desembolso atrasado; acima, adiantado ou estouro.",
       ),
       p(
-        "op-obras-ritmo",
-        "Na obra: o ritmo",
-        "Realizado contra previsto até o mês de referência, com o limite de desvio de Parâmetros.",
-      ),
-      p(
         "op-obras-por-etapa",
         "Na obra: por etapa",
         "Previsto contra realizado de cada etapa. Estouro é o realizado acima do previsto além da tolerância de Parâmetros.",
-      ),
-      p(
-        "aba:Mês a mês",
-        "Na obra: mês a mês",
-        "Uma linha por etapa e uma coluna por mês, com previsto, realizado e totais. Use o período nos filtros para encurtar.",
       ),
       p(
         "op-obras-lancar",
@@ -653,77 +663,23 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
         "Duas revisões lado a lado, etapa por etapa, com a diferença. Desfazer a importação em Operações › Importações volta à revisão anterior.",
       ),
       p(
-        "op-obras-editar",
-        "Na obra: ligue ao Diário",
-        "Em <b>Dados da obra</b>, escolha a obra correspondente no Diário de Obra: o painel junta desembolso e avanço físico da mesma obra.",
-      ),
-    ],
-  },
-
-  // -------------------------------------------------------------------------
-  // Diário de Obra
-  // -------------------------------------------------------------------------
-  "/operacoes/diario": {
-    versao: 1,
-    passos: [
-      abertura(
-        "Diário de Obra",
-        "Obras, prazos, avanço físico e relatórios lançados no aplicativo Diário de Obra. Só consulta: tudo é lançado e aprovado no aplicativo e chega aqui sozinho. Sem o token da API em Administração › Integrações, a tela fica vazia.",
-      ),
-      p(
-        "op-diario-atualizar",
-        "Passo 1. De quando são os dados",
-        "A última consulta que deu certo. A consulta é automática, no intervalo de Parâmetros; <b>Atualizar agora</b> busca na hora.",
-      ),
-      filtros(
-        "<b>Passo 2.</b> Filtre por status da obra, grupo e responsável.",
-      ),
-      cartoes(
-        "<b>Passo 3.</b> Obras em andamento, prazo vencido, avanço físico médio e relatórios a aprovar no aplicativo. A meta é nenhuma obra com prazo vencido.",
-      ),
-      p(
-        "op-diario-obras",
-        "Passo 4. Obra a obra",
-        "Prazo, decorrido, avanço físico, prazo consumido, desvio e dias sem relatório. Clique para abrir a obra.",
-      ),
-      p(
-        "op-diario-avanco-prazo",
-        "Passo 5. Avanço × prazo",
-        "Duas barras por obra, na mesma escala. Avanço físico abaixo do prazo consumido é atraso.",
-      ),
-      p(
-        "op-diario-alertas",
-        "Passo 6. Alertas",
-        "Prazo vencido, desvio abaixo do limite de Parâmetros, dia sem relatório e obra paralisada. Abra a obra para entender o motivo.",
-      ),
-      p(
         "op-diario-cronograma",
-        "Na obra: o cronograma",
+        "Na execução: o cronograma",
         "Etapas e tarefas com o percentual do último relatório. Clique numa tarefa para ver como ela evoluiu.",
       ),
       p(
         "aba:Ocorrências",
-        "Na obra: entenda o atraso",
+        "Na execução: entenda o atraso",
         "As ocorrências dos relatórios do período, com os tipos marcados, a tarefa e as fotos. É onde aparece o motivo de uma obra atrasada.",
       ),
       p(
-        "op-diario-efetivo",
-        "Na obra: efetivo e clima",
-        "Quantas pessoas trabalharam em cada dia de relatório e como estava o tempo.",
-      ),
-      p(
         "op-diario-galeria",
-        "Na obra: fotos",
+        "Na execução: fotos",
         "As fotos dos relatórios do período. Abrem do aplicativo, numa aba nova.",
-      ),
-      p(
-        "op-diario-tarefa-grafico",
-        "Na tarefa",
-        "O percentual ao longo dos relatórios em que a tarefa aparece. Percentual parado por dias seguidos é sinal de problema.",
       ),
     ],
   },
-  "/operacoes/diario/relatorios": {
+  "/operacoes/obras/diario/relatorios": {
     versao: 1,
     passos: [
       abertura(
