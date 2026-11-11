@@ -105,6 +105,11 @@ export const navigation: NavSection[] = [
     titulo: "Gestão",
     itens: [
       { href: INICIO, label: "Dashboard", icone: "dashboard", permissao: null },
+    ],
+  },
+  {
+    titulo: "Relatórios",
+    itens: [
       {
         href: "/relatorios",
         label: "Relatórios",
