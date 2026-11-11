@@ -6,20 +6,19 @@ import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { FormularioPublico } from "@/components/formularios/formulario-publico";
 import { SemAcesso } from "@/components/protegido";
+import { hexDaCor } from "@/lib/formularios/formulario";
 import {
   contexto,
   formularioPorId,
   rotaDoFormulario,
 } from "@/server/formularios/base";
 
-export const metadata: Metadata = { title: "Prévia do formulário" };
+export const metadata: Metadata = { title: "Prévia do relatório" };
 
 // Prévia: o formulário como quem recebe o link vê, inclusive em rascunho.
 // Confere as respostas como o link, mas não grava nada.
 
-export default function Page({
-  params,
-}: PageProps<"/formularios/[id]/previa">) {
+export default function Page({ params }: PageProps<"/relatorios/[id]/previa">) {
   return (
     <Suspense
       fallback={
@@ -36,7 +35,7 @@ export default function Page({
 
 async function Tela({
   params,
-}: Pick<PageProps<"/formularios/[id]/previa">, "params">) {
+}: Pick<PageProps<"/relatorios/[id]/previa">, "params">) {
   const [{ id }, ctx] = await Promise.all([params, contexto()]);
   if (!ctx.ve) return <SemAcesso />;
   const f = await formularioPorId(id);
@@ -48,13 +47,16 @@ async function Tela({
         className="inline-flex w-fit items-center gap-1.5 text-sm text-neutral-500 transition hover:text-neutral-900"
       >
         <ArrowLeft className="size-4" aria-hidden />
-        Voltar ao formulário
+        Voltar ao relatório
       </Link>
       <FormularioPublico
         titulo={f.titulo}
         descricao={f.descricao}
         campos={f.campos}
         mensagemFinal={f.mensagem_final}
+        cor={hexDaCor(f.cor)}
+        paginar={f.paginas}
+        redirecionarPara={f.redirecionar_para}
         previa
       />
     </div>

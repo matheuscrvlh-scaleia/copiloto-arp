@@ -51,7 +51,7 @@ export const conteudoSchema = z.object({
   titulo: z
     .string()
     .trim()
-    .min(1, "Dê um título ao formulário.")
+    .min(1, "Dê um título ao relatório.")
     .max(200, "Título com no máximo 200 caracteres."),
   descricao: z.string().trim().max(5000).default(""),
   campos: camposSchema,
@@ -95,4 +95,54 @@ export function problemaParaPublicar(campos: Campo[]): string | null {
   return campos.some(recebeResposta)
     ? null
     : "Inclua ao menos uma pergunta antes de publicar.";
+}
+
+// ---------------------------------------------------------------------------
+// Aparência do link
+// ---------------------------------------------------------------------------
+
+/** Cores de destaque do link (barra do topo, progresso e botões). */
+export const CORES = {
+  grafite: { rotulo: "Grafite", hex: "#171717" },
+  azul: { rotulo: "Azul", hex: "#1d4ed8" },
+  verde: { rotulo: "Verde", hex: "#15803d" },
+  vinho: { rotulo: "Vinho", hex: "#9f1239" },
+  laranja: { rotulo: "Laranja", hex: "#c2410c" },
+  roxo: { rotulo: "Roxo", hex: "#6d28d9" },
+} as const;
+export type Cor = keyof typeof CORES;
+export const NOMES_DAS_CORES = Object.keys(CORES) as Cor[];
+
+export const hexDaCor = (cor: string): string =>
+  (CORES as Record<string, { hex: string }>)[cor]?.hex ?? CORES.grafite.hex;
+
+/** Cor, páginas e para onde levar depois do envio. */
+export const aparenciaSchema = z.object({
+  cor: z.enum(NOMES_DAS_CORES as [Cor, ...Cor[]], {
+    error: "Escolha uma das cores.",
+  }),
+  paginas: z.boolean(),
+  /** Vazio: mostra a mensagem de agradecimento. */
+  redirecionar_para: z
+    .string()
+    .trim()
+    .max(500, "Endereço com no máximo 500 caracteres.")
+    .refine(
+      (v) => !v || /^https:\/\/[^\s/$.?#][^\s]*$/i.test(v),
+      "O endereço precisa começar com https://",
+    )
+    .transform((v) => v || null),
+});
+
+/**
+ * Uma seção por página: cada título de seção abre uma página nova (o que vem
+ * antes da primeira seção fica na primeira). Devolve os ids de cada página.
+ */
+export function paginasDosCampos(campos: Campo[]): string[][] {
+  const paginas: string[][] = [];
+  for (const c of campos) {
+    if (c.tipo === "secao" || paginas.length === 0) paginas.push([]);
+    paginas.at(-1)?.push(c.id);
+  }
+  return paginas.filter((p) => p.length > 0);
 }

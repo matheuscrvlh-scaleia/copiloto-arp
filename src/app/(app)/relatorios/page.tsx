@@ -8,8 +8,8 @@ import {
 import { Nota, Secao } from "@/components/dashboard/tabela";
 import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import { CartaoDaTela, Cartoes, hrefCom } from "@/components/dashboard/tela";
-import { FormAcao } from "@/components/form-acao";
 import { SeloSituacao } from "@/components/formularios/blocos";
+import { NovoRelatorio } from "@/components/formularios/novo";
 import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { formatarDataHora, formatarNumero } from "@/lib/formato";
@@ -18,7 +18,6 @@ import {
   SITUACOES,
   type Situacao,
 } from "@/lib/formularios/formulario";
-import { criarFormulario } from "@/server/formularios/acoes/formularios";
 import {
   contexto,
   listaDeFormularios,
@@ -26,7 +25,7 @@ import {
   rotaDoFormulario,
 } from "@/server/formularios/base";
 
-export const metadata: Metadata = { title: "Formulários" };
+export const metadata: Metadata = { title: "Relatórios" };
 
 const DETALHE: Record<Situacao, string> = {
   publicado: "recebendo respostas pelo link",
@@ -34,12 +33,12 @@ const DETALHE: Record<Situacao, string> = {
   encerrado: "link fechado; respostas guardadas",
 };
 
-export default function Page({ searchParams }: PageProps<"/formularios">) {
+export default function Page({ searchParams }: PageProps<"/relatorios">) {
   return (
     <>
       <PageHeader
-        title="Formulários"
-        description="Monte um formulário com as perguntas que quiser, publique e mande o link: quem recebe responde sem login, pelo celular. As respostas chegam aqui, com resumo por pergunta e Excel."
+        title="Relatórios"
+        description="Monte um relatório com as perguntas que quiser (em branco ou de um modelo), publique e mande o link ou o QR code: quem recebe responde sem login, pelo celular. As respostas chegam aqui, com gráficos, Excel e um chat para perguntar sobre elas."
       />
       <Suspense fallback={<Esqueleto />}>
         <Tela busca={searchParams} />
@@ -51,7 +50,7 @@ export default function Page({ searchParams }: PageProps<"/formularios">) {
 async function Tela({
   busca,
 }: {
-  busca: PageProps<"/formularios">["searchParams"];
+  busca: PageProps<"/relatorios">["searchParams"];
 }) {
   const [ctx, b] = await Promise.all([contexto(), busca]);
   if (!ctx.ve) return <SemAcesso />;
@@ -64,7 +63,7 @@ async function Tela({
   const respostas = todos.reduce((s, f) => s + f.total_respostas, 0);
 
   const colunas = [
-    { titulo: "Formulário" },
+    { titulo: "Relatório" },
     { titulo: "Situação" },
     { titulo: "Perguntas", numero: true },
     { titulo: "Respostas", numero: true },
@@ -75,12 +74,8 @@ async function Tela({
   return (
     <div className="flex flex-col gap-6">
       {ctx.edita && (
-        <div data-guia="formularios-novo" className="flex flex-wrap gap-2">
-          <FormAcao
-            acao={criarFormulario}
-            rotulo="+ Novo formulário"
-            rotuloEnviando="Criando…"
-          />
+        <div data-guia="formularios-novo" className="flex flex-col">
+          <NovoRelatorio />
         </div>
       )}
 
@@ -91,7 +86,7 @@ async function Tela({
             titulo={`${ROTULO_SITUACAO[s]}s`}
             valor={formatarNumero(todos.filter((f) => f.efetiva === s).length)}
             detalhe={DETALHE[s]}
-            fonte="formulários do sistema"
+            fonte="relatórios do sistema"
             href={hrefCom(ROTA_FORMULARIOS, b, {
               situacao: situacao === s ? null : s,
             })}
@@ -101,28 +96,28 @@ async function Tela({
         <CartaoDaTela
           titulo="Respostas recebidas"
           valor={formatarNumero(respostas)}
-          detalhe="somando todos os formulários"
+          detalhe="somando todos os relatórios"
           fonte="respostas enviadas pelos links"
         />
       </Cartoes>
 
       <Secao
-        titulo="Todos os formulários"
-        descricao={`${situacao ? `Só os ${ROTULO_SITUACAO[situacao].toLowerCase()}s (clique no cartão de novo para ver todos). ` : ""}Clique no formulário para ver as respostas, editar as perguntas ou pegar o link.`}
+        titulo="Todos os relatórios"
+        descricao={`${situacao ? `Só os ${ROTULO_SITUACAO[situacao].toLowerCase()}s (clique no cartão de novo para ver todos). ` : ""}Clique no relatório para ver as respostas, editar as perguntas ou pegar o link.`}
       >
         <TabelaLista
           colunas={colunas}
           ordemInicial={{ coluna: 5, desc: true }}
           vazio={
             todos.length
-              ? "Nenhum formulário nessa situação."
+              ? "Nenhum relatório nessa situação."
               : ctx.edita
-                ? "Nenhum formulário ainda. Comece por “Novo formulário”."
-                : "Nenhum formulário ainda."
+                ? "Nenhum relatório ainda. Comece por “Novo relatório”."
+                : "Nenhum relatório ainda."
           }
           placeholder="Buscar pelo título…"
           rodape={[
-            `${formatarNumero(lista.length)} ${lista.length === 1 ? "formulário" : "formulários"}`,
+            `${formatarNumero(lista.length)} ${lista.length === 1 ? "relatório" : "relatórios"}`,
             "",
             "",
             formatarNumero(lista.reduce((s, f) => s + f.total_respostas, 0)),

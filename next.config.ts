@@ -37,6 +37,17 @@ const nextConfig: NextConfig = {
   // Telas que viraram abas ou filtros (links e favoritos antigos).
   redirects() {
     return [
+      // Formulários virou Relatórios (11/11/2026).
+      {
+        source: "/formularios",
+        destination: "/relatorios",
+        permanent: false,
+      },
+      {
+        source: "/formularios/:caminho*",
+        destination: "/relatorios/:caminho*",
+        permanent: false,
+      },
       {
         source: "/os/abertos-por-mim",
         destination: "/os?aberto_por=eu",

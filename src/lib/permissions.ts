@@ -122,10 +122,10 @@ export const PERMISSOES = {
     "Alterar as tabelas de apoio (de-para de fontes, faixas, preços de eventos, modelos)",
   "comercial.exportar": "Exportar Excel e PDF em qualquer tela do módulo",
 
-  "formularios.ver": "Ver os formulários e as respostas recebidas",
+  "formularios.ver": "Ver os relatórios e as respostas recebidas",
   "formularios.editar":
-    "Criar, editar, publicar, encerrar e excluir formulários e respostas",
-  "formularios.exportar": "Baixar as respostas em Excel e PDF",
+    "Criar, editar, publicar, encerrar e excluir relatórios e respostas",
+  "formularios.exportar": "Baixar as respostas dos relatórios em Excel e PDF",
 
   "calendario.ver": "Abrir o calendário e ver o que foi compartilhado com você",
   "calendario.criar":
@@ -186,5 +186,5 @@ export const MODULOS_DE_PERMISSAO = [
   { prefixo: "comercial.", titulo: "Comercial" },
   { prefixo: "operacoes.", titulo: "Operações" },
   { prefixo: "calendario.", titulo: "Calendário" },
-  { prefixo: "formularios.", titulo: "Formulários" },
+  { prefixo: "formularios.", titulo: "Relatórios" },
 ] as const;

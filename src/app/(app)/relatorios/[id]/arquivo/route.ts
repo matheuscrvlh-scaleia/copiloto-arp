@@ -6,7 +6,7 @@ import { linkParaBaixar } from "@/server/formularios/arquivos";
 
 export async function GET(
   request: NextRequest,
-  { params }: RouteContext<"/formularios/[id]/arquivo">,
+  { params }: RouteContext<"/relatorios/[id]/arquivo">,
 ) {
   const { id } = await params;
   const caminho = request.nextUrl.searchParams.get("caminho") ?? "";

@@ -7,11 +7,9 @@ import { EditorDoFormulario } from "@/components/formularios/editor";
 import { SemAcesso } from "@/components/protegido";
 import { contexto, formularioPorId } from "@/server/formularios/base";
 
-export const metadata: Metadata = { title: "Perguntas do formulário" };
+export const metadata: Metadata = { title: "Perguntas do relatório" };
 
-export default function Page({
-  params,
-}: PageProps<"/formularios/[id]/editar">) {
+export default function Page({ params }: PageProps<"/relatorios/[id]/editar">) {
   return (
     <Suspense
       fallback={
@@ -29,7 +27,7 @@ export default function Page({
 
 async function Tela({
   params,
-}: Pick<PageProps<"/formularios/[id]/editar">, "params">) {
+}: Pick<PageProps<"/relatorios/[id]/editar">, "params">) {
   const [{ id }, ctx] = await Promise.all([params, contexto()]);
   if (!ctx.edita) return <SemAcesso />;
   const f = await formularioPorId(id);

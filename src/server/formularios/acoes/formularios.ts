@@ -5,12 +5,9 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoAcao } from "@/components/form-acao";
+import { type Campo, problemasDosCampos } from "@/lib/formularios/campos";
 import {
-  type Campo,
-  novoCampo,
-  problemasDosCampos,
-} from "@/lib/formularios/campos";
-import {
+  aparenciaSchema,
   configuracoesSchema,
   conteudoSchema,
   deBrasilia,
@@ -18,6 +15,11 @@ import {
   type Situacao,
   situacaoEfetiva,
 } from "@/lib/formularios/formulario";
+import {
+  MODELOS,
+  NOMES_DOS_MODELOS,
+  type NomeDoModelo,
+} from "@/lib/formularios/modelos";
 import type { Json } from "@/lib/supabase/database.types";
 import { podeAgora } from "@/server/auth";
 import {
@@ -33,12 +35,12 @@ import {
   rotaDoFormulario,
 } from "../base";
 
-// Formulários: o que a equipe grava, com a sessão (o RLS confere
+// Relatórios (antigo Formulários): o que a equipe grava, com a sessão (o RLS confere
 // formularios.editar de novo). Formulário e respostas não têm cache no
 // servidor: basta o refresh(). O envio pelo link fica em responder.ts.
 
 const SEM_PERMISSAO: EstadoAcao = {
-  erro: "Você não tem permissão para editar formulários.",
+  erro: "Você não tem permissão para editar relatórios.",
 };
 const FALHOU: EstadoAcao = { erro: "Não foi possível salvar. Tente de novo." };
 
@@ -48,24 +50,28 @@ async function podeEditar(): Promise<boolean> {
   return (await contexto()).edita;
 }
 
-/** "Novo formulário": rascunho com uma pergunta de exemplo; abre o editor. */
+/**
+ * "Novo relatório": rascunho a partir de um modelo (em branco, visita,
+ * vistoria…); abre o editor.
+ */
 export async function criarFormulario(
   _: EstadoAcao,
-  _form: FormData,
+  form: FormData,
 ): Promise<EstadoAcao> {
   const ctx = await contexto();
   if (!ctx.edita) return SEM_PERMISSAO;
-  const primeira: Campo = {
-    ...novoCampo("texto"),
-    titulo: "Nome completo",
-    obrigatorio: true,
-  };
+  const nome = z
+    .enum(NOMES_DOS_MODELOS as [NomeDoModelo, ...NomeDoModelo[]])
+    .catch("branco")
+    .parse(form.get("modelo"));
+  const m = MODELOS[nome].criar();
   const { data, error } = await (await frm())
     .from("formularios")
     .insert({
-      titulo: "Formulário sem título",
-      campos: [primeira] as unknown as Json,
-      mensagem_final: "Recebemos a sua resposta. Obrigado!",
+      titulo: m.titulo,
+      descricao: m.descricao,
+      campos: m.campos as unknown as Json,
+      mensagem_final: m.mensagem_final,
       criado_por: ctx.usuario.id,
     })
     .select("id")
@@ -93,7 +99,7 @@ export async function salvarConteudo(
   const d = conteudoSchema.safeParse(c);
   if (!ok.success) return FALHOU;
   if (!d.success)
-    return { erro: d.error.issues[0]?.message ?? "Confira o formulário." };
+    return { erro: d.error.issues[0]?.message ?? "Confira o relatório." };
   const problemas = problemasDosCampos(d.data.campos);
   if (problemas.length) return { erro: problemas[0], problemas };
 
@@ -106,7 +112,7 @@ export async function salvarConteudo(
   if (atual.error || !atual.data) return FALHOU;
   if (atual.data.situacao === "publicado") {
     const p = problemaParaPublicar(d.data.campos);
-    if (p) return { erro: `Formulário publicado: ${p.toLowerCase()}` };
+    if (p) return { erro: `Relatório publicado: ${p.toLowerCase()}` };
   }
   const { data, error } = await db
     .from("formularios")
@@ -122,7 +128,7 @@ export async function salvarConteudo(
     return FALHOU;
   }
   refresh();
-  return { ok: "Formulário salvo." };
+  return { ok: "Relatório salvo." };
 }
 
 /** Configurações: mensagem de agradecimento, data e limite de respostas. */
@@ -155,6 +161,34 @@ export async function salvarConfiguracoes(
   }
   refresh();
   return { ok: "Configurações salvas." };
+}
+
+/** Aparência: cor de destaque, uma seção por página e o endereço depois do envio. */
+export async function salvarAparencia(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await podeEditar())) return SEM_PERMISSAO;
+  const ok = id.safeParse(form.get("id"));
+  const d = aparenciaSchema.safeParse({
+    cor: form.get("cor"),
+    paginas: form.get("paginas") === "on",
+    redirecionar_para: form.get("redirecionar_para") ?? "",
+  });
+  if (!ok.success) return FALHOU;
+  if (!d.success)
+    return { erro: d.error.issues[0]?.message ?? "Confira os campos." };
+  const { data, error } = await (await frm())
+    .from("formularios")
+    .update(d.data)
+    .eq("id", ok.data)
+    .select("id");
+  if (error || !data?.length) {
+    console.error("aparência do relatório", error);
+    return FALHOU;
+  }
+  refresh();
+  return { ok: "Aparência salva." };
 }
 
 const mudanca = z.object({
@@ -203,7 +237,7 @@ export async function mudarSituacao(
   }
   if (nova === "rascunho" && f.total_respostas > 0)
     return {
-      erro: "Este formulário já tem respostas: encerre em vez de voltar para rascunho.",
+      erro: "Este relatório já tem respostas: encerre em vez de voltar para rascunho.",
     };
 
   const { error } = await db
@@ -224,10 +258,10 @@ export async function mudarSituacao(
   return {
     ok:
       nova === "publicado"
-        ? "Formulário publicado: o link já recebe respostas."
+        ? "Relatório publicado: o link já recebe respostas."
         : nova === "encerrado"
-          ? "Formulário encerrado: o link não recebe mais respostas."
-          : "Formulário voltou para rascunho.",
+          ? "Relatório encerrado: o link não recebe mais respostas."
+          : "Relatório voltou para rascunho.",
   };
 }
 
@@ -264,7 +298,9 @@ export async function duplicarFormulario(
   const db = await frm();
   const { data: f, error: e1 } = await db
     .from("formularios")
-    .select("titulo, descricao, campos, mensagem_final")
+    .select(
+      "titulo, descricao, campos, mensagem_final, cor, paginas, redirecionar_para",
+    )
     .eq("id", ok.data)
     .maybeSingle();
   if (e1 || !f) return FALHOU;
@@ -275,6 +311,9 @@ export async function duplicarFormulario(
       descricao: f.descricao,
       campos: f.campos,
       mensagem_final: f.mensagem_final,
+      cor: f.cor,
+      paginas: f.paginas,
+      redirecionar_para: f.redirecionar_para,
       criado_por: ctx.usuario.id,
     })
     .select("id")

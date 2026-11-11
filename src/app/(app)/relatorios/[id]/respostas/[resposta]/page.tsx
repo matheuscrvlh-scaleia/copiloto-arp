@@ -24,11 +24,11 @@ import {
   rotaDoFormulario,
 } from "@/server/formularios/base";
 
-export const metadata: Metadata = { title: "Resposta do formulário" };
+export const metadata: Metadata = { title: "Resposta do relatório" };
 
 export default function Page({
   params,
-}: PageProps<"/formularios/[id]/respostas/[resposta]">) {
+}: PageProps<"/relatorios/[id]/respostas/[resposta]">) {
   return (
     <Suspense
       fallback={
@@ -52,7 +52,7 @@ interface Item {
 
 async function Tela({
   params,
-}: Pick<PageProps<"/formularios/[id]/respostas/[resposta]">, "params">) {
+}: Pick<PageProps<"/relatorios/[id]/respostas/[resposta]">, "params">) {
   const [{ id, resposta }, ctx] = await Promise.all([params, contexto()]);
   if (!ctx.ve) return <SemAcesso />;
   const [f, r] = await Promise.all([
@@ -103,7 +103,7 @@ async function Tela({
 
       {antigas.length > 0 && (
         <Secao
-          titulo="Perguntas que saíram do formulário"
+          titulo="Perguntas que saíram do relatório"
           descricao="Respondidas antes de a pergunta ser excluída ou trocada. O título é o da época do envio."
         >
           <Lista itens={antigas} formularioId={f.id} />
@@ -115,7 +115,7 @@ async function Tela({
           <div className="flex flex-col gap-3">
             <Nota>
               Para respostas de teste ou enviadas por engano. O total do
-              formulário é recalculado.
+              relatório é recalculado.
             </Nota>
             <FormAcao
               acao={excluirResposta}

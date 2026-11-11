@@ -51,6 +51,12 @@ export const ROTULO_TIPO: Record<TipoCampo, string> = {
 /** Tipos com lista de opções. */
 export const COM_OPCOES: readonly TipoCampo[] = ["unica", "multipla", "lista"];
 
+/** Tipos que aceitam a opção "Outro" com texto livre. */
+export const COM_OUTRO: readonly TipoCampo[] = ["unica", "multipla"];
+
+/** Rótulo da opção de texto livre (tela, resumo e chat). */
+export const ROTULO_OUTRO = "Outro";
+
 export const LIMITES = {
   campos: 100,
   opcoes: 50,
@@ -111,6 +117,8 @@ export const campoSchema = z.object({
   maxArquivos: z.number().int().min(1).max(LIMITES.arquivos).default(1),
   /** Só aparece quando a condição bate (null: sempre). */
   condicao: condicaoSchema.nullable().default(null),
+  /** Escolha única ou caixas: inclui "Outro: ___" com texto livre. */
+  outro: z.boolean().default(false),
 });
 export type Campo = z.infer<typeof campoSchema>;
 
@@ -141,6 +149,7 @@ export function novoCampo(tipo: TipoCampo): Campo {
     rotuloMax: "",
     maxArquivos: 1,
     condicao: null,
+    outro: false,
   };
 }
 
@@ -234,6 +243,10 @@ export function problemasDosCampos(campos: Campo[]): string[] {
       const unicas = new Set(opcoes.map((o) => o.toLowerCase()));
       if (unicas.size !== opcoes.length)
         problemas.push(`${n}: há opção repetida.`);
+      if (c.outro && unicas.has(ROTULO_OUTRO.toLowerCase()))
+        problemas.push(
+          `${n}: tire a opção “${ROTULO_OUTRO}” da lista ou desmarque “Incluir ${ROTULO_OUTRO}”.`,
+        );
     }
     if (c.tipo === "escala" && c.escalaMax <= c.escalaMin)
       problemas.push(`${n}: o fim da escala precisa ser maior que o início.`);
@@ -283,6 +296,15 @@ export const arquivoEnviadoSchema = arquivoSchema.extend({
   assinatura: z.string().max(200),
 });
 export type ArquivoEnviado = z.infer<typeof arquivoEnviadoSchema>;
+
+/** Texto do "Outro". */
+const LIMITE_OUTRO = 200;
+
+const aceitaOutro = (c: Campo) => c.outro && COM_OUTRO.includes(c.tipo);
+
+/** A resposta gravada é um texto do "Outro" (fora das opções)? */
+export const ehOutro = (c: Campo, v: string) =>
+  aceitaOutro(c) && !c.opcoes.includes(v);
 
 const vazio = (v: unknown) =>
   v === undefined ||
@@ -341,17 +363,27 @@ function lerValor(
     }
     case "unica":
     case "lista":
-      if (!texto || !c.opcoes.includes(texto))
-        return { erro: "Escolha uma das opções." };
+      if (!texto) return { erro: "Escolha uma das opções." };
+      if (c.opcoes.includes(texto)) return { valor: texto };
+      if (!aceitaOutro(c)) return { erro: "Escolha uma das opções." };
+      if (texto.length > LIMITE_OUTRO)
+        return { erro: `Use no máximo ${LIMITE_OUTRO} caracteres.` };
       return { valor: texto };
     case "multipla": {
       if (!Array.isArray(v) || v.some((x) => typeof x !== "string"))
         return { erro: "Resposta inválida." };
-      const marcadas = [...new Set(v as string[])];
-      if (marcadas.some((x) => !c.opcoes.includes(x)))
+      const marcadas = [
+        ...new Set((v as string[]).map((x) => x.trim()).filter(Boolean)),
+      ];
+      const outros = marcadas.filter((x) => !c.opcoes.includes(x));
+      if (outros.length > (aceitaOutro(c) ? 1 : 0))
         return { erro: "Escolha entre as opções." };
-      // Na ordem das opções, não na ordem dos cliques.
-      return { valor: c.opcoes.filter((o) => marcadas.includes(o)) };
+      if (outros.some((x) => x.length > LIMITE_OUTRO))
+        return { erro: `Use no máximo ${LIMITE_OUTRO} caracteres.` };
+      // Na ordem das opções, não na ordem dos cliques; o "Outro" no fim.
+      return {
+        valor: [...c.opcoes.filter((o) => marcadas.includes(o)), ...outros],
+      };
     }
     case "escala": {
       const n = typeof v === "number" ? v : Number(texto);
@@ -493,13 +525,38 @@ export function resumir(c: Campo, valores: unknown[]): Resumo {
       return {
         tipo: "contagem",
         respondidas,
-        itens: contar(c.opcoes, (v, r) => v === r),
+        itens: [
+          ...contar(c.opcoes, (v, r) => v === r),
+          ...(aceitaOutro(c)
+            ? [
+                {
+                  rotulo: ROTULO_OUTRO,
+                  n: dados.filter((v) => typeof v === "string" && ehOutro(c, v))
+                    .length,
+                },
+              ]
+            : []),
+        ],
       };
     case "multipla":
       return {
         tipo: "contagem",
         respondidas,
-        itens: contar(c.opcoes, (v, r) => Array.isArray(v) && v.includes(r)),
+        itens: [
+          ...contar(c.opcoes, (v, r) => Array.isArray(v) && v.includes(r)),
+          ...(aceitaOutro(c)
+            ? [
+                {
+                  rotulo: ROTULO_OUTRO,
+                  n: dados.filter(
+                    (v) =>
+                      Array.isArray(v) &&
+                      v.some((x) => typeof x === "string" && ehOutro(c, x)),
+                  ).length,
+                },
+              ]
+            : []),
+        ],
       };
     case "sim_nao":
       return {

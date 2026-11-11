@@ -26,10 +26,10 @@ export function LinkDoFormulario({
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch {
-      window.prompt("Copie o link do formulário:", link);
+      window.prompt("Copie o link:", link);
     }
   }
-  const mensagem = `Olá! Responda o formulário "${titulo}" por este link: ${link}`;
+  const mensagem = `Olá! Responda "${titulo}" por este link: ${link}`;
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={id} className="text-xs font-medium text-neutral-600">

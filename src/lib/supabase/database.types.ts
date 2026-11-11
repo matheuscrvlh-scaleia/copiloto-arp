@@ -2261,6 +2261,7 @@ export type Database = {
         Row: {
           atualizado_em: string
           campos: Json
+          cor: string
           criado_em: string
           criado_por: string | null
           descricao: string
@@ -2268,7 +2269,9 @@ export type Database = {
           id: string
           limite_respostas: number | null
           mensagem_final: string
+          paginas: boolean
           publicado_em: string | null
+          redirecionar_para: string | null
           situacao: string
           titulo: string
           token: string
@@ -2278,6 +2281,7 @@ export type Database = {
         Insert: {
           atualizado_em?: string
           campos?: Json
+          cor?: string
           criado_em?: string
           criado_por?: string | null
           descricao?: string
@@ -2285,7 +2289,9 @@ export type Database = {
           id?: string
           limite_respostas?: number | null
           mensagem_final?: string
+          paginas?: boolean
           publicado_em?: string | null
+          redirecionar_para?: string | null
           situacao?: string
           titulo: string
           token?: string
@@ -2295,6 +2301,7 @@ export type Database = {
         Update: {
           atualizado_em?: string
           campos?: Json
+          cor?: string
           criado_em?: string
           criado_por?: string | null
           descricao?: string
@@ -2302,7 +2309,9 @@ export type Database = {
           id?: string
           limite_respostas?: number | null
           mensagem_final?: string
+          paginas?: boolean
           publicado_em?: string | null
+          redirecionar_para?: string | null
           situacao?: string
           titulo?: string
           token?: string

@@ -51,6 +51,7 @@ export type Alvo =
   | "formularios-editor"
   | "formularios-situacao"
   | "formularios-link"
+  | "formularios-chat"
   // Ativos: saída (venda, doação, descarte)
   | "os-ativo-registrar-saida"
   | "os-ativo-recibo-saida"

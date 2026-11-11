@@ -44,6 +44,9 @@ async function Conteudo({
         campos={f.campos}
         mensagemFinal={f.mensagem_final}
         token={f.token}
+        cor={f.cor}
+        paginar={f.paginas}
+        redirecionarPara={f.redirecionar_para}
       />
     </>
   );

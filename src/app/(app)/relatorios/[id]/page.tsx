@@ -6,8 +6,12 @@ import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { Nota, Secao } from "@/components/dashboard/tabela";
 import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import { TopoDaTela } from "@/components/dashboard/tela";
-import { ResumoDasRespostas } from "@/components/formularios/blocos";
+import {
+  RespostasPorDia,
+  ResumoDasRespostas,
+} from "@/components/formularios/blocos";
 import { CabecalhoDoFormulario } from "@/components/formularios/cabecalho";
+import { ChatDasRespostas } from "@/components/formularios/chat";
 import { BotaoExportar } from "@/components/os/exportar";
 import { SemAcesso } from "@/components/protegido";
 import { dadosDe } from "@/lib/comercial/formato";
@@ -20,9 +24,9 @@ import {
   rotaDoFormulario,
 } from "@/server/formularios/base";
 
-export const metadata: Metadata = { title: "Respostas do formulário" };
+export const metadata: Metadata = { title: "Respostas do relatório" };
 
-export default function Page({ params }: PageProps<"/formularios/[id]">) {
+export default function Page({ params }: PageProps<"/relatorios/[id]">) {
   return (
     <Suspense
       fallback={
@@ -41,9 +45,7 @@ export default function Page({ params }: PageProps<"/formularios/[id]">) {
 /** Colunas da lista: até 6 perguntas; o Excel leva todas. */
 const NA_LISTA = 6;
 
-async function Tela({
-  params,
-}: Pick<PageProps<"/formularios/[id]">, "params">) {
+async function Tela({ params }: Pick<PageProps<"/relatorios/[id]">, "params">) {
   const [{ id }, ctx] = await Promise.all([params, contexto()]);
   if (!ctx.ve) return <SemAcesso />;
   const [f, respostas] = await Promise.all([
@@ -107,8 +109,8 @@ async function Tela({
               {f.efetiva === "publicado"
                 ? "Nenhuma resposta ainda. Mande o link (em Link e configurações) e acompanhe por aqui."
                 : f.situacao === "rascunho"
-                  ? "Formulário em rascunho: publique em Link e configurações para o link começar a receber respostas."
-                  : "Formulário encerrado sem respostas."}
+                  ? "Relatório em rascunho: publique em Link e configurações para o link começar a receber respostas."
+                  : "Relatório encerrado sem respostas."}
             </p>
             {ctx.edita && (
               <Link
@@ -121,6 +123,34 @@ async function Tela({
           </Secao>
         ) : (
           <>
+            <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+              <ChatDasRespostas
+                campos={f.campos}
+                registros={respostas.map((r) => ({
+                  enviada_em: r.enviada_em,
+                  respostas: r.respostas,
+                }))}
+              />
+              <RespostasPorDia
+                datas={respostas.map((r) => r.enviada_em)}
+                agora={new Date()}
+              />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <h2 className="px-1 text-base font-semibold">
+                Resumo por pergunta
+              </h2>
+              <ResumoDasRespostas
+                campos={f.campos}
+                respostas={respostas.map((r) => r.respostas)}
+              />
+              <Nota>
+                Resumo das perguntas atuais. Respostas a perguntas que já saíram
+                do relatório aparecem no detalhe de cada resposta.
+              </Nota>
+            </div>
+
             <Secao
               titulo="Todas as respostas"
               descricao={
@@ -175,20 +205,6 @@ async function Tela({
                 })}
               />
             </Secao>
-
-            <div className="flex flex-col gap-3">
-              <h2 className="px-1 text-base font-semibold">
-                Resumo por pergunta
-              </h2>
-              <ResumoDasRespostas
-                campos={f.campos}
-                respostas={respostas.map((r) => r.respostas)}
-              />
-              <Nota>
-                Resumo das perguntas atuais. Respostas a perguntas que já saíram
-                do formulário aparecem no detalhe de cada resposta.
-              </Nota>
-            </div>
           </>
         )}
       </div>

@@ -313,3 +313,36 @@ describe("envio pelo link", () => {
     ]);
   });
 });
+
+// Relatórios (20261111210000): aparência do link e textos das permissões.
+describe("aparência do relatório", () => {
+  it("quem edita grava cor, páginas e endereço https; o resto o banco barra", async () => {
+    const { id } = await novo();
+    const r = await como("edita", () =>
+      db.query<{ cor: string; paginas: boolean }>(
+        `update formularios.formularios
+           set cor = 'azul', paginas = true, redirecionar_para = 'https://arp.com.br/obrigado'
+         where id = $1 returning cor, paginas`,
+        [id],
+      ),
+    );
+    expect(r.rows[0]).toEqual({ cor: "azul", paginas: true });
+    for (const sql of [
+      "update formularios.formularios set cor = 'rosa' where id = $1",
+      "update formularios.formularios set redirecionar_para = 'http://x.com' where id = $1",
+      "update formularios.formularios set redirecionar_para = 'javascript:alert(1)' where id = $1",
+    ])
+      expect(await como("edita", () => erro(sql, [id]))).toMatch(/check/);
+    const padrao = await db.query<{ cor: string; paginas: boolean }>(
+      "select cor, paginas, redirecionar_para from formularios.formularios where id = (select id from formularios.formularios where cor = 'grafite' limit 1)",
+    );
+    expect(padrao.rows[0]).toMatchObject({ cor: "grafite", paginas: false });
+  });
+
+  it("as permissões falam de relatórios", async () => {
+    const r = await db.query<{ descricao: string }>(
+      "select descricao from core.permissoes where codigo like 'formularios.%'",
+    );
+    expect(r.rows.every((x) => x.descricao.includes("relatórios"))).toBe(true);
+  });
+});

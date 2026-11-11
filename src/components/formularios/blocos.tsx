@@ -157,3 +157,67 @@ export function ResumoDasRespostas({
     </div>
   );
 }
+
+const DIA = 86_400_000;
+/** "aaaa-mm-dd" do dia em Brasília (UTC-3). */
+const diaDe = (t: number) =>
+  new Date(t - 3 * 3_600_000).toISOString().slice(0, 10);
+const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+
+/** Barras das respostas por dia nos últimos `dias` dias (Brasília). */
+export function RespostasPorDia({
+  datas,
+  agora,
+  dias = 30,
+}: {
+  datas: string[];
+  agora: Date;
+  dias?: number;
+}) {
+  const lista = Array.from({ length: dias }, (_, i) =>
+    diaDe(agora.getTime() - (dias - 1 - i) * DIA),
+  );
+  const conta = new Map(lista.map((d) => [d, 0]));
+  for (const iso of datas) {
+    const d = diaDe(new Date(iso).getTime());
+    const n = conta.get(d);
+    if (n !== undefined) conta.set(d, n + 1);
+  }
+  const valores = lista.map((d) => ({ d, n: conta.get(d) ?? 0 }));
+  const total = valores.reduce((s, v) => s + v.n, 0);
+  const pico = valores.reduce((m, v) => (v.n > m.n ? v : m), {
+    d: "",
+    n: 0,
+  });
+  const max = Math.max(pico.n, 1);
+  return (
+    <Secao
+      titulo="Respostas por dia"
+      descricao={`${formatarNumero(total)} ${total === 1 ? "resposta" : "respostas"} nos últimos ${dias} dias${pico.n ? ` · pico em ${ddmm(pico.d)}, com ${formatarNumero(pico.n)}` : ""}.`}
+    >
+      <div
+        role="img"
+        aria-label={`Respostas por dia nos últimos ${dias} dias: ${formatarNumero(total)} no total.`}
+        className="flex h-32 items-end gap-[3px]"
+      >
+        {valores.map((v) => (
+          <div
+            key={v.d}
+            title={`${ddmm(v.d)}: ${formatarNumero(v.n)}`}
+            className="flex h-full min-w-0 flex-1 items-end"
+          >
+            <div
+              className={`w-full rounded-t-[3px] ${v.n ? "bg-neutral-900" : "bg-neutral-900/[0.08]"}`}
+              style={{ height: v.n ? `${(v.n / max) * 100}%` : "3px" }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex justify-between text-xs text-neutral-500 tabular-nums">
+        <span>{ddmm(lista[0] ?? "")}</span>
+        <span>{ddmm(lista[Math.floor(dias / 2)] ?? "")}</span>
+        <span>hoje</span>
+      </div>
+    </Secao>
+  );
+}

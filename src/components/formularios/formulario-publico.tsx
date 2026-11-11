@@ -24,10 +24,12 @@ import {
   type Campo,
   EXTENSOES_ARQUIVO,
   LIMITES,
+  ROTULO_OUTRO,
   recebeResposta,
   validarRespostas,
   visiveis,
 } from "@/lib/formularios/campos";
+import { paginasDosCampos } from "@/lib/formularios/formulario";
 import {
   type EstadoDoEnvio,
   enviarArquivoPeloLink,
@@ -39,11 +41,14 @@ import {
 // enviar (o servidor confere de novo). Pergunta com condição só aparece
 // quando a resposta anterior bate, e o que fica escondido não vai no envio.
 // Arquivo sobe na hora em que é escolhido. Na prévia nada é enviado.
+// Com "uma seção por página", cada seção é uma página, com barra de
+// progresso; "Próxima" confere só as perguntas da página. A cor de destaque
+// vem do relatório (variável --destaque).
 
 type Respostas = Record<string, unknown>;
 
 const BOTAO =
-  "inline-flex items-center justify-center gap-2 rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:opacity-60";
+  "inline-flex items-center justify-center gap-2 rounded-full bg-(--destaque) px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-wait disabled:opacity-60";
 const BOTAO_SECUNDARIO =
   "inline-flex items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-5 py-2.5 text-sm font-medium text-neutral-800 transition hover:border-neutral-400";
 
@@ -83,6 +88,9 @@ export function FormularioPublico({
   mensagemFinal,
   token,
   previa = false,
+  cor = "#171717",
+  paginar = false,
+  redirecionarPara = null,
 }: {
   titulo: string;
   descricao: string;
@@ -91,6 +99,12 @@ export function FormularioPublico({
   /** Sem token (prévia): nada é enviado. */
   token?: string;
   previa?: boolean;
+  /** Cor de destaque (hex). */
+  cor?: string;
+  /** Uma seção por página. */
+  paginar?: boolean;
+  /** Depois do envio, leva para cá em vez do agradecimento. */
+  redirecionarPara?: string | null;
 }) {
   const [r, setR] = useState<Respostas>({});
   const [erros, setErros] = useState<Record<string, string>>({});
@@ -106,11 +120,32 @@ export function FormularioPublico({
   const atual = estado !== ignorado;
   const enviado = (atual && estado.enviado) || enviadoNaPrevia;
   const aparecem = visiveis(campos, r);
+  // Remonta as perguntas a cada nova resposta (o "Outro" guarda estado).
+  const [rodada, setRodada] = useState(0);
+
+  // Páginas com algo à vista (seção escondida esconde a página toda).
+  const paginas = (
+    paginar ? paginasDosCampos(campos) : [campos.map((c) => c.id)]
+  ).filter((p) => p.some((id) => aparecem.has(id)));
+  const [paginaPedida, setPagina] = useState(0);
+  const pagina = Math.min(paginaPedida, Math.max(paginas.length - 1, 0));
+  const naPagina = new Set(paginas[pagina] ?? []);
+  const ultima = pagina >= paginas.length - 1;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: só quando chega o retorno do envio
+  useEffect(() => {
+    if (estado.erros) {
+      setErros(estado.erros);
+      const primeiro = Object.keys(estado.erros)[0];
+      const i = paginas.findIndex((p) => primeiro && p.includes(primeiro));
+      if (i >= 0) setPagina(i);
+    } else if (estado.enviado) setR({});
+  }, [estado]);
 
   useEffect(() => {
-    if (estado.erros) setErros(estado.erros);
-    else if (estado.enviado) setR({});
-  }, [estado]);
+    if (atual && estado.enviado && redirecionarPara && !previa)
+      window.location.assign(redirecionarPara);
+  }, [atual, estado, redirecionarPara, previa]);
 
   useEffect(() => {
     const primeiro = Object.keys(erros)[0];
@@ -129,15 +164,37 @@ export function FormularioPublico({
       });
   };
 
+  /** "Próxima": confere só a página; com erro, fica nela. */
+  function avancar() {
+    const daPagina = Object.fromEntries(
+      Object.entries(validarRespostas(campos, r).erros).filter(([id]) =>
+        naPagina.has(id),
+      ),
+    );
+    setErros(daPagina);
+    if (Object.keys(daPagina).length) return;
+    setPagina(pagina + 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!ultima) {
+      avancar();
+      return;
+    }
     const conferido = validarRespostas(campos, r);
     // Só o que está à vista vai (o servidor descarta o resto de novo).
     const aVista = Object.fromEntries(
       Object.entries(r).filter(([k]) => aparecem.has(k)),
     );
     setErros(conferido.erros);
-    if (Object.keys(conferido.erros).length) return;
+    if (Object.keys(conferido.erros).length) {
+      const primeiro = Object.keys(conferido.erros)[0];
+      const i = paginas.findIndex((p) => primeiro && p.includes(primeiro));
+      if (i >= 0 && i !== pagina) setPagina(i);
+      return;
+    }
     if (previa || !token) {
       setEnviadoNaPrevia(true);
       return;
@@ -153,13 +210,37 @@ export function FormularioPublico({
     setErros({});
     setEnviadoNaPrevia(false);
     setIgnorado(estado);
+    setPagina(0);
+    setRodada((n) => n + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  const destaque = { "--destaque": cor } as React.CSSProperties;
+
+  if (enviado && redirecionarPara && !previa)
+    return (
+      <div
+        style={destaque}
+        className="vidro flex flex-col items-center gap-3 rounded-[1.75rem] px-6 py-12 text-center"
+      >
+        <Loader className="size-6 animate-spin text-(--destaque)" aria-hidden />
+        <p className="text-sm text-neutral-600">
+          Resposta enviada. Levando você para{" "}
+          <a href={redirecionarPara} className="underline underline-offset-4">
+            o próximo endereço
+          </a>
+          …
+        </p>
+      </div>
+    );
+
   if (enviado)
     return (
-      <div className="vidro flex flex-col items-center gap-4 rounded-[1.75rem] px-6 py-12 text-center">
-        <span className="grid size-16 place-items-center rounded-full bg-neutral-900 text-white">
+      <div
+        style={destaque}
+        className="vidro flex flex-col items-center gap-4 rounded-[1.75rem] px-6 py-12 text-center"
+      >
+        <span className="grid size-16 place-items-center rounded-full bg-(--destaque) text-white">
           <CircleCheck className="size-7" aria-hidden />
         </span>
         <h1 className="text-xl font-semibold">Resposta enviada</h1>
@@ -167,7 +248,11 @@ export function FormularioPublico({
           {mensagemFinal || "Recebemos a sua resposta. Obrigado!"}
         </p>
         {previa && (
-          <p className="text-xs text-amber-700">Prévia: nada foi gravado.</p>
+          <p className="text-xs text-amber-700">
+            Prévia: nada foi gravado.
+            {redirecionarPara &&
+              ` No link, a pessoa seria levada para ${redirecionarPara}.`}
+          </p>
         )}
         <button
           type="button"
@@ -190,10 +275,20 @@ export function FormularioPublico({
   const obrigatorias = campos.some(
     (c) => recebeResposta(c) && c.obrigatorio && aparecem.has(c.id),
   );
-  let numero = 0;
+  // Número de cada pergunta à vista, contando as das outras páginas.
+  const numeros = new Map<string, number>();
+  for (const c of campos)
+    if (recebeResposta(c) && aparecem.has(c.id))
+      numeros.set(c.id, numeros.size + 1);
 
   return (
-    <form onSubmit={enviar} noValidate className="flex flex-col gap-4">
+    <form
+      key={rodada}
+      onSubmit={enviar}
+      noValidate
+      style={destaque}
+      className="flex flex-col gap-4 accent-(--destaque)"
+    >
       {previa && (
         <p className="flex items-center gap-2 rounded-2xl bg-amber-400/20 px-4 py-2.5 text-sm text-amber-900">
           <Eye className="size-4 shrink-0" aria-hidden />
@@ -201,9 +296,13 @@ export function FormularioPublico({
           aqui é gravado.
         </p>
       )}
-      <header className="vidro rounded-[1.75rem] p-6">
+      <header
+        // Inline: a borda do utilitário vidro venceria a classe.
+        style={{ borderTop: "4px solid var(--destaque)" }}
+        className="vidro rounded-[1.75rem] p-6"
+      >
         <h1 className="text-2xl font-semibold tracking-tight">{titulo}</h1>
-        {descricao && (
+        {descricao && pagina === 0 && (
           <p className="mt-2 whitespace-pre-line text-sm text-neutral-600">
             {descricao}
           </p>
@@ -213,10 +312,30 @@ export function FormularioPublico({
             <span className="text-red-600">*</span> resposta obrigatória
           </p>
         )}
+        {paginas.length > 1 && (
+          <div className="mt-4 flex flex-col gap-1.5">
+            <p className="text-xs font-medium text-neutral-500">
+              Página {pagina + 1} de {paginas.length}
+            </p>
+            <div
+              role="progressbar"
+              aria-label="Progresso"
+              aria-valuemin={1}
+              aria-valuemax={paginas.length}
+              aria-valuenow={pagina + 1}
+              className="h-1.5 overflow-hidden rounded-full bg-neutral-900/[0.08]"
+            >
+              <div
+                className="h-full rounded-full bg-(--destaque) transition-all"
+                style={{ width: `${((pagina + 1) / paginas.length) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
       </header>
 
       {campos.map((c) => {
-        if (!aparecem.has(c.id)) return null;
+        if (!aparecem.has(c.id) || !naPagina.has(c.id)) return null;
         if (c.tipo === "secao")
           return (
             <div key={c.id} className="mt-2 px-2">
@@ -228,12 +347,11 @@ export function FormularioPublico({
               )}
             </div>
           );
-        numero += 1;
         return (
           <Pergunta
             key={c.id}
             campo={c}
-            n={numero}
+            n={numeros.get(c.id) ?? 0}
             valor={r[c.id]}
             erro={erros[c.id]}
             definir={(v) => definir(c.id, v)}
@@ -273,9 +391,24 @@ export function FormularioPublico({
         ) : (
           <span />
         )}
-        <button type="submit" disabled={enviando} className={BOTAO}>
-          {enviando ? "Enviando…" : "Enviar"}
-        </button>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          {pagina > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setErros({});
+                setPagina(pagina - 1);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className={BOTAO_SECUNDARIO}
+            >
+              Voltar
+            </button>
+          )}
+          <button type="submit" disabled={enviando} className={BOTAO}>
+            {!ultima ? "Próxima" : enviando ? "Enviando…" : "Enviar"}
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -300,6 +433,21 @@ function Pergunta({
   const id = useId();
   const texto = typeof valor === "string" ? valor : "";
   const grupo = ["unica", "multipla", "escala", "sim_nao"].includes(c.tipo);
+  // "Outro": o texto que a pessoa escreve (fora das opções).
+  const marcadas = Array.isArray(valor) ? (valor as string[]) : [];
+  const outroGravado =
+    c.tipo === "multipla"
+      ? (marcadas.find((x) => !c.opcoes.includes(x)) ?? "")
+      : texto && !c.opcoes.includes(texto)
+        ? texto
+        : "";
+  const [outro, setOutro] = useState({
+    marcado: outroGravado !== "",
+    texto: outroGravado,
+  });
+  const regulares = marcadas.filter((x) => c.opcoes.includes(x));
+  const comOutro = (lista: string[], o = outro) =>
+    o.marcado && o.texto.trim() ? [...lista, o.texto] : lista;
   const Titulo = grupo ? "legend" : "label";
   const Moldura = grupo ? "fieldset" : "div";
   return (
@@ -436,17 +584,35 @@ function Pergunta({
               tipo="radio"
               nome={id}
               rotulo={o}
-              marcada={valor === o}
-              aoMudar={() => definir(o)}
+              marcada={!outro.marcado && valor === o}
+              aoMudar={() => {
+                setOutro((x) => ({ ...x, marcado: false }));
+                definir(o);
+              }}
             />
           ))}
+          {c.outro && (
+            <OpcaoOutro
+              tipo="radio"
+              nome={id}
+              marcada={outro.marcado}
+              texto={outro.texto}
+              marcar={() => {
+                setOutro((x) => ({ ...x, marcado: true }));
+                definir(outro.texto);
+              }}
+              escrever={(t) => {
+                setOutro({ marcado: true, texto: t });
+                definir(t);
+              }}
+            />
+          )}
         </div>
       )}
       {c.tipo === "multipla" && (
         <div className="flex flex-col gap-1">
           {c.opcoes.map((o) => {
-            const lista = Array.isArray(valor) ? (valor as string[]) : [];
-            const marcada = lista.includes(o);
+            const marcada = regulares.includes(o);
             return (
               <Opcao
                 key={o}
@@ -456,12 +622,34 @@ function Pergunta({
                 marcada={marcada}
                 aoMudar={() =>
                   definir(
-                    marcada ? lista.filter((x) => x !== o) : [...lista, o],
+                    comOutro(
+                      marcada
+                        ? regulares.filter((x) => x !== o)
+                        : [...regulares, o],
+                    ),
                   )
                 }
               />
             );
           })}
+          {c.outro && (
+            <OpcaoOutro
+              tipo="checkbox"
+              nome={id}
+              marcada={outro.marcado}
+              texto={outro.texto}
+              marcar={() => {
+                const novo = { ...outro, marcado: !outro.marcado };
+                setOutro(novo);
+                definir(comOutro(regulares, novo));
+              }}
+              escrever={(t) => {
+                const novo = { marcado: true, texto: t };
+                setOutro(novo);
+                definir(comOutro(regulares, novo));
+              }}
+            />
+          )}
         </div>
       )}
       {c.tipo === "sim_nao" && (
@@ -474,7 +662,7 @@ function Pergunta({
               key={x.rotulo}
               className={`cursor-pointer rounded-full border px-5 py-2 text-sm font-medium transition has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-neutral-900/10 ${
                 valor === x.v
-                  ? "border-neutral-900 bg-neutral-900 text-white"
+                  ? "border-(--destaque) bg-(--destaque) text-white"
                   : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400"
               }`}
             >
@@ -501,7 +689,7 @@ function Pergunta({
                 key={nota}
                 className={`grid size-10 cursor-pointer place-items-center rounded-full border text-sm font-medium tabular-nums transition has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-neutral-900/10 ${
                   valor === nota
-                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    ? "border-(--destaque) bg-(--destaque) text-white"
                     : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400"
                 }`}
               >
@@ -562,10 +750,50 @@ function Opcao({
         name={nome}
         checked={marcada}
         onChange={aoMudar}
-        className="size-4 accent-neutral-900"
+        className="size-4"
       />
       {rotulo}
     </label>
+  );
+}
+
+/** "Outro:" com o campo de texto ao lado; escrever já marca. */
+function OpcaoOutro({
+  tipo,
+  nome,
+  marcada,
+  texto,
+  marcar,
+  escrever,
+}: {
+  tipo: "radio" | "checkbox";
+  nome: string;
+  marcada: boolean;
+  texto: string;
+  marcar: () => void;
+  escrever: (t: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl px-2 py-1.5 text-sm">
+      <label className="flex cursor-pointer items-center gap-3">
+        <input
+          type={tipo}
+          name={nome}
+          checked={marcada}
+          onChange={marcar}
+          className="size-4"
+        />
+        {ROTULO_OUTRO}:
+      </label>
+      <input
+        value={texto}
+        maxLength={200}
+        aria-label={`${ROTULO_OUTRO}: escreva`}
+        placeholder="Escreva aqui"
+        onChange={(e) => escrever(e.target.value)}
+        className={`${classeCampo} min-w-0 flex-1 py-1.5`}
+      />
+    </div>
   );
 }
 

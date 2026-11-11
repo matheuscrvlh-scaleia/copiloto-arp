@@ -374,18 +374,23 @@ do mockup e saem com `comercial.remover_exemplos()`.
   `contratos.aluguel` e `dados` chegam a quem vê o contrato; é o servidor que
   tira os valores antes de mandar para a tela.
 
-## formularios — formulários personalizados com link público
+## formularios — Relatórios (formulários personalizados com link público)
 
-Migration `20261106120000_formularios.sql`. A equipe monta quantos
-formulários quiser, publica e manda o link; quem recebe responde sem login.
-Regras puras (tipos de pergunta, validação, resumo) em `src/lib/formularios`.
+Migration `20261106120000_formularios.sql`; na tela, o módulo se chama
+**Relatórios** (`/relatorios`, menu Gestão) desde `20261111210000_relatorios.sql`.
+A equipe monta quantos relatórios quiser (em branco ou de um modelo), publica
+e manda o link ou o QR code; quem recebe responde sem login. Regras puras
+(tipos de pergunta, validação, resumo, modelos e o chat "Pergunte às
+respostas", que roda sem IA externa) em `src/lib/formularios`.
 
 - `formularios`: título, descrição, `campos` (jsonb: as perguntas na ordem,
   validadas pelo Zod de `campos.ts`), mensagem final, `situacao`
   (`rascunho`, `publicado`, `encerrado`), `token` do link
   (`/responder/<token>`; trocar o token desliga o link antigo), `encerra_em`
-  e `limite_respostas` opcionais, e `total_respostas` /
-  `ultima_resposta_em`, mantidos pelo banco.
+  e `limite_respostas` opcionais, `total_respostas` /
+  `ultima_resposta_em`, mantidos pelo banco, e a aparência do link: `cor`
+  (lista fixa), `paginas` (uma seção por página) e `redirecionar_para`
+  (só `https://`).
 - `respostas`: `respostas` (jsonb, valor por id da pergunta) e `perguntas`
   (título de cada pergunta no momento do envio). Editar o formulário depois
   não perde o que já foi respondido.

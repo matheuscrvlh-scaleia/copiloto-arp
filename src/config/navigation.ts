@@ -105,6 +105,12 @@ export const navigation: NavSection[] = [
     titulo: "Gestão",
     itens: [
       { href: INICIO, label: "Dashboard", icone: "dashboard", permissao: null },
+      {
+        href: "/relatorios",
+        label: "Relatórios",
+        icone: "formularios",
+        permissao: ["formularios.ver", "formularios.editar"],
+      },
     ],
   },
   {
@@ -121,17 +127,6 @@ export const navigation: NavSection[] = [
         label: "Tipos de item",
         icone: "configuracoes",
         permissao: "calendario.configurar",
-      },
-    ],
-  },
-  {
-    titulo: "Formulários",
-    itens: [
-      {
-        href: "/formularios",
-        label: "Formulários",
-        icone: "formularios",
-        permissao: ["formularios.ver", "formularios.editar"],
       },
     ],
   },

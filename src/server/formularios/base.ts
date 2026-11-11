@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { cache } from "react";
 import { type Campo, camposSchema } from "@/lib/formularios/campos";
 import {
+  hexDaCor,
   type MotivoFechado,
   motivoFechado,
   type Situacao,
@@ -16,14 +17,14 @@ import { type Usuario, usuarioAtual } from "@/server/auth";
 import { urlDoSistema } from "@/server/os/base";
 import { lerTudo } from "@/server/supabase-paginas";
 
-// Módulo Formulários: leituras. Formulários e respostas são lidos com a
+// Módulo Relatórios (antigo Formulários; schema formularios): leituras. Formulários e respostas são lidos com a
 // sessão (RLS: formularios.ver ou formularios.editar), sem cache no servidor.
 // O link público (/responder/<token>) lê pela service role só o formulário
 // daquele token.
 
 type Linha = Database["formularios"]["Tables"]["formularios"]["Row"];
 
-export const ROTA_FORMULARIOS = "/formularios";
+export const ROTA_FORMULARIOS = "/relatorios";
 export const rotaDoFormulario = (id: string, sub = "") =>
   `${ROTA_FORMULARIOS}/${id}${sub ? `/${sub}` : ""}`;
 export const linkDoFormulario = (token: string) =>
@@ -129,7 +130,7 @@ export const formularioPorId = cache(
     const { data, error } = await (await frm())
       .from("formularios")
       .select(
-        "id, titulo, descricao, campos, mensagem_final, situacao, token, encerra_em, limite_respostas, total_respostas, ultima_resposta_em, criado_em, publicado_em, atualizado_em",
+        "id, titulo, descricao, campos, mensagem_final, situacao, token, encerra_em, limite_respostas, total_respostas, ultima_resposta_em, criado_em, publicado_em, atualizado_em, cor, paginas, redirecionar_para",
       )
       .eq("id", id)
       .maybeSingle();
@@ -217,6 +218,10 @@ export interface FormularioPublico {
   campos: Campo[];
   mensagem_final: string;
   token: string;
+  /** Cor de destaque (hex). */
+  cor: string;
+  paginas: boolean;
+  redirecionar_para: string | null;
 }
 
 /**
@@ -230,7 +235,7 @@ export async function formularioPeloToken(
   const { data, error } = await frmAdmin()
     .from("formularios")
     .select(
-      "id, titulo, descricao, campos, mensagem_final, situacao, encerra_em, limite_respostas, total_respostas",
+      "id, titulo, descricao, campos, mensagem_final, situacao, encerra_em, limite_respostas, total_respostas, cor, paginas, redirecionar_para",
     )
     .eq("token", token)
     .maybeSingle();
@@ -248,6 +253,9 @@ export async function formularioPeloToken(
       campos: lerCampos(data.campos),
       mensagem_final: data.mensagem_final,
       token,
+      cor: hexDaCor(data.cor),
+      paginas: data.paginas,
+      redirecionar_para: data.redirecionar_para,
     },
   };
 }
