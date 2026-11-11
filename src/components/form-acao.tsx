@@ -13,7 +13,7 @@ import {
   ModalConfirmacao,
   useConfirmacao,
 } from "@/components/modal-confirmacao";
-import { useNotificarEstado } from "@/components/notificacoes";
+import { notificar, useNotificarEstado } from "@/components/notificacoes";
 
 export interface EstadoAcao {
   ok?: string;
@@ -98,14 +98,23 @@ export function FormAcao({
   /** Chamada quando a ação dá certo (ex.: fechar a janela do formulário). */
   aoConcluir?: () => void;
 }) {
-  const [estado, executar, enviando] = useActionState(acao, {});
+  const [estado, executar, enviando] = useActionState(
+    async (anterior: EstadoAcao, form: FormData) => {
+      const r = await acao(anterior, form);
+      // O aviso de sucesso sai aqui, e não num efeito: quando a ação some
+      // com o item da tela (excluir, desfazer), o formulário desmonta junto.
+      if (r.ok) notificar("ok", r.ok);
+      return r;
+    },
+    {},
+  );
   const confirmacao = useConfirmacao({ confirmar, estado });
   const concluir = useRef(aoConcluir);
   concluir.current = aoConcluir;
   useEffect(() => {
     if (estado.ok) concluir.current?.();
   }, [estado]);
-  useNotificarEstado(estado, { erro: !confirmar });
+  useNotificarEstado(estado, { ok: false, erro: !confirmar });
   const enviar = useEnvioSemLimpar(executar, estado, confirmacao.form);
   return (
     <ContextoEnvio value={{ enviando, rotulo, rotuloEnviando, variante }}>

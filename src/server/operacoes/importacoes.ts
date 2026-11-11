@@ -122,7 +122,19 @@ export async function paginaDeImportacoes(f: FiltroImportacoes): Promise<{
 }
 
 export interface ArquivoComLink extends ArquivoImportado {
+  /** Baixar com o nome original. */
   url: string | null;
+  /** Ver na própria aba (foto ou PDF); null nos outros tipos. */
+  urlVer: string | null;
+  tipo: "foto" | "pdf" | "planilha" | "outro";
+}
+
+/** Tipo pelo nome do arquivo (o servidor de arquivos confere o conteúdo). */
+export function tipoDoArquivo(nome: string): ArquivoComLink["tipo"] {
+  if (/\.(jpe?g|png|webp|gif)$/i.test(nome)) return "foto";
+  if (/\.pdf$/i.test(nome)) return "pdf";
+  if (/\.(xlsx|xls|csv)$/i.test(nome)) return "planilha";
+  return "outro";
 }
 
 export interface ImportacaoDetalhe extends ImportacaoNaLista {
@@ -166,6 +178,8 @@ export const importacao = cache(
         .from("importacoes")
         .select("id")
         .eq("substitui", id)
+        // Só a que de fato tomou o lugar (a desfeita devolveu o mês a esta).
+        .in("status", ["confirmada", "substituida"])
         .order("criado_em", { ascending: false })
         .limit(1),
     ]);
@@ -176,15 +190,21 @@ export const importacao = cache(
     const [base] = await paraTela([data]);
     if (!base) return null;
     const arquivos = await Promise.all(
-      base.arquivos.map(async (a) => ({
-        ...a,
-        url: a.caminho
-          ? await linkDeLeitura("operacoes", a.caminho, {
-              segundos: 600,
-              baixarComo: a.nome,
-            })
-          : null,
-      })),
+      base.arquivos.map(async (a): Promise<ArquivoComLink> => {
+        const tipo = tipoDoArquivo(a.nome);
+        const [url, urlVer] = a.caminho
+          ? await Promise.all([
+              linkDeLeitura("operacoes", a.caminho, {
+                segundos: 600,
+                baixarComo: a.nome,
+              }),
+              tipo === "foto" || tipo === "pdf"
+                ? linkDeLeitura("operacoes", a.caminho, { segundos: 600 })
+                : null,
+            ])
+          : [null, null];
+        return { ...a, tipo, url, urlVer };
+      }),
     );
     const v = valores?.data;
     const porBloco =

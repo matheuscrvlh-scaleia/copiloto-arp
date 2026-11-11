@@ -725,16 +725,21 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
   // Importações e Parâmetros
   // -------------------------------------------------------------------------
   "/operacoes/importacoes": {
-    versao: 1,
+    versao: 2,
     passos: [
       abertura(
         "Importações",
-        "Toda entrada de arquivo do módulo passa por aqui: água, faturas da Energisa, orçamento de obra e o histórico do rateio da limpeza. Sempre os mesmos três passos, sem editar o arquivo.",
+        "Toda entrada de arquivo do módulo passa por aqui: contas e fotos da água, conta da concessionária, faturas da Energisa, rateio da limpeza e orçamento de obra. Sempre os mesmos três passos, sem editar o arquivo. Cada importação guarda o arquivo como comprovante e os dados convertidos.",
       ),
       p(
         "op-importacoes-etapas",
         "Passo 1. Os três passos",
         "<b>Enviar</b> os arquivos como chegaram, <b>conferir a prévia</b> (o que foi lido e os avisos) e <b>confirmar</b>. Antes de confirmar, nada aparece nas telas.",
+      ),
+      p(
+        "op-importacoes-tipos",
+        "Os tipos, por área",
+        "Cada cartão diz o que aceita e qual foi a última importação confirmada. <b>Importar</b> abre o envio daquele tipo. Fotos dos hidrômetros que chegam depois do mês: cartão <b>Fotos dos hidrômetros</b>.",
       ),
       p(
         "op-importacoes-nova",
@@ -767,9 +772,9 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
         "Erros impedem confirmar sem motivo; avisos e informações só pedem conferência.",
       ),
       p(
-        "secao:Arquivos enviados",
-        "No detalhe: os arquivos",
-        "Os arquivos como foram recebidos, para baixar de novo. O link vale 10 minutos.",
+        "secao:Comprovante",
+        "No detalhe: o comprovante e os dados",
+        "Os arquivos como foram recebidos (foto e PDF abrem na tela). Logo abaixo, os <b>dados importados</b>: na água, cada leitura com a foto, para <b>Corrigir</b>, trocar a foto ou excluir; na conta da concessionária, <b>Corrigir a conta</b>. Tudo fica no histórico.",
       ),
     ],
   },

@@ -145,6 +145,7 @@ export type Alvo =
   | "op-importacoes-historico"
   | "op-importacoes-desfazer"
   | "op-importacoes-tipo"
+  | "op-importacoes-tipos"
   | "op-parametros-agua"
   | "op-parametros-termo"
   | "op-parametros-quadros"

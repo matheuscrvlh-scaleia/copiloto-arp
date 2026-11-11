@@ -3,18 +3,25 @@ import { formatarMes, formatarNumero } from "@/lib/formato";
 import type { Status } from "@/lib/indicadores";
 import type { Permissao } from "@/lib/permissions";
 
-// Importações de Operações (spec 4.11): os quatro tipos, quem pode importar
-// cada um (mesma regra de operacoes.pode_importar), os rótulos do histórico,
-// os filtros da URL e a leitura segura dos campos jsonb (arquivos, avisos,
-// resumo), que cada área grava no seu formato.
+// Importações de Operações (spec 4.11): os tipos, quem pode importar cada um
+// (mesma regra de operacoes.pode_importar), os rótulos do histórico, os
+// cartões da tela (por área), os filtros da URL e a leitura segura dos
+// campos jsonb (arquivos, avisos, resumo), que cada área grava no seu formato.
 
 export const TIPOS_IMPORTACAO = {
   agua: {
-    rotulo: "Água · faturamento individualizado",
-    curto: "Água",
+    rotulo: "Contas de água por sala (faturamento individualizado)",
+    curto: "Água por sala",
     permissao: "operacoes.agua.importar",
     descricao:
-      "Planilhas (ou PDFs) de bloco do mês e a pasta de fotos, como o parceiro envia.",
+      "Planilhas (ou PDFs) de cada bloco do mês e as fotos dos hidrômetros, como o parceiro envia. Pode mandar tudo de uma vez.",
+  },
+  agua_conta: {
+    rotulo: "Conta da concessionária (água)",
+    curto: "Conta de água",
+    permissao: "operacoes.agua.importar",
+    descricao:
+      "A conta do macromedidor do prédio, em PDF ou foto. O arquivo fica guardado como comprovante e os campos, como dado.",
   },
   energisa: {
     rotulo: "Faturas da Energisa",
@@ -41,6 +48,102 @@ export const TIPOS_IMPORTACAO = {
 >;
 export type TipoImportacao = keyof typeof TIPOS_IMPORTACAO;
 export const TIPOS = Object.keys(TIPOS_IMPORTACAO) as TipoImportacao[];
+
+/** Cada cartão da tela de Importações: um tipo (ou um atalho dele). */
+export interface CartaoImportacao {
+  chave: string;
+  tipo: TipoImportacao;
+  titulo: string;
+  texto: string;
+  aceita: string;
+  /** Atalho do mesmo tipo com outra orientação (ex.: só as fotos). */
+  foco?: "fotos";
+}
+
+/** Os cartões por área, na ordem da tela. */
+export const AREAS_IMPORTACAO: {
+  area: "agua" | "energia" | "limpeza" | "obras";
+  titulo: string;
+  cartoes: CartaoImportacao[];
+}[] = [
+  {
+    area: "agua",
+    titulo: "Água",
+    cartoes: [
+      {
+        chave: "agua",
+        tipo: "agua",
+        titulo: "Contas de água por sala",
+        texto:
+          "Faturamento individualizado do mês: leituras, consumo e valor de cada hidrômetro, com as fotos dos visores.",
+        aceita: "Planilha .xlsx ou PDF de cada bloco + fotos",
+      },
+      {
+        chave: "fotos",
+        tipo: "agua",
+        foco: "fotos",
+        titulo: "Fotos dos hidrômetros",
+        texto:
+          "Só as fotos de um mês já importado. Cada foto se liga ao hidrômetro pelo nome do arquivo (ex.: SET_26_A19L036553.jpg).",
+        aceita: "Fotos .jpg, .png, .webp ou a pasta inteira",
+      },
+      {
+        chave: "agua_conta",
+        tipo: "agua_conta",
+        titulo: "Conta da concessionária",
+        texto:
+          "A conta do macromedidor (Águas de Nova Friburgo): consumo, leituras, vencimento e total, com o comprovante guardado.",
+        aceita: "PDF ou foto da conta",
+      },
+    ],
+  },
+  {
+    area: "energia",
+    titulo: "Energia",
+    cartoes: [
+      {
+        chave: "energisa",
+        tipo: "energisa",
+        titulo: "Faturas da Energisa",
+        texto:
+          "Consumo, energia compensada, itens e total de cada matrícula da área comum, lidos do PDF.",
+        aceita: "PDF da fatura, um por matrícula",
+      },
+    ],
+  },
+  {
+    area: "limpeza",
+    titulo: "Limpeza",
+    cartoes: [
+      {
+        chave: "limpeza",
+        tipo: "limpeza",
+        titulo: "Rateio da limpeza",
+        texto:
+          "Histórico do rateio: cada aba mensal da planilha vira um mês, com minutos por bloco e extras.",
+        aceita: "Planilha .xlsx do rateio",
+      },
+    ],
+  },
+  {
+    area: "obras",
+    titulo: "Obras",
+    cartoes: [
+      {
+        chave: "orcamento",
+        tipo: "orcamento",
+        titulo: "Orçamento de obra",
+        texto:
+          "Previsão orçamentária por etapa e mês. Cada envio da mesma obra vira uma revisão (R00, R01…).",
+        aceita: "Planilha .xlsx de previsão orçamentária",
+      },
+    ],
+  },
+];
+
+/** Link da tela de envio de um cartão. */
+export const hrefDoCartao = (c: CartaoImportacao) =>
+  `/operacoes/importacoes/nova?tipo=${c.tipo}${c.foco ? `&foco=${c.foco}` : ""}`;
 
 export const ehTipo = (v: unknown): v is TipoImportacao =>
   typeof v === "string" && v in TIPOS_IMPORTACAO;

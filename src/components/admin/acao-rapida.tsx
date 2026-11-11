@@ -1,12 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import type { Acao } from "@/components/form-acao";
+import type { Acao, EstadoAcao } from "@/components/form-acao";
 import {
   ModalConfirmacao,
   useConfirmacao,
 } from "@/components/modal-confirmacao";
-import { useNotificarEstado } from "@/components/notificacoes";
+import { notificar, useNotificarEstado } from "@/components/notificacoes";
 
 const ESTILO = {
   icone: {
@@ -46,9 +46,18 @@ export function AcaoRapida({
   /** Pílula com ícone e texto; sem isso, só o ícone (com dica). */
   comTexto?: boolean;
 }) {
-  const [estado, executar, enviando] = useActionState(acao, {});
+  const [estado, executar, enviando] = useActionState(
+    async (anterior: EstadoAcao, form: FormData) => {
+      const r = await acao(anterior, form);
+      // Aviso já aqui: excluir ou desfazer costuma tirar o próprio botão da
+      // tela, e um efeito no botão desmontado não rodaria.
+      if (r.ok) notificar("ok", r.ok);
+      return r;
+    },
+    {},
+  );
   const confirmacao = useConfirmacao({ confirmar, estado, erroNoModal: true });
-  useNotificarEstado(estado, { erro: false });
+  useNotificarEstado(estado, { ok: false, erro: false });
   return (
     <form
       ref={confirmacao.form}

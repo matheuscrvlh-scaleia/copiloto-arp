@@ -3021,6 +3021,74 @@ export type Database = {
   }
   operacoes: {
     Tables: {
+      agua_contas: {
+        Row: {
+          atualizado_em: string
+          consumo_m3: number | null
+          data_anterior: string | null
+          data_atual: string | null
+          exemplo: boolean
+          id: string
+          importacao_id: string
+          leitura_anterior: number | null
+          leitura_atual: number | null
+          matricula: string
+          observacao: string | null
+          referencia: string
+          total: number
+          valor_agua: number | null
+          valor_esgoto: number | null
+          vencimento: string | null
+          vigente: boolean
+        }
+        Insert: {
+          atualizado_em?: string
+          consumo_m3?: number | null
+          data_anterior?: string | null
+          data_atual?: string | null
+          exemplo?: boolean
+          id?: string
+          importacao_id: string
+          leitura_anterior?: number | null
+          leitura_atual?: number | null
+          matricula: string
+          observacao?: string | null
+          referencia: string
+          total: number
+          valor_agua?: number | null
+          valor_esgoto?: number | null
+          vencimento?: string | null
+          vigente?: boolean
+        }
+        Update: {
+          atualizado_em?: string
+          consumo_m3?: number | null
+          data_anterior?: string | null
+          data_atual?: string | null
+          exemplo?: boolean
+          id?: string
+          importacao_id?: string
+          leitura_anterior?: number | null
+          leitura_atual?: number | null
+          matricula?: string
+          observacao?: string | null
+          referencia?: string
+          total?: number
+          valor_agua?: number | null
+          valor_esgoto?: number | null
+          vencimento?: string | null
+          vigente?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agua_contas_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: false
+            referencedRelation: "importacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agua_leituras: {
         Row: {
           bloco: string

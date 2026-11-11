@@ -144,6 +144,7 @@ export const EVENTOS = {
   comercial_rotina: "Rodou a rotina do Comercial",
   operacoes_importacao_confirmada: "Confirmou importação de Operações",
   operacoes_importacao_desfeita: "Desfez importação de Operações",
+  operacoes_importacao_corrigida: "Corrigiu dado importado de Operações",
   operacoes_parametros: "Alterou os parâmetros de Operações",
   operacoes_exemplos_removidos: "Removeu os dados de exemplo de Operações",
   operacoes_rateio_fechado: "Fechou o rateio da limpeza",

@@ -10,6 +10,7 @@ import {
 } from "@/components/carregando";
 import { Nota, Secao } from "@/components/dashboard/tabela";
 import { TopoDaTela } from "@/components/dashboard/tela";
+import { CartoesDeImportacao } from "@/components/operacoes/importacoes/cartoes";
 import {
   EtapasDaImportacao,
   FiltrosDeImportacoes,
@@ -32,6 +33,7 @@ import {
 import { totalDePaginas } from "@/lib/os/paginacao";
 import { contextoOp } from "@/server/operacoes/base";
 import { paginaDeImportacoes } from "@/server/operacoes/importacoes";
+import { situacaoPorTipo } from "@/server/operacoes/importacoes-dados";
 
 export const metadata: Metadata = { title: "Importações de Operações" };
 
@@ -44,7 +46,7 @@ export default function Page({
     <>
       <PageHeader
         title="Importações"
-        description="Água, faturas da Energisa, orçamento de obra e histórico do rateio: enviar, conferir a prévia e confirmar. Toda importação fica aqui, com o Desfazer."
+        description="Tudo o que entra por arquivo em Operações: contas e fotos da água, conta da concessionária, faturas da Energisa, rateio da limpeza e orçamento de obra. Cada importação guarda o arquivo como comprovante e os dados convertidos, que podem ser corrigidos ou desfeitos."
       />
       <Suspense fallback={<Esqueleto />}>
         <Historico busca={searchParams} />
@@ -71,13 +73,17 @@ async function Historico({ busca }: { busca: Promise<Busca> }) {
   const vistos = TIPOS.filter(
     (t) =>
       podeTipo.includes(t) ||
-      (t === "agua" && ctx.pode("operacoes.agua.ver")) ||
+      ((t === "agua" || t === "agua_conta") &&
+        ctx.pode("operacoes.agua.ver")) ||
       (t === "orcamento" && ctx.pode("operacoes.obras.ver")) ||
       (t === "limpeza" && ctx.pode("operacoes.limpeza.ver")),
   );
   if (!vistos.length) return <SemAcesso />;
   const f = lerFiltroImportacoes(sp);
-  const { linhas, total } = await paginaDeImportacoes(f);
+  const [{ linhas, total }, situacao] = await Promise.all([
+    paginaDeImportacoes(f),
+    situacaoPorTipo(),
+  ]);
   const ultima = totalDePaginas(total, POR_PAGINA);
   if (f.pagina > ultima) redirect(hrefDaPagina(ROTA_IMPORTACOES, sp, ultima));
 
@@ -107,11 +113,17 @@ async function Historico({ busca }: { busca: Promise<Busca> }) {
 
       {podeTipo.length > 0 && <EtapasDaImportacao />}
 
+      <CartoesDeImportacao
+        podeTipo={podeTipo}
+        vistos={vistos}
+        situacao={situacao}
+      />
+
       <FiltrosDeImportacoes f={f} tipos={vistos} />
 
       <Secao
         titulo="Histórico de importações"
-        descricao={`${formatarNumero(total)} ${total === 1 ? "importação" : "importações"} · da mais nova para a mais antiga. Clique no olho para ver o resumo, os avisos e os arquivos.`}
+        descricao={`${formatarNumero(total)} ${total === 1 ? "importação" : "importações"} · da mais nova para a mais antiga. Clique no olho para ver o comprovante, os dados importados (com corrigir e excluir) e os avisos.`}
       >
         <div className="flex flex-col gap-4">
           <TabelaDeImportacoes linhas={linhas} podeTipo={podeTipo} />
@@ -125,9 +137,11 @@ async function Historico({ busca }: { busca: Promise<Busca> }) {
       </Secao>
 
       <Nota>
-        Desfazer apaga o que a importação trouxe; na água, se ela substituiu
-        outra do mesmo mês, a anterior volta a valer. Mês que não batia com o
-        resumo do arquivo só entra com motivo e fica marcado “incompleto”.
+        Desfazer apaga o que a importação trouxe; na água e na conta da
+        concessionária, se ela substituiu outra do mesmo mês, a anterior volta a
+        valer. Mês que não batia com o resumo do arquivo só entra com motivo e
+        fica marcado “incompleto”. Correções feitas depois ficam no histórico do
+        sistema, com quem alterou e o valor de antes.
       </Nota>
     </div>
   );
@@ -136,6 +150,8 @@ async function Historico({ busca }: { busca: Promise<Busca> }) {
 function Esqueleto() {
   return (
     <TelaCarregando>
+      <FiltrosCarregando />
+      <CartaoCarregando altura="h-80" />
       <FiltrosCarregando />
       <CartaoCarregando altura="h-[32rem]" />
     </TelaCarregando>

@@ -1,10 +1,12 @@
-import { CircleAlert, Download, Info, TriangleAlert } from "lucide-react";
+import { ArrowUpRight, CircleAlert, Info, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { type Coluna, Secao, Tabela } from "@/components/dashboard/tabela";
+import { Comprovantes } from "@/components/operacoes/importacoes/comprovantes";
+import { ContaImportadaVista } from "@/components/operacoes/importacoes/conta";
 import {
   BotaoDesfazer,
   ContagemDeAvisos,
@@ -12,18 +14,34 @@ import {
   ROTA_IMPORTACOES,
   rotaDaImportacao,
 } from "@/components/operacoes/importacoes/historico";
+import { LeiturasImportadas } from "@/components/operacoes/importacoes/leituras";
 import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
-import { formatarDataHora, formatarMoeda, formatarNumero } from "@/lib/formato";
+import {
+  formatarData,
+  formatarDataHora,
+  formatarMes,
+  formatarMoeda,
+  formatarNumero,
+} from "@/lib/formato";
 import {
   type AvisoImportacao,
   podeDesfazer,
+  type StatusImportacao,
   TIPOS_IMPORTACAO,
+  type TipoImportacao,
   textoDaReferencia,
   tiposQuePode,
 } from "@/lib/operacoes/importacoes";
 import { contextoOp } from "@/server/operacoes/base";
 import { importacao } from "@/server/operacoes/importacoes";
+import {
+  contaDaImportacao,
+  faturasDaImportacao,
+  leiturasDaImportacao,
+  mesesDaImportacao,
+  revisaoDaImportacao,
+} from "@/server/operacoes/importacoes-dados";
 
 export const metadata: Metadata = { title: "Importação" };
 
@@ -179,42 +197,20 @@ async function Detalhe({
         </Secao>
 
         <Secao
-          titulo="Arquivos enviados"
-          descricao="Como foram recebidos; o link vale por 10 minutos."
+          titulo="Comprovante"
+          descricao="Os arquivos como foram recebidos. Os links valem por 10 minutos (recarregue a tela para gerar outros)."
         >
-          {i.arquivosComLink.length ? (
-            <ul className="flex flex-col gap-2">
-              {i.arquivosComLink.map((a) => (
-                <li
-                  key={`${a.nome}-${a.caminho ?? ""}`}
-                  className="flex flex-wrap items-center justify-between gap-2 text-sm"
-                >
-                  <span className="min-w-0 break-all">{a.nome}</span>
-                  <span className="flex items-center gap-3 text-xs text-neutral-500">
-                    {a.bytes !== undefined &&
-                      `${formatarNumero(a.bytes / 1024, 0)} KB`}
-                    {a.url ? (
-                      <a
-                        href={a.url}
-                        className="inline-flex items-center gap-1 font-medium text-neutral-800 underline-offset-2 hover:underline"
-                      >
-                        <Download className="size-3.5" aria-hidden />
-                        Baixar
-                      </a>
-                    ) : (
-                      "arquivo não guardado"
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-neutral-500">
-              Nenhum arquivo registrado nesta importação.
-            </p>
-          )}
+          <Comprovantes arquivos={i.arquivosComLink} />
         </Secao>
       </div>
+
+      <DadosImportados
+        id={i.id}
+        tipo={i.tipo}
+        status={i.status}
+        podeEditar={podeTipo.includes(i.tipo)}
+        comValores={ctx.pode("operacoes.agua.valores")}
+      />
 
       <Secao
         titulo="O que foi lido"
@@ -285,5 +281,213 @@ async function Detalhe({
         />
       </Secao>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dados importados: o que a importação gravou, convertido em dado
+// ---------------------------------------------------------------------------
+
+const LINK =
+  "inline-flex items-center gap-1 font-medium text-neutral-800 underline-offset-2 hover:underline";
+
+async function DadosImportados({
+  id,
+  tipo,
+  status,
+  podeEditar,
+  comValores,
+}: {
+  id: string;
+  tipo: TipoImportacao;
+  status: StatusImportacao;
+  podeEditar: boolean;
+  comValores: boolean;
+}) {
+  if (status === "desfeita" || status === "cancelada")
+    return (
+      <Secao titulo="Dados importados">
+        <p className="text-sm text-neutral-500">
+          {status === "cancelada"
+            ? "A prévia foi descartada: nada entrou nos dados."
+            : "A importação foi desfeita: os dados que ela trouxe foram apagados. O comprovante continua acima."}
+        </p>
+      </Secao>
+    );
+
+  if (tipo === "agua") {
+    const leituras = await leiturasDaImportacao(id, comValores);
+    return (
+      <Secao
+        titulo="Dados importados · leituras da água"
+        descricao={
+          status === "confirmada"
+            ? podeEditar
+              ? "Cada leitura que entrou, com a foto do visor. Corrija um campo, troque a foto ou exclua a leitura: tudo fica no histórico."
+              : "Cada leitura que entrou, com a foto do visor."
+            : status === "previa"
+              ? "Prévia: ainda não vale. Confirme ou descarte na tela de importação."
+              : "Esta versão do mês foi substituída por outra importação: só consulta."
+        }
+      >
+        <LeiturasImportadas
+          leituras={leituras}
+          podeEditar={podeEditar && status === "confirmada"}
+          comValores={comValores}
+        />
+      </Secao>
+    );
+  }
+
+  if (tipo === "agua_conta") {
+    const conta = await contaDaImportacao(id);
+    return (
+      <Secao
+        titulo="Dados importados · conta da concessionária"
+        descricao="Os campos da conta, guardados como dado junto do comprovante."
+      >
+        {conta ? (
+          <ContaImportadaVista
+            importacao={id}
+            conta={conta}
+            podeEditar={podeEditar && status === "confirmada"}
+          />
+        ) : status === "previa" && podeEditar ? (
+          <p className="text-sm text-neutral-600">
+            A conta ainda não foi conferida.{" "}
+            <Link
+              href={`${ROTA_IMPORTACOES}/nova?tipo=agua_conta`}
+              className={LINK}
+            >
+              Continuar a conferência
+              <ArrowUpRight className="size-3.5" aria-hidden />
+            </Link>
+          </p>
+        ) : (
+          <p className="text-sm text-neutral-500">
+            Os valores da conta aparecem para quem vê os reais da água.
+          </p>
+        )}
+      </Secao>
+    );
+  }
+
+  if (tipo === "energisa") {
+    const faturas = await faturasDaImportacao(id);
+    return (
+      <Secao
+        titulo="Dados importados · fatura da Energisa"
+        descricao="A fatura lida do PDF, com os itens. Para corrigir, desfaça e importe o PDF de novo."
+      >
+        <Tabela
+          colunas={[
+            { titulo: "Matrícula", valor: (f) => f.matricula },
+            { titulo: "Mês", valor: (f) => formatarMes(f.referencia) },
+            {
+              titulo: "Vencimento",
+              valor: (f) => (f.vencimento ? formatarData(f.vencimento) : "—"),
+            },
+            {
+              titulo: "Consumo",
+              numero: true,
+              valor: (f) =>
+                f.consumoKwh === null
+                  ? "—"
+                  : `${formatarNumero(f.consumoKwh)} kWh`,
+            },
+            {
+              titulo: "Total",
+              numero: true,
+              valor: (f) => (f.total === null ? "—" : formatarMoeda(f.total)),
+            },
+            {
+              titulo: "Fatura",
+              valor: (f) =>
+                f.vigente ? (
+                  <Link
+                    href={`/operacoes/energia/contas/${f.id}`}
+                    className={LINK}
+                  >
+                    Abrir
+                    <ArrowUpRight className="size-3.5" aria-hidden />
+                  </Link>
+                ) : (
+                  "ainda não vale"
+                ),
+            },
+          ]}
+          linhas={faturas}
+          chave={(f) => f.id}
+          vazio={
+            status === "previa"
+              ? "A fatura ainda não foi gravada (matrícula sem cadastro na prévia)."
+              : "Sem fatura."
+          }
+        />
+      </Secao>
+    );
+  }
+
+  if (tipo === "limpeza") {
+    const meses = await mesesDaImportacao(id);
+    return (
+      <Secao
+        titulo="Dados importados · meses do rateio"
+        descricao="Cada aba da planilha virou um mês do rateio. Corrija minutos, extras e valores na tela do mês."
+      >
+        <Tabela
+          colunas={[
+            { titulo: "Mês", valor: (m) => formatarMes(m.referencia) },
+            {
+              titulo: "Situação",
+              valor: (m) => (m.status === "fechado" ? "Fechado" : "Aberto"),
+            },
+            {
+              titulo: "Valor base",
+              numero: true,
+              valor: (m) =>
+                m.valorBase === null ? "—" : formatarMoeda(m.valorBase),
+            },
+            {
+              titulo: "Tela do mês",
+              valor: (m) => (
+                <Link
+                  href={`/operacoes/limpeza?mes=${m.referencia.slice(0, 7)}`}
+                  className={LINK}
+                >
+                  {podeEditar ? "Abrir e corrigir" : "Abrir"}
+                  <ArrowUpRight className="size-3.5" aria-hidden />
+                </Link>
+              ),
+            },
+          ]}
+          linhas={meses}
+          chave={(m) => m.referencia}
+          vazio="Nenhum mês gravado."
+        />
+      </Secao>
+    );
+  }
+
+  const revisao = await revisaoDaImportacao(id);
+  return (
+    <Secao
+      titulo="Dados importados · revisão do orçamento"
+      descricao="As etapas e o previsto por mês da planilha. O realizado é lançado na tela da obra."
+    >
+      {revisao ? (
+        <p className="text-sm">
+          {revisao.obra} · revisão {revisao.codigo} · {revisao.etapas}{" "}
+          {revisao.etapas === 1 ? "etapa" : "etapas"}
+          {revisao.vigente ? " · vigente" : ""}.{" "}
+          <Link href={`/operacoes/obras/${revisao.obraId}`} className={LINK}>
+            Abrir a obra
+            <ArrowUpRight className="size-3.5" aria-hidden />
+          </Link>
+        </p>
+      ) : (
+        <p className="text-sm text-neutral-500">Nenhuma revisão gravada.</p>
+      )}
+    </Secao>
   );
 }

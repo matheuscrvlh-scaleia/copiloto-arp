@@ -29,11 +29,11 @@ export const TRILHAS_OPERACOES: Trilha[] = [
           "O caminho dos arquivos do parceiro: <b>enviar</b> → <b>conferir a prévia</b> → <b>confirmar</b> → <b>conferir as leituras</b> → <b>resolver os alertas</b>. O guia muda de tela sozinho; nada entra sem você confirmar.",
       },
       {
-        alvo: "aba:Água · faturamento individualizado",
+        alvo: "aba:Contas de água por sala",
         ate: "op-agua-arquivos",
-        titulo: "Escolha Água",
+        titulo: "Escolha a água por sala",
         texto:
-          "Clique no tipo <b>Água</b>. O guia segue quando a área de envio aparecer.",
+          "Clique em <b>Contas de água por sala</b>. O guia segue quando a área de envio aparecer.",
         semAlvo:
           "Importar a água pede a permissão de importar a água. Peça ao administrador.",
       },
