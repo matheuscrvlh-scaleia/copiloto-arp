@@ -3756,6 +3756,56 @@ export type Database = {
         }
         Relationships: []
       }
+      hidrometros: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          bloco: string
+          criado_em: string
+          descricao: string | null
+          exemplo: boolean
+          id: string
+          numero: string
+          observacoes: string | null
+          sala: string
+          sala_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          bloco: string
+          criado_em?: string
+          descricao?: string | null
+          exemplo?: boolean
+          id?: string
+          numero: string
+          observacoes?: string | null
+          sala?: string
+          sala_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          bloco?: string
+          criado_em?: string
+          descricao?: string | null
+          exemplo?: boolean
+          id?: string
+          numero?: string
+          observacoes?: string | null
+          sala?: string
+          sala_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hidrometros_sala_id_fkey"
+            columns: ["sala_id"]
+            isOneToOne: false
+            referencedRelation: "salas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       importacao_valores: {
         Row: {
           importacao_id: string

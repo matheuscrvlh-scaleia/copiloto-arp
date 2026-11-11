@@ -11,7 +11,7 @@ const FIM: PassoTrilha = {
     "Este processo fica no botão <b>Guia</b> de qualquer tela de Operações. O guia de cada tela também está lá.",
 };
 
-const IMPORTAR = "/operacoes/importacoes/nova";
+const IMPORTAR = "/operacoes/importacoes";
 
 export const TRILHAS_OPERACOES: Trilha[] = [
   {

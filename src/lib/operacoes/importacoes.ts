@@ -143,7 +143,7 @@ export const AREAS_IMPORTACAO: {
 
 /** Link da tela de envio de um cartão. */
 export const hrefDoCartao = (c: CartaoImportacao) =>
-  `/operacoes/importacoes/nova?tipo=${c.tipo}${c.foco ? `&foco=${c.foco}` : ""}`;
+  `/operacoes/importacoes?tipo=${c.tipo}${c.foco ? `&foco=${c.foco}` : ""}`;
 
 export const ehTipo = (v: unknown): v is TipoImportacao =>
   typeof v === "string" && v in TIPOS_IMPORTACAO;
@@ -220,7 +220,8 @@ export function lerFiltroImportacoes(
   busca: Record<string, string | string[] | undefined>,
 ): FiltroImportacoes {
   const f = esquemaFiltro.parse({
-    tipo: busca.tipo ?? null,
+    // log_tipo: na mesma tela, ?tipo= escolhe a aba do importador.
+    tipo: busca.log_tipo ?? null,
     status: busca.status ?? null,
     de: busca.de ?? null,
     ate: busca.ate ?? null,

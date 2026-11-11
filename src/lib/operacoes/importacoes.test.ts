@@ -40,7 +40,7 @@ describe("filtros", () => {
   it("valor inválido vira sem filtro; datas trocadas se acertam", () => {
     expect(
       lerFiltroImportacoes({
-        tipo: "agua",
+        log_tipo: "agua",
         status: "qualquer",
         de: "2026-10-31",
         ate: "2026-10-01",
@@ -53,7 +53,7 @@ describe("filtros", () => {
       ate: "2026-10-31",
       pagina: 1,
     });
-    expect(lerFiltroImportacoes({ tipo: ["energisa", "agua"] }).tipo).toBe(
+    expect(lerFiltroImportacoes({ log_tipo: ["energisa", "agua"] }).tipo).toBe(
       "energisa",
     );
   });

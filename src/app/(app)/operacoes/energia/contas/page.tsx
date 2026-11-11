@@ -55,7 +55,7 @@ import {
 
 export const metadata: Metadata = { title: "Contas de energia" };
 
-const IMPORTAR = "/operacoes/importacoes/nova?tipo=energisa";
+const IMPORTAR = "/operacoes/importacoes?tipo=energisa";
 const FONTE = "Faturas da Energisa importadas";
 const EXEMPLO = "faturas de exemplo da Energisa, até a primeira importação";
 

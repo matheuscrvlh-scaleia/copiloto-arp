@@ -53,6 +53,7 @@ export type Icone =
   | "pesquisa"
   | "formularios"
   | "agua"
+  | "cadastros_op"
   | "energia"
   | "conta_luz"
   | "solar"
@@ -454,6 +455,17 @@ export const navigation: NavSection[] = [
         label: "Água",
         icone: "agua",
         permissao: "operacoes.agua.ver",
+      },
+      {
+        href: "/operacoes/cadastros",
+        label: "Cadastros",
+        icone: "cadastros_op",
+        // Hidrômetros (quem vê ou importa a água) e salas da energia.
+        permissao: [
+          "operacoes.agua.ver",
+          "operacoes.agua.importar",
+          "operacoes.energia.ver",
+        ],
       },
       {
         href: "/operacoes/energia",

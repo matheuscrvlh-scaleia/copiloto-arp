@@ -78,6 +78,13 @@ const nextConfig: NextConfig = {
         destination: "/operacoes/obras/diario/:path+",
         permanent: false,
       },
+      // Nova importação virou a primeira tela de Importações (11/11/2026); o
+      // ?tipo= segue junto.
+      {
+        source: "/operacoes/importacoes/nova",
+        destination: "/operacoes/importacoes",
+        permanent: false,
+      },
     ];
   },
   headers() {

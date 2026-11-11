@@ -226,20 +226,25 @@ export function BotaoDesfazer({
 export function FiltrosDeImportacoes({
   f,
   tipos,
+  manter = {},
 }: {
   f: FiltroImportacoes;
   tipos: TipoImportacao[];
+  /** Parâmetros da tela que o filtro não mexe (a aba do importador). */
+  manter?: Record<string, string>;
 }) {
+  const limpar = new URLSearchParams(manter).toString();
   return (
     <form
       method="get"
+      action={`${ROTA_IMPORTACOES}#logs`}
       data-guia="op-importacoes-filtros"
       className="vidro flex flex-wrap items-end gap-3 rounded-[1.75rem] p-4"
     >
       <div className="flex min-w-44 flex-col gap-1 text-xs font-medium text-neutral-600">
         <span>Tipo</span>
         <Selecao
-          name="tipo"
+          name="log_tipo"
           rotulo="Tipo de importação"
           valorInicial={f.tipo ?? ""}
           opcoes={[
@@ -290,8 +295,12 @@ export function FiltrosDeImportacoes({
         <Filter className="size-4" aria-hidden />
         Filtrar
       </button>
+      {Object.entries(manter).map(([k, v]) => (
+        <input key={k} type="hidden" name={k} value={v} />
+      ))}
       <Link
-        href={ROTA_IMPORTACOES}
+        href={`${ROTA_IMPORTACOES}${limpar ? `?${limpar}` : ""}#logs`}
+        scroll={false}
         className="pb-2 text-sm text-neutral-500 underline-offset-4 hover:text-neutral-900 hover:underline"
       >
         Limpar

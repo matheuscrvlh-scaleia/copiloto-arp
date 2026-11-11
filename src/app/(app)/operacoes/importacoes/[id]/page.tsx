@@ -355,10 +355,7 @@ async function DadosImportados({
         ) : status === "previa" && podeEditar ? (
           <p className="text-sm text-neutral-600">
             A conta ainda não foi conferida.{" "}
-            <Link
-              href={`${ROTA_IMPORTACOES}/nova?tipo=agua_conta`}
-              className={LINK}
-            >
+            <Link href={`${ROTA_IMPORTACOES}?tipo=agua_conta`} className={LINK}>
               Continuar a conferência
               <ArrowUpRight className="size-3.5" aria-hidden />
             </Link>

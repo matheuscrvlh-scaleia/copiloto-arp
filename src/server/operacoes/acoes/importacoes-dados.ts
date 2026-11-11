@@ -130,16 +130,76 @@ export async function excluirLeituraAgua(
   return { ok: "Leitura excluída." };
 }
 
-/**
- * Troca (ou põe) a foto do visor de uma leitura. A foto anterior fica no
- * disco: o mesmo arquivo pode estar ligado à leitura de outra versão do mês.
- */
 export async function trocarFotoLeitura(
   _: EstadoAcao,
   form: FormData,
 ): Promise<EstadoAcao> {
   const e = pedidoId.safeParse({ id: form.get("id") });
   if (!e.success) return { erro: "Leitura inválida." };
+  const foto = await fotoDoForm(form);
+  if ("erro" in foto) return foto;
+  const db = await op();
+  const atual = await leituraQueVale(db, e.data.id).catch(() => null);
+  if (!atual) return { erro: "Leitura não encontrada ou não vale mais." };
+  return ligarFoto(db, atual, foto, "Trocou");
+}
+
+const pedidoFoto = z.object({
+  hidrometro: z.uuid("Escolha o hidrômetro."),
+  mes: z.iso
+    .date("Escolha o mês.")
+    .refine((d) => d.endsWith("-01"), "Mês inválido."),
+});
+
+/**
+ * Foto do visor escolhendo o hidrômetro do cadastro e o mês (sem depender do
+ * nome do arquivo). Liga à leitura que vale daquele hidrômetro no mês.
+ */
+export async function fotoDoHidrometro(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  const e = pedidoFoto.safeParse({
+    hidrometro: form.get("hidrometro"),
+    mes: form.get("mes"),
+  });
+  if (!e.success) return { erro: primeiroErro(e.error) };
+  const foto = await fotoDoForm(form);
+  if ("erro" in foto) return foto;
+  const db = await op();
+  const { data: h } = await db
+    .from("hidrometros")
+    .select("numero, bloco, sala")
+    .eq("id", e.data.hidrometro)
+    .maybeSingle();
+  if (!h) return { erro: "Hidrômetro não encontrado no cadastro." };
+  const { data: leituras, error } = await db
+    .from("agua_leituras")
+    .select("id, referencia, bloco, sala, hidrometro, importacao_id, vigente")
+    .eq("hidrometro", h.numero)
+    .eq("referencia", e.data.mes)
+    .eq("vigente", true);
+  if (error) {
+    console.error("leitura do hidrômetro", error);
+    return { erro: "Não foi possível achar a leitura. Tente de novo." };
+  }
+  // O mesmo número em duas salas no mês: vale a do cadastro.
+  const atual =
+    leituras?.length === 1
+      ? leituras[0]
+      : leituras?.find((l) => l.bloco === h.bloco && l.sala === h.sala);
+  if (!atual)
+    return {
+      erro: leituras?.length
+        ? `O hidrômetro ${h.numero} aparece em mais de uma sala em ${rotuloMes(e.data.mes)}. Abra a importação do mês e troque a foto na leitura certa.`
+        : `Não há leitura do hidrômetro ${h.numero} em ${rotuloMes(e.data.mes)}. Importe antes a planilha do mês.`,
+    };
+  return ligarFoto(db, atual, foto, "Ligou");
+}
+
+type Foto = { bytes: Uint8Array; tipo: string };
+
+async function fotoDoForm(form: FormData): Promise<Foto | { erro: string }> {
   const arquivo = form.get("foto");
   if (!(arquivo instanceof File) || arquivo.size === 0)
     return { erro: "Escolha a foto." };
@@ -149,10 +209,19 @@ export async function trocarFotoLeitura(
   const tipo = tipoDoComprovante(bytes);
   if (!tipo?.startsWith("image/"))
     return { erro: "O arquivo não é foto (.jpg, .png ou .webp)." };
-  const db = await op();
-  const atual = await leituraQueVale(db, e.data.id).catch(() => null);
-  if (!atual) return { erro: "Leitura não encontrada ou não vale mais." };
+  return { bytes, tipo };
+}
 
+/**
+ * Troca (ou põe) a foto do visor de uma leitura. A foto anterior fica no
+ * disco: o mesmo arquivo pode estar ligado à leitura de outra versão do mês.
+ */
+async function ligarFoto(
+  db: Banco,
+  atual: NonNullable<Awaited<ReturnType<typeof leituraQueVale>>>,
+  { bytes, tipo }: Foto,
+  verbo: "Trocou" | "Ligou",
+): Promise<EstadoAcao> {
   const ext = tipo === "image/jpeg" ? "jpg" : tipo.slice(6);
   const caminho = `agua/fotos/corrigidas/${atual.referencia.slice(0, 7)}/${randomUUID()}.${ext}`;
   try {
@@ -164,7 +233,7 @@ export async function trocarFotoLeitura(
   const { data, error } = await db
     .from("agua_leituras")
     .update({ foto: caminho })
-    .eq("id", e.data.id)
+    .eq("id", atual.id)
     .select("id");
   if (error || !data?.length) {
     await removerArquivos(BUCKET, [caminho]).catch(() => {});
@@ -174,10 +243,15 @@ export async function trocarFotoLeitura(
   refresh();
   await logOperacoes(
     "operacoes_importacao_corrigida",
-    `Trocou a foto do ${descrever(atual)}`,
-    { importacao: atual.importacao_id, leitura: e.data.id, foto: caminho },
+    `${verbo} a foto do ${descrever(atual)}`,
+    { importacao: atual.importacao_id, leitura: atual.id, foto: caminho },
   );
-  return { ok: "Foto atualizada." };
+  return {
+    ok:
+      verbo === "Ligou"
+        ? `Foto ligada ao ${descrever(atual)}.`
+        : "Foto atualizada.",
+  };
 }
 
 export async function tirarFotoLeitura(

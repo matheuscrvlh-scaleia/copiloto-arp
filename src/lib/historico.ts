@@ -145,6 +145,7 @@ export const EVENTOS = {
   operacoes_importacao_confirmada: "Confirmou importação de Operações",
   operacoes_importacao_desfeita: "Desfez importação de Operações",
   operacoes_importacao_corrigida: "Corrigiu dado importado de Operações",
+  operacoes_cadastro: "Alterou cadastro de Operações (hidrômetro ou sala)",
   operacoes_parametros: "Alterou os parâmetros de Operações",
   operacoes_exemplos_removidos: "Removeu os dados de exemplo de Operações",
   operacoes_rateio_fechado: "Fechou o rateio da limpeza",

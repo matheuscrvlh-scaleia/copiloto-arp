@@ -724,76 +724,49 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
   // -------------------------------------------------------------------------
   // Importações e Parâmetros
   // -------------------------------------------------------------------------
-  "/operacoes/importacoes": {
-    versao: 2,
-    passos: [
-      abertura(
-        "Importações",
-        "Toda entrada de arquivo do módulo passa por aqui: contas e fotos da água, conta da concessionária, faturas da Energisa, rateio da limpeza e orçamento de obra. Sempre os mesmos três passos, sem editar o arquivo. Cada importação guarda o arquivo como comprovante e os dados convertidos.",
-      ),
-      p(
-        "op-importacoes-etapas",
-        "Passo 1. Os três passos",
-        "<b>Enviar</b> os arquivos como chegaram, <b>conferir a prévia</b> (o que foi lido e os avisos) e <b>confirmar</b>. Antes de confirmar, nada aparece nas telas.",
-      ),
-      p(
-        "op-importacoes-tipos",
-        "Os tipos, por área",
-        "Cada cartão diz o que aceita e qual foi a última importação confirmada. <b>Importar</b> abre o envio daquele tipo. Fotos dos hidrômetros que chegam depois do mês: cartão <b>Fotos dos hidrômetros</b>.",
-      ),
-      p(
-        "op-importacoes-nova",
-        "Passo 2. Nova importação",
-        "Escolha o tipo e envie. Só aparecem os tipos que você tem permissão de importar.",
-      ),
-      p(
-        "op-importacoes-filtros",
-        "Passo 3. Ache uma importação",
-        "Filtre por tipo e situação.",
-      ),
-      p(
-        "op-importacoes-historico",
-        "Passo 4. O histórico",
-        "Quando, tipo, mês de referência, arquivos, resultado (bate ou não com o resumo do arquivo), avisos e quem importou. O olho abre o detalhe.",
-      ),
-      p(
-        "op-importacoes-desfazer",
-        "Passo 5. Desfazer",
-        "Importou o arquivo errado? <b>Desfazer</b> tira os dados daquele arquivo das telas (na obra, volta à revisão anterior). Prévia não confirmada: <b>Descartar prévia</b>.",
-      ),
-      p(
-        "secao:Conciliação em reais",
-        "No detalhe: a conciliação",
-        "Soma das linhas lidas contra o resumo do arquivo, bloco a bloco. A diferença mostra onde está o problema.",
-      ),
-      p(
-        "secao:Avisos das conferências",
-        "No detalhe: os avisos",
-        "Erros impedem confirmar sem motivo; avisos e informações só pedem conferência.",
-      ),
-      p(
-        "secao:Comprovante",
-        "No detalhe: o comprovante e os dados",
-        "Os arquivos como foram recebidos (foto e PDF abrem na tela). Logo abaixo, os <b>dados importados</b>: na água, cada leitura com a foto, para <b>Corrigir</b>, trocar a foto ou excluir; na conta da concessionária, <b>Corrigir a conta</b>. Tudo fica no histórico.",
-      ),
-    ],
-  },
-  "/operacoes/importacoes/nova": {
+  "/operacoes/cadastros": {
     versao: 1,
     passos: [
       abertura(
-        "Nova importação",
-        "Escolha o tipo e envie os arquivos como recebeu. Nada entra nos dados antes de você conferir a prévia e confirmar. Abra este guia de novo na prévia para ver o que conferir.",
+        "Cadastros",
+        "O que se cadastra uma vez e as importações usam: os hidrômetros e as salas da energia. O caminho é sempre o mesmo: cadastre aqui e importe em <b>Importações</b>.",
+      ),
+      abas(
+        "<b>Passo 1.</b> Escolha o cadastro. <b>Hidrômetros</b>: número, bloco, sala e a sala da energia. <b>Salas da energia</b>: o código BLxx-sala, onde se ligam as caixas e os hidrômetros.",
+      ),
+      p(
+        "op-cadastros-novo",
+        "Passo 2. Cadastre",
+        "<b>Novo hidrômetro</b> abre o formulário ao lado. Sem escolher a sala da energia, o sistema liga à de mesmo código, se existir. A planilha do mês também cadastra sozinha o hidrômetro que ainda não estava na lista.",
+      ),
+      p(
+        "op-cadastros-lista",
+        "Passo 3. Confira e corrija",
+        "Busque pelo número, sala ou cliente; filtre os sem leitura ou sem sala. O lápis abre a correção; para parar de usar, desmarque <b>Ativo</b>. Toda mudança fica no histórico.",
+      ),
+    ],
+  },
+  "/operacoes/importacoes": {
+    versao: 3,
+    passos: [
+      abertura(
+        "Importações",
+        "Toda entrada de arquivo do módulo passa por aqui: contas e fotos da água, conta da concessionária, faturas da Energisa, rateio da limpeza e orçamento de obra. Escolha o tipo, envie os arquivos como recebeu, confira a prévia e confirme. Os logs, no fim da tela, guardam cada importação com o comprovante e os dados convertidos.",
       ),
       p(
         "op-importacoes-tipo",
         "Passo 1. Escolha o tipo",
-        "<b>Água</b>: planilhas (ou PDFs) dos blocos e fotos dos visores. <b>Faturas da Energisa</b>: os PDFs da área comum. <b>Orçamento de obra</b>: a planilha de custo e desembolso. <b>Rateio da limpeza</b>: a planilha antiga, uma aba por mês.",
+        "Uma aba por tipo, só os que você pode importar. <b>Contas de água por sala</b>: planilhas (ou PDFs) dos blocos e fotos dos visores. <b>Fotos dos hidrômetros</b>: as fotos que chegam depois do mês. <b>Conta da concessionária</b>, <b>Faturas da Energisa</b>, <b>Rateio da limpeza</b> e <b>Orçamento de obra</b>.",
       ),
       p(
         "op-agua-arquivos",
         "Passo 2. Envie",
         "Arraste todas as planilhas do mês e as fotos dos visores de uma vez e clique em <b>Ler arquivos</b>.",
+      ),
+      p(
+        "op-importacoes-foto-hidrometro",
+        "Foto de um hidrômetro",
+        "Na aba <b>Fotos dos hidrômetros</b>: escolha o mês, o hidrômetro na lista do cadastro e a foto do visor. A foto se liga à leitura daquele hidrômetro no mês, sem depender do nome do arquivo. Hidrômetro que não está na lista: cadastre em <b>Cadastros</b>.",
       ),
       p(
         "op-contas-enviar",
@@ -839,6 +812,41 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
         "op-limpeza-importar-confirmar",
         "Passo 4. Confirme",
         "Os meses completos entram fechados, como foram calculados; os com erro ou sem minutos entram abertos e incompletos, para lançar o que falta.",
+      ),
+      p(
+        "op-importacoes-ir-logs",
+        "Os logs",
+        "No fim da tela ficam os <b>logs de importações</b>: tudo o que já foi importado, com quem, quando e o resultado. <b>Ver logs</b> leva até lá.",
+      ),
+      p(
+        "op-importacoes-filtros",
+        "Nos logs: ache uma importação",
+        "Filtre por tipo e situação.",
+      ),
+      p(
+        "op-importacoes-historico",
+        "Nos logs: cada importação",
+        "Quando, tipo, mês de referência, arquivos, resultado (bate ou não com o resumo do arquivo), avisos e quem importou. O olho abre o detalhe.",
+      ),
+      p(
+        "op-importacoes-desfazer",
+        "Nos logs: desfazer",
+        "Importou o arquivo errado? <b>Desfazer</b> tira os dados daquele arquivo das telas (na obra, volta à revisão anterior). Prévia não confirmada: <b>Descartar prévia</b>.",
+      ),
+      p(
+        "secao:Conciliação em reais",
+        "No detalhe: a conciliação",
+        "Soma das linhas lidas contra o resumo do arquivo, bloco a bloco. A diferença mostra onde está o problema.",
+      ),
+      p(
+        "secao:Avisos das conferências",
+        "No detalhe: os avisos",
+        "Erros impedem confirmar sem motivo; avisos e informações só pedem conferência.",
+      ),
+      p(
+        "secao:Comprovante",
+        "No detalhe: o comprovante e os dados",
+        "Os arquivos como foram recebidos (foto e PDF abrem na tela). Logo abaixo, os <b>dados importados</b>: na água, cada leitura com a foto, para <b>Corrigir</b>, trocar a foto ou excluir; na conta da concessionária, <b>Corrigir a conta</b>. Tudo fica no histórico.",
       ),
     ],
   },
