@@ -764,7 +764,7 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
       p(
         "op-cadastros-novo",
         "Passo 2. Cadastre",
-        "<b>Novo hidrômetro</b> abre o formulário ao lado. Sem escolher a sala da energia, o sistema liga à de mesmo código, se existir. A planilha do mês também cadastra sozinha o hidrômetro que ainda não estava na lista.",
+        "<b>Novo hidrômetro</b> abre o formulário ao lado. Sem escolher a sala da energia, o sistema liga à de mesmo código, se existir. Todo hidrômetro é cadastrado aqui, à mão: a prévia da planilha avisa quando aparece um que não está cadastrado.",
       ),
       p(
         "op-cadastros-lista",

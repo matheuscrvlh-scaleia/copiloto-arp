@@ -94,7 +94,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       ) : (
         <Secao
           titulo="Hidrômetros"
-          descricao="Um cadastro por hidrômetro, com o bloco, a sala e a sala da energia. A importação da planilha do mês cadastra sozinha o hidrômetro novo; os cadastrados aqui aparecem na escolha da foto do visor em Importações."
+          descricao="Um cadastro por hidrômetro, com o bloco, a sala e a sala da energia. Todo hidrômetro é cadastrado aqui, à mão; a prévia da planilha avisa quando aparece um que não está cadastrado."
         >
           <CadastroDeHidrometros
             hidrometros={hidrometros}

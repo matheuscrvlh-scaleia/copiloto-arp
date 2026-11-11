@@ -99,7 +99,6 @@ export async function confirmarAgua(entrada: {
     console.error("confirmar importação da água", error);
     return { erro: "Não foi possível confirmar. Nada foi alterado." };
   }
-  await cadastrarNovos(db, imp.id);
   refresh();
   await logImportacaoOp(
     "confirmou",
@@ -111,30 +110,6 @@ export async function confirmarAgua(entrada: {
     ok: `${rotuloMes(imp.referencia)} importado${imp.bate === false ? " (marcado incompleto)" : ""}.`,
     referencia: imp.referencia,
   };
-}
-
-/**
- * Hidrômetro do mês que ainda não está no cadastro entra nele (com o bloco,
- * a sala e o cliente da planilha). Falha aqui não desfaz a importação: o
- * cadastro pode ser completado à mão em Cadastros.
- */
-async function cadastrarNovos(db: Awaited<ReturnType<typeof op>>, id: string) {
-  const { data, error } = await db
-    .from("agua_leituras")
-    .select("hidrometro, bloco, sala, cliente")
-    .eq("importacao_id", id);
-  if (error || !data?.length) return;
-  const unicos = [...new Map(data.map((l) => [l.hidrometro, l])).values()];
-  const r = await db.from("hidrometros").upsert(
-    unicos.map((l) => ({
-      numero: l.hidrometro,
-      bloco: l.bloco,
-      sala: l.sala.slice(0, 40),
-      descricao: l.cliente.trim().slice(0, 120) || null,
-    })),
-    { onConflict: "numero", ignoreDuplicates: true },
-  );
-  if (r.error) console.error("cadastrar hidrômetros novos", r.error);
 }
 
 export async function descartarAgua(id: string): Promise<EstadoAcao> {

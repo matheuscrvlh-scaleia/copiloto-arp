@@ -570,6 +570,23 @@ async function montarPrevia(
         mensagem: `Hidrômetro ${l.hidrometro}: leitura anterior (${l.leituraAnterior.toLocaleString("pt-BR")}) diferente da leitura atual de ${rotuloMes(mesesAntes(referencia, 1))} (${Number(antes).toLocaleString("pt-BR")}). Troca de hidrômetro ou erro do arquivo?`,
       });
   }
+  // Hidrômetro só entra no cadastro à mão (Configurações › Cadastros): a
+  // prévia avisa quais do arquivo ainda não estão lá.
+  const cadastrados = await emLotes(hidros, 150, async (lote) => {
+    const { data, error } = await db
+      .from("hidrometros")
+      .select("numero")
+      .in("numero", lote);
+    falhar(error);
+    return data ?? [];
+  });
+  const noCadastro = new Set(cadastrados.map((h) => h.numero));
+  const foraDoCadastro = hidros.filter((h) => !noCadastro.has(h));
+  if (foraDoCadastro.length)
+    avisos.push({
+      nivel: "aviso",
+      mensagem: `${foraDoCadastro.length} ${foraDoCadastro.length === 1 ? "hidrômetro não está" : "hidrômetros não estão"} em Cadastros: ${foraDoCadastro.slice(0, 20).join(", ")}${foraDoCadastro.length > 20 ? "…" : ""}. A leitura entra assim mesmo; cadastre em Configurações › Cadastros para ligar a foto escolhendo o hidrômetro.`,
+    });
   const jaVistos = new Set(conhecidos.map((x) => x.hidrometro));
   const novos =
     (historico.count ?? 0) > 0 ? hidros.filter((h) => !jaVistos.has(h)) : [];
