@@ -108,7 +108,7 @@ export function ImportarContaAgua() {
         {etapa.avisos.length > 0 && <Avisos avisos={etapa.avisos} />}
         <div className="flex flex-wrap gap-2">
           <Link
-            href={`/operacoes/importacoes/${etapa.id}`}
+            href={`/operacoes/configuracoes/importacoes/${etapa.id}`}
             className={BOTAO_PRIMARIO}
           >
             Ver a importação

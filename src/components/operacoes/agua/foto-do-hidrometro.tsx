@@ -1,7 +1,6 @@
 "use client";
 
 import { Camera, CircleCheck, Gauge, Search } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
@@ -90,11 +89,7 @@ export function FotoDoHidrometro({
   if (!hidrometros.length)
     return (
       <p className="text-sm text-neutral-600">
-        Nenhum hidrômetro ativo no cadastro.{" "}
-        <Link href="/operacoes/cadastros" className="underline">
-          Cadastre em Cadastros
-        </Link>
-        .
+        Nenhum hidrômetro ativo no cadastro: cadastre na aba Cadastros.
       </p>
     );
 
@@ -229,11 +224,7 @@ export function FotoDoHidrometro({
               )}
             </div>
             <p className="text-xs text-neutral-500">
-              Não está na lista?{" "}
-              <Link href="/operacoes/cadastros" className="underline">
-                Cadastre em Cadastros
-              </Link>
-              .
+              Não está na lista? Cadastre na aba Cadastros.
             </p>
           </Passo>
         </div>

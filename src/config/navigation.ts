@@ -53,7 +53,6 @@ export type Icone =
   | "pesquisa"
   | "formularios"
   | "agua"
-  | "cadastros_op"
   | "energia"
   | "conta_luz"
   | "solar"
@@ -488,33 +487,21 @@ export const navigation: NavSection[] = [
         permissao: ["operacoes.obras.ver", "operacoes.obras.diario"],
       },
       {
-        href: "/operacoes/cadastros",
-        label: "Cadastros",
-        icone: "cadastros_op",
-        // Hidrômetros (quem vê ou importa a água) e salas da energia.
+        href: "/operacoes/configuracoes",
+        label: "Configurações",
+        icone: "configuracoes",
+        // Abas Cadastros, Importações e Parâmetros (server/operacoes/configuracoes).
         permissao: [
           "operacoes.agua.ver",
           "operacoes.agua.importar",
           "operacoes.energia.ver",
-        ],
-      },
-      {
-        href: "/operacoes/importacoes",
-        label: "Importações",
-        icone: "importacao",
-        // Os mesmos tipos de operacoes.pode_importar.
-        permissao: [
-          "operacoes.agua.importar",
           "operacoes.energia.contas",
           "operacoes.obras.importar",
+          "operacoes.obras.ver",
           "operacoes.limpeza.fechar",
+          "operacoes.limpeza.ver",
+          "operacoes.parametros",
         ],
-      },
-      {
-        href: "/operacoes/parametros",
-        label: "Parâmetros",
-        icone: "parametros",
-        permissao: "operacoes.parametros",
       },
     ],
   },

@@ -46,7 +46,7 @@ export const ROTAS = {
   limpeza: "/operacoes/limpeza",
   obras: "/operacoes/obras",
   diario: "/operacoes/obras",
-  importacoes: "/operacoes/importacoes",
+  importacoes: "/operacoes/configuracoes/importacoes",
 } as const;
 
 const reais = (c: number) => formatarMoeda(c / 100);

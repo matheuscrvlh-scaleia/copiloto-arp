@@ -15,7 +15,6 @@ import {
   rotaDaImportacao,
 } from "@/components/operacoes/importacoes/historico";
 import { LeiturasImportadas } from "@/components/operacoes/importacoes/leituras";
-import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import {
   formatarData,
@@ -47,7 +46,7 @@ export const metadata: Metadata = { title: "Importação" };
 
 export default function Page({
   params,
-}: PageProps<"/operacoes/importacoes/[id]">) {
+}: PageProps<"/operacoes/configuracoes/importacoes/[id]">) {
   return (
     <>
       <Link
@@ -110,7 +109,7 @@ function Campo({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
 async function Detalhe({
   params,
 }: {
-  params: PageProps<"/operacoes/importacoes/[id]">["params"];
+  params: PageProps<"/operacoes/configuracoes/importacoes/[id]">["params"];
 }) {
   const [ctx, { id }] = await Promise.all([contextoOp(), params]);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
@@ -128,10 +127,12 @@ async function Detalhe({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title={`${tipo.curto} · ${textoDaReferencia(i.referencia)}`}
-        description={tipo.rotulo}
-      />
+      <div className="flex flex-col gap-1">
+        <h2 className="text-2xl font-semibold tracking-tight">
+          {tipo.curto} · {textoDaReferencia(i.referencia)}
+        </h2>
+        <p className="text-sm text-neutral-600">{tipo.rotulo}</p>
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <Resultado i={i} />
         <ContagemDeAvisos avisos={i.avisos} />

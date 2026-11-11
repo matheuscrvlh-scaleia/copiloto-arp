@@ -1,8 +1,8 @@
 import "server-only";
+import type { Aba } from "@/components/abas-de-configuracoes";
 import { CONFIGURACOES_RH } from "@/config/navigation";
 import type { Permissao } from "@/lib/permissions";
 import { usuarioAtual } from "@/server/auth";
-import type { Aba } from "./abas";
 
 // O que alimenta o RH, separado das telas de consulta. Cada aba aparece para
 // quem tem ao menos uma das permissões dela; dentro, cada bloco confere a sua.

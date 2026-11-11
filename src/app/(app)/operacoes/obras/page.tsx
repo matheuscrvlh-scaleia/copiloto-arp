@@ -490,7 +490,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
                     : "peça a quem importa, "}
                   em{" "}
                   <Link
-                    href="/operacoes/importacoes"
+                    href="/operacoes/configuracoes/importacoes"
                     className="font-medium underline underline-offset-4"
                   >
                     Operações › Importações

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
+import { Abas } from "@/components/abas-de-configuracoes";
 import { PageHeader } from "@/components/page-header";
-import { Abas } from "./abas";
 import { abasDoUsuario } from "./secoes";
 
 export default function Layout({ children }: LayoutProps<"/rh/configuracoes">) {

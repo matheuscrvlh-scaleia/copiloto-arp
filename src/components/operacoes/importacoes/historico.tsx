@@ -30,7 +30,7 @@ import type { ImportacaoNaLista } from "@/server/operacoes/importacoes";
 // arquivos, resultado (situação, conciliação e avisos), quem e o "Desfazer"
 // (com confirmação) para quem pode importar o tipo.
 
-export const ROTA_IMPORTACOES = "/operacoes/importacoes";
+export const ROTA_IMPORTACOES = "/operacoes/configuracoes/importacoes";
 export const rotaDaImportacao = (id: string) => `${ROTA_IMPORTACOES}/${id}`;
 
 /** Situação, conciliação e incompleta, sempre com ícone e texto. */

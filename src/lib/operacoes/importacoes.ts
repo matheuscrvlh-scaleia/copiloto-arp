@@ -143,7 +143,7 @@ export const AREAS_IMPORTACAO: {
 
 /** Link da tela de envio de um cartão. */
 export const hrefDoCartao = (c: CartaoImportacao) =>
-  `/operacoes/importacoes?tipo=${c.tipo}${c.foco ? `&foco=${c.foco}` : ""}`;
+  `/operacoes/configuracoes/importacoes?tipo=${c.tipo}${c.foco ? `&foco=${c.foco}` : ""}`;
 
 export const ehTipo = (v: unknown): v is TipoImportacao =>
   typeof v === "string" && v in TIPOS_IMPORTACAO;

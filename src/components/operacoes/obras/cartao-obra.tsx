@@ -159,7 +159,7 @@ export function CartaoObra({
                 Sem orçamento importado. A obra entra no orçamento com a
                 planilha, em{" "}
                 <Link
-                  href="/operacoes/importacoes"
+                  href="/operacoes/configuracoes/importacoes"
                   className="font-medium underline underline-offset-4"
                 >
                   Operações › Importações

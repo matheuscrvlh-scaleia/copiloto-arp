@@ -1,14 +1,10 @@
-import { Upload } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { Secao } from "@/components/dashboard/tabela";
 import { AbasDaTela, TopoDaTela } from "@/components/dashboard/tela";
-import { BOTAO_SECUNDARIO } from "@/components/operacoes/agua/estilos";
 import { CadastroDeHidrometros } from "@/components/operacoes/cadastros/hidrometros";
 import { CadastroDeSalas } from "@/components/operacoes/cadastros/salas";
-import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { contextoOp } from "@/server/operacoes/base";
 import {
@@ -20,17 +16,18 @@ export const metadata: Metadata = { title: "Cadastros de Operações" };
 
 type Busca = Record<string, string | string[] | undefined>;
 
-const ROTA = "/operacoes/cadastros";
+const ROTA = "/operacoes/configuracoes/cadastros";
 
 export default function Page({
   searchParams,
-}: PageProps<"/operacoes/cadastros">) {
+}: PageProps<"/operacoes/configuracoes/cadastros">) {
   return (
     <>
-      <PageHeader
-        title="Cadastros"
-        description="O que se cadastra uma vez e as importações usam: os hidrômetros e as salas da energia. Cadastre aqui; em Importações, escolha o hidrômetro na lista para ligar a foto do visor."
-      />
+      <p className="mb-6 max-w-3xl text-sm text-neutral-600">
+        {
+          "O que se cadastra uma vez e as importações usam: os hidrômetros e as salas da energia. Cadastre aqui; a importação usa o que estiver cadastrado."
+        }
+      </p>
       <Suspense
         fallback={
           <TelaCarregando>
@@ -81,17 +78,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
       <TopoDaTela
         dadosDe={ctx.dadosDe}
         filtros={aba === "salas" ? "Salas da energia" : "Hidrômetros"}
-        acoes={
-          podeImportar ? (
-            <Link
-              href="/operacoes/importacoes?tipo=agua&foco=fotos"
-              className={BOTAO_SECUNDARIO}
-            >
-              <Upload className="size-4" aria-hidden />
-              Importar fotos dos hidrômetros
-            </Link>
-          ) : undefined
-        }
       />
       <AbasDaTela rotulo="O que cadastrar" ativa={aba ?? ""} abas={abas} />
       {aba === "salas" ? (

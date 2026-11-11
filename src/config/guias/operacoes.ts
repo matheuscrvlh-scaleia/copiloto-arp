@@ -724,7 +724,34 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
   // -------------------------------------------------------------------------
   // Importações e Parâmetros
   // -------------------------------------------------------------------------
-  "/operacoes/cadastros": {
+  "/operacoes/configuracoes": {
+    versao: 1,
+    passos: [
+      abertura(
+        "Configurações de Operações",
+        "Tudo o que alimenta o módulo, na ordem em que se usa: <b>1.</b> cadastrar, <b>2.</b> importar, <b>3.</b> ajustar os parâmetros. Abra cada aba e use o guia de novo para ver os passos dela.",
+      ),
+      {
+        alvo: "aba:Cadastros",
+        titulo: "Passo 1. Cadastros",
+        texto:
+          "Hidrômetros e salas da energia. O que estiver cadastrado aqui aparece na importação.",
+      },
+      {
+        alvo: "aba:Importações",
+        titulo: "Passo 2. Importações",
+        texto:
+          "Os arquivos do mês: água, fotos dos hidrômetros, conta da concessionária, Energisa, limpeza e orçamento de obra. Os logs ficam no fim da aba.",
+      },
+      {
+        alvo: "aba:Parâmetros",
+        titulo: "Passo 3. Parâmetros",
+        texto:
+          "Limites dos alertas, termo, quadros, contas, limpeza e obras, com registro de cada mudança.",
+      },
+    ],
+  },
+  "/operacoes/configuracoes/cadastros": {
     versao: 1,
     passos: [
       abertura(
@@ -746,7 +773,7 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
       ),
     ],
   },
-  "/operacoes/importacoes": {
+  "/operacoes/configuracoes/importacoes": {
     versao: 3,
     passos: [
       abertura(
@@ -850,7 +877,7 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
       ),
     ],
   },
-  "/operacoes/parametros": {
+  "/operacoes/configuracoes/parametros": {
     versao: 2,
     passos: [
       abertura(

@@ -21,7 +21,6 @@ import {
 import { ImportarLimpeza } from "@/components/operacoes/limpeza/importar";
 import { ImportarOrcamento } from "@/components/operacoes/obras/importar";
 import { hrefDaPagina, Paginacao } from "@/components/os/paginacao";
-import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
 import { formatarData, formatarNumero } from "@/lib/formato";
 import {
@@ -60,13 +59,14 @@ const COMPONENTES: Record<TipoImportacao, () => React.ReactNode> = {
 
 export default function Page({
   searchParams,
-}: PageProps<"/operacoes/importacoes">) {
+}: PageProps<"/operacoes/configuracoes/importacoes">) {
   return (
     <>
-      <PageHeader
-        title="Importações"
-        description="Tudo o que entra por arquivo em Operações. Escolha o tipo e envie os arquivos como recebeu: nada entra nos dados antes de você conferir a prévia e confirmar. Os logs, no fim da tela, guardam cada importação com o comprovante e os dados convertidos."
-      />
+      <p className="mb-6 max-w-3xl text-sm text-neutral-600">
+        {
+          "Tudo o que entra por arquivo em Operações. Escolha o tipo e envie os arquivos como recebeu: nada entra nos dados antes de você conferir a prévia e confirmar. Os logs, no fim da tela, guardam cada importação com o comprovante e os dados convertidos."
+        }
+      </p>
       <Suspense fallback={<Esqueleto />}>
         <Tela busca={searchParams} />
       </Suspense>

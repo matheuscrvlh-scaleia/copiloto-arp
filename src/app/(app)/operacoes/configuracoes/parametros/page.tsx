@@ -9,7 +9,6 @@ import {
   HistoricoDosParametros,
 } from "@/components/operacoes/parametros/historico";
 import { UnidadesDeEnergia } from "@/components/operacoes/parametros/unidades";
-import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarDataHora } from "@/lib/formato";
 import {
@@ -27,7 +26,7 @@ import {
 
 export const metadata: Metadata = { title: "Parâmetros de Operações" };
 
-const ROTA = "/operacoes/parametros";
+const ROTA = "/operacoes/configuracoes/parametros";
 type Aba = Grupo | "historico";
 
 const DESCRICOES: Record<Grupo, string> = {
@@ -44,13 +43,14 @@ const DESCRICOES: Record<Grupo, string> = {
 
 export default function Page({
   searchParams,
-}: PageProps<"/operacoes/parametros">) {
+}: PageProps<"/operacoes/configuracoes/parametros">) {
   return (
     <>
-      <PageHeader
-        title="Parâmetros de Operações"
-        description="Tudo o que pode mudar fica aqui, com registro de quem alterou, quando, o valor antes e o depois."
-      />
+      <p className="mb-6 max-w-3xl text-sm text-neutral-600">
+        {
+          "Tudo o que pode mudar fica aqui, com registro de quem alterou, quando, o valor antes e o depois."
+        }
+      </p>
       <Suspense
         fallback={
           <TelaCarregando>

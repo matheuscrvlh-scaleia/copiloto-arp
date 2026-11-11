@@ -78,13 +78,25 @@ const nextConfig: NextConfig = {
         destination: "/operacoes/obras/diario/:path+",
         permanent: false,
       },
-      // Nova importação virou a primeira tela de Importações (11/11/2026); o
-      // ?tipo= segue junto.
+      // Cadastros, Importações e Parâmetros de Operações viraram abas de
+      // Configurações (11/11/2026); o ?tipo= segue junto.
       {
         source: "/operacoes/importacoes/nova",
-        destination: "/operacoes/importacoes",
+        destination: "/operacoes/configuracoes/importacoes",
         permanent: false,
       },
+      ...["importacoes", "cadastros", "parametros"].flatMap((aba) => [
+        {
+          source: `/operacoes/${aba}`,
+          destination: `/operacoes/configuracoes/${aba}`,
+          permanent: false,
+        },
+        {
+          source: `/operacoes/${aba}/:path+`,
+          destination: `/operacoes/configuracoes/${aba}/:path+`,
+          permanent: false,
+        },
+      ]),
     ];
   },
   headers() {

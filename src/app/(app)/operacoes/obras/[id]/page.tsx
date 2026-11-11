@@ -311,7 +311,7 @@ async function Tela({
           Há uma prévia da revisão {previa.codigo} esperando confirmação.
           Confirme ou descarte em{" "}
           <Link
-            href="/operacoes/importacoes"
+            href="/operacoes/configuracoes/importacoes"
             className="font-medium underline underline-offset-4"
           >
             Operações › Importações
