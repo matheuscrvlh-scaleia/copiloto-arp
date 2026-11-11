@@ -99,27 +99,34 @@ export function TabelaDeImportacoes({
   /** Tipos que a pessoa importa (e por isso pode desfazer). */
   podeTipo: TipoImportacao[];
 }) {
+  // Poucas colunas, para caber no quadro: quem e quando juntos; o tipo com
+  // o mês de referência embaixo.
   const colunas: Coluna<ImportacaoNaLista>[] = [
     {
       titulo: "Quando",
-      inteiro: true,
       valor: (i) => (
-        <span className="whitespace-nowrap tabular-nums">
-          {formatarDataHora(i.criadoEm)}
+        <span className="flex flex-col text-xs text-neutral-500">
+          <span className="whitespace-nowrap text-sm text-neutral-900 tabular-nums">
+            {formatarDataHora(i.criadoEm)}
+          </span>
+          <span>por {i.criadoPor ?? "—"}</span>
+          {i.desfeitoEm && (
+            <span>
+              {i.status === "cancelada" ? "Descartada" : "Desfeita"} por{" "}
+              {i.desfeitoPor ?? "—"}
+            </span>
+          )}
         </span>
       ),
     },
     {
-      titulo: "Tipo",
-      valor: (i) => (
-        <span className="font-medium">{TIPOS_IMPORTACAO[i.tipo].curto}</span>
-      ),
-    },
-    {
-      titulo: "Referência",
+      titulo: "Importação",
       valor: (i) => (
         <span className="flex flex-col">
-          {textoDaReferencia(i.referencia)}
+          <span className="font-medium">{TIPOS_IMPORTACAO[i.tipo].curto}</span>
+          <span className="text-xs text-neutral-600">
+            {textoDaReferencia(i.referencia)}
+          </span>
           {i.exemplo && (
             <span className="text-[11px] text-amber-700">
               Dado de exemplo (fictício)
@@ -133,13 +140,15 @@ export function TabelaDeImportacoes({
       valor: (i) =>
         i.arquivos.length ? (
           <span
-            className="inline-flex max-w-56 items-center gap-1.5 truncate"
+            className="flex max-w-60 items-center gap-1.5 text-xs"
             title={i.arquivos.map((a) => a.nome).join("\n")}
           >
             <FileText className="size-3.5 shrink-0" aria-hidden />
-            {i.arquivos.length === 1
-              ? i.arquivos[0]?.nome
-              : `${formatarNumero(i.arquivos.length)} arquivos`}
+            <span className="truncate">
+              {i.arquivos.length === 1
+                ? i.arquivos[0]?.nome
+                : `${formatarNumero(i.arquivos.length)} arquivos`}
+            </span>
           </span>
         ) : (
           "—"
@@ -147,20 +156,6 @@ export function TabelaDeImportacoes({
     },
     { titulo: "Resultado", valor: (i) => <Resultado i={i} /> },
     { titulo: "Avisos", valor: (i) => <ContagemDeAvisos avisos={i.avisos} /> },
-    {
-      titulo: "Por",
-      valor: (i) => (
-        <span className="flex flex-col text-xs">
-          <span className="text-sm">{i.criadoPor ?? "—"}</span>
-          {i.desfeitoEm && (
-            <span className="text-neutral-500">
-              {i.status === "cancelada" ? "Descartada" : "Desfeita"} por{" "}
-              {i.desfeitoPor ?? "—"}
-            </span>
-          )}
-        </span>
-      ),
-    },
     {
       titulo: "Ações",
       valor: (i) => (
@@ -186,7 +181,8 @@ export function TabelaDeImportacoes({
         colunas={colunas}
         linhas={linhas}
         chave={(i) => i.id}
-        vazio="Nenhuma importação com esses filtros. Use “Nova importação” para enviar o primeiro arquivo."
+        caber
+        vazio="Nenhuma importação com esses filtros."
       />
     </div>
   );

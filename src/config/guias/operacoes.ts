@@ -816,7 +816,7 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
       p(
         "op-importacoes-ir-logs",
         "Os logs",
-        "No fim da tela ficam os <b>logs de importações</b>: tudo o que já foi importado, com quem, quando e o resultado. <b>Ver logs</b> leva até lá.",
+        "No fim da tela ficam os <b>logs de importações</b>: tudo o que já foi importado, com quem, quando e o resultado.",
       ),
       p(
         "op-importacoes-filtros",

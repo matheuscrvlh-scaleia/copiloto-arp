@@ -457,17 +457,6 @@ export const navigation: NavSection[] = [
         permissao: "operacoes.agua.ver",
       },
       {
-        href: "/operacoes/cadastros",
-        label: "Cadastros",
-        icone: "cadastros_op",
-        // Hidrômetros (quem vê ou importa a água) e salas da energia.
-        permissao: [
-          "operacoes.agua.ver",
-          "operacoes.agua.importar",
-          "operacoes.energia.ver",
-        ],
-      },
-      {
         href: "/operacoes/energia",
         label: "Quadros de energia",
         icone: "energia",
@@ -497,6 +486,17 @@ export const navigation: NavSection[] = [
         icone: "obras",
         // Orçamento (previsto × realizado) e execução (Diário de Obra).
         permissao: ["operacoes.obras.ver", "operacoes.obras.diario"],
+      },
+      {
+        href: "/operacoes/cadastros",
+        label: "Cadastros",
+        icone: "cadastros_op",
+        // Hidrômetros (quem vê ou importa a água) e salas da energia.
+        permissao: [
+          "operacoes.agua.ver",
+          "operacoes.agua.importar",
+          "operacoes.energia.ver",
+        ],
       },
       {
         href: "/operacoes/importacoes",

@@ -1,6 +1,4 @@
-import { ClipboardList } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import {
@@ -10,7 +8,6 @@ import {
 } from "@/components/carregando";
 import { Nota, Secao } from "@/components/dashboard/tabela";
 import { AbasDaTela } from "@/components/dashboard/tela";
-import { BOTAO_SECUNDARIO } from "@/components/operacoes/agua/estilos";
 import { FotoDoHidrometro } from "@/components/operacoes/agua/foto-do-hidrometro";
 import { ImportarAgua } from "@/components/operacoes/agua/importar";
 import { ImportarContaAgua } from "@/components/operacoes/agua/importar-conta";
@@ -132,29 +129,19 @@ async function Importar({ sp, tipos }: { sp: Busca; tipos: TipoImportacao[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div data-guia="op-importacoes-tipo" className="flex flex-col gap-2">
-          <p className="text-xs font-medium text-neutral-600">
-            O que você vai importar?
-          </p>
-          <AbasDaTela
-            rotulo="Tipo de importação"
-            ativa={ativo?.chave ?? tipo}
-            abas={cartoes.map((c) => ({
-              chave: c.chave,
-              rotulo: c.titulo,
-              href: hrefDoCartao(c),
-            }))}
-          />
-        </div>
-        <Link
-          href="#logs"
-          data-guia="op-importacoes-ir-logs"
-          className={BOTAO_SECUNDARIO}
-        >
-          <ClipboardList className="size-4" aria-hidden />
-          Ver logs
-        </Link>
+      <div data-guia="op-importacoes-tipo" className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-neutral-600">
+          O que você vai importar?
+        </p>
+        <AbasDaTela
+          rotulo="Tipo de importação"
+          ativa={ativo?.chave ?? tipo}
+          abas={cartoes.map((c) => ({
+            chave: c.chave,
+            rotulo: c.titulo,
+            href: hrefDoCartao(c),
+          }))}
+        />
       </div>
       <EtapasDaImportacao />
       {foco === "fotos" && (
@@ -217,6 +204,7 @@ async function Logs({
   return (
     <section
       id="logs"
+      data-guia="op-importacoes-ir-logs"
       aria-labelledby="titulo-logs"
       className="flex scroll-mt-6 flex-col gap-4 border-t border-neutral-900/[0.08] pt-8"
     >
@@ -232,7 +220,7 @@ async function Logs({
         </p>
       </div>
       <FiltrosDeImportacoes f={f} tipos={vistos} manter={manter} />
-      <div className="flex flex-col gap-4">
+      <div className="vidro flex flex-col gap-4 rounded-[1.75rem] p-4 sm:p-6">
         <TabelaDeImportacoes linhas={linhas} podeTipo={podeTipo} />
         <Paginacao
           pagina={f.pagina}
