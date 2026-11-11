@@ -107,7 +107,7 @@ async function Tela({
       <CabecalhoDoFormulario f={f} aba="configuracoes" edita />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Secao
-          titulo="Situação"
+          titulo="Situação e ações"
           descricao="Só o relatório publicado recebe respostas. Pode editar as perguntas a qualquer momento, mesmo publicado."
         >
           <div className="flex flex-col gap-4">
@@ -150,6 +150,38 @@ async function Tela({
                   variante="secundario"
                 />
               )}
+            </div>
+            <div className="flex flex-col gap-3 border-t border-neutral-900/[0.06] pt-4">
+              <p className="text-sm text-neutral-600">
+                <b className="font-medium text-neutral-800">Duplicar</b> cria
+                uma cópia em rascunho, com as mesmas perguntas e a mesma
+                aparência, sem as respostas.{" "}
+                <b className="font-medium text-neutral-800">Excluir</b> apaga o
+                relatório e{" "}
+                {f.total_respostas
+                  ? `as ${formatarNumero(f.total_respostas)} respostas`
+                  : "o link"}
+                , sem volta: para só parar de receber, encerre.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <FormAcao
+                  acao={duplicarFormulario}
+                  rotulo="Duplicar relatório"
+                  rotuloEnviando="Duplicando…"
+                  variante="secundario"
+                >
+                  <input type="hidden" name="id" value={f.id} />
+                </FormAcao>
+                <FormAcao
+                  acao={excluirFormulario}
+                  rotulo="Excluir relatório"
+                  rotuloEnviando="Excluindo…"
+                  variante="perigo"
+                  confirmar={`Excluir "${f.titulo}"${f.total_respostas ? ` e as ${f.total_respostas} respostas` : ""}? Não tem volta.`}
+                >
+                  <input type="hidden" name="id" value={f.id} />
+                </FormAcao>
+              </div>
             </div>
           </div>
         </Secao>
@@ -324,43 +356,6 @@ async function Tela({
               </p>
             </div>
           </FormAcao>
-        </Secao>
-
-        <Secao titulo="Mais ações">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <p className="text-sm text-neutral-600">
-                Duplicar cria uma cópia em rascunho, com as mesmas perguntas e
-                sem as respostas.
-              </p>
-              <FormAcao
-                acao={duplicarFormulario}
-                rotulo="Duplicar relatório"
-                rotuloEnviando="Duplicando…"
-                variante="secundario"
-              >
-                <input type="hidden" name="id" value={f.id} />
-              </FormAcao>
-            </div>
-            <div className="flex flex-col gap-2 border-t border-neutral-900/[0.06] pt-4">
-              <p className="text-sm text-neutral-600">
-                Excluir apaga o relatório e{" "}
-                {f.total_respostas
-                  ? `as ${formatarNumero(f.total_respostas)} respostas`
-                  : "o link"}
-                . Não tem volta: para só parar de receber, encerre.
-              </p>
-              <FormAcao
-                acao={excluirFormulario}
-                rotulo="Excluir relatório"
-                rotuloEnviando="Excluindo…"
-                variante="perigo"
-                confirmar={`Excluir "${f.titulo}"${f.total_respostas ? ` e as ${f.total_respostas} respostas` : ""}? Não tem volta.`}
-              >
-                <input type="hidden" name="id" value={f.id} />
-              </FormAcao>
-            </div>
-          </div>
         </Secao>
       </div>
     </>

@@ -7,7 +7,7 @@ import type { Guia } from "./tipos";
 
 export const GUIAS_FORMULARIOS: Record<string, Guia> = {
   "/relatorios": {
-    versao: 3,
+    versao: 4,
     passos: [
       abertura(
         "Relatórios",
@@ -51,7 +51,7 @@ export const GUIAS_FORMULARIOS: Record<string, Guia> = {
         alvo: "formularios-situacao",
         titulo: "Passo 3. Publique",
         texto:
-          "Só o publicado recebe respostas. Dá para editar mesmo publicado; para parar de receber, <b>Encerrar</b>.",
+          "Só o publicado recebe respostas. Dá para editar mesmo publicado; para parar de receber, <b>Encerrar</b>. No mesmo cartão: <b>Duplicar</b> (cópia em rascunho, sem respostas) e <b>Excluir</b>.",
       },
       {
         alvo: "formularios-link",
