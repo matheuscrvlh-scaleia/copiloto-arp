@@ -21,6 +21,7 @@ import {
 import { departamentosDoRh, rubricasDoRh } from "@/server/rh/configuracao";
 import { dadosFinanceiros } from "@/server/rh/dados";
 import { Beneficios } from "./beneficios";
+import { CategoriasDeGasto } from "./categorias-gasto";
 
 export const metadata: Metadata = { title: "Cadastros do RH" };
 
@@ -38,11 +39,12 @@ export default function Page() {
 }
 
 async function Cadastros() {
-  const [beneficios, parametros] = await Promise.all([
+  const [beneficios, parametros, gastos] = await Promise.all([
     pode("rh.beneficios"),
     pode("rh.parametros"),
+    pode("rh.orcamento.lancar"),
   ]);
-  if (!beneficios && !parametros) return <SemAcesso />;
+  if (!beneficios && !parametros && !gastos) return <SemAcesso />;
   const indice = [
     ...(beneficios ? [["beneficios", "Benefícios"]] : []),
     ...(parametros
@@ -52,6 +54,7 @@ async function Cadastros() {
           ["rubricas", "Rubricas"],
         ]
       : []),
+    ...(gastos ? [["categorias-gasto", "Categorias de gasto"]] : []),
   ];
 
   return (
@@ -70,6 +73,7 @@ async function Cadastros() {
       {beneficios && <Beneficios />}
       {parametros && <Financeiro />}
       {parametros && <Estrutura />}
+      {gastos && <CategoriasDeGasto />}
     </div>
   );
 }
@@ -89,7 +93,7 @@ async function Financeiro() {
         rotulo="Salvar mês"
         className="flex flex-col gap-4"
       >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <label className={rotulo}>
             Mês
             <input
@@ -106,7 +110,6 @@ async function Financeiro() {
               ["custo_despesa_total", "Custo + despesa total"],
               ["custos_operacionais_sem_pessoal", "Custos sem pessoal"],
               ["lucro", "Lucro do mês"],
-              ["endomarketing", "Endomarketing"],
             ] as const
           ).map(([campo, nome]) => (
             <label key={campo} className={rotulo}>
@@ -145,11 +148,6 @@ async function Financeiro() {
               {
                 titulo: "Lucro",
                 valor: (l) => formatarMoeda(l.lucro, 0),
-                numero: true,
-              },
-              {
-                titulo: "Endomarketing",
-                valor: (l) => formatarMoeda(l.endomarketing, 0),
                 numero: true,
               },
               {

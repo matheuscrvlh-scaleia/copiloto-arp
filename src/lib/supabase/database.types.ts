@@ -8514,23 +8514,109 @@ export type Database = {
           },
         ]
       }
-      orcamento_endomarketing: {
+      categorias_gasto: {
+        Row: {
+          ativa: boolean
+          atualizado_em: string
+          criado_em: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativa?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativa?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      gastos: {
+        Row: {
+          atualizado_em: string
+          categoria_id: string
+          criado_em: string
+          criado_por: string | null
+          data: string
+          descricao: string
+          finalidade: string
+          id: string
+          observacao: string | null
+          valor: number
+        }
+        Insert: {
+          atualizado_em?: string
+          categoria_id: string
+          criado_em?: string
+          criado_por?: string | null
+          data: string
+          descricao: string
+          finalidade: string
+          id?: string
+          observacao?: string | null
+          valor: number
+        }
+        Update: {
+          atualizado_em?: string
+          categoria_id?: string
+          criado_em?: string
+          criado_por?: string | null
+          data?: string
+          descricao?: string
+          finalidade?: string
+          id?: string
+          observacao?: string | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gastos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_gasto"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orcamentos_anuais: {
         Row: {
           ano: number
           atualizado_em: string
           criado_em: string
+          finalizado_em: string | null
+          finalizado_por: string | null
+          origem: string
+          recebido_em: string
+          total_gasto: number | null
           valor: number
         }
         Insert: {
           ano: number
           atualizado_em?: string
           criado_em?: string
+          finalizado_em?: string | null
+          finalizado_por?: string | null
+          origem?: string
+          recebido_em?: string
+          total_gasto?: number | null
           valor: number
         }
         Update: {
           ano?: number
           atualizado_em?: string
           criado_em?: string
+          finalizado_em?: string | null
+          finalizado_por?: string | null
+          origem?: string
+          recebido_em?: string
+          total_gasto?: number | null
           valor?: number
         }
         Relationships: []
@@ -8916,6 +9002,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ano_finalizado: { Args: { p_ano: number }; Returns: boolean }
       banco_horas_em_reais: {
         Args: { p_competencia: string }
         Returns: {
@@ -8947,6 +9034,10 @@ export type Database = {
         }[]
       }
       excluir_folha: { Args: { p_folha_id: string }; Returns: string }
+      finalizar_orcamento: {
+        Args: { p_ano: number }
+        Returns: Database["rh"]["Tables"]["orcamentos_anuais"]["Row"]
+      }
       gravar_custos: {
         Args: { p_competencia: string; p_linhas: Json }
         Returns: number

@@ -247,8 +247,11 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     <SeloIlustrativo texto="Dados ilustrativos – aguardando faturamento do mês" />
   ) : null;
   const ativos = somaDe(ativosPorGrupo(quadro, fins, () => "todos"));
+  // Receita por colaborador e custo médio com o mesmo número de pessoas
+  // (conferência de 07/11/2026): ativos sem os PJ sem valor informado.
+  const pessoasArp = ativos - tArp.sem_valor;
   const porPessoa = receita
-    ? receitaPorColaborador(receita.valor, ativos)
+    ? receitaPorColaborador(receita.valor, pessoasArp)
     : null;
   const custoMedioArp = custoMedio(tArp.custo_total, ativos, tArp.sem_valor);
   const medio = custoMedio(t.custo_total, ativosDoFiltro, t.sem_valor);
@@ -516,10 +519,10 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
             <CartaoIndicador
               titulo="Receita por colaborador"
               valor={moeda(porPessoa)}
-              detalhe={`Faturamento bruto ÷ ${formatarNumero(ativos)} ativos no Copiloto RH${usados.length > 1 ? " (pessoas-mês)" : ""}${daArp}`}
+              detalhe={`Faturamento bruto ÷ ${formatarNumero(pessoasArp)} pessoas (as mesmas do custo médio)${usados.length > 1 ? " (pessoas-mês)" : ""}${daArp}`}
               origem={origemDaReceitaPorColaborador(
                 porPessoa,
-                ativos,
+                pessoasArp,
                 opcoesRetorno,
               )}
             >
@@ -535,7 +538,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
               }
               origem={origemDaReceitaPorColaborador(
                 null,
-                ativos,
+                pessoasArp,
                 opcoesRetorno,
               )}
             />

@@ -80,7 +80,7 @@ export const GUIAS_GESTAO: Record<string, Guia> = {
 
 export const GUIAS_RH: Record<string, Guia> = {
   "/rh": {
-    versao: 2,
+    versao: 3,
     passos: [
       abertura(
         "Painel de RH",
@@ -115,7 +115,7 @@ export const GUIAS_RH: Record<string, Guia> = {
       ),
       exportar(),
       menuDoModulo(
-        "Funcionários, Jornada, Custo de pessoal, Quadro e turnover e Endomarketing são as consultas. Configurações é onde o módulo é alimentado todo mês.",
+        "Funcionários, Jornada, Custo de pessoal, Quadro e turnover e Planejamento orçamentário são as consultas. Configurações é onde o módulo é alimentado todo mês.",
       ),
     ],
   },
@@ -254,18 +254,57 @@ export const GUIAS_RH: Record<string, Guia> = {
       exportar(),
     ],
   },
-  "/rh/endomarketing": {
-    versao: 2,
+  "/rh/planejamento-orcamentario": {
+    versao: 1,
     passos: [
       abertura(
-        "Endomarketing",
-        "Vai mostrar os gastos de endomarketing, no total e por colaborador, contra o orçamento aprovado.",
+        "Planejamento orçamentário",
+        "O orçamento do ano do RH vem do ERP e cada gasto lançado abate dele. Aqui você lança os gastos, acompanha quanto já foi usado e quanto sobra, e fecha o ano.",
+      ),
+      filtros(
+        "<b>Passo 1.</b> Escolha o ano, um mês ou uma categoria. Cartões, gráficos e lista mudam junto. O saldo do ano sempre considera todas as categorias, porque o orçamento é um só.",
+      ),
+      card(
+        "Saldo do ano",
+        "Passo 2. Quanto sobra",
+        "Orçamento do ano menos os gastos até o fim do mês (ou até hoje). Se passar do orçamento, o cartão mostra quanto passou.",
+      ),
+      sec(
+        "Gastos lançados",
+        "Passo 3. Lance cada gasto",
+        "Em <b>Lançar gasto</b>, informe valor, data, categoria (da lista), o que foi gasto e a finalidade. Data, categoria e finalidade são obrigatórias. Para corrigir ou excluir, use o lápis na linha.",
+      ),
+      sec(
+        "Gasto por mês",
+        "Passo 4. Acompanhe o mês",
+        "O gasto de cada mês e, abaixo, quanto do orçamento já foi consumido até ele. A linha tracejada é o orçamento inteiro (100%).",
+      ),
+      sec(
+        "Saldo acumulado do ano",
+        "Passo 5. O saldo ao longo do ano",
+        "Quanto sobra no fim de cada mês. Abaixo de zero, passou do orçamento.",
+      ),
+      sec(
+        "Gasto por categoria",
+        "Passo 6. Onde o dinheiro foi",
+        "Total por categoria no período. As categorias se cadastram em Configurações › Cadastros.",
+      ),
+      sec(
+        "Saldo mês a mês",
+        "Passo 7. A tabela do ano",
+        "Gasto do mês, acumulado e saldo de cada mês, para conferir os números dos gráficos.",
       ),
       {
-        alvo: "em-construcao",
-        titulo: "Ainda sem dados",
+        alvo: "cartao:Orçamento do ano",
+        titulo: "O orçamento vem do ERP",
         texto:
-          "Depende dos gastos lançados no ENET, cuja API ainda não foi liberada. Quando ligar, os números aparecem aqui sem nenhuma ação sua.",
+          "Ninguém digita o orçamento aqui. Se o valor estiver errado, a correção é feita no ERP (ENET).",
+      },
+      {
+        alvo: "secao:Finalizar o orçamento do ano",
+        titulo: "Passo 8. Feche o ano",
+        texto:
+          "No fim do ano, <b>Finalizar orçamento</b> guarda o total orçado, o total gasto, o saldo, a data e quem fechou. O ano fica só leitura e o sistema passa a puxar do ERP o orçamento do ano seguinte.",
       },
     ],
   },

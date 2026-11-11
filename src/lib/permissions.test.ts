@@ -22,8 +22,17 @@ describe("catálogo de permissões", () => {
     ].flatMap((m) =>
       [...(m[1] ?? "").matchAll(/'([a-z_.]+)'/g)].map((c) => c[1]),
     );
+    // E com o código novo das que uma migration depois renomeou.
+    const renomeadas = new Map(
+      [
+        ...sql.matchAll(
+          /update core\.permissoes\s+set codigo = '([a-z_.]+)'[\s\S]*?where codigo = '([a-z_.]+)'/g,
+        ),
+      ].map((m) => [m[2], m[1]]),
+    );
     const noBanco = blocos
       .flatMap((b) => [...b.matchAll(/\('([a-z_.]+)',/g)].map((m) => m[1]))
+      .map((c) => (c && renomeadas.get(c)) ?? c)
       .filter((c) => !tiradas.includes(c));
     expect(noBanco.sort()).toEqual(Object.keys(PERMISSOES).sort());
   });

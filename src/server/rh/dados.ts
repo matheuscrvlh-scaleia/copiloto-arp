@@ -576,7 +576,6 @@ export interface DadosFinanceiros {
   custo_despesa_total: number | null;
   custos_operacionais_sem_pessoal: number | null;
   lucro: number | null;
-  endomarketing: number | null;
   origem: string;
 }
 
@@ -585,7 +584,7 @@ export const dadosFinanceiros = cache(async (): Promise<DadosFinanceiros[]> => {
   const { data, error } = await (await rh())
     .from("dados_financeiros_mensais")
     .select(
-      "competencia, faturamento_bruto, custo_despesa_total, custos_operacionais_sem_pessoal, lucro, endomarketing, origem",
+      "competencia, faturamento_bruto, custo_despesa_total, custos_operacionais_sem_pessoal, lucro, origem",
     )
     .order("competencia", { ascending: false });
   falhar(error);
@@ -596,6 +595,5 @@ export const dadosFinanceiros = cache(async (): Promise<DadosFinanceiros[]> => {
     custo_despesa_total: n(d.custo_despesa_total),
     custos_operacionais_sem_pessoal: n(d.custos_operacionais_sem_pessoal),
     lucro: n(d.lucro),
-    endomarketing: n(d.endomarketing),
   }));
 });

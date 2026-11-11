@@ -4,6 +4,7 @@ import {
   type BeneficioDoMes,
   type CustoCalculado,
   calcularCusto,
+  diasNoMes,
   type FaixaEtaria,
   jornadaDe,
   type PessoaDoMes,
@@ -65,7 +66,7 @@ async function carregar(admin: AdminClient, competencia: string) {
             rh
               .from("folha_colaboradores")
               .select(
-                "colaborador_id, tipo_contrato, departamento_id, cargo_id, horas_mes_min, salario",
+                "colaborador_id, tipo_contrato, departamento_id, cargo_id, horas_mes_min, salario, valor_fgts, situacao",
               )
               .eq("folha_id", folha.id)
               .order("colaborador_id"),
@@ -429,8 +430,14 @@ export function montarCustos(d: Dados, competencia: string): CustoCalculado[] {
   );
   const pessoas: PessoaDoMes[] = [...doMes].map(([colaborador_id, p]) => {
     const b = beneficios.get(colaborador_id);
+    const c = d.cadastro.get(colaborador_id);
     const base = {
       colaborador_id,
+      dias_no_mes: diasNoMes(
+        competencia,
+        c?.admissao ?? null,
+        c?.desligamento ?? null,
+      ),
       tipo_contrato: p.tipo_contrato,
       departamento_id: p.departamento_id,
       cargo_id: p.cargo_id,
@@ -449,6 +456,9 @@ export function montarCustos(d: Dados, competencia: string): CustoCalculado[] {
     return {
       ...base,
       salario: p.folha.salario === null ? null : Number(p.folha.salario),
+      valor_fgts:
+        p.folha.valor_fgts === null ? null : Number(p.folha.valor_fgts),
+      situacao: p.folha.situacao,
       jornada_min: jornadaDe(
         base,
         jornadas,

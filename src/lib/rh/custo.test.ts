@@ -5,6 +5,7 @@ import {
   calcularCusto,
   custoMedio,
   custosPor,
+  diasNoMes,
   type EncargosDoContrato,
   idadeEm,
   jornadaDe,
@@ -221,7 +222,11 @@ describe("custo por funcionário", () => {
 
   it("estagiário: sem encargos; recesso = bolsa ÷ 12, sem 1/3 e sem encargos", () => {
     const c = calcularCusto(
-      pessoa({ tipo_contrato: "estagiario", rubricas: [r(8781, 1200)] }),
+      pessoa({
+        tipo_contrato: "estagiario",
+        salario: 1200,
+        rubricas: [r(8781, 1200)],
+      }),
       grupoDe,
       LEGADO,
       RAT,
@@ -308,10 +313,86 @@ describe("custo por funcionário", () => {
     // Base 2.500 − 100 + 300 + 200 = 2.900; remuneração + 900 sem encargos.
     expect(c.remuneracao).toBe(3800);
     expect(c.encargos).toBe(1038.2);
-    expect(c.provisao_13).toBe(328.18);
+    // Provisão sobre o salário contratual (2.500), não sobre a base do mês.
+    expect(c.provisao_13).toBe(282.92);
     expect(
       c.memoria.linhas.find((l) => l.rotulo === "Remuneração")?.regra,
     ).toMatch(/− faltas e atrasos 100\.00.*verbas sem encargos 900\.00 \(fora/);
+  });
+
+  it("provisões sobre o salário contratual + adicionais, mesmo em mês de férias (Evandro, out/2026)", () => {
+    // Remuneração do mês 903,22 (férias); salário contratual 2.597,18.
+    const c = calcularCusto(
+      pessoa({
+        salario: 2597.18,
+        situacao: "ferias",
+        valor_fgts: 45.08,
+        rubricas: [r(8781, 903.22)],
+      }),
+      grupoDe,
+      { ...CLT, inss_patronal_pct: 20, terceiros_pct: 5.8, fgts_pct: 8 },
+      { rat_pct: 3, fap: 0.5 },
+    );
+    expect(c.remuneracao).toBe(903.22);
+    // 2.597,18 ÷ 12 × 1,353 = 292,83; férias × 4/3 = 390,44: 683,27.
+    expect(c.provisao_13).toBe(292.83);
+    expect(c.provisao_ferias).toBe(390.44);
+    expect(c.provisao_13 + c.provisao_ferias).toBeCloseTo(683.27, 2);
+    expect(c.multa_rescisoria).toBe(18.03);
+    const linha = c.memoria.linhas.find((l) => l.rotulo === "Provisão de 13º");
+    expect(linha?.regra).toContain("salário contratual 2597.18");
+    expect(
+      c.memoria.linhas.find((l) => l.rotulo === "Multa rescisória provisionada")
+        ?.regra,
+    ).toContain("Valor FGTS do Extrato Mensal (45.08)");
+    // Encargos do mês continuam sobre a remuneração.
+    expect(c.encargos).toBe(Math.round(903.22 * 0.353 * 100) / 100);
+  });
+
+  it("adicionais fixos entram na base da provisão", () => {
+    const c = calcularCusto(
+      pessoa({ salario: 2400, rubricas: [r(8781, 2400), r(149, 600)] }),
+      grupoDe,
+      CLT,
+      RAT,
+    );
+    // (2.400 + 600) ÷ 12 × 1,358
+    expect(c.provisao_13).toBe(339.5);
+  });
+
+  it("afastado pelo INSS no mês não provisiona 13º nem férias", () => {
+    for (const situacao of ["doenca", "acidente", "aposentadoria"]) {
+      const c = calcularCusto(
+        pessoa({ situacao, rubricas: [r(8785, 500)] }),
+        grupoDe,
+        CLT,
+        RAT,
+      );
+      expect(c.provisao_13).toBe(0);
+      expect(c.provisao_ferias).toBe(0);
+      expect(
+        c.memoria.linhas.find((l) => l.rotulo === "Provisão de férias")?.regra,
+      ).toMatch(/Afastado pelo INSS/);
+    }
+  });
+
+  it("admitido ou desligado no mês: provisiona só com 15 dias ou mais", () => {
+    const com = (dias_no_mes: number | null) =>
+      calcularCusto(pessoa({ dias_no_mes }), grupoDe, CLT, RAT);
+    expect(com(14).provisao_13).toBe(0);
+    expect(com(14).provisao_ferias).toBe(0);
+    expect(com(15).provisao_13).toBe(282.92);
+    expect(com(null).provisao_13).toBe(282.92);
+  });
+
+  it("dias no mês de quem entrou ou saiu nele", () => {
+    expect(diasNoMes("2026-10-01", "2020-01-10", null)).toBeNull();
+    expect(diasNoMes("2026-10-01", "2026-10-17", null)).toBe(15);
+    expect(diasNoMes("2026-10-01", "2026-10-18", null)).toBe(14);
+    expect(diasNoMes("2026-10-01", "2025-01-01", "2026-10-14")).toBe(14);
+    expect(diasNoMes("2026-10-01", "2026-10-05", "2026-10-20")).toBe(16);
+    expect(diasNoMes("2026-02-01", "2026-02-14", null)).toBe(15);
+    expect(diasNoMes("2026-10-01", "2025-01-01", "2026-11-03")).toBeNull();
   });
 
   it("aponta o que ficou de fora", () => {

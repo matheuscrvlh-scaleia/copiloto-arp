@@ -654,7 +654,6 @@ const financeiro = z.object({
     (v) => lerValorBr(String(v ?? "")),
     z.number("valor inválido").nullable(),
   ),
-  endomarketing: reais,
 });
 
 export async function salvarFinanceiro(
@@ -670,7 +669,6 @@ export async function salvarFinanceiro(
       custo_despesa_total: "Custo + despesa total",
       custos_operacionais_sem_pessoal: "Custos sem pessoal",
       lucro: "Lucro",
-      endomarketing: "Endomarketing",
     });
   const { error } = await (await createClient())
     .schema("rh")

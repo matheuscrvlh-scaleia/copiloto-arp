@@ -89,7 +89,17 @@ export interface PessoaDoMes {
   tipo_contrato: string;
   departamento_id: string | null;
   cargo_id: string | null;
+  /** Salário contratual do mês (campo "Salário" do Extrato Mensal). */
   salario: number | null;
+  /** "Valor FGTS" do Extrato Mensal (base da multa rescisória). */
+  valor_fgts?: number | null;
+  /** Situação no Extrato Mensal (doenca, acidente, aposentadoria…). */
+  situacao?: string | null;
+  /**
+   * Dias no mês de quem foi admitido ou desligado nele; ausente (ou null)
+   * para quem ficou o mês inteiro.
+   */
+  dias_no_mes?: number | null;
   jornada_min: number | null;
   rubricas: RubricaDaFolha[];
   beneficios: BeneficioDoMes[];
@@ -159,6 +169,37 @@ const PARTES_DA_REMUNERACAO: {
     comEncargos: false,
   },
 ];
+
+/** Situações do Extrato Mensal de quem está afastado pelo INSS. */
+const AFASTAMENTO_INSS: Record<string, string> = {
+  doenca: "Doença",
+  acidente: "Acidente",
+  aposentadoria: "Aposentadoria",
+};
+
+/** Admitido ou desligado no mês provisiona 1/12 só com estes dias ou mais. */
+export const DIAS_PARA_PROVISIONAR = 15;
+
+/**
+ * Dias no mês de quem foi admitido ou desligado nele (do dia da admissão ou
+ * do 1º dia até o desligamento ou o fim do mês); null para quem ficou o mês
+ * inteiro. Datas aaaa-mm-dd; competência aaaa-mm-01.
+ */
+export function diasNoMes(
+  competencia: string,
+  admissao: string | null,
+  desligamento: string | null,
+): number | null {
+  const mes = competencia.slice(0, 7);
+  const admitido = admissao?.slice(0, 7) === mes;
+  const desligado = desligamento?.slice(0, 7) === mes;
+  if (!admitido && !desligado) return null;
+  const [a, m] = mes.split("-").map(Number) as [number, number];
+  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+  const de = admitido ? Number(admissao?.slice(8, 10)) : 1;
+  const ate = desligado ? Number(desligamento?.slice(8, 10)) : ultimo;
+  return Math.max(ate - de + 1, 0);
+}
 
 const centavos = (v: number) => Math.round(v * 100);
 const arred = (v: number) => centavos(v) / 100;
@@ -274,51 +315,80 @@ export function calcularCusto(
         : "Sem encargos para o contrato"),
   });
 
-  // Provisões com todos os encargos do contrato por cima (não só o FGTS).
-  // Sem encargos (estagiário e PJ), a provisão sai sem nada por cima.
+  // Provisões (conferência de 07/11/2026): a base é o salário contratual do
+  // mês mais os adicionais fixos, não a remuneração (que cai em mês de
+  // férias, falta ou afastamento). No PJ, o valor do contrato. Por cima, todos
+  // os encargos do contrato; sem encargos (estagiário e PJ), nada por cima.
+  const adicionais = ehPj ? 0 : arred(somaDo(["adicional"]));
+  let baseProvisao = base;
+  let baseProvisaoTexto = baseTexto;
+  if (!ehPj && p.salario !== null) {
+    baseProvisao = arred(p.salario + adicionais);
+    baseProvisaoTexto = `Base ${baseProvisao.toFixed(2)} (salário contratual ${p.salario.toFixed(2)}${adicionais ? ` + adicionais ${adicionais.toFixed(2)}` : ""})`;
+  } else if (!ehPj) {
+    pendencias.push(
+      "Sem o salário contratual no Extrato Mensal: provisões calculadas sobre a remuneração do mês.",
+    );
+  }
+  // Afastado pelo INSS no mês não provisiona; admitido ou desligado no mês,
+  // só com 15 dias ou mais.
+  const motivoSemProvisao = AFASTAMENTO_INSS[p.situacao ?? ""]
+    ? `Afastado pelo INSS (${AFASTAMENTO_INSS[p.situacao ?? ""]}) no mês: sem provisão`
+    : p.dias_no_mes != null && p.dias_no_mes < DIAS_PARA_PROVISIONAR
+      ? `${p.dias_no_mes} ${p.dias_no_mes === 1 ? "dia" : "dias"} no mês (admissão ou desligamento): provisiona só com ${DIAS_PARA_PROVISIONAR} ou mais`
+      : null;
+  const provisiona = (sim: boolean | undefined) =>
+    !!sim && motivoSemProvisao === null;
+
   const comEncargos = 1 + enc / 100;
   const porCima = enc ? ` × (1 + ${pct(enc)})` : "";
-  const provisao13 = encargos?.provisiona_13
-    ? arred((base / 12) * comEncargos)
+  const provisao13 = provisiona(encargos?.provisiona_13)
+    ? arred((baseProvisao / 12) * comEncargos)
     : 0;
   linhas.push({
     rotulo: "Provisão de 13º",
     valor: provisao13,
-    regra: encargos?.provisiona_13
-      ? `${baseTexto} ÷ 12${porCima}`
-      : "Contrato sem provisão de 13º",
+    regra: !encargos?.provisiona_13
+      ? "Contrato sem provisão de 13º"
+      : (motivoSemProvisao ?? `${baseProvisaoTexto} ÷ 12${porCima}`),
   });
   let provisaoFerias: number;
   if (encargos?.provisiona_recesso) {
     // Recesso do estagiário: 1/12 da bolsa, sem 1/3 e sem encargos. Fica na
     // coluna das férias (o estagiário não tem as duas).
-    provisaoFerias = arred(base / 12);
+    provisaoFerias = provisiona(true) ? arred(baseProvisao / 12) : 0;
     linhas.push({
       rotulo: "Provisão de recesso remunerado",
       valor: provisaoFerias,
-      regra: "Bolsa ÷ 12, sem 1/3 e sem encargos",
+      regra:
+        motivoSemProvisao ??
+        `${baseProvisaoTexto === baseTexto ? "Bolsa" : baseProvisaoTexto} ÷ 12, sem 1/3 e sem encargos`,
     });
   } else {
-    provisaoFerias = encargos?.provisiona_ferias
-      ? arred((base / 12) * (4 / 3) * comEncargos)
+    provisaoFerias = provisiona(encargos?.provisiona_ferias)
+      ? arred((baseProvisao / 12) * (4 / 3) * comEncargos)
       : 0;
     linhas.push({
       rotulo: "Provisão de férias",
       valor: provisaoFerias,
       regra: encargos?.provisiona_ferias
-        ? `${baseTexto} ÷ 12 × 4/3${porCima}`
+        ? (motivoSemProvisao ?? `${baseProvisaoTexto} ÷ 12 × 4/3${porCima}`)
         : p.tipo_contrato === "estagiario"
           ? "Recesso não provisionado (Parâmetros)"
           : "Contrato sem provisão de férias",
     });
   }
 
-  // Multa rescisória: % sobre o FGTS do mês, sem dividir por 12.
+  // Multa rescisória: % sobre o "Valor FGTS" do funcionário no Extrato
+  // Mensal, sem dividir por 12. Sem o valor no extrato, pelo FGTS da base.
+  const fgts =
+    p.valor_fgts != null
+      ? p.valor_fgts
+      : encargos
+        ? arred((base * encargos.fgts_pct) / 100)
+        : 0;
   const multa = encargos
-    ? arred(
-        (((base * encargos.fgts_pct) / 100) * encargos.multa_rescisoria_pct) /
-          100,
-      )
+    ? arred((fgts * encargos.multa_rescisoria_pct) / 100)
     : 0;
   linhas.push({
     rotulo: "Multa rescisória provisionada",
@@ -326,7 +396,9 @@ export function calcularCusto(
     regra:
       semEncargos ??
       (encargos
-        ? `${pct(encargos.multa_rescisoria_pct)} do FGTS do mês (${baseTexto.toLowerCase()} × ${pct(encargos.fgts_pct)})`
+        ? p.valor_fgts != null
+          ? `${pct(encargos.multa_rescisoria_pct)} do Valor FGTS do Extrato Mensal (${p.valor_fgts.toFixed(2)})`
+          : `${pct(encargos.multa_rescisoria_pct)} do FGTS do mês (${baseTexto.toLowerCase()} × ${pct(encargos.fgts_pct)}; sem o Valor FGTS no extrato)`
         : "Sem encargos para o contrato"),
   });
 

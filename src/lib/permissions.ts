@@ -18,7 +18,10 @@ export const PERMISSOES = {
   "rh.jornada": "Ver absenteísmo, horas extras e banco de horas",
   "rh.funcionarios":
     "Ver a lista de funcionários e o perfil, com as batidas do ponto",
-  "rh.endomarketing": "Ver gastos de endomarketing",
+  "rh.orcamento":
+    "Ver o planejamento orçamentário do RH (orçamento do ano e gastos)",
+  "rh.orcamento.lancar":
+    "Lançar gastos do RH, editar as categorias de gasto e finalizar o orçamento do ano",
   "rh.folha": "Importar a folha mensal e classificar rubricas",
   "rh.beneficios": "Cadastrar benefícios, plano de saúde e dependentes",
   "rh.parametros": "Editar parâmetros, metas e faixas do semáforo do RH",

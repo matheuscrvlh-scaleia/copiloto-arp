@@ -119,11 +119,13 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 | `ponto_mensal` | Totais do Secullum `/Calcular`: previstas, normais, faltas, atrasos, faltas em dias, abonos (separados até a Aline dizer o que é cada um), banco de horas |
 | `ponto_diario` | Cada dia do mesmo `/Calcular` (sem chamada a mais): batidas na posição da coluna Entrada/Saída (null onde faltou), justificativa no lugar delas (FOLGA, FERIADO, ATESTAD…), horas do dia e saldo corrente do banco. Alimenta o perfil em RH › Funcionários |
 | `afastamentos` | Do Secullum |
-| `custos_colaborador` 🔒 | Resultado do cálculo: remuneração, encargos, provisões, multa, benefícios, rescisão, reembolsos, custo total (check: fecha com as parcelas), custo/hora, salário/hora, memória de cálculo. Só o servidor grava |
+| `custos_colaborador` 🔒 | Resultado do cálculo: remuneração, encargos, provisões, multa, benefícios, rescisão, reembolsos, custo total (check: fecha com as parcelas), custo/hora, salário/hora, memória de cálculo. Só o servidor grava. Provisões (desde 07/11/2026): base = salário contratual do Extrato Mensal + adicionais; 13º = base ÷ 12 × (1 + encargos); férias = base ÷ 12 × 4/3 × (1 + encargos); multa = % da multa × Valor FGTS do extrato; afastado pelo INSS (doença, acidente, aposentadoria) não provisiona; admitido ou desligado no mês provisiona só com 15 dias ou mais. Os encargos do mês continuam sobre a remuneração |
 | `valores_pj` 🔒 | Valor mensal do contrato do PJ: o Salário no Copiloto RH, gravado pela sincronização (só dos PJ). Sem linha: valor não informado (o PJ aparece, mas fica fora do custo médio) |
 | `notas_pj` 🔒 | Sem uso desde 26/10/2026: o custo do PJ é o `valores_pj` |
-| `dados_financeiros_mensais` | Faturamento bruto, custo total, custos sem pessoal, lucro e endomarketing do mês. Manual até a integração com o ENET |
-| `orcamento_endomarketing` | Orçamento anual aprovado |
+| `dados_financeiros_mensais` | Faturamento bruto, custo total, custos sem pessoal e lucro do mês. Manual até a integração com o ENET. A coluna `endomarketing` não é mais usada (os gastos estão em `gastos`) |
+| `orcamentos_anuais` | Planejamento orçamentário: orçamento do ano do RH (valor único, não por categoria), gravado só pela sincronização com o ERP. Finalizar (`rh.finalizar_orcamento`) guarda total gasto, data e quem fechou; daí em diante o ano é só leitura (gatilhos barram mudança no orçamento e nos gastos do ano) |
+| `gastos` | Gasto do RH: data, valor, categoria, o que foi gasto, finalidade e observação. Abate do orçamento do ano da sua data. Categoria desativada não recebe gasto novo |
+| `categorias_gasto` | Lista de categorias (Endomarketing, Capacitação, Eventos…), editada em Configurações › Cadastros. Não se exclui: só desativa |
 
 Funções (`security definer`, só somas):
 

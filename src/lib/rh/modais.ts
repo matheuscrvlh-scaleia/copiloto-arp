@@ -969,16 +969,16 @@ export function origemDaReceitaPorColaborador(
         rotulo: "Faturamento bruto",
         valor: o.receita ? moeda(o.receita.valor) : "Pendente",
       },
-      { rotulo: "Colaboradores ativos", valor: formatarNumero(ativos) },
+      { rotulo: "Pessoas", valor: formatarNumero(ativos) },
     ],
     fontes: [
       { rotulo: "Faturamento", valor: fonteDaReceita(o) },
       {
-        rotulo: "Colaboradores",
+        rotulo: "Pessoas",
         valor:
-          "Ativos no Copiloto RH no fim do mês (com vários meses, a soma: receita por pessoa e por mês)",
+          "As mesmas do custo médio: ativos no Copiloto RH no fim do mês, sem os PJ sem valor informado (com vários meses, a soma: receita por pessoa e por mês)",
       },
-      { rotulo: "Fórmula", valor: "Faturamento bruto ÷ colaboradores ativos" },
+      { rotulo: "Fórmula", valor: "Faturamento bruto ÷ pessoas" },
     ],
     tabelas: [],
     link: o.link,

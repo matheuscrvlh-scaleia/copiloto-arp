@@ -57,6 +57,12 @@ const nextConfig: NextConfig = {
         destination: "/rh/configuracoes/parametros",
         permanent: false,
       },
+      // Endomarketing virou Planejamento orçamentário (07/11/2026).
+      {
+        source: "/rh/endomarketing",
+        destination: "/rh/planejamento-orcamentario",
+        permanent: false,
+      },
       {
         source: "/rh/beneficios",
         destination: "/rh/configuracoes/cadastros#beneficios",

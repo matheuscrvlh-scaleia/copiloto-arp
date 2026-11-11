@@ -8,7 +8,7 @@ nenhum sistema, mesmo quando a API permite.
 
 | Sistema | Serve para | Como entra | Situação do acesso | Conector |
 |---|---|---|---|---|
-| ENET (Grupo EASE) | Financeiro inteiro; faturamento, notas de PJ e endomarketing para o RH | API, 1x por dia | API não liberada (orçamento pedido pela ARP) | — |
+| ENET (Grupo EASE) | Financeiro inteiro; faturamento, notas de PJ e o orçamento anual do RH (Planejamento orçamentário) | API, 1x por dia | API não liberada (orçamento pedido pela ARP) | — |
 | Relatório "Orçamento Realizado Anual" do ENET | Performance & Capital (receitas por conta) | Upload mensal (Excel) | Arquivo de exemplo na planilha do Pedro (aba Base EASE) | — |
 | Secullum Ponto Web | RH: absenteísmo, banco de horas, afastamentos | API | **Funcionando** com o login do RH (conferido em 19/10/2026) | `src/connectors/secullum` |
 | Folha (Sousa e Couto) | RH: rubricas, salários, bases e encargos | Upload mensal (PDF ou Excel) | Extrato de 07/2026 recebido | — |
@@ -53,6 +53,10 @@ Orçamento, Vendas e Contábil. O módulo Financeiro usa as 12 primeiras.
   financeira, rateio, captação): upload mensal do relatório "Orçamento
   Realizado Anual". Colunas: `ANO | CONTA | DESCRIÇÃO | JANEIRO … DEZEMBRO`.
 - Saldo bancário por dia e valor orçado: fora, até a EASE confirmar.
+- Orçamento anual do RH (Planejamento orçamentário): valor único do ano,
+  gravado em `rh.orcamentos_anuais` só pela sincronização. Puxar o ano em
+  uso (`anoEmUso` em `src/lib/rh/orcamento.ts`): o corrente ou, se já
+  finalizado, o seguinte. Ano finalizado não aceita mais gravação.
 - Dívida, mútuos, metas e mês conferido: cadastro manual.
 
 **A confirmar com a EASE:** saldo bancário diário; valor orçado; receitas por

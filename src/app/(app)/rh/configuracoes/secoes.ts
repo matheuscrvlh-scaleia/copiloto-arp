@@ -17,8 +17,9 @@ const ABAS: (Aba & { permissoes: Permissao[] })[] = [
   {
     href: CONFIGURACOES_RH.cadastros,
     rotulo: "Cadastros",
-    descricao: "Benefícios, departamentos, rubricas, faturamento e notas de PJ",
-    permissoes: ["rh.beneficios", "rh.parametros"],
+    descricao:
+      "Benefícios, departamentos, rubricas, faturamento e categorias de gasto",
+    permissoes: ["rh.beneficios", "rh.parametros", "rh.orcamento.lancar"],
   },
   {
     href: CONFIGURACOES_RH.parametros,

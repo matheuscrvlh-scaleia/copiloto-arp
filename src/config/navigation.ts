@@ -8,7 +8,7 @@ export type Icone =
   | "quadro"
   | "jornada"
   | "funcionarios"
-  | "endomarketing"
+  | "gastos_rh"
   | "folha"
   | "beneficios"
   | "parametros"
@@ -164,16 +164,21 @@ export const navigation: NavSection[] = [
         permissao: "rh.quadro",
       },
       {
-        href: "/rh/endomarketing",
-        label: "Endomarketing",
-        icone: "endomarketing",
-        permissao: "rh.endomarketing",
+        href: "/rh/planejamento-orcamentario",
+        label: "Planejamento orçamentário",
+        icone: "gastos_rh",
+        permissao: ["rh.orcamento", "rh.orcamento.lancar"],
       },
       {
         href: "/rh/configuracoes",
         label: "Configurações",
         icone: "configuracoes",
-        permissao: ["rh.folha", "rh.beneficios", "rh.parametros"],
+        permissao: [
+          "rh.folha",
+          "rh.beneficios",
+          "rh.parametros",
+          "rh.orcamento.lancar",
+        ],
       },
     ],
   },
