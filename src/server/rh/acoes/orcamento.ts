@@ -107,7 +107,7 @@ export async function finalizarOrcamento(
 }
 
 // ---------------------------------------------------------------------------
-// Categorias de gasto (Configurações › Cadastros)
+// Categorias de gasto (Planejamento orçamentário › Cadastros)
 // ---------------------------------------------------------------------------
 
 const categoria = z.object({

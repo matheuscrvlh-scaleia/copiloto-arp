@@ -9,37 +9,22 @@ import {
   CartaoPendente,
 } from "@/components/dashboard/indicador";
 import { Secao } from "@/components/dashboard/tabela";
-import { FormAcao } from "@/components/form-acao";
-import { PageHeader } from "@/components/page-header";
 import { SemAcesso } from "@/components/protegido";
-import {
-  FiltrosDoOrcamento,
-  GastosDoOrcamento,
-} from "@/components/rh/orcamento";
-import { CONFIGURACOES_RH } from "@/config/navigation";
+import { AbasDoOrcamento, FiltrosDoOrcamento } from "@/components/rh/orcamento";
 import {
   formatarData,
   formatarDataHora,
   formatarMes,
   formatarMoeda,
   formatarPct,
-  isoLocal,
 } from "@/lib/formato";
 import {
-  anoEmUso,
   filtrarGastos,
   mesesDoAno,
   porCategoria,
   soma,
 } from "@/lib/rh/orcamento";
-import { pode } from "@/server/auth";
-import { finalizarOrcamento } from "@/server/rh/acoes/orcamento";
-import {
-  categoriasDeGasto,
-  gastosDoAno,
-  orcamentosAnuais,
-  primeiroAnoComGasto,
-} from "@/server/rh/orcamento";
+import { telaDoOrcamento } from "@/server/rh/orcamento";
 
 export const metadata: Metadata = { title: "Planejamento orçamentário" };
 
@@ -49,66 +34,32 @@ export default function Page({
   searchParams,
 }: PageProps<"/rh/planejamento-orcamentario">) {
   return (
-    <>
-      <PageHeader
-        title="Planejamento orçamentário"
-        description="Orçamento do ano do RH, que vem do ERP, e os gastos lançados que abatem dele: quanto já foi usado e quanto sobra."
-      />
-      <Suspense fallback={<Esqueleto />}>
-        <Tela busca={searchParams} />
-      </Suspense>
-    </>
+    <Suspense fallback={<Esqueleto />}>
+      <Tela busca={searchParams} />
+    </Suspense>
   );
 }
 
-const um = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-
 async function Tela({ busca }: { busca: Promise<Busca> }) {
-  const params = await busca;
-  const [ve, lanca] = await Promise.all([
-    pode("rh.orcamento"),
-    pode("rh.orcamento.lancar"),
-  ]);
-  if (!ve && !lanca) return <SemAcesso />;
-
-  const hoje = isoLocal(new Date());
-  const anoAtual = Number(hoje.slice(0, 4));
-  const [orcamentos, categorias, primeiro] = await Promise.all([
-    orcamentosAnuais(),
-    categoriasDeGasto(),
-    primeiroAnoComGasto(),
-  ]);
-  const padrao = anoEmUso(
+  const t = await telaDoOrcamento(await busca);
+  if (!t) return <SemAcesso />;
+  const {
+    lanca,
+    hoje,
     anoAtual,
-    orcamentos.filter((o) => o.finalizado_em).map((o) => o.ano),
-  );
-  const ultimo = Math.max(padrao, ...orcamentos.map((o) => o.ano));
-  const inicio = Math.min(
-    padrao,
-    primeiro ?? padrao,
-    ...orcamentos.map((o) => o.ano),
-  );
-  const anos = Array.from(
-    { length: ultimo - inicio + 1 },
-    (_, i) => ultimo - i,
-  );
-  const anoPedido = Number(um(params.ano));
-  const ano = anos.includes(anoPedido) ? anoPedido : padrao;
-  const mesPedido = Number(um(params.mes));
-  const mes = mesPedido >= 1 && mesPedido <= 12 ? mesPedido : null;
-  const catPedida = um(params.cat) ?? null;
-  const categoria = categorias.some((c) => c.id === catPedida)
-    ? catPedida
-    : null;
-
-  const gastos = await gastosDoAno(ano);
-  const orcamento = orcamentos.find((o) => o.ano === ano) ?? null;
+    anos,
+    ano,
+    mes,
+    categoria,
+    categorias,
+    nomeCategoria,
+    gastos,
+    doFiltro,
+    orcamento,
+    finalizado,
+    rotuloFiltro,
+  } = t;
   const valor = orcamento?.valor ?? null;
-  const finalizado = !!orcamento?.finalizado_em;
-  const nomeCategoria = categorias.find((c) => c.id === categoria)?.nome;
-
-  // Gastos do filtro (mês e categoria) e do ano na categoria (gráficos).
-  const doFiltro = filtrarGastos(gastos, { mes, categoria });
   const daCategoria = filtrarGastos(gastos, { mes: null, categoria });
   const meses = mesesDoAno(ano, daCategoria, valor);
   // Saldo do orçamento: sempre com todas as categorias (o orçamento é um
@@ -119,9 +70,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
     (ano === anoAtual ? Number(hoje.slice(5, 7)) : ano < anoAtual ? 12 : 1);
   const doSaldo = todos[ate - 1];
   const gastoNoFiltro = soma(doFiltro);
-  const rotuloFiltro = `${mes ? formatarMes(`${ano}-${String(mes).padStart(2, "0")}-01`) : ano}${nomeCategoria ? ` · ${nomeCategoria}` : ""}`;
-  const editavel = lanca && !finalizado;
-  const dataPadrao = hoje.slice(0, 4) === String(ano) ? hoje : `${ano}-01-01`;
 
   const itensMes = meses.map((m, i) => ({
     chave: m.competencia,
@@ -153,6 +101,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         categorias={categorias}
         categoria={categoria}
       />
+      <AbasDoOrcamento cadastros={lanca} />
 
       {finalizado && orcamento && (
         <Secao
@@ -361,55 +310,6 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           </table>
         </div>
       </Secao>
-
-      <Secao
-        id="gastos"
-        titulo="Gastos lançados"
-        descricao={`${rotuloFiltro}. ${
-          finalizado
-            ? "Ano finalizado: só leitura."
-            : lanca
-              ? "Cada gasto abate do orçamento do ano da sua data. A categoria é escolhida da lista de Configurações › Cadastros."
-              : "Quem lança é a Gestão de RH."
-        }`}
-      >
-        <GastosDoOrcamento
-          gastos={doFiltro}
-          categorias={categorias}
-          editavel={editavel}
-          dataPadrao={dataPadrao}
-          ano={ano}
-        />
-        {lanca && !finalizado && categorias.every((c) => !c.ativa) && (
-          <p className="mt-3 text-xs text-amber-700">
-            Nenhuma categoria ativa: cadastre uma em{" "}
-            <a
-              href={`${CONFIGURACOES_RH.cadastros}#categorias-gasto`}
-              className="underline"
-            >
-              Configurações › Cadastros
-            </a>
-            .
-          </p>
-        )}
-      </Secao>
-
-      {lanca && !finalizado && orcamento && (
-        <Secao
-          titulo="Finalizar o orçamento do ano"
-          descricao={`Fecha o ano de ${ano}: guarda o total orçado, o total gasto, o saldo, a data e quem fechou. Depois disso o ano fica só leitura e o sistema passa a puxar do ERP o orçamento do ano seguinte.`}
-        >
-          <FormAcao
-            acao={finalizarOrcamento}
-            rotulo={`Finalizar orçamento de ${ano}`}
-            rotuloEnviando="Finalizando…"
-            variante="perigo"
-            confirmar={`Finalizar o orçamento de ${ano}? Gasto até agora: ${formatarMoeda(soma(gastos))} de ${formatarMoeda(orcamento.valor)}. Depois disso nenhum gasto de ${ano} pode ser lançado, corrigido ou excluído, e não há como desfazer.`}
-          >
-            <input type="hidden" name="ano" value={ano} />
-          </FormAcao>
-        </Secao>
-      )}
     </div>
   );
 }

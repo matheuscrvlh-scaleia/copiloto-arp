@@ -6,13 +6,35 @@ import { useState, useTransition } from "react";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { Painel } from "@/components/operacoes/painel-lateral";
+import { Abas } from "@/components/os/abas";
 import { Selecao } from "@/components/selecao";
 import { formatarData, formatarMoeda } from "@/lib/formato";
 import type { GastoDoAno } from "@/lib/rh/orcamento";
 import { excluirGasto, salvarGasto } from "@/server/rh/acoes/orcamento";
 
-// Planejamento orçamentário: filtros (ano, mês, categoria) na URL, a lista
-// de gastos e o painel de lançar ou corrigir um gasto.
+// Planejamento orçamentário: filtros (ano, mês, categoria) na URL, as abas
+// (Dashboard, Lançamentos, Cadastros), a lista de gastos e o painel de lançar
+// ou corrigir um gasto.
+
+const RAIZ = "/rh/planejamento-orcamentario";
+
+/** Abas do módulo; Dashboard e Lançamentos levam o filtro junto. */
+export function AbasDoOrcamento({ cadastros }: { cadastros: boolean }) {
+  const filtro = useSearchParams().toString();
+  const com = (href: string) => (filtro ? `${href}?${filtro}` : href);
+  return (
+    <Abas
+      rotulo="Telas do planejamento orçamentário"
+      abas={[
+        { href: com(RAIZ), rotulo: "Dashboard" },
+        { href: com(`${RAIZ}/lancamentos`), rotulo: "Lançamentos" },
+        ...(cadastros
+          ? [{ href: `${RAIZ}/cadastros`, rotulo: "Cadastros" }]
+          : []),
+      ]}
+    />
+  );
+}
 
 const MESES = [
   "Janeiro",

@@ -255,56 +255,121 @@ export const GUIAS_RH: Record<string, Guia> = {
     ],
   },
   "/rh/planejamento-orcamentario": {
-    versao: 1,
+    versao: 2,
     passos: [
       abertura(
-        "Planejamento orçamentário",
-        "O orçamento do ano do RH vem do ERP e cada gasto lançado abate dele. Aqui você lança os gastos, acompanha quanto já foi usado e quanto sobra, e fecha o ano.",
+        "Planejamento orçamentário: Dashboard",
+        "O orçamento do ano do RH vem do ERP e cada gasto lançado abate dele. Este Dashboard mostra quanto já foi usado e quanto sobra. Os gastos se lançam na aba Lançamentos; as categorias, na aba Cadastros.",
       ),
       filtros(
-        "<b>Passo 1.</b> Escolha o ano, um mês ou uma categoria. Cartões, gráficos e lista mudam junto. O saldo do ano sempre considera todas as categorias, porque o orçamento é um só.",
+        "<b>Passo 1.</b> Escolha o ano, um mês ou uma categoria. Cartões e gráficos mudam junto, e o filtro vai junto para a aba Lançamentos. O saldo do ano sempre considera todas as categorias, porque o orçamento é um só.",
       ),
+      {
+        alvo: "abas",
+        titulo: "Passo 2. As três telas",
+        texto:
+          "<b>Dashboard</b> para acompanhar, <b>Lançamentos</b> para lançar e corrigir gastos e fechar o ano, <b>Cadastros</b> para as categorias de gasto (só para quem lança).",
+      },
+      {
+        alvo: "cartao:Orçamento do ano",
+        titulo: "Passo 3. O orçamento vem do ERP",
+        texto:
+          "Ninguém digita o orçamento aqui. Se o valor estiver errado, a correção é feita no ERP (ENET).",
+      },
       card(
         "Saldo do ano",
-        "Passo 2. Quanto sobra",
+        "Passo 4. Quanto sobra",
         "Orçamento do ano menos os gastos até o fim do mês (ou até hoje). Se passar do orçamento, o cartão mostra quanto passou.",
       ),
       sec(
-        "Gastos lançados",
-        "Passo 3. Lance cada gasto",
-        "Em <b>Lançar gasto</b>, informe valor, data, categoria (da lista), o que foi gasto e a finalidade. Data, categoria e finalidade são obrigatórias. Para corrigir ou excluir, use o lápis na linha.",
-      ),
-      sec(
         "Gasto por mês",
-        "Passo 4. Acompanhe o mês",
+        "Passo 5. Acompanhe o mês",
         "O gasto de cada mês e, abaixo, quanto do orçamento já foi consumido até ele. A linha tracejada é o orçamento inteiro (100%).",
       ),
       sec(
         "Saldo acumulado do ano",
-        "Passo 5. O saldo ao longo do ano",
+        "Passo 6. O saldo ao longo do ano",
         "Quanto sobra no fim de cada mês. Abaixo de zero, passou do orçamento.",
       ),
       sec(
         "Gasto por categoria",
-        "Passo 6. Onde o dinheiro foi",
-        "Total por categoria no período. As categorias se cadastram em Configurações › Cadastros.",
+        "Passo 7. Onde o dinheiro foi",
+        "Total por categoria no período. As categorias se cadastram na aba Cadastros.",
       ),
       sec(
         "Saldo mês a mês",
-        "Passo 7. A tabela do ano",
+        "Passo 8. A tabela do ano",
         "Gasto do mês, acumulado e saldo de cada mês, para conferir os números dos gráficos.",
       ),
+    ],
+  },
+  "/rh/planejamento-orcamentario/lancamentos": {
+    versao: 1,
+    passos: [
+      abertura(
+        "Planejamento orçamentário: Lançamentos",
+        "Onde se lançam os gastos do RH. Cada gasto abate do orçamento do ano da sua data. No fim do ano, é aqui também que se finaliza o orçamento.",
+      ),
       {
-        alvo: "cartao:Orçamento do ano",
-        titulo: "O orçamento vem do ERP",
+        alvo: "aba:Lançamentos",
+        titulo: "Passo 1. Você está em Lançamentos",
         texto:
-          "Ninguém digita o orçamento aqui. Se o valor estiver errado, a correção é feita no ERP (ENET).",
+          "O Dashboard mostra o resultado do que se lança aqui. As categorias usadas nos gastos se cadastram na aba Cadastros.",
       },
+      filtros(
+        "<b>Passo 2.</b> Escolha o ano, um mês ou uma categoria para achar um gasto. O filtro vai junto quando você volta ao Dashboard.",
+      ),
+      sec(
+        "Gastos lançados",
+        "Passo 3. Lance cada gasto",
+        "Em <b>Lançar gasto</b>, informe valor, data, categoria (da lista), o que foi gasto e a finalidade. Data, categoria e finalidade são obrigatórias; a observação é opcional.",
+      ),
+      sec(
+        "Gastos lançados",
+        "Passo 4. Corrija ou exclua",
+        "Use o lápis na linha para corrigir ou excluir um gasto. Ano finalizado é só leitura: nenhum gasto dele muda.",
+      ),
       {
         alvo: "secao:Finalizar o orçamento do ano",
-        titulo: "Passo 8. Feche o ano",
+        titulo: "Passo 5. Feche o ano",
         texto:
-          "No fim do ano, <b>Finalizar orçamento</b> guarda o total orçado, o total gasto, o saldo, a data e quem fechou. O ano fica só leitura e o sistema passa a puxar do ERP o orçamento do ano seguinte.",
+          "No fim do ano, <b>Finalizar orçamento</b> guarda o total orçado, o total gasto, o saldo, a data e quem fechou. O ano fica só leitura e o sistema passa a puxar do ERP o orçamento do ano seguinte. Só aparece quando o orçamento do ano já chegou do ERP.",
+      },
+    ],
+  },
+  "/rh/planejamento-orcamentario/cadastros": {
+    versao: 1,
+    passos: [
+      abertura(
+        "Planejamento orçamentário: Cadastros",
+        "A lista de categorias de gasto. Ao lançar um gasto, a categoria é escolhida desta lista, nunca digitada.",
+      ),
+      {
+        alvo: "aba:Cadastros",
+        titulo: "Passo 1. Você está em Cadastros",
+        texto:
+          "Só quem lança gastos vê esta aba. As categorias classificam os gastos; o orçamento do ano continua um só, do RH.",
+      },
+      sec(
+        "Categorias de gasto",
+        "Passo 2. Crie uma categoria",
+        "Escreva o nome em <b>Nova categoria</b> e clique em <b>Criar categoria</b>. Nome repetido não entra.",
+      ),
+      sec(
+        "Categorias de gasto",
+        "Passo 3. Renomeie",
+        "Troque o nome na linha e clique em <b>Salvar nome</b>. Os gastos já lançados passam a mostrar o nome novo.",
+      ),
+      sec(
+        "Categorias de gasto",
+        "Passo 4. Desative em vez de excluir",
+        "<b>Desativar</b> tira a categoria da lista de lançamento, mas ela continua nos gastos e gráficos antigos. Excluir não há. <b>Reativar</b> a devolve à lista.",
+      ),
+      {
+        alvo: "aba:Lançamentos",
+        titulo: "Passo 5. Use nos lançamentos",
+        texto:
+          "Na aba Lançamentos, as categorias ativas aparecem na lista de cada gasto.",
       },
     ],
   },

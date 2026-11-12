@@ -125,7 +125,7 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 | `dados_financeiros_mensais` | Faturamento bruto, custo total, custos sem pessoal e lucro do mês. Manual até a integração com o ENET. A coluna `endomarketing` não é mais usada (os gastos estão em `gastos`) |
 | `orcamentos_anuais` | Planejamento orçamentário: orçamento do ano do RH (valor único, não por categoria), gravado só pela sincronização com o ERP. Finalizar (`rh.finalizar_orcamento`) guarda total gasto, data e quem fechou; daí em diante o ano é só leitura (gatilhos barram mudança no orçamento e nos gastos do ano) |
 | `gastos` | Gasto do RH: data, valor, categoria, o que foi gasto, finalidade e observação. Abate do orçamento do ano da sua data. Categoria desativada não recebe gasto novo |
-| `categorias_gasto` | Lista de categorias (Endomarketing, Capacitação, Eventos…), editada em Configurações › Cadastros. Não se exclui: só desativa |
+| `categorias_gasto` | Lista de categorias (Endomarketing, Capacitação, Eventos…), editada em Planejamento orçamentário › Cadastros. Não se exclui: só desativa |
 
 Funções (`security definer`, só somas):
 

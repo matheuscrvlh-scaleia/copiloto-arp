@@ -1,7 +1,9 @@
 import "server-only";
 import { cache } from "react";
-import type { GastoDoAno } from "@/lib/rh/orcamento";
+import { formatarMes, isoLocal } from "@/lib/formato";
+import { anoEmUso, filtrarGastos, type GastoDoAno } from "@/lib/rh/orcamento";
 import { createClient } from "@/lib/supabase/server";
+import { pode } from "../auth";
 import { lerTudo } from "../supabase-paginas";
 
 // Leituras do Planejamento orçamentário, com a sessão (RLS: vê quem tem
@@ -115,3 +117,70 @@ export const primeiroAnoComGasto = cache(async (): Promise<number | null> => {
   falhar(error);
   return data ? Number(data.data.slice(0, 4)) : null;
 });
+
+type Busca = Record<string, string | string[] | undefined>;
+const um = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+/**
+ * O que as abas Dashboard e Lançamentos leem igual: permissões, anos do
+ * filtro, o filtro pedido (ano, mês, categoria) e os gastos do ano.
+ * null: sem acesso.
+ */
+export async function telaDoOrcamento(params: Busca) {
+  const [ve, lanca] = await Promise.all([
+    pode("rh.orcamento"),
+    pode("rh.orcamento.lancar"),
+  ]);
+  if (!ve && !lanca) return null;
+
+  const hoje = isoLocal(new Date());
+  const anoAtual = Number(hoje.slice(0, 4));
+  const [orcamentos, categorias, primeiro] = await Promise.all([
+    orcamentosAnuais(),
+    categoriasDeGasto(),
+    primeiroAnoComGasto(),
+  ]);
+  const padrao = anoEmUso(
+    anoAtual,
+    orcamentos.filter((o) => o.finalizado_em).map((o) => o.ano),
+  );
+  const ultimo = Math.max(padrao, ...orcamentos.map((o) => o.ano));
+  const inicio = Math.min(
+    padrao,
+    primeiro ?? padrao,
+    ...orcamentos.map((o) => o.ano),
+  );
+  const anos = Array.from(
+    { length: ultimo - inicio + 1 },
+    (_, i) => ultimo - i,
+  );
+  const anoPedido = Number(um(params.ano));
+  const ano = anos.includes(anoPedido) ? anoPedido : padrao;
+  const mesPedido = Number(um(params.mes));
+  const mes = mesPedido >= 1 && mesPedido <= 12 ? mesPedido : null;
+  const catPedida = um(params.cat) ?? null;
+  const categoria = categorias.some((c) => c.id === catPedida)
+    ? catPedida
+    : null;
+
+  const gastos = await gastosDoAno(ano);
+  const orcamento = orcamentos.find((o) => o.ano === ano) ?? null;
+  const nomeCategoria = categorias.find((c) => c.id === categoria)?.nome;
+  const rotuloFiltro = `${mes ? formatarMes(`${ano}-${String(mes).padStart(2, "0")}-01`) : ano}${nomeCategoria ? ` · ${nomeCategoria}` : ""}`;
+  return {
+    lanca,
+    hoje,
+    anoAtual,
+    anos,
+    ano,
+    mes,
+    categoria,
+    categorias,
+    nomeCategoria,
+    gastos,
+    doFiltro: filtrarGastos(gastos, { mes, categoria }),
+    orcamento,
+    finalizado: !!orcamento?.finalizado_em,
+    rotuloFiltro,
+  };
+}

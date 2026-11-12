@@ -13,10 +13,15 @@ export interface Aba {
 
 export function Abas({ abas, rotulo }: { abas: Aba[]; rotulo: string }) {
   const atual = usePathname();
-  // A aba mais específica que casa com o endereço (as outras são prefixo dela).
+  // A aba mais específica que casa com o endereço (as outras são prefixo
+  // dela). O href pode levar filtros (?ano=…), que não contam aqui.
+  const caminho = (href: string) => href.split("?")[0] ?? href;
   const ativa = [...abas]
-    .sort((a, b) => b.href.length - a.href.length)
-    .find((a) => atual === a.href || atual.startsWith(`${a.href}/`))?.href;
+    .sort((a, b) => caminho(b.href).length - caminho(a.href).length)
+    .find(
+      (a) =>
+        atual === caminho(a.href) || atual.startsWith(`${caminho(a.href)}/`),
+    )?.href;
   return (
     <nav
       aria-label={rotulo}
