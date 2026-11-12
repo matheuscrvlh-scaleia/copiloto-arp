@@ -432,7 +432,7 @@ async function Pessoas({
               { rotulo: "Pessoas", valor: String(s.colaboradores) },
               {
                 rotulo: "Créditos",
-                valor: `+${formatarHoras(s.banco_positivo_min)}`,
+                valor: `${formatarSaldoHoras(s.banco_positivo_min)}`,
               },
               {
                 rotulo: "Débitos",
@@ -523,7 +523,7 @@ async function Pessoas({
           resumo: [
             {
               rotulo: "Total",
-              valor: `+${formatarHoras(totais.banco_positivo_min)}`,
+              valor: `${formatarSaldoHoras(totais.banco_positivo_min)}`,
             },
             { rotulo: "Pessoas", valor: String(bancoPositivo.linhas.length) },
           ],
@@ -812,16 +812,16 @@ async function Pessoas({
               negativo: Math.abs(s.banco_negativo_min),
               positivo: s.banco_positivo_min,
               textoNegativo: formatarHoras(-Math.abs(s.banco_negativo_min)),
-              textoPositivo: `+${formatarHoras(s.banco_positivo_min)}`,
+              textoPositivo: `${formatarSaldoHoras(s.banco_positivo_min)}`,
               resumo: `saldo ${formatarSaldoHoras(s.banco_saldo_min)}`,
-              detalhe: `${s.colaboradores} pessoas · crédito +${formatarHoras(s.banco_positivo_min)} · débito ${formatarHoras(-Math.abs(s.banco_negativo_min))}`,
+              detalhe: `${s.colaboradores} pessoas · crédito ${formatarSaldoHoras(s.banco_positivo_min)} · débito ${formatarHoras(-Math.abs(s.banco_negativo_min))}`,
             }))}
           />
           <dl className="mt-auto grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               {
                 rotulo: "Créditos",
-                valor: `+${formatarHoras(totais.banco_positivo_min)}`,
+                valor: `${formatarSaldoHoras(totais.banco_positivo_min)}`,
               },
               {
                 rotulo: "Débitos",

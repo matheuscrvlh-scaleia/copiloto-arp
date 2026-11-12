@@ -193,7 +193,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
           { rotulo: "Pessoas", valor: String(s.colaboradores) },
           {
             rotulo: "Créditos",
-            valor: `+${formatarHoras(s.banco_positivo_min)}`,
+            valor: `${formatarSaldoHoras(s.banco_positivo_min)}`,
           },
           {
             rotulo: "Débitos",
@@ -593,7 +593,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
                     textoNegativo: formatarHoras(
                       -Math.abs(s.banco_negativo_min),
                     ),
-                    textoPositivo: `+${formatarHoras(s.banco_positivo_min)}`,
+                    textoPositivo: `${formatarSaldoHoras(s.banco_positivo_min)}`,
                     resumo: `saldo ${formatarSaldoHoras(s.banco_saldo_min)}`,
                     detalhe: `${s.colaboradores} pessoas`,
                   }))}
@@ -604,7 +604,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
                 {[
                   {
                     rotulo: "Créditos",
-                    valor: `+${formatarHoras(totais.banco_positivo_min)}`,
+                    valor: `${formatarSaldoHoras(totais.banco_positivo_min)}`,
                   },
                   {
                     rotulo: "Débitos",
@@ -668,7 +668,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
                     ? formatarSaldoHoras(l.banco_saldo_min)
                     : "",
                 resumo: l.departamento,
-                detalhe: `créditos +${formatarHoras(l.banco_creditos_min)} · débitos ${formatarHoras(-Math.abs(l.banco_debitos_min))}`,
+                detalhe: `créditos ${formatarSaldoHoras(l.banco_creditos_min)} · débitos ${formatarHoras(-Math.abs(l.banco_debitos_min))}`,
               }))}
             />
           </Secao>

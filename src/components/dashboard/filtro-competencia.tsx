@@ -4,7 +4,6 @@ import { Building2, CalendarDays, GitCompare, Loader } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { Selecao } from "@/components/selecao";
-import { formatarMes } from "@/lib/formato";
 
 /**
  * Competência (mês/ano da folha) e departamento, guardados na URL
@@ -42,9 +41,10 @@ export function FiltroCompetencia({
     );
   }
 
+  // Competência como na folha: mês/ano (ex.: 07/2026).
   const opcoes = meses.map((m) => ({
     valor: m.slice(0, 7),
-    rotulo: formatarMes(m),
+    rotulo: `${m.slice(5, 7)}/${m.slice(0, 4)}`,
   }));
 
   return (

@@ -108,7 +108,7 @@ function tabelaDeBancoPorSetor(
         celulas: [
           s.departamento,
           String(s.colaboradores),
-          `+${formatarHoras(s.banco_positivo_min)}`,
+          `${formatarSaldoHoras(s.banco_positivo_min)}`,
           formatarHoras(s.banco_negativo_min),
           formatarSaldoHoras(s.banco_saldo_min),
           ...(reais ? [r === null ? "—" : moeda(r)] : []),
@@ -494,7 +494,10 @@ export function origemDoBanco(
       ? "Quem tem horas a folgar ou a receber"
       : "De quem mais deve para quem mais tem crédito",
     resumo: [
-      { rotulo: "Positivo", valor: `+${formatarHoras(t.banco_positivo_min)}` },
+      {
+        rotulo: "Positivo",
+        valor: `${formatarSaldoHoras(t.banco_positivo_min)}`,
+      },
       { rotulo: "Negativo", valor: formatarHoras(t.banco_negativo_min) },
       { rotulo: "Saldo", valor: formatarSaldoHoras(t.banco_saldo_min) },
       ...(r?.valor !== null && r?.valor !== undefined

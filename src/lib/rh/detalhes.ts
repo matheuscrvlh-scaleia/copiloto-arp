@@ -94,7 +94,7 @@ export function tabelaDoBanco(
       celulas: [
         l.nome,
         l.departamento,
-        `+${formatarHoras(l.banco_creditos_min)}`,
+        `${formatarSaldoHoras(l.banco_creditos_min)}`,
         formatarHoras(-Math.abs(l.banco_debitos_min)),
         formatarSaldoHoras(l.banco_saldo_min),
         ...(emReais ? [formatarMoeda(reais(l))] : []),
