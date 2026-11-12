@@ -21,6 +21,7 @@ import {
 import { departamentosDoRh, rubricasDoRh } from "@/server/rh/configuracao";
 import { dadosFinanceiros } from "@/server/rh/dados";
 import { Beneficios } from "./beneficios";
+import { CategoriasDeGasto } from "./categorias-gasto";
 
 export const metadata: Metadata = { title: "Cadastros do RH" };
 
@@ -38,11 +39,12 @@ export default function Page() {
 }
 
 async function Cadastros() {
-  const [beneficios, parametros] = await Promise.all([
+  const [beneficios, parametros, gastos] = await Promise.all([
     pode("rh.beneficios"),
     pode("rh.parametros"),
+    pode("rh.orcamento.lancar"),
   ]);
-  if (!beneficios && !parametros) return <SemAcesso />;
+  if (!beneficios && !parametros && !gastos) return <SemAcesso />;
   const indice = [
     ...(beneficios ? [["beneficios", "Benefícios"]] : []),
     ...(parametros
@@ -52,6 +54,7 @@ async function Cadastros() {
           ["rubricas", "Rubricas"],
         ]
       : []),
+    ...(gastos ? [["categorias-gasto", "Categorias de gasto"]] : []),
   ];
 
   return (
@@ -70,6 +73,7 @@ async function Cadastros() {
       {beneficios && <Beneficios />}
       {parametros && <Financeiro />}
       {parametros && <Estrutura />}
+      {gastos && <CategoriasDeGasto />}
     </div>
   );
 }

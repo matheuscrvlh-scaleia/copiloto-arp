@@ -259,16 +259,16 @@ export const GUIAS_RH: Record<string, Guia> = {
     passos: [
       abertura(
         "Planejamento orçamentário: Dashboard",
-        "O orçamento do ano do RH vem do ERP e cada gasto lançado abate dele. Este Dashboard mostra quanto já foi usado e quanto sobra. Os gastos se lançam na aba Lançamentos; as categorias, na aba Cadastros.",
+        "O orçamento do ano do RH vem do ERP e cada gasto lançado abate dele. Este Dashboard mostra quanto já foi usado e quanto sobra. Os gastos se lançam na aba Lançamentos; as categorias de gasto, em Configurações › Cadastros.",
       ),
       filtros(
         "<b>Passo 1.</b> Escolha o ano, um mês ou uma categoria. Cartões e gráficos mudam junto, e o filtro vai junto para a aba Lançamentos. O saldo do ano sempre considera todas as categorias, porque o orçamento é um só.",
       ),
       {
         alvo: "abas",
-        titulo: "Passo 2. As três telas",
+        titulo: "Passo 2. As duas telas",
         texto:
-          "<b>Dashboard</b> para acompanhar, <b>Lançamentos</b> para lançar e corrigir gastos e fechar o ano, <b>Cadastros</b> para as categorias de gasto (só para quem lança).",
+          "<b>Dashboard</b> para acompanhar, <b>Lançamentos</b> para lançar e corrigir gastos e fechar o ano.",
       },
       {
         alvo: "cartao:Orçamento do ano",
@@ -294,7 +294,7 @@ export const GUIAS_RH: Record<string, Guia> = {
       sec(
         "Gasto por categoria",
         "Passo 7. Onde o dinheiro foi",
-        "Total por categoria no período. As categorias se cadastram na aba Cadastros.",
+        "Total por categoria no período. As categorias se cadastram em Configurações › Cadastros.",
       ),
       sec(
         "Saldo mês a mês",
@@ -314,7 +314,7 @@ export const GUIAS_RH: Record<string, Guia> = {
         alvo: "aba:Lançamentos",
         titulo: "Passo 1. Você está em Lançamentos",
         texto:
-          "O Dashboard mostra o resultado do que se lança aqui. As categorias usadas nos gastos se cadastram na aba Cadastros.",
+          "O Dashboard mostra o resultado do que se lança aqui. As categorias usadas nos gastos se cadastram em Configurações › Cadastros.",
       },
       filtros(
         "<b>Passo 2.</b> Escolha o ano, um mês ou uma categoria para achar um gasto. O filtro vai junto quando você volta ao Dashboard.",
@@ -337,44 +337,8 @@ export const GUIAS_RH: Record<string, Guia> = {
       },
     ],
   },
-  "/rh/planejamento-orcamentario/cadastros": {
-    versao: 1,
-    passos: [
-      abertura(
-        "Planejamento orçamentário: Cadastros",
-        "A lista de categorias de gasto. Ao lançar um gasto, a categoria é escolhida desta lista, nunca digitada.",
-      ),
-      {
-        alvo: "aba:Cadastros",
-        titulo: "Passo 1. Você está em Cadastros",
-        texto:
-          "Só quem lança gastos vê esta aba. As categorias classificam os gastos; o orçamento do ano continua um só, do RH.",
-      },
-      sec(
-        "Categorias de gasto",
-        "Passo 2. Crie uma categoria",
-        "Escreva o nome em <b>Nova categoria</b> e clique em <b>Criar categoria</b>. Nome repetido não entra.",
-      ),
-      sec(
-        "Categorias de gasto",
-        "Passo 3. Renomeie",
-        "Troque o nome na linha e clique em <b>Salvar nome</b>. Os gastos já lançados passam a mostrar o nome novo.",
-      ),
-      sec(
-        "Categorias de gasto",
-        "Passo 4. Desative em vez de excluir",
-        "<b>Desativar</b> tira a categoria da lista de lançamento, mas ela continua nos gastos e gráficos antigos. Excluir não há. <b>Reativar</b> a devolve à lista.",
-      ),
-      {
-        alvo: "aba:Lançamentos",
-        titulo: "Passo 5. Use nos lançamentos",
-        texto:
-          "Na aba Lançamentos, as categorias ativas aparecem na lista de cada gasto.",
-      },
-    ],
-  },
   "/rh/configuracoes": {
-    versao: 2,
+    versao: 3,
     passos: [
       abertura(
         "Configurações do RH: a rotina do mês",
@@ -400,7 +364,7 @@ export const GUIAS_RH: Record<string, Guia> = {
         alvo: "aba:Cadastros",
         titulo: "Passo 2. Cadastros",
         texto:
-          "Faturamento do mês, departamentos e rubricas da folha: o que não vem de sistema.",
+          "Faturamento do mês, departamentos, rubricas da folha e categorias de gasto: o que não vem de sistema.",
       },
       sec(
         "Faturamento e dados financeiros do mês",
@@ -411,6 +375,11 @@ export const GUIAS_RH: Record<string, Guia> = {
         "Rubricas da folha",
         "Classifique as rubricas",
         "Rubrica nova entra como não classificada. Diga como ela entra no custo: vale para todos os meses.",
+      ),
+      sec(
+        "Categorias de gasto",
+        "Categorias de gasto",
+        "A lista usada ao lançar gastos no Planejamento orçamentário. Crie, renomeie ou desative (excluir não há: o gasto antigo guarda a categoria).",
       ),
       {
         alvo: "aba:Parâmetros",

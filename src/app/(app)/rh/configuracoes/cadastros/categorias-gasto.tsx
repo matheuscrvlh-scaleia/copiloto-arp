@@ -19,7 +19,7 @@ export async function CategoriasDeGasto() {
     <Secao
       id="categorias-gasto"
       titulo="Categorias de gasto"
-      descricao="Lista de onde se escolhe a categoria ao lançar um gasto (aba Lançamentos). As categorias só classificam os gastos: o orçamento do ano é um só, do RH. Desativada, some da lista de lançamento, mas continua nos gastos e gráficos antigos."
+      descricao="Lista de onde se escolhe a categoria ao lançar um gasto no Planejamento orçamentário (aba Lançamentos). As categorias só classificam os gastos: o orçamento do ano é um só, do RH. Desativada, some da lista de lançamento, mas continua nos gastos e gráficos antigos."
     >
       <FormAcao
         acao={salvarCategoria}

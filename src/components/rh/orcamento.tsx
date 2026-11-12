@@ -13,13 +13,13 @@ import type { GastoDoAno } from "@/lib/rh/orcamento";
 import { excluirGasto, salvarGasto } from "@/server/rh/acoes/orcamento";
 
 // Planejamento orçamentário: filtros (ano, mês, categoria) na URL, as abas
-// (Dashboard, Lançamentos, Cadastros), a lista de gastos e o painel de lançar
+// (Dashboard e Lançamentos), a lista de gastos e o painel de lançar
 // ou corrigir um gasto.
 
 const RAIZ = "/rh/planejamento-orcamentario";
 
-/** Abas do módulo; Dashboard e Lançamentos levam o filtro junto. */
-export function AbasDoOrcamento({ cadastros }: { cadastros: boolean }) {
+/** Abas do módulo; o filtro vai junto de uma para a outra. */
+export function AbasDoOrcamento() {
   const filtro = useSearchParams().toString();
   const com = (href: string) => (filtro ? `${href}?${filtro}` : href);
   return (
@@ -28,9 +28,6 @@ export function AbasDoOrcamento({ cadastros }: { cadastros: boolean }) {
       abas={[
         { href: com(RAIZ), rotulo: "Dashboard" },
         { href: com(`${RAIZ}/lancamentos`), rotulo: "Lançamentos" },
-        ...(cadastros
-          ? [{ href: `${RAIZ}/cadastros`, rotulo: "Cadastros" }]
-          : []),
       ]}
     />
   );

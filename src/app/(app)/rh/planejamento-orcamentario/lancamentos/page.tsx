@@ -10,6 +10,7 @@ import {
   FiltrosDoOrcamento,
   GastosDoOrcamento,
 } from "@/components/rh/orcamento";
+import { CONFIGURACOES_RH } from "@/config/navigation";
 import { formatarDataHora, formatarMoeda } from "@/lib/formato";
 import { soma } from "@/lib/rh/orcamento";
 import { finalizarOrcamento } from "@/server/rh/acoes/orcamento";
@@ -53,7 +54,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         categorias={categorias}
         categoria={t.categoria}
       />
-      <AbasDoOrcamento cadastros={lanca} />
+      <AbasDoOrcamento />
 
       <Secao
         id="gastos"
@@ -62,7 +63,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
           finalizado && orcamento?.finalizado_em
             ? `Orçamento de ${ano} finalizado em ${formatarDataHora(orcamento.finalizado_em)} por ${orcamento.finalizado_por ?? "—"}: só leitura.`
             : lanca
-              ? "Cada gasto abate do orçamento do ano da sua data. A categoria é escolhida da lista da aba Cadastros."
+              ? "Cada gasto abate do orçamento do ano da sua data. A categoria é escolhida da lista de Configurações › Cadastros."
               : "Quem lança é a Gestão de RH."
         }`}
       >
@@ -75,12 +76,12 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         />
         {lanca && !finalizado && categorias.every((c) => !c.ativa) && (
           <p className="mt-3 text-xs text-amber-700">
-            Nenhuma categoria ativa: cadastre uma na aba{" "}
+            Nenhuma categoria ativa: cadastre uma em{" "}
             <Link
-              href="/rh/planejamento-orcamentario/cadastros"
+              href={`${CONFIGURACOES_RH.cadastros}#categorias-gasto`}
               className="underline"
             >
-              Cadastros
+              Configurações › Cadastros
             </Link>
             .
           </p>

@@ -101,7 +101,7 @@ async function Tela({ busca }: { busca: Promise<Busca> }) {
         categorias={categorias}
         categoria={categoria}
       />
-      <AbasDoOrcamento cadastros={lanca} />
+      <AbasDoOrcamento />
 
       {finalizado && orcamento && (
         <Secao

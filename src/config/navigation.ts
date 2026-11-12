@@ -174,7 +174,12 @@ export const navigation: NavSection[] = [
         href: "/rh/configuracoes",
         label: "Configurações",
         icone: "configuracoes",
-        permissao: ["rh.folha", "rh.beneficios", "rh.parametros"],
+        permissao: [
+          "rh.folha",
+          "rh.beneficios",
+          "rh.parametros",
+          "rh.orcamento.lancar",
+        ],
       },
     ],
   },
