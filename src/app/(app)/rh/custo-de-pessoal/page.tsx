@@ -35,9 +35,9 @@ import {
 } from "@/components/modal-detalhe";
 import { EmConstrucao, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
+import { AbasDoCusto } from "@/components/rh/abas-custo";
 import { CONFIGURACOES_RH } from "@/config/navigation";
 import {
-  competenciaDaUrl,
   formatarHoras,
   formatarMes,
   formatarMoeda,
@@ -140,25 +140,19 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   }
 
   // Uma competência (mês/ano da folha) por vez; sem ?mes=, a mais recente.
-  // Comparar: outra competência com folha; sem ela, as variações são contra
-  // a folha anterior.
+  // As variações são contra a folha anterior; comparar duas competências
+  // quaisquer é a aba Comparação.
   const meses = folhas.map((f) => f.competencia).sort();
   const { mes, departamento, departamentos } = await lerFiltros(
     pedido,
     [...meses].reverse(),
   );
-  const pedidoComparar = competenciaDaUrl(pedido.comparar);
-  const comparar =
-    pedidoComparar && pedidoComparar !== mes && meses.includes(pedidoComparar)
-      ? pedidoComparar
-      : null;
   const usados = [mes];
-  const antes = comparar ? [comparar] : meses.filter((c) => c < mes).slice(-1);
+  const antes = meses.filter((c) => c < mes).slice(-1);
   const filtros = (
     <FiltroCompetencia
       meses={[...meses].reverse()}
       mes={mes}
-      comparar={comparar}
       departamentos={departamentos}
       departamento={departamento}
     />
@@ -167,10 +161,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   const rotuloAntes = formatarMes(antes[0] ?? mes);
   const folha = folhas.find((f) => f.competencia === mes);
   const [todas, pessoasTodas, metaReceita] = await Promise.all([
-    custoAgregado(
-      antes[0] && antes[0] < mes ? antes[0] : mes,
-      antes[0] && antes[0] > mes ? antes[0] : mes,
-    ),
+    custoAgregado(antes[0] ?? mes, mes),
     podeIndividual ? custosIndividuais(mes) : Promise.resolve(null),
     metaDe("rh.custo_sobre_receita", mes),
   ]);
@@ -305,10 +296,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   ): Variacao | undefined =>
     ant
       ? {
-          // Comparando: a diferença em R$ e em %.
-          texto: comparar
-            ? `${atual >= ant ? "+" : "-"}${moeda(Math.abs(atual - ant))} (${atual >= ant ? "+" : ""}${formatarNumero(((atual - ant) / ant) * 100, 1)}%) vs ${rotuloAntes}`
-            : `${atual >= ant ? "+" : ""}${formatarNumero(((atual - ant) / ant) * 100, 1)}% vs ${rotuloAntes}`,
+          texto: `${atual >= ant ? "+" : ""}${formatarNumero(((atual - ant) / ant) * 100, 1)}% vs ${rotuloAntes}`,
           sentido: "neutro",
         }
       : undefined;
@@ -442,15 +430,9 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     <ProvedorDetalhe>
       <div className="flex flex-col gap-6">
         {filtros}
+        <AbasDoCusto />
 
         <AvisosDaPagina avisos={avisos} />
-
-        {comparar && tAnt && (
-          <Comparacao
-            atual={{ rotulo: formatarMes(mes), t, medio }}
-            antes={{ rotulo: rotuloAntes, t: tAnt, medio: medioAnt }}
-          />
-        )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <CartaoIndicador
@@ -878,84 +860,5 @@ function Esqueleto() {
       </div>
       <CartaoCarregando altura="h-[650px]" />
     </TelaCarregando>
-  );
-}
-
-/** Duas competências lado a lado, com a diferença em R$ e em %. */
-function Comparacao({
-  atual,
-  antes,
-}: {
-  atual: { rotulo: string; t: TotaisCusto; medio: number | null };
-  antes: { rotulo: string; t: TotaisCusto; medio: number | null };
-}) {
-  const linhas: { rotulo: string; a: number | null; b: number | null }[] = [
-    { rotulo: "Custo total", a: atual.t.custo_total, b: antes.t.custo_total },
-    ...(
-      [
-        "remuneracao",
-        "encargos",
-        "provisoes",
-        "beneficios",
-        "rescisao",
-      ] as const
-    ).map((c) => ({
-      rotulo: COMPONENTES[c].rotulo,
-      a: atual.t[c],
-      b: antes.t[c],
-    })),
-    { rotulo: "Custo médio por pessoa", a: atual.medio, b: antes.medio },
-  ];
-  const sinal = (v: number) => (v > 0 ? "+" : v < 0 ? "-" : "");
-  return (
-    <Secao
-      titulo={`Comparação: ${atual.rotulo} × ${antes.rotulo}`}
-      descricao="Diferença = competência escolhida − competência comparada; % sobre a comparada"
-    >
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[36rem] text-sm">
-          <thead>
-            <tr className="text-left text-xs text-neutral-500">
-              <th className="py-2 pr-3 font-medium">Componente</th>
-              <th className="py-2 pr-3 text-right font-medium">
-                {atual.rotulo}
-              </th>
-              <th className="py-2 pr-3 text-right font-medium">
-                {antes.rotulo}
-              </th>
-              <th className="py-2 pr-3 text-right font-medium">Diferença R$</th>
-              <th className="py-2 text-right font-medium">Diferença %</th>
-            </tr>
-          </thead>
-          <tbody>
-            {linhas.map((l) => {
-              const d = l.a !== null && l.b !== null ? l.a - l.b : null;
-              return (
-                <tr
-                  key={l.rotulo}
-                  className="border-t border-neutral-900/[0.06] tabular-nums"
-                >
-                  <td className="py-2 pr-3">{l.rotulo}</td>
-                  <td className="py-2 pr-3 text-right">
-                    {l.a === null ? "—" : moeda(l.a)}
-                  </td>
-                  <td className="py-2 pr-3 text-right">
-                    {l.b === null ? "—" : moeda(l.b)}
-                  </td>
-                  <td className="py-2 pr-3 text-right font-medium">
-                    {d === null ? "—" : `${sinal(d)}${moeda(Math.abs(d))}`}
-                  </td>
-                  <td className="py-2 text-right">
-                    {d === null || !l.b
-                      ? "—"
-                      : `${d > 0 ? "+" : ""}${formatarNumero((d / l.b) * 100, 1)}%`}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Secao>
   );
 }

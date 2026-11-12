@@ -207,7 +207,7 @@ export const GUIAS_RH: Record<string, Guia> = {
     ],
   },
   "/rh/custo-de-pessoal": {
-    versao: 3,
+    versao: 4,
     passos: [
       abertura(
         "Custo de pessoal",
@@ -220,8 +220,14 @@ export const GUIAS_RH: Record<string, Guia> = {
           "Nenhuma folha importada para este mês. Importe o Extrato Mensal em Configurações › Importações: o custo é calculado na hora.",
       },
       filtros(
-        "<b>Passo 1.</b> Escolha a competência (mês/ano da folha). <b>Comparar</b> põe outra competência ao lado, com a diferença em R$ e em %.",
+        "<b>Passo 1.</b> Escolha a competência (mês/ano da folha) e, se quiser, um departamento.",
       ),
+      {
+        alvo: "abas",
+        titulo: "Dashboard e Comparação",
+        texto:
+          "<b>Dashboard</b> mostra uma competência. <b>Comparação</b> põe duas competências lado a lado, com a diferença em R$ e em % por componente e por departamento.",
+      },
       card(
         "Custo total",
         "Passo 2. O total e a média",
