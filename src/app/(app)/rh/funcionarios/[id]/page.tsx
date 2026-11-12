@@ -352,7 +352,7 @@ async function Perfil({
               valor={formatarSaldoHoras(t.banco_saldo_min)}
               detalhe={[
                 emReais.banco,
-                `Saldo no fim do período · créditos ${formatarHoras(t.banco_creditos_min)}, débitos ${formatarHoras(t.banco_debitos_min)}`,
+                `Saldo no fim do período · créditos ${formatarSaldoHoras(t.banco_creditos_min)}, débitos ${formatarHoras(t.banco_debitos_min)}`,
               ]
                 .filter(Boolean)
                 .join(" · ")}

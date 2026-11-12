@@ -7,6 +7,7 @@ import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
+import { AbasDaJornada } from "@/components/rh/abas-jornada";
 import {
   formatarData,
   formatarDataHora,
@@ -43,16 +44,13 @@ export default function Page({
 }: PageProps<"/rh/jornada/banco-de-horas">) {
   return (
     <>
-      <Link
-        href="/rh/jornada"
-        className="mb-3 inline-block text-sm text-neutral-500 hover:text-neutral-900"
-      >
-        ← Jornada
-      </Link>
       <PageHeader
         title="Fechamento do banco de horas"
         description="Fim do ciclo: saldo final de cada pessoa, valor calculado, ação e valor realizado na folha. O fechamento não entra no custo de pessoal (o pago já vem da folha)."
       />
+      <div className="mb-5">
+        <AbasDaJornada />
+      </div>
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="rh.jornada">
           <Fechamento busca={searchParams} />
@@ -90,7 +88,7 @@ async function Fechamento({
   return (
     <div className="flex flex-col gap-5">
       <nav
-        data-guia="abas"
+        data-guia="abas-ciclo"
         aria-label="Fechamento"
         className="vidro flex w-full gap-1 overflow-x-auto rounded-full p-1 sm:w-fit"
       >

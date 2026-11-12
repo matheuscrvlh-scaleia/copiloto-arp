@@ -29,6 +29,7 @@ import { TabelaBusca } from "@/components/dashboard/tabela-busca";
 import { type Detalhe, ProvedorDetalhe } from "@/components/modal-detalhe";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
+import { AbasDaJornada } from "@/components/rh/abas-jornada";
 import {
   formatarData,
   formatarHoras,
@@ -125,6 +126,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
     return (
       <div className="flex flex-col gap-6">
         {filtros}
+        <AbasDaJornada />
         <Secao titulo="Sem ponto no período">
           <p className="text-sm text-neutral-600">{aviso.semDado}</p>
         </Secao>
@@ -357,7 +359,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
     },
     {
       titulo: "Banco (+)",
-      valor: (s) => formatarHoras(s.banco_positivo_min),
+      valor: (s) => formatarSaldoHoras(s.banco_positivo_min),
       numero: true,
     },
     {
@@ -419,6 +421,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
     <ProvedorDetalhe>
       <div className="flex flex-col gap-6">
         {filtros}
+        <AbasDaJornada />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <CartaoIndicador
@@ -471,7 +474,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
             titulo="Banco de horas"
             tom="verde"
             valor={formatarSaldoHoras(totais.banco_saldo_min)}
-            detalhe={`Positivo ${formatarHoras(totais.banco_positivo_min)} · negativo ${formatarHoras(totais.banco_negativo_min)}`}
+            detalhe={`Positivo ${formatarSaldoHoras(totais.banco_positivo_min)} · negativo ${formatarHoras(totais.banco_negativo_min)}`}
             variacao={vsAnterior(
               totais.banco_saldo_min,
               totaisAnt?.banco_saldo_min,
@@ -805,7 +808,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
               formatarHoras(totais.abonos_min),
               formatarPct(totais.absenteismo),
               formatarHoras(totais.extras_min),
-              formatarHoras(totais.banco_positivo_min),
+              formatarSaldoHoras(totais.banco_positivo_min),
               formatarHoras(totais.banco_negativo_min),
             ]}
           />

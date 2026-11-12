@@ -389,7 +389,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
           ) : (
             <CartaoIndicador
               titulo="Banco de horas positivo"
-              valor={formatarHoras(totais.banco_positivo_min)}
+              valor={formatarSaldoHoras(totais.banco_positivo_min)}
               status={status(ponto.length ? bancoHoras : null, metaBanco)}
               meta={metaTexto(metaBanco, (v) => `${formatarNumero(v)}h`)}
               detalhe={`Saldo em ${formatarData(opcoesPonto.ate)}: ${formatarSaldoHoras(totais.banco_saldo_min)} · ${textoBancoEmReais(banco, bancoValor, custo.podeVer)}`}

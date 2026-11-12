@@ -53,6 +53,7 @@ export function FiltroCompetencia({
       className="flex flex-wrap items-center gap-2"
       aria-busy={carregando}
     >
+      <span className="text-xs font-medium text-neutral-600">Competência</span>
       <Selecao
         variante="pilula"
         rotulo="Competência"

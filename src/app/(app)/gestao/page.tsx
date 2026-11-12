@@ -611,7 +611,7 @@ async function Pessoas({
                 Banco positivo
               </p>
               <p className="mt-1 text-2xl font-semibold">
-                {formatarHoras(totais.banco_positivo_min)}
+                {formatarSaldoHoras(totais.banco_positivo_min)}
               </p>
               <div className="mt-1 text-[rgb(255_255_255/0.75)]">
                 <PontoStatus

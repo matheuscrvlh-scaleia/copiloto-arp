@@ -136,7 +136,7 @@ export const GUIAS_RH: Record<string, Guia> = {
     ],
   },
   "/rh/jornada/banco-de-horas": {
-    versao: 1,
+    versao: 2,
     passos: [
       abertura(
         "Fechamento do banco de horas",
@@ -148,10 +148,10 @@ export const GUIAS_RH: Record<string, Guia> = {
         "Início e fim vêm dos Parâmetros. O botão <b>Fechar ciclo</b> só libera a partir da data de fim.",
       ),
       {
-        alvo: "abas",
+        alvo: "aba:Fechamento do banco de horas",
         titulo: "Passo 2. Atual e anteriores",
         texto:
-          "<b>Ciclo atual</b> para fechar e revisar; <b>Ciclos anteriores</b> para o histórico, só leitura.",
+          "Esta aba fica ao lado da Jornada. Dentro dela, <b>Ciclo atual</b> para fechar e revisar; <b>Ciclos anteriores</b> para o histórico, só leitura.",
       },
       sec(
         "Finalizar ciclo",
@@ -161,7 +161,7 @@ export const GUIAS_RH: Record<string, Guia> = {
     ],
   },
   "/rh/jornada": {
-    versao: 3,
+    versao: 4,
     passos: [
       abertura(
         "Jornada",
@@ -186,7 +186,7 @@ export const GUIAS_RH: Record<string, Guia> = {
       sec(
         "Banco de horas por pessoa",
         "Passo 4. Quem deve e quem tem horas",
-        "Quem mais deve horas e quem mais tem crédito. Crédito alto é custo a pagar ou folga a programar. No cartão Banco de horas ficam as datas do ciclo e o link do fechamento.",
+        "Quem mais deve horas e quem mais tem crédito. Crédito alto é custo a pagar ou folga a programar. As datas do ciclo ficam no cartão Banco de horas; o fechamento do ciclo, na aba <b>Fechamento do banco de horas</b>.",
       ),
       sec(
         "Horas extras por tipo",
