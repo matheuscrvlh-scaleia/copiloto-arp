@@ -48,8 +48,11 @@ export default function Page({
         title="Fechamento do banco de horas"
         description="Fim do ciclo: saldo final de cada pessoa, valor calculado, ação e valor realizado na folha. O fechamento não entra no custo de pessoal (o pago já vem da folha)."
       />
+      {/* As abas leem a URL (useSearchParams): dentro de Suspense. */}
       <div className="mb-5">
-        <AbasDaJornada />
+        <Suspense>
+          <AbasDaJornada />
+        </Suspense>
       </div>
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="rh.jornada">
