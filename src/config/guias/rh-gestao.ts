@@ -135,8 +135,33 @@ export const GUIAS_RH: Record<string, Guia> = {
       exportar(),
     ],
   },
+  "/rh/jornada/banco-de-horas": {
+    versao: 1,
+    passos: [
+      abertura(
+        "Fechamento do banco de horas",
+        "No fim do ciclo (datas dos Parâmetros), o saldo de cada pessoa é pago, descontado ou abonado. Aqui fica a lista do fechamento e o histórico dos ciclos.",
+      ),
+      sec(
+        "Ciclo do banco de horas",
+        "Passo 1. O ciclo",
+        "Início e fim vêm dos Parâmetros. O botão <b>Fechar ciclo</b> só libera a partir da data de fim.",
+      ),
+      {
+        alvo: "abas",
+        titulo: "Passo 2. Atual e anteriores",
+        texto:
+          "<b>Ciclo atual</b> para fechar e revisar; <b>Ciclos anteriores</b> para o histórico, só leitura.",
+      },
+      sec(
+        "Finalizar ciclo",
+        "Passo 3. Revise e finalize",
+        "Na lista, confira a ação de cada pessoa e o valor realizado (vem da rubrica 408 da folha e pode ser editado); as diferenças ficam em destaque. Salve e finalize: fica só leitura e o próximo ciclo abre nos Parâmetros.",
+      ),
+    ],
+  },
   "/rh/jornada": {
-    versao: 2,
+    versao: 3,
     passos: [
       abertura(
         "Jornada",
@@ -161,7 +186,7 @@ export const GUIAS_RH: Record<string, Guia> = {
       sec(
         "Banco de horas por pessoa",
         "Passo 4. Quem deve e quem tem horas",
-        "Quem mais deve horas e quem mais tem crédito. Crédito alto é custo a pagar ou folga a programar.",
+        "Quem mais deve horas e quem mais tem crédito. Crédito alto é custo a pagar ou folga a programar. No cartão Banco de horas ficam as datas do ciclo e o link do fechamento.",
       ),
       sec(
         "Horas extras por tipo",
@@ -182,7 +207,7 @@ export const GUIAS_RH: Record<string, Guia> = {
     ],
   },
   "/rh/custo-de-pessoal": {
-    versao: 2,
+    versao: 3,
     passos: [
       abertura(
         "Custo de pessoal",
@@ -194,7 +219,9 @@ export const GUIAS_RH: Record<string, Guia> = {
         texto:
           "Nenhuma folha importada para este mês. Importe o Extrato Mensal em Configurações › Importações: o custo é calculado na hora.",
       },
-      filtros("<b>Passo 1.</b> Escolha o mês."),
+      filtros(
+        "<b>Passo 1.</b> Escolha a competência (mês/ano da folha). <b>Comparar</b> põe outra competência ao lado, com a diferença em R$ e em %.",
+      ),
       card(
         "Custo total",
         "Passo 2. O total e a média",

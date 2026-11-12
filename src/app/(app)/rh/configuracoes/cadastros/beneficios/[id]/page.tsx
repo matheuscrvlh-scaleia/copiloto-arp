@@ -22,6 +22,7 @@ import {
 } from "../../dependentes-do-plano";
 import { FormBeneficio } from "../../form-beneficio";
 import { QuemRecebe } from "../../quem-recebe";
+import { DivisaoDoRateio, TotaisDoRateio } from "../../rateio-do-beneficio";
 import { ValoresDoMes } from "../../valores-do-mes";
 
 export const metadata: Metadata = { title: "Benefício" };
@@ -70,7 +71,7 @@ async function Detalhe({
     [
       {
         id: "colaboradores",
-        rotulo: "Colaboradores",
+        rotulo: info.rateado ? "Divisão" : "Colaboradores",
         marca: String(info.recebemNoMes),
       },
       ...(info.temDependentes
@@ -89,7 +90,9 @@ async function Detalhe({
               id: "valores" as const,
               rotulo: "Valores por mês",
               marca: info.semValorNoMes
-                ? `faltam ${info.semValorNoMes}`
+                ? info.rateado
+                  ? "falta o mês"
+                  : `faltam ${info.semValorNoMes}`
                 : undefined,
               alerta: info.semValorNoMes > 0,
             },
@@ -103,49 +106,81 @@ async function Detalhe({
     : "colaboradores";
 
   const lancadosNoMes = info.recebemNoMes - info.semValorNoMes;
-  const resumo: { rotulo: string; valor: string; detalhe?: string }[] = [
-    {
-      rotulo: "Colaboradores",
-      valor: String(info.recebemNoMes),
-      detalhe: `recebem em ${formatarMes(mes)}`,
-    },
-    ...(info.temDependentes
+  const resumo: { rotulo: string; valor: string; detalhe?: string }[] =
+    info.rateado
       ? [
           {
-            rotulo: "Dependentes",
-            valor: String(info.dependentes.length),
-            detalhe:
-              b.dependente_regra === "nao_paga"
-                ? "pagos pelo funcionário"
-                : "parte paga pela empresa",
+            rotulo: "Na divisão",
+            valor: String(info.divisao.length),
+            detalhe: "pelo cadastro de hoje",
           },
-        ]
-      : []),
-    ...(info.porMes
-      ? [
           {
-            rotulo: `Valores de ${formatarMes(mes)}`,
-            valor: `${lancadosNoMes} de ${info.recebemNoMes}`,
-            detalhe: info.semValorNoMes
-              ? `faltam ${info.semValorNoMes}`
-              : "todos lançados",
+            rotulo: `Total de ${formatarMes(mes)}`,
+            valor: formatarMoeda(info.totalDoMes),
+            detalhe: info.totalDoMes === null ? "falta lançar" : "a dividir",
+          },
+          {
+            rotulo: "Cada um",
+            valor: formatarMoeda(info.parte),
+            detalhe: "total ÷ pessoas da divisão",
+          },
+          {
+            rotulo: "Desconto na folha",
+            valor: b.rubricas_desconto.length
+              ? b.rubricas_desconto.join(", ")
+              : "—",
+            detalhe: "rubricas do titular",
           },
         ]
-      : []),
-    {
-      rotulo: "Desconto na folha",
-      valor: b.rubricas_desconto.length ? b.rubricas_desconto.join(", ") : "—",
-      detalhe: b.rubricas_desconto_dependente.length
-        ? `dependentes ${b.rubricas_desconto_dependente.join(", ")}`
-        : "rubricas do titular",
-    },
-  ];
+      : [
+          {
+            rotulo: "Colaboradores",
+            valor: String(info.recebemNoMes),
+            detalhe: `recebem em ${formatarMes(mes)}`,
+          },
+          ...(info.temDependentes
+            ? [
+                {
+                  rotulo: "Dependentes",
+                  valor: String(info.dependentes.length),
+                  detalhe:
+                    b.dependente_regra === "nao_paga"
+                      ? "pagos pelo funcionário"
+                      : "parte paga pela empresa",
+                },
+              ]
+            : []),
+          ...(info.porMes
+            ? [
+                {
+                  rotulo: `Valores de ${formatarMes(mes)}`,
+                  valor: `${lancadosNoMes} de ${info.recebemNoMes}`,
+                  detalhe: info.semValorNoMes
+                    ? `faltam ${info.semValorNoMes}`
+                    : "todos lançados",
+                },
+              ]
+            : []),
+          {
+            rotulo: "Desconto na folha",
+            valor: b.rubricas_desconto.length
+              ? b.rubricas_desconto.join(", ")
+              : "—",
+            detalhe: b.rubricas_desconto_dependente.length
+              ? `dependentes ${b.rubricas_desconto_dependente.join(", ")}`
+              : "rubricas do titular",
+          },
+        ];
 
   return (
     <div className="flex flex-col gap-5">
       {busca.criado === "1" && (
         <NotificarAoAbrir
-          texto="Benefício cadastrado. Agora adicione os colaboradores."
+          texto={
+            info.rateado
+              ? "Benefício cadastrado. Ele entra no custo de todos da divisão."
+              : "Benefício cadastrado. Agora adicione os colaboradores."
+          }
           parametro="criado"
         />
       )}
@@ -217,11 +252,32 @@ async function Detalhe({
         })}
       </nav>
 
-      {aba === "colaboradores" && (
+      {aba === "colaboradores" && info.rateado && (
+        <Secao
+          titulo="Divisão"
+          descricao="Benefício rateado: o total do mês é dividido entre as pessoas da divisão, sem vincular uma por uma."
+        >
+          <DivisaoDoRateio info={info} />
+        </Secao>
+      )}
+      {aba === "colaboradores" && !info.rateado && (
         <QuemRecebe beneficio={b} info={info} dados={d} />
       )}
 
-      {aba === "valores" && (
+      {aba === "valores" && info.rateado && (
+        <Secao
+          titulo="Total por mês"
+          descricao="Cada mês é um lançamento à parte. Sem lançamento, o custo repete o último total lançado antes (e avisa)."
+        >
+          <TotaisDoRateio
+            beneficioId={b.id}
+            info={info}
+            mesInicial={mes.slice(0, 7)}
+          />
+        </Secao>
+      )}
+
+      {aba === "valores" && !info.rateado && (
         <Secao
           titulo="Valores por mês"
           descricao="Cada mês é um lançamento à parte: lançar ou alterar um mês não muda os anteriores. Sem lançamento, o custo repete o último valor lançado antes."
@@ -264,7 +320,7 @@ async function Detalhe({
             titulo="Configurações"
             descricao="Mudar o valor, as rubricas ou a regra dos dependentes recalcula o custo das folhas em aberto."
           >
-            <FormBeneficio beneficio={b} />
+            <FormBeneficio beneficio={b} departamentos={d.opcoesDepartamento} />
           </Secao>
           {info.temDependentes && <TabelaDeFaixas info={info} mes={mes} />}
         </>

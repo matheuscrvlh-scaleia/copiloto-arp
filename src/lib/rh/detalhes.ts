@@ -5,6 +5,7 @@ import {
   formatarMoeda,
   formatarNumero,
   formatarPct,
+  formatarSaldoHoras,
 } from "@/lib/formato";
 import {
   absenteismo,
@@ -50,7 +51,7 @@ export function tabelaDoPonto(
         formatarHoras(l.faltas_min),
         formatarHoras(l.atrasos_min),
         formatarPct(absenteismo(l)),
-        formatarHoras(l.banco_saldo_min),
+        formatarSaldoHoras(l.banco_saldo_min),
       ],
       ordem: [
         l.nome,
@@ -95,7 +96,7 @@ export function tabelaDoBanco(
         l.departamento,
         `+${formatarHoras(l.banco_creditos_min)}`,
         formatarHoras(-Math.abs(l.banco_debitos_min)),
-        formatarHoras(l.banco_saldo_min),
+        formatarSaldoHoras(l.banco_saldo_min),
         ...(emReais ? [formatarMoeda(reais(l))] : []),
       ],
       ordem: [

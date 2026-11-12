@@ -92,6 +92,7 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 | Tabela | Para quê |
 |---|---|
 | `parametros_empresa` | RAT, FAP (0,5–2,0), regime, ciclo e adicional do banco de horas |
+| `banco_horas_ciclos`, `banco_horas_fechamentos` | Fechamento do ciclo do banco de horas: a lista por pessoa (saldo final, salário/hora, valor calculado, ação, valor realizado) e, ao finalizar (`rh.finalizar_ciclo_banco`), totais, data e quem finalizou; finalizado é só leitura e os Parâmetros passam ao próximo ciclo. Não entra no custo de pessoal |
 | `parametros_turnover` | Sem uso desde 21/10/2026: o turnover vem pronto da API do Copiloto. Sai depois do deploy |
 | `encargos_por_contrato` | Por tipo (CLT, aprendiz, estagiário, PJ): INSS patronal, Terceiros, FGTS, se aplica RAT, se provisiona 13º, férias e recesso (`provisiona_recesso`, só estagiário), % da multa rescisória. Estagiário e PJ nunca têm encargos: o cálculo ignora os percentuais gravados (`regrasDoContrato`). Pró-labore não aparece: sócio fica fora do custo |
 | `jornadas` | Horas/mês em níveis: colaborador > cargo > departamento > empresa (nenhum id) |
@@ -101,9 +102,10 @@ Administração › Histórico de alterações lê `core.historico(busca, tabela
 
 | Tabela | Para quê |
 |---|---|
-| `beneficios` | VR, VT, plano, odonto, seguro, massagem…: valor, rubricas de desconto (titular e dependente), quanto a empresa paga do dependente |
+| `beneficios` | VR, VT, plano, odonto, seguro, massagem…: valor, rubricas de desconto (titular e dependente), quanto a empresa paga do dependente. `forma_calculo` = `por_funcionario` (padrão) ou `rateado`: no rateado, `valor_padrao` é o total do mês, dividido no custo entre quem entra na divisão (`dividir_entre`: ativos, ativos não afastados pelo INSS ou um departamento), sem vínculo um por um |
 | `colaborador_beneficios` | Vínculo com período; `valor_manual` não é sobrescrito quando a faixa muda |
 | `beneficio_valores_mensais` | Benefício com `valor_por_mes` marcado: valor de cada pessoa por competência (um por mês). Mês sem lançamento repete o último anterior, com aviso no custo |
+| `beneficio_totais_mensais` | Rateado com `valor_por_mes`: o total do mês por competência (repete o último, com aviso, como acima) |
 | `beneficio_contratos` | Benefício para todo um tipo de contrato (ex.: seguro de todos os estagiários), com período; vale para quem entrar depois. O vínculo da pessoa vence o do contrato. Um em aberto por benefício e contrato |
 | `plano_tabelas` | Uma por reajuste, por benefício (plano ou odonto), ligada à importação da planilha |
 | `plano_faixas_etarias` | Idade mínima/máxima e mensalidade |
@@ -181,6 +183,9 @@ ela antes do primeiro fechamento.
 |---|---|---|
 | Cadastros, parâmetros, rubricas, benefícios, plano, folhas, afastamentos, dados financeiros | qualquer `rh.*` | `rh.parametros` / `rh.beneficios` / `rh.folha` |
 | `colaborador_beneficios`, `beneficio_valores_mensais` | `rh.beneficios` | `rh.beneficios` |
+| `beneficio_totais_mensais` | qualquer `rh.*` | `rh.beneficios` |
+| `banco_horas_ciclos` | `rh.custo_pessoal` | `rh.parametros` + `rh.custo_pessoal.individual` |
+| `banco_horas_fechamentos` | `rh.custo_pessoal.individual` | `rh.parametros` + `rh.custo_pessoal.individual` |
 | `dependentes` | `rh.beneficios` | — (sincronização do Copiloto RH) |
 | `ponto_mensal` | `rh.jornada`, `rh.painel` ou `rh.funcionarios` | — (sincronização) |
 | `ponto_diario` | `rh.jornada` ou `rh.funcionarios` | — (sincronização) |

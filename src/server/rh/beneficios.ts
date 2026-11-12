@@ -34,6 +34,15 @@ export const REGRAS_DEPENDENTE = {
   valor_fixo: "Empresa paga um valor fixo",
 } as const;
 
+export const FORMAS_CALCULO = {
+  por_funcionario: "Por funcionário",
+  rateado: "Rateado entre funcionários",
+} as const;
+export type FormaCalculo = keyof typeof FORMAS_CALCULO;
+
+/** Quem entra na divisão do benefício rateado (mesmos códigos do custo). */
+export { DIVISOES_RATEIO } from "@/lib/rh/custo";
+
 export interface Beneficio {
   id: string;
   nome: string;
@@ -46,6 +55,10 @@ export interface Beneficio {
   dependente_regra: keyof typeof REGRAS_DEPENDENTE;
   dependente_valor: number | null;
   ativo: boolean;
+  forma_calculo: FormaCalculo;
+  /** Só no rateado: ativos, ativos_nao_afastados ou departamento. */
+  dividir_entre: string | null;
+  dividir_departamento_id: string | null;
 }
 
 export interface Vinculo {
@@ -64,6 +77,8 @@ export interface Vinculo {
 export const beneficiosCadastrados = cache(async (): Promise<Beneficio[]> => {
   return (await beneficiosDoRh()).map((b) => ({
     ...b,
+    forma_calculo:
+      b.forma_calculo === "rateado" ? "rateado" : "por_funcionario",
     valor_padrao: b.valor_padrao === null ? null : Number(b.valor_padrao),
     dependente_valor:
       b.dependente_valor === null ? null : Number(b.dependente_valor),
@@ -138,13 +153,32 @@ export const valoresMensais = cache(async (): Promise<ValorMensal[]> => {
   return data.map((v) => ({ ...v, valor: Number(v.valor) }));
 });
 
+export interface TotalMensal {
+  beneficio_id: string;
+  /** aaaa-mm-01 */
+  competencia: string;
+  valor: number;
+}
+
+/** Valor total lançado mês a mês dos benefícios rateados que variam por mês. */
+export const totaisMensais = cache(async (): Promise<TotalMensal[]> => {
+  const db = await rh();
+  const data = await lerTudo(() =>
+    db
+      .from("beneficio_totais_mensais")
+      .select("beneficio_id, competencia, valor")
+      .order("id"),
+  );
+  return data.map((v) => ({ ...v, valor: Number(v.valor) }));
+});
+
 /** Quem pode receber benefício: cadastro ainda sem desligamento. */
 export const colaboradoresAtivos = cache(async () => {
   const db = await rh();
   return lerTudo(() =>
     db
       .from("colaboradores")
-      .select("id, nome, matricula, tipo_contrato, admissao")
+      .select("id, nome, matricula, tipo_contrato, admissao, departamento_id")
       .is("desligamento", null)
       .order("nome")
       .order("id"),

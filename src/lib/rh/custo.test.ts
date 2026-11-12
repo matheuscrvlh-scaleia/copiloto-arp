@@ -11,6 +11,8 @@ import {
   jornadaDe,
   mensalidadeDaFaixa,
   type PessoaDoMes,
+  parteDoRateio,
+  quemEntraNoRateio,
   type RubricaDaFolha,
   somarCustos,
   valorDasExtras,
@@ -603,5 +605,91 @@ describe("horas em R$", () => {
       valor: null,
       foraMin: 0,
     });
+  });
+});
+
+describe("benefício rateado", () => {
+  const pessoas = [
+    { colaborador_id: "a", departamento_id: "manut", situacao: "trabalhando" },
+    { colaborador_id: "b", departamento_id: "manut", situacao: "doenca" },
+    { colaborador_id: "c", departamento_id: "adm", situacao: "ferias" },
+    { colaborador_id: "d", departamento_id: null },
+  ];
+  const ids = (ps: { colaborador_id: string }[]) =>
+    ps.map((p) => p.colaborador_id).join("");
+
+  it("todos os ativos: todos do custo do mês", () => {
+    expect(
+      ids(
+        quemEntraNoRateio(
+          { dividir_entre: "ativos", dividir_departamento_id: null },
+          pessoas,
+        ),
+      ),
+    ).toBe("abcd");
+  });
+
+  it("não afastados: sai só quem está afastado pelo INSS (férias fica)", () => {
+    expect(
+      ids(
+        quemEntraNoRateio(
+          {
+            dividir_entre: "ativos_nao_afastados",
+            dividir_departamento_id: null,
+          },
+          pessoas,
+        ),
+      ),
+    ).toBe("acd");
+  });
+
+  it("um departamento: só quem é dele no mês", () => {
+    expect(
+      ids(
+        quemEntraNoRateio(
+          { dividir_entre: "departamento", dividir_departamento_id: "manut" },
+          pessoas,
+        ),
+      ),
+    ).toBe("ab");
+  });
+
+  it("massoterapia de R$ 1.200,00 ÷ 45 = R$ 26,67 para cada um", () => {
+    expect(parteDoRateio(1200, 45)).toBe(26.67);
+    expect(parteDoRateio(1200, 0)).toBeNull();
+  });
+
+  it("entra no custo como benefício, com a conta na memória", () => {
+    const c = calcularCusto(
+      {
+        colaborador_id: "a",
+        tipo_contrato: "clt",
+        departamento_id: null,
+        cargo_id: null,
+        salario: null,
+        jornada_min: null,
+        rubricas: [],
+        beneficios: [
+          {
+            nome: "Massoterapia",
+            valor: 26.67,
+            rubricas_desconto: [],
+            rubricas_desconto_dependente: [],
+            dependentes: 0,
+            regra: "Rateio: total 1200.00 ÷ 45 pessoas (todos os ativos)",
+          },
+        ],
+      },
+      () => undefined,
+      null,
+      null,
+    );
+    expect(c.beneficios).toBe(26.67);
+    expect(c.memoria.linhas.find((l) => l.rotulo === "Massoterapia")).toEqual(
+      expect.objectContaining({
+        valor: 26.67,
+        regra: "Rateio: total 1200.00 ÷ 45 pessoas (todos os ativos)",
+      }),
+    );
   });
 });

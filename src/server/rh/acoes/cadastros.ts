@@ -147,7 +147,29 @@ const beneficio = z
     dependente_regra: z.enum(["nao_paga", "percentual", "valor_fixo"]),
     dependente_valor: reais,
     ativo: z.preprocess((v) => v === "on", z.boolean()),
+    forma_calculo: z
+      .enum(["por_funcionario", "rateado"])
+      .catch("por_funcionario"),
+    dividir_entre: z.preprocess(
+      (v) => (v === "" || v === undefined ? null : v),
+      z.enum(["ativos", "ativos_nao_afastados", "departamento"]).nullable(),
+    ),
+    dividir_departamento_id: z.preprocess(
+      (v) => (v === "" || v === undefined ? null : v),
+      z.uuid("escolha o departamento").nullable(),
+    ),
   })
+  .refine((b) => b.forma_calculo !== "rateado" || b.dividir_entre !== null, {
+    message: "escolha entre quem o valor é dividido",
+    path: ["dividir_entre"],
+  })
+  .refine(
+    (b) =>
+      b.forma_calculo !== "rateado" ||
+      b.dividir_entre !== "departamento" ||
+      b.dividir_departamento_id !== null,
+    { message: "escolha o departamento", path: ["dividir_departamento_id"] },
+  )
   .refine(
     (b) => b.dependente_regra === "nao_paga" || b.dependente_valor !== null,
     {
@@ -164,11 +186,11 @@ const beneficio = z
     (b) =>
       b.valor_padrao !== null ||
       b.valor_por_mes ||
-      b.tipo === "plano_saude" ||
-      b.tipo === "odonto",
+      (b.forma_calculo !== "rateado" &&
+        (b.tipo === "plano_saude" || b.tipo === "odonto")),
     {
       message:
-        "informe o valor ou marque “Valor varia por mês” (só plano e odonto saem da tabela de faixas)",
+        "informe o valor ou marque “Valor varia por mês” (só plano e odonto por funcionário saem da tabela de faixas)",
       path: ["valor_padrao"],
     },
   );
@@ -179,6 +201,8 @@ const ROTULOS_BENEFICIO = {
   rubricas_desconto: "Rubricas do titular",
   rubricas_desconto_dependente: "Rubricas dos dependentes",
   dependente_valor: "Dependentes",
+  dividir_entre: "Dividir entre",
+  dividir_departamento_id: "Departamento",
 };
 
 /** Grava e recalcula o custo; a mensagem diz se o recálculo deu certo. */
@@ -196,12 +220,19 @@ export async function salvarBeneficio(
   const b = beneficio.safeParse(Object.fromEntries(form));
   if (!b.success) return primeiroErro(b.error, ROTULOS_BENEFICIO);
   const { id, ...dados } = b.data;
+  const rateado = dados.forma_calculo === "rateado";
   const registro = {
     ...dados,
     // Valor por mês: o valor sai dos lançamentos, não de um padrão.
     valor_padrao: dados.valor_por_mes ? null : dados.valor_padrao,
     dependente_valor:
       dados.dependente_regra === "nao_paga" ? null : dados.dependente_valor,
+    // Divisão só no rateado; departamento só quando divide por ele.
+    dividir_entre: rateado ? dados.dividir_entre : null,
+    dividir_departamento_id:
+      rateado && dados.dividir_entre === "departamento"
+        ? dados.dividir_departamento_id
+        : null,
   };
   const rh = (await createClient()).schema("rh");
   if (id) {
@@ -680,4 +711,58 @@ export async function salvarFinanceiro(
   if (error) return erroDoBanco(error);
   refresh();
   return { ok: `Dados de ${formatarMes(`${f.data.competencia}-01`)} salvos.` };
+}
+
+// ---------------------------------------------------------------------------
+// Total do mês do benefício rateado que varia por mês
+// (rh.beneficio_totais_mensais): um valor por competência, dividido no custo
+// entre quem entra na divisão. Valor vazio apaga o lançamento do mês.
+// ---------------------------------------------------------------------------
+
+const totalDoMes = z.object({
+  beneficio_id: z.uuid(),
+  competencia: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "informe o mês"),
+  valor: reais,
+});
+
+export async function salvarTotalDoMes(
+  _: EstadoAcao,
+  form: FormData,
+): Promise<EstadoAcao> {
+  if (!(await podeAgora("rh.beneficios"))) return SEM_PERMISSAO_BENEFICIO;
+  const t = totalDoMes.safeParse(Object.fromEntries(form));
+  if (!t.success)
+    return primeiroErro(t.error, { competencia: "Mês", valor: "Valor total" });
+  const competencia = `${t.data.competencia}-01`;
+  const rh = (await createClient()).schema("rh");
+  const { data: b, error: eb } = await rh
+    .from("beneficios")
+    .select("forma_calculo, valor_por_mes")
+    .eq("id", t.data.beneficio_id)
+    .maybeSingle();
+  if (eb) return erroDoBanco(eb);
+  if (b?.forma_calculo !== "rateado" || !b.valor_por_mes)
+    return { erro: "Este benefício não é rateado com valor por mês." };
+  const { error } =
+    t.data.valor === null
+      ? await rh
+          .from("beneficio_totais_mensais")
+          .delete()
+          .eq("beneficio_id", t.data.beneficio_id)
+          .eq("competencia", competencia)
+      : await rh.from("beneficio_totais_mensais").upsert(
+          {
+            beneficio_id: t.data.beneficio_id,
+            competencia,
+            valor: t.data.valor,
+          },
+          { onConflict: "beneficio_id,competencia" },
+        );
+  if (error) return erroDoBanco(error);
+  return gravadoERecalculado(
+    t.data.valor === null
+      ? `Lançamento de ${formatarMes(competencia)} apagado.`
+      : `Total de ${formatarMes(competencia)}: R$ ${formatarNumero(t.data.valor, 2)}.`,
+    competencia,
+  );
 }

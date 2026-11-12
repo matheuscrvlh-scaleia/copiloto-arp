@@ -8,6 +8,7 @@ import {
   REGRAS_DEPENDENTE,
   TIPOS_BENEFICIO,
 } from "@/server/rh/beneficios";
+import { CamposRateio } from "./campos-rateio";
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 const valorBr = (v: number | null) => (v === null ? "" : formatarNumero(v, 2));
@@ -17,7 +18,14 @@ const titulo = "text-sm font-medium text-neutral-900";
  * Cadastro (sem `beneficio`) ou edição do benefício, em três partes: o que
  * é, de onde sai o valor e como o funcionário paga.
  */
-export function FormBeneficio({ beneficio: b }: { beneficio?: Beneficio }) {
+export function FormBeneficio({
+  beneficio: b,
+  departamentos,
+}: {
+  beneficio?: Beneficio;
+  /** Opções do "Dividir entre: um departamento" (só os ativos). */
+  departamentos: { valor: string; rotulo: string }[];
+}) {
   return (
     <FormAcao
       acao={salvarBeneficio}
@@ -65,10 +73,20 @@ export function FormBeneficio({ beneficio: b }: { beneficio?: Beneficio }) {
       </fieldset>
 
       <fieldset className="flex flex-col gap-3">
+        <legend className={titulo}>Forma de cálculo</legend>
+        <CamposRateio
+          forma={b?.forma_calculo ?? "por_funcionario"}
+          dividirEntre={b?.dividir_entre ?? null}
+          departamentoId={b?.dividir_departamento_id ?? null}
+          departamentos={departamentos}
+        />
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-3">
         <legend className={titulo}>Valor</legend>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
           <label className={rotulo}>
-            Valor mensal (R$)
+            Valor mensal (R$) · no rateado, o total do mês
             <input
               name="valor_padrao"
               inputMode="decimal"

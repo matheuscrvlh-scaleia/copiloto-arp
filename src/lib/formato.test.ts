@@ -7,6 +7,7 @@ import {
   formatarMes,
   formatarMoeda,
   formatarPct,
+  formatarSaldoHoras,
   lerValorBr,
   ultimasCompetencias,
 } from "./formato";
@@ -103,5 +104,13 @@ describe("formatarDataHora", () => {
     expect(formatarDataHora("2026-10-20T13:05:00+00:00")).toBe(
       "20/10/2026 10:05",
     );
+  });
+});
+
+describe("saldo de horas", () => {
+  it("positivo com +, negativo com -, zero sem sinal", () => {
+    expect(formatarSaldoHoras(1009)).toBe("+16h49");
+    expect(formatarSaldoHoras(-190)).toBe("-3h10");
+    expect(formatarSaldoHoras(0)).toBe("0h00");
   });
 });

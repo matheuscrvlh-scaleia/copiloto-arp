@@ -6,6 +6,7 @@ import {
   formatarMoeda,
   formatarNumero,
   formatarPct,
+  formatarSaldoHoras,
 } from "@/lib/formato";
 import { descreverPeriodo } from "@/lib/periodo";
 import {
@@ -109,7 +110,7 @@ function tabelaDeBancoPorSetor(
           String(s.colaboradores),
           `+${formatarHoras(s.banco_positivo_min)}`,
           formatarHoras(s.banco_negativo_min),
-          formatarHoras(s.banco_saldo_min),
+          formatarSaldoHoras(s.banco_saldo_min),
           ...(reais ? [r === null ? "—" : moeda(r)] : []),
         ],
         ordem: [
@@ -470,6 +471,8 @@ export function origemDoBanco(
     reais?: BancoEmReaisResumo | null;
     /** Saldo em R$ de cada pessoa (só com rh.custo_pessoal.individual). */
     porPessoa?: Map<string, number | null>;
+    /** Ciclo dos Parâmetros e, se a pessoa pode ver, o link do fechamento. */
+    ciclo?: { inicio: string; fim: string; link?: Link } | null;
   },
 ): Detalhe {
   const t = somarPonto(ponto);
@@ -493,9 +496,17 @@ export function origemDoBanco(
     resumo: [
       { rotulo: "Positivo", valor: `+${formatarHoras(t.banco_positivo_min)}` },
       { rotulo: "Negativo", valor: formatarHoras(t.banco_negativo_min) },
-      { rotulo: "Saldo", valor: formatarHoras(t.banco_saldo_min) },
+      { rotulo: "Saldo", valor: formatarSaldoHoras(t.banco_saldo_min) },
       ...(r?.valor !== null && r?.valor !== undefined
         ? [{ rotulo: "Positivo em R$", valor: moeda(r.valor) }]
+        : []),
+      ...(o.ciclo
+        ? [
+            {
+              rotulo: "Ciclo",
+              valor: `${formatarData(o.ciclo.inicio)} a ${formatarData(o.ciclo.fim)}`,
+            },
+          ]
         : []),
     ],
     fontes: [
@@ -523,7 +534,7 @@ export function origemDoBanco(
         ? [tabelaDePessoasNoBanco(ponto, !!o.soPositivo, o.porPessoa)]
         : []),
     ],
-    link: o.link,
+    link: o.link ?? o.ciclo?.link,
   };
 }
 

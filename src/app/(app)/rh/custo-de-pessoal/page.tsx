@@ -10,7 +10,7 @@ import {
   IndicadoresCarregando,
   TelaCarregando,
 } from "@/components/carregando";
-import { FiltroPeriodo } from "@/components/dashboard/filtro-periodo";
+import { FiltroCompetencia } from "@/components/dashboard/filtro-competencia";
 import { type FatiaRosca, Rosca } from "@/components/dashboard/graficos";
 import {
   CartaoIndicador,
@@ -37,6 +37,7 @@ import { EmConstrucao, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { CONFIGURACOES_RH } from "@/config/navigation";
 import {
+  competenciaDaUrl,
   formatarHoras,
   formatarMes,
   formatarMoeda,
@@ -44,7 +45,6 @@ import {
   formatarPct,
 } from "@/lib/formato";
 import { status } from "@/lib/indicadores";
-import { competenciasDoPeriodo } from "@/lib/periodo";
 import {
   ativosPorGrupo,
   type CustoAgregado,
@@ -87,11 +87,7 @@ import {
   folhasDoCusto,
   metaDe,
 } from "@/server/rh/dados";
-import {
-  type Busca,
-  fimConsiderado,
-  lerFiltrosDoPeriodo,
-} from "@/server/rh/filtros";
+import { type Busca, fimConsiderado, lerFiltros } from "@/server/rh/filtros";
 
 export const metadata: Metadata = { title: "Custo de pessoal" };
 
@@ -123,7 +119,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     podeRecalcular,
     podeIndividual,
     faltas,
-    filtrosDaUrl,
+    pedido,
     listaCargos,
     financeiros,
     quadro,
@@ -132,7 +128,7 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     pode("rh.folha").then(async (p) => p || pode("rh.parametros")),
     pode("rh.custo_pessoal.individual"),
     faltasDoCusto(),
-    busca.then((b) => lerFiltrosDoPeriodo(b)),
+    busca,
     cargos(),
     dadosFinanceiros(),
     colaboradoresDoQuadro(),
@@ -143,53 +139,38 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
     );
   }
 
-  // Folha é mensal: o período usa as folhas dos meses que toca (soma); sem
-  // nenhuma, a última folha antes dele.
+  // Uma competência (mês/ano da folha) por vez; sem ?mes=, a mais recente.
+  // Comparar: outra competência com folha; sem ela, as variações são contra
+  // a folha anterior.
   const meses = folhas.map((f) => f.competencia).sort();
-  const { periodo, hoje, departamento, departamentos } = filtrosDaUrl;
-  const doPeriodo = competenciasDoPeriodo(periodo);
-  const comFolha = meses.filter((c) => doPeriodo.includes(c));
-  const anteriores = meses.filter((c) => c < (doPeriodo[0] as string));
-  const usados = comFolha.length ? comFolha : anteriores.slice(-1);
+  const { mes, departamento, departamentos } = await lerFiltros(
+    pedido,
+    [...meses].reverse(),
+  );
+  const pedidoComparar = competenciaDaUrl(pedido.comparar);
+  const comparar =
+    pedidoComparar && pedidoComparar !== mes && meses.includes(pedidoComparar)
+      ? pedidoComparar
+      : null;
+  const usados = [mes];
+  const antes = comparar ? [comparar] : meses.filter((c) => c < mes).slice(-1);
   const filtros = (
-    <FiltroPeriodo
-      de={periodo.de}
-      ate={periodo.ate}
-      atalho={periodo.atalho}
-      hoje={hoje}
+    <FiltroCompetencia
+      meses={[...meses].reverse()}
+      mes={mes}
+      comparar={comparar}
       departamentos={departamentos}
       departamento={departamento}
     />
   );
-  if (!usados.length) {
-    return (
-      <div className="flex flex-col gap-6">
-        {filtros}
-        <Secao titulo="Sem folha no período">
-          <p className="text-sm text-neutral-600">
-            Nenhuma folha importada até{" "}
-            {formatarMes(doPeriodo.at(-1) as string)}. A primeira é de{" "}
-            {formatarMes(meses[0] as string)}.
-          </p>
-        </Secao>
-      </div>
-    );
-  }
-  const mes = usados.at(-1) as string;
-  const antes = meses
-    .filter((c) => c < (usados[0] as string))
-    .slice(-usados.length);
-  const rotuloFolhas =
-    usados.length === 1
-      ? `folha de ${formatarMes(mes)}`
-      : `folhas de ${formatarMes(usados[0] as string)} a ${formatarMes(mes)}`;
-  const rotuloAntes =
-    antes.length === 1
-      ? formatarMes(antes[0] as string)
-      : `${formatarMes(antes[0] ?? mes)} a ${formatarMes(antes.at(-1) ?? mes)}`;
+  const rotuloFolhas = `folha de ${formatarMes(mes)}`;
+  const rotuloAntes = formatarMes(antes[0] ?? mes);
   const folha = folhas.find((f) => f.competencia === mes);
   const [todas, pessoasTodas, metaReceita] = await Promise.all([
-    custoAgregado(antes[0] ?? (usados[0] as string), mes),
+    custoAgregado(
+      antes[0] && antes[0] < mes ? antes[0] : mes,
+      antes[0] && antes[0] > mes ? antes[0] : mes,
+    ),
     podeIndividual ? custosIndividuais(mes) : Promise.resolve(null),
     metaDe("rh.custo_sobre_receita", mes),
   ]);
@@ -324,7 +305,10 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
   ): Variacao | undefined =>
     ant
       ? {
-          texto: `${atual >= ant ? "+" : ""}${formatarNumero(((atual - ant) / ant) * 100, 1)}% vs ${rotuloAntes}`,
+          // Comparando: a diferença em R$ e em %.
+          texto: comparar
+            ? `${atual >= ant ? "+" : "-"}${moeda(Math.abs(atual - ant))} (${atual >= ant ? "+" : ""}${formatarNumero(((atual - ant) / ant) * 100, 1)}%) vs ${rotuloAntes}`
+            : `${atual >= ant ? "+" : ""}${formatarNumero(((atual - ant) / ant) * 100, 1)}% vs ${rotuloAntes}`,
           sentido: "neutro",
         }
       : undefined;
@@ -461,13 +445,20 @@ async function Custo({ busca }: { busca: Promise<Busca> }) {
 
         <AvisosDaPagina avisos={avisos} />
 
+        {comparar && tAnt && (
+          <Comparacao
+            atual={{ rotulo: formatarMes(mes), t, medio }}
+            antes={{ rotulo: rotuloAntes, t: tAnt, medio: medioAnt }}
+          />
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <CartaoIndicador
             titulo="Custo total"
             tom="escuro"
             valor={moeda(t.custo_total)}
             variacao={variacao(t.custo_total, tAnt?.custo_total)}
-            detalhe={`${pessoasUltima} pessoas no custo da ${rotuloFolhas}${usados.length > 1 ? " (última) · soma dos meses" : ""}${comFolha.length ? "" : " · sem folha no período: a última antes dele"}`}
+            detalhe={`${pessoasUltima} pessoas no custo da ${rotuloFolhas}`}
             origem={origemDoCustoTotal(t, opcoes)}
           />
           <CartaoIndicador
@@ -887,5 +878,84 @@ function Esqueleto() {
       </div>
       <CartaoCarregando altura="h-[650px]" />
     </TelaCarregando>
+  );
+}
+
+/** Duas competências lado a lado, com a diferença em R$ e em %. */
+function Comparacao({
+  atual,
+  antes,
+}: {
+  atual: { rotulo: string; t: TotaisCusto; medio: number | null };
+  antes: { rotulo: string; t: TotaisCusto; medio: number | null };
+}) {
+  const linhas: { rotulo: string; a: number | null; b: number | null }[] = [
+    { rotulo: "Custo total", a: atual.t.custo_total, b: antes.t.custo_total },
+    ...(
+      [
+        "remuneracao",
+        "encargos",
+        "provisoes",
+        "beneficios",
+        "rescisao",
+      ] as const
+    ).map((c) => ({
+      rotulo: COMPONENTES[c].rotulo,
+      a: atual.t[c],
+      b: antes.t[c],
+    })),
+    { rotulo: "Custo médio por pessoa", a: atual.medio, b: antes.medio },
+  ];
+  const sinal = (v: number) => (v > 0 ? "+" : v < 0 ? "-" : "");
+  return (
+    <Secao
+      titulo={`Comparação: ${atual.rotulo} × ${antes.rotulo}`}
+      descricao="Diferença = competência escolhida − competência comparada; % sobre a comparada"
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[36rem] text-sm">
+          <thead>
+            <tr className="text-left text-xs text-neutral-500">
+              <th className="py-2 pr-3 font-medium">Componente</th>
+              <th className="py-2 pr-3 text-right font-medium">
+                {atual.rotulo}
+              </th>
+              <th className="py-2 pr-3 text-right font-medium">
+                {antes.rotulo}
+              </th>
+              <th className="py-2 pr-3 text-right font-medium">Diferença R$</th>
+              <th className="py-2 text-right font-medium">Diferença %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {linhas.map((l) => {
+              const d = l.a !== null && l.b !== null ? l.a - l.b : null;
+              return (
+                <tr
+                  key={l.rotulo}
+                  className="border-t border-neutral-900/[0.06] tabular-nums"
+                >
+                  <td className="py-2 pr-3">{l.rotulo}</td>
+                  <td className="py-2 pr-3 text-right">
+                    {l.a === null ? "—" : moeda(l.a)}
+                  </td>
+                  <td className="py-2 pr-3 text-right">
+                    {l.b === null ? "—" : moeda(l.b)}
+                  </td>
+                  <td className="py-2 pr-3 text-right font-medium">
+                    {d === null ? "—" : `${sinal(d)}${moeda(Math.abs(d))}`}
+                  </td>
+                  <td className="py-2 text-right">
+                    {d === null || !l.b
+                      ? "—"
+                      : `${d > 0 ? "+" : ""}${formatarNumero((d / l.b) * 100, 1)}%`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Secao>
   );
 }

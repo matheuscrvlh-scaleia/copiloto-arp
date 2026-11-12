@@ -29,6 +29,7 @@ import {
   formatarMes,
   formatarMoeda,
   formatarPct,
+  formatarSaldoHoras,
 } from "@/lib/formato";
 import { competenciasDoPeriodo } from "@/lib/periodo";
 import {
@@ -252,7 +253,7 @@ async function Perfil({
     },
     {
       titulo: "Saldo do banco",
-      valor: (m) => formatarHoras(m.banco_saldo_min),
+      valor: (m) => formatarSaldoHoras(m.banco_saldo_min),
       numero: true,
     },
   ];
@@ -348,7 +349,7 @@ async function Perfil({
             <CartaoIndicador
               titulo="Banco de horas"
               tom="verde"
-              valor={formatarHoras(t.banco_saldo_min)}
+              valor={formatarSaldoHoras(t.banco_saldo_min)}
               detalhe={[
                 emReais.banco,
                 `Saldo no fim do período · créditos ${formatarHoras(t.banco_creditos_min)}, débitos ${formatarHoras(t.banco_debitos_min)}`,
@@ -569,7 +570,7 @@ const COLUNAS_DIA: Coluna<DiaDoPonto>[] = [
   },
   {
     titulo: "Saldo do banco",
-    valor: (d) => formatarHoras(d.banco_saldo_min),
+    valor: (d) => formatarSaldoHoras(d.banco_saldo_min),
     numero: true,
   },
 ];

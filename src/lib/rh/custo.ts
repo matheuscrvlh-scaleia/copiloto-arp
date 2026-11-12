@@ -82,6 +82,8 @@ export interface BeneficioDoMes {
   rubricas_desconto_dependente: number[];
   /** Quanto a empresa paga dos dependentes. */
   dependentes: number;
+  /** Rateado: como o valor saiu (total ÷ pessoas), para a memória. */
+  regra?: string;
 }
 
 export interface PessoaDoMes {
@@ -176,6 +178,50 @@ const AFASTAMENTO_INSS: Record<string, string> = {
   acidente: "Acidente",
   aposentadoria: "Aposentadoria",
 };
+
+// ---------------------------------------------------------------------------
+// Benefício rateado: um valor total do mês dividido entre quem entra na
+// divisão naquela competência (ninguém é vinculado um por um).
+// ---------------------------------------------------------------------------
+
+export const DIVISOES_RATEIO = {
+  ativos: "Todos os ativos",
+  ativos_nao_afastados: "Ativos não afastados",
+  departamento: "Um departamento",
+} as const;
+
+export interface PessoaDoRateio {
+  colaborador_id: string;
+  departamento_id: string | null;
+  /** Situação no Extrato Mensal; afastado pelo INSS sai em "não afastados". */
+  situacao?: string | null;
+}
+
+/** Quem entra na divisão do benefício rateado, entre as pessoas do custo do mês. */
+export function quemEntraNoRateio<P extends PessoaDoRateio>(
+  regra: {
+    dividir_entre: string | null;
+    dividir_departamento_id: string | null;
+  },
+  pessoas: P[],
+): P[] {
+  if (regra.dividir_entre === "departamento")
+    return pessoas.filter(
+      (p) => p.departamento_id === regra.dividir_departamento_id,
+    );
+  if (regra.dividir_entre === "ativos_nao_afastados")
+    return pessoas.filter((p) => !AFASTAMENTO_INSS[p.situacao ?? ""]);
+  return pessoas;
+}
+
+/**
+ * Parte de cada pessoa: total ÷ pessoas, ao centavo (R$ 1.200,00 ÷ 45 =
+ * R$ 26,67). Null sem ninguém na divisão.
+ */
+export function parteDoRateio(total: number, pessoas: number): number | null {
+  if (pessoas <= 0) return null;
+  return Math.round((total / pessoas) * 100) / 100;
+}
 
 /** Admitido ou desligado no mês provisiona 1/12 só com estes dias ou mais. */
 export const DIAS_PARA_PROVISIONAR = 15;
@@ -428,7 +474,9 @@ export function calcularCusto(
     linhas.push({
       rotulo: b.nome,
       valor: custo,
-      regra: `Valor ${b.valor.toFixed(2)} − pago pelo funcionário ${pago.toFixed(2)}${b.dependentes ? ` + dependentes ${b.dependentes.toFixed(2)}` : ""}`,
+      regra: b.regra
+        ? `${b.regra}${pago ? ` − pago pelo funcionário ${pago.toFixed(2)}` : ""}`
+        : `Valor ${b.valor.toFixed(2)} − pago pelo funcionário ${pago.toFixed(2)}${b.dependentes ? ` + dependentes ${b.dependentes.toFixed(2)}` : ""}`,
     });
   }
   for (const r of p.rubricas) {

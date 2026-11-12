@@ -234,6 +234,9 @@ export interface BeneficioDoRh {
   dependente_regra: Rh["Enums"]["regra_dependente"];
   dependente_valor: number | null;
   ativo: boolean;
+  forma_calculo: string;
+  dividir_entre: string | null;
+  dividir_departamento_id: string | null;
 }
 
 /** Benefícios cadastrados: os ativos primeiro, por nome. */
@@ -249,7 +252,7 @@ async function beneficiosEmCache(): Promise<BeneficioDoRh[]> {
   const { data, error } = await rhAdmin()
     .from("beneficios")
     .select(
-      "id, nome, tipo, valor_padrao, valor_por_mes, rubricas_desconto, rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo",
+      "id, nome, tipo, valor_padrao, valor_por_mes, rubricas_desconto, rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo, forma_calculo, dividir_entre, dividir_departamento_id",
     )
     .order("ativo", { ascending: false })
     .order("nome");

@@ -4,10 +4,14 @@ import {
   type BeneficioDoMes,
   type CustoCalculado,
   calcularCusto,
+  DIVISOES_RATEIO,
   diasNoMes,
   type FaixaEtaria,
   jornadaDe,
   type PessoaDoMes,
+  type PessoaDoRateio,
+  parteDoRateio,
+  quemEntraNoRateio,
   type RubricaDaFolha,
   valorLancadoNoMes,
   valorPelaFaixa,
@@ -57,6 +61,8 @@ async function carregar(admin: AdminClient, competencia: string) {
     dependentes,
     valoresPj,
     lancados,
+    rateados,
+    totais,
   ] = await Promise.all([
     folhaDoMes,
     lerTudo(() => rh.from("rubricas").select("codigo, grupo").order("codigo")),
@@ -116,7 +122,7 @@ async function carregar(admin: AdminClient, competencia: string) {
         .select(
           `colaborador_id, valor_manual,
            beneficio:beneficios(id, nome, tipo, valor_padrao, valor_por_mes, rubricas_desconto,
-             rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo),
+             rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo, forma_calculo),
            colaborador:colaboradores(nascimento)`,
         )
         .lte("desde", fim)
@@ -128,7 +134,7 @@ async function carregar(admin: AdminClient, competencia: string) {
       .select(
         `tipo_contrato,
          beneficio:beneficios(id, nome, tipo, valor_padrao, valor_por_mes, rubricas_desconto,
-           rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo)`,
+           rubricas_desconto_dependente, dependente_regra, dependente_valor, ativo, forma_calculo)`,
       )
       .lte("desde", fim)
       .or(`ate.is.null,ate.gte.${competencia}`),
@@ -159,8 +165,21 @@ async function carregar(admin: AdminClient, competencia: string) {
         .lte("competencia", competencia)
         .order("id"),
     ),
+    // Rateados: não têm vínculo; o total do mês é dividido no custo.
+    rh
+      .from("beneficios")
+      .select(
+        "id, nome, valor_padrao, valor_por_mes, rubricas_desconto, rubricas_desconto_dependente, dividir_entre, dividir_departamento_id",
+      )
+      .eq("forma_calculo", "rateado")
+      .eq("ativo", true),
+    rh
+      .from("beneficio_totais_mensais")
+      .select("beneficio_id, competencia, valor")
+      .lte("competencia", competencia),
   ]);
-  for (const r of [encargos, empresa, porContrato, tabelas]) falhar(r.error);
+  for (const r of [encargos, empresa, porContrato, tabelas, rateados, totais])
+    falhar(r.error);
 
   return {
     folha,
@@ -180,6 +199,8 @@ async function carregar(admin: AdminClient, competencia: string) {
       valoresPj.map((v) => [v.colaborador_id, Number(v.valor)]),
     ),
     lancados,
+    rateados: rateados.data ?? [],
+    totais: (totais.data ?? []).map((t) => ({ ...t, valor: Number(t.valor) })),
   };
 }
 
@@ -288,7 +309,8 @@ function beneficiosPorPessoa(
   >();
   for (const v of [...d.vinculos, ...doContrato]) {
     const b = v.beneficio;
-    if (!b?.ativo) continue;
+    // Rateado entra pela divisão (rateadosPorPessoa), não pelo vínculo.
+    if (!b?.ativo || b.forma_calculo === "rateado") continue;
     const item = mapa.get(v.colaborador_id) ?? {
       beneficios: [],
       pendencias: [],
@@ -337,6 +359,59 @@ function beneficiosPorPessoa(
       dependentes: Math.round(dependentes * 100) / 100,
     });
     mapa.set(v.colaborador_id, item);
+  }
+  return mapa;
+}
+
+/**
+ * Benefícios rateados de cada pessoa: o total do mês (o padrão ou, se varia
+ * por mês, o lançado) ÷ quem entra na divisão entre as pessoas do custo.
+ */
+function rateadosPorPessoa(
+  d: Dados,
+  competencia: string,
+  pessoas: PessoaDoRateio[],
+): Map<string, { beneficios: BeneficioDoMes[]; pendencias: string[] }> {
+  const mapa = new Map<
+    string,
+    { beneficios: BeneficioDoMes[]; pendencias: string[] }
+  >();
+  const totaisDe = Map.groupBy(d.totais, (t) => t.beneficio_id);
+  for (const b of d.rateados) {
+    const divisao = quemEntraNoRateio(b, pessoas);
+    if (divisao.length === 0) continue;
+    const total = b.valor_por_mes
+      ? valorLancadoNoMes(totaisDe.get(b.id) ?? [], competencia)
+      : { valor: b.valor_padrao === null ? null : Number(b.valor_padrao) };
+    const parte =
+      total.valor === null ? null : parteDoRateio(total.valor, divisao.length);
+    const quem =
+      DIVISOES_RATEIO[b.dividir_entre as keyof typeof DIVISOES_RATEIO] ??
+      "pessoas";
+    for (const p of divisao) {
+      const item = mapa.get(p.colaborador_id) ?? {
+        beneficios: [],
+        pendencias: [],
+      };
+      if ("aviso" in total && total.aviso)
+        item.pendencias.push(`${b.nome}: ${total.aviso}.`);
+      item.beneficios.push({
+        nome: b.nome,
+        valor: parte,
+        pendencia:
+          "pendencia" in total && total.pendencia
+            ? `total do rateio ${total.pendencia}`
+            : undefined,
+        rubricas_desconto: b.rubricas_desconto,
+        rubricas_desconto_dependente: b.rubricas_desconto_dependente,
+        dependentes: 0,
+        regra:
+          total.valor === null
+            ? undefined
+            : `Rateio: total ${total.valor.toFixed(2)} ÷ ${divisao.length} ${divisao.length === 1 ? "pessoa" : "pessoas"} (${quem.toLowerCase()})`,
+      });
+      mapa.set(p.colaborador_id, item);
+    }
   }
   return mapa;
 }
@@ -428,6 +503,21 @@ export function montarCustos(d: Dados, competencia: string): CustoCalculado[] {
     competencia,
     new Map([...doMes].map(([id, p]) => [id, p.tipo_contrato])),
   );
+  const rateados = rateadosPorPessoa(
+    d,
+    competencia,
+    [...doMes].map(([colaborador_id, p]) => ({
+      colaborador_id,
+      departamento_id: p.departamento_id,
+      situacao: p.folha?.situacao ?? null,
+    })),
+  );
+  for (const [id, r] of rateados) {
+    const item = beneficios.get(id) ?? { beneficios: [], pendencias: [] };
+    item.beneficios.push(...r.beneficios);
+    item.pendencias.push(...r.pendencias);
+    beneficios.set(id, item);
+  }
   const pessoas: PessoaDoMes[] = [...doMes].map(([colaborador_id, p]) => {
     const b = beneficios.get(colaborador_id);
     const c = d.cadastro.get(colaborador_id);

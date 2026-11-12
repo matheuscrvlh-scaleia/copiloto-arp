@@ -114,7 +114,7 @@ export async function Beneficios() {
             Novo benefício
           </summary>
           <div className="mt-4">
-            <FormBeneficio />
+            <FormBeneficio departamentos={d.opcoesDepartamento} />
           </div>
         </details>
       </div>

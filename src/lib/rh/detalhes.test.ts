@@ -59,7 +59,7 @@ describe("tabelas do modal de detalhe", () => {
 
   it("banco: de quem mais deve para quem mais tem crédito", () => {
     const t = tabelaDoBanco([ponto("1", 0, 0, 90), ponto("2", 0, 0, -120)]);
-    expect(t.linhas.map((l) => l.celulas[4])).toEqual(["-2h00", "1h30"]);
+    expect(t.linhas.map((l) => l.celulas[4])).toEqual(["-2h00", "+1h30"]);
     expect(t.colunas).toHaveLength(5);
   });
 

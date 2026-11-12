@@ -34,6 +34,7 @@ import {
   formatarHoras,
   formatarNumero,
   formatarPct,
+  formatarSaldoHoras,
 } from "@/lib/formato";
 import { rotuloStatus, status } from "@/lib/indicadores";
 import { descreverPeriodo } from "@/lib/periodo";
@@ -61,6 +62,7 @@ import {
 } from "@/lib/rh/modais";
 import { avisoDoPonto } from "@/lib/rh/ponto-periodo";
 import { pode } from "@/server/auth";
+import { cicloVigente } from "@/server/rh/banco-horas";
 import {
   bancoHorasEmReais,
   metaDe,
@@ -97,7 +99,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
   const { periodo, anterior, rotulo, mes, hoje, departamento, departamentos } =
     await lerFiltrosDoPeriodo(await busca);
   const rotuloAnt = descreverPeriodo(anterior);
-  const [pontoP, metaAbs, reais, pontoAntP, hora] = await Promise.all([
+  const [pontoP, metaAbs, reais, pontoAntP, hora, ciclo] = await Promise.all([
     pontoDoPeriodo(periodo.de, periodo.ate),
     metaDe("rh.absenteismo", mes),
     pode("rh.custo_pessoal").then((p) => (p ? bancoHorasEmReais(mes) : null)),
@@ -106,6 +108,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
     pode("rh.custo_pessoal.individual").then((p) =>
       p ? valorDaHora(mes) : null,
     ),
+    cicloVigente(),
   ]);
   const filtros = (
     <FiltroPeriodo
@@ -194,7 +197,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
             rotulo: "Débitos",
             valor: formatarHoras(-Math.abs(s.banco_negativo_min)),
           },
-          { rotulo: "Saldo", valor: formatarHoras(s.banco_saldo_min) },
+          { rotulo: "Saldo", valor: formatarSaldoHoras(s.banco_saldo_min) },
         ],
         tabelas: [
           tabelaDoBanco(doSetor(s.departamento_id), undefined, bancoPorPessoa),
@@ -407,7 +410,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
     },
     {
       titulo: "Banco (saldo)",
-      valor: (l) => formatarHoras(l.banco_saldo_min),
+      valor: (l) => formatarSaldoHoras(l.banco_saldo_min),
       numero: true,
     },
   ];
@@ -467,7 +470,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
           <CartaoIndicador
             titulo="Banco de horas"
             tom="verde"
-            valor={formatarHoras(totais.banco_saldo_min)}
+            valor={formatarSaldoHoras(totais.banco_saldo_min)}
             detalhe={`Positivo ${formatarHoras(totais.banco_positivo_min)} · negativo ${formatarHoras(totais.banco_negativo_min)}`}
             variacao={vsAnterior(
               totais.banco_saldo_min,
@@ -486,6 +489,16 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
                     }
                   : reais,
               porPessoa: bancoPorPessoa,
+              // Fechamento: o valor de cada pessoa pede o custo individual.
+              ciclo: ciclo && {
+                ...ciclo,
+                link: hora
+                  ? {
+                      href: "/rh/jornada/banco-de-horas",
+                      rotulo: "Fechamento do ciclo",
+                    }
+                  : undefined,
+              },
             })}
           />
         </div>
@@ -578,7 +591,7 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
                       -Math.abs(s.banco_negativo_min),
                     ),
                     textoPositivo: `+${formatarHoras(s.banco_positivo_min)}`,
-                    resumo: `saldo ${formatarHoras(s.banco_saldo_min)}`,
+                    resumo: `saldo ${formatarSaldoHoras(s.banco_saldo_min)}`,
                     detalhe: `${s.colaboradores} pessoas`,
                   }))}
                   detalhes={detalheBancoSetor}
@@ -644,10 +657,12 @@ async function Jornada({ busca }: { busca: Promise<Busca> }) {
                 negativo: Math.max(-l.banco_saldo_min, 0),
                 positivo: Math.max(l.banco_saldo_min, 0),
                 textoNegativo:
-                  l.banco_saldo_min < 0 ? formatarHoras(l.banco_saldo_min) : "",
+                  l.banco_saldo_min < 0
+                    ? formatarSaldoHoras(l.banco_saldo_min)
+                    : "",
                 textoPositivo:
                   l.banco_saldo_min > 0
-                    ? `+${formatarHoras(l.banco_saldo_min)}`
+                    ? formatarSaldoHoras(l.banco_saldo_min)
                     : "",
                 resumo: l.departamento,
                 detalhe: `créditos +${formatarHoras(l.banco_creditos_min)} · débitos ${formatarHoras(-Math.abs(l.banco_debitos_min))}`,

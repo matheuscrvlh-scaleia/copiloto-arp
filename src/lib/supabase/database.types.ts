@@ -7703,6 +7703,96 @@ export type Database = {
   }
   rh: {
     Tables: {
+      banco_horas_ciclos: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          criado_por: string | null
+          finalizado_em: string | null
+          finalizado_por: string | null
+          fim: string
+          id: string
+          inicio: string
+          total_calculado: number | null
+          total_realizado: number | null
+          total_saldo_min: number | null
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          criado_por?: string | null
+          finalizado_em?: string | null
+          finalizado_por?: string | null
+          fim: string
+          id?: string
+          inicio: string
+          total_calculado?: number | null
+          total_realizado?: number | null
+          total_saldo_min?: number | null
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          criado_por?: string | null
+          finalizado_em?: string | null
+          finalizado_por?: string | null
+          fim?: string
+          id?: string
+          inicio?: string
+          total_calculado?: number | null
+          total_realizado?: number | null
+          total_saldo_min?: number | null
+        }
+        Relationships: []
+      }
+      banco_horas_fechamentos: {
+        Row: {
+          acao: string | null
+          atualizado_em: string
+          ciclo_id: string
+          colaborador_id: string
+          salario_hora: number | null
+          saldo_min: number
+          valor_calculado: number | null
+          valor_realizado: number | null
+        }
+        Insert: {
+          acao?: string | null
+          atualizado_em?: string
+          ciclo_id: string
+          colaborador_id: string
+          salario_hora?: number | null
+          saldo_min: number
+          valor_calculado?: number | null
+          valor_realizado?: number | null
+        }
+        Update: {
+          acao?: string | null
+          atualizado_em?: string
+          ciclo_id?: string
+          colaborador_id?: string
+          salario_hora?: number | null
+          saldo_min?: number
+          valor_calculado?: number | null
+          valor_realizado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "banco_horas_fechamentos_ciclo_id_fkey"
+            columns: ["ciclo_id"]
+            isOneToOne: false
+            referencedRelation: "banco_horas_ciclos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "banco_horas_fechamentos_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       afastamentos: {
         Row: {
           atualizado_em: string
@@ -7827,6 +7917,41 @@ export type Database = {
           },
         ]
       }
+      beneficio_totais_mensais: {
+        Row: {
+          atualizado_em: string
+          beneficio_id: string
+          competencia: string
+          criado_em: string
+          id: string
+          valor: number
+        }
+        Insert: {
+          atualizado_em?: string
+          beneficio_id: string
+          competencia: string
+          criado_em?: string
+          id?: string
+          valor: number
+        }
+        Update: {
+          atualizado_em?: string
+          beneficio_id?: string
+          competencia?: string
+          criado_em?: string
+          id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beneficio_totais_mensais_beneficio_id_fkey"
+            columns: ["beneficio_id"]
+            isOneToOne: false
+            referencedRelation: "beneficios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       beneficios: {
         Row: {
           ativo: boolean
@@ -7834,6 +7959,9 @@ export type Database = {
           criado_em: string
           dependente_regra: Database["rh"]["Enums"]["regra_dependente"]
           dependente_valor: number | null
+          dividir_departamento_id: string | null
+          dividir_entre: string | null
+          forma_calculo: string
           id: string
           nome: string
           rubricas_desconto: number[]
@@ -7848,6 +7976,9 @@ export type Database = {
           criado_em?: string
           dependente_regra?: Database["rh"]["Enums"]["regra_dependente"]
           dependente_valor?: number | null
+          dividir_departamento_id?: string | null
+          dividir_entre?: string | null
+          forma_calculo?: string
           id?: string
           nome: string
           rubricas_desconto?: number[]
@@ -7862,6 +7993,9 @@ export type Database = {
           criado_em?: string
           dependente_regra?: Database["rh"]["Enums"]["regra_dependente"]
           dependente_valor?: number | null
+          dividir_departamento_id?: string | null
+          dividir_entre?: string | null
+          forma_calculo?: string
           id?: string
           nome?: string
           rubricas_desconto?: number[]
@@ -9085,6 +9219,10 @@ export type Database = {
         }[]
       }
       excluir_folha: { Args: { p_folha_id: string }; Returns: string }
+      finalizar_ciclo_banco: {
+        Args: { p_ciclo: string }
+        Returns: Database["rh"]["Tables"]["banco_horas_ciclos"]["Row"]
+      }
       finalizar_orcamento: {
         Args: { p_ano: number }
         Returns: Database["rh"]["Tables"]["orcamentos_anuais"]["Row"]

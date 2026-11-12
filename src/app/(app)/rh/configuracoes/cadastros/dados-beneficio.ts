@@ -1,6 +1,6 @@
 import "server-only";
 import { competenciaDe, formatarMes, formatarMoeda } from "@/lib/formato";
-import { vigenteEm } from "@/lib/rh/custo";
+import { DIVISOES_RATEIO, parteDoRateio, vigenteEm } from "@/lib/rh/custo";
 import { titularRecebe, valeNoMes } from "@/lib/rh/dependentes";
 import { ROTULO_CONTRATO } from "@/lib/rh/rubricas";
 import {
@@ -8,10 +8,12 @@ import {
   beneficiosCadastrados,
   colaboradoresAtivos,
   tabelasDoPlano,
+  totaisMensais,
   valoresMensais,
   vinculosDeBeneficio,
   vinculosPorContrato,
 } from "@/server/rh/beneficios";
+import { departamentosDoRh } from "@/server/rh/configuracao";
 import { folhasDoCusto } from "@/server/rh/dados";
 import { dependentesDoCopiloto } from "@/server/rh/dependentes";
 import type { PessoaDoBeneficio } from "./valores-do-mes";
@@ -39,6 +41,8 @@ export async function dadosDosBeneficios() {
     tabelas,
     folhas,
     lancados,
+    totais,
+    departamentos,
   ] = await Promise.all([
     beneficiosCadastrados(),
     vinculosDeBeneficio(),
@@ -47,6 +51,8 @@ export async function dadosDosBeneficios() {
     tabelasDoPlano(),
     folhasDoCusto(),
     valoresMensais(),
+    totaisMensais(),
+    departamentosDoRh(),
   ]);
   // Só plano e odonto têm dependentes; sem nenhum dos dois, nem lê.
   const dependentes = beneficios.some(
@@ -68,6 +74,11 @@ export async function dadosDosBeneficios() {
     colaboradores,
     tabelas,
     lancados,
+    totais,
+    departamentos,
+    opcoesDepartamento: departamentos
+      .filter((x) => x.ativo)
+      .map((x) => ({ valor: x.id, rotulo: x.nome })),
     dependentes,
     pessoasDoContrato,
     /** Competência mostrada (aaaa-mm-01): o mês de hoje. */
@@ -97,6 +108,7 @@ export function doBeneficio(d: DadosDosBeneficios, b: Beneficio) {
   const tabelas = d.tabelas.filter((t) => t.beneficio_id === b.id);
   const lancados = d.lancados.filter((l) => l.beneficio_id === b.id);
   const porMes = b.valor_por_mes;
+  const rateado = b.forma_calculo === "rateado";
   const pelaFaixa = !porMes && b.valor_padrao === null;
   const faixas = vigenteEm(tabelas, mes)?.faixas ?? null;
 
@@ -120,17 +132,40 @@ export function doBeneficio(d: DadosDosBeneficios, b: Beneficio) {
       ate: v.ate,
     })),
   ];
-  const recebemNoMes = new Set(
-    pessoas.filter((p) => valeNoMes(p, mes)).map((p) => p.colaborador_id),
-  );
-  const semValorNoMes = porMes
-    ? [...recebemNoMes].filter(
-        (id) =>
-          !lancados.some(
-            (l) => l.colaborador_id === id && l.competencia === mes,
-          ),
-      ).length
-    : 0;
+  // Rateado: ninguém é vinculado; a divisão é feita no custo de cada mês,
+  // entre as pessoas dele. Aqui, a estimativa pelo cadastro de hoje (sem
+  // sócios; o afastamento só a folha do mês diz).
+  const divisao = rateado
+    ? d.colaboradores.filter(
+        (c) =>
+          c.tipo_contrato !== "pro_labore" &&
+          (b.dividir_entre !== "departamento" ||
+            c.departamento_id === b.dividir_departamento_id),
+      )
+    : [];
+  const totaisDoBeneficio = d.totais.filter((t) => t.beneficio_id === b.id);
+  const totalDoMes = rateado
+    ? porMes
+      ? (totaisDoBeneficio.find((t) => t.competencia === mes)?.valor ?? null)
+      : b.valor_padrao
+    : null;
+  const recebemNoMes = rateado
+    ? new Set(divisao.map((c) => c.id))
+    : new Set(
+        pessoas.filter((p) => valeNoMes(p, mes)).map((p) => p.colaborador_id),
+      );
+  const semValorNoMes = rateado
+    ? porMes && totalDoMes === null
+      ? 1
+      : 0
+    : porMes
+      ? [...recebemNoMes].filter(
+          (id) =>
+            !lancados.some(
+              (l) => l.colaborador_id === id && l.competencia === mes,
+            ),
+        ).length
+      : 0;
 
   const temDependentes = b.tipo === "plano_saude" || b.tipo === "odonto";
   const dependentes = temDependentes
@@ -144,8 +179,14 @@ export function doBeneficio(d: DadosDosBeneficios, b: Beneficio) {
 
   const ativos = vinculos.filter((v) => v.ate === null);
   const contratosAtivos = contratos.filter((c) => c.ate === null);
-  const quemRecebe =
-    contratosAtivos.length === 0 && ativos.length === 0
+  const departamentoDaDivisao = d.departamentos.find(
+    (x) => x.id === b.dividir_departamento_id,
+  )?.nome;
+  const quemRecebe = rateado
+    ? b.dividir_entre === "departamento"
+      ? `Rateado: ${departamentoDaDivisao ?? "departamento"}`
+      : `Rateado: ${(DIVISOES_RATEIO[b.dividir_entre as keyof typeof DIVISOES_RATEIO] ?? "").toLowerCase()}`
+    : contratosAtivos.length === 0 && ativos.length === 0
       ? "Ninguém vinculado"
       : [
           ...contratosAtivos.map((c) => todosOs(c.tipo_contrato)),
@@ -154,13 +195,19 @@ export function doBeneficio(d: DadosDosBeneficios, b: Beneficio) {
             : []),
         ].join(" + ");
 
-  const valor = porMes
-    ? "Valor varia por mês"
-    : pelaFaixa
-      ? tabelas.length > 0
-        ? "Valor pela faixa etária"
-        : "Valor pela faixa: falta enviar a tabela"
-      : `${formatarMoeda(b.valor_padrao)}/mês`;
+  const parte =
+    totalDoMes === null ? null : parteDoRateio(totalDoMes, divisao.length);
+  const valor = rateado
+    ? totalDoMes === null
+      ? "Rateado · total lançado por mês"
+      : `Rateado · ${formatarMoeda(totalDoMes)}/mês ÷ ${divisao.length} = ${formatarMoeda(parte)} cada`
+    : porMes
+      ? "Valor varia por mês"
+      : pelaFaixa
+        ? tabelas.length > 0
+          ? "Valor pela faixa etária"
+          : "Valor pela faixa: falta enviar a tabela"
+        : `${formatarMoeda(b.valor_padrao)}/mês`;
 
   return {
     vinculos,
@@ -180,8 +227,15 @@ export function doBeneficio(d: DadosDosBeneficios, b: Beneficio) {
     semValorNoMes,
     /** "faltam 9 em out/2026" (só benefício que varia por mês). */
     pendencia:
-      porMes && semValorNoMes > 0
-        ? `faltam ${semValorNoMes} em ${formatarMes(mes)}`
-        : null,
+      rateado && semValorNoMes > 0
+        ? `falta o total de ${formatarMes(mes)}`
+        : porMes && semValorNoMes > 0
+          ? `faltam ${semValorNoMes} em ${formatarMes(mes)}`
+          : null,
+    rateado,
+    divisao,
+    totalDoMes,
+    parte,
+    totais: totaisDoBeneficio,
   };
 }

@@ -30,6 +30,7 @@ import {
   formatarMoeda,
   formatarNumero,
   formatarPct,
+  formatarSaldoHoras,
   ultimasCompetencias,
 } from "@/lib/formato";
 import { status } from "@/lib/indicadores";
@@ -54,6 +55,7 @@ import {
 import { avisoDoPonto } from "@/lib/rh/ponto-periodo";
 import { pode } from "@/server/auth";
 import { tabelasDoQuadro } from "@/server/rh/acoes/detalhes";
+import { cicloVigente } from "@/server/rh/banco-horas";
 import {
   type BancoEmReais,
   bancoHorasEmReais,
@@ -124,6 +126,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
     veQuadro,
     turnover,
     hora,
+    ciclo,
   ] = await Promise.all([
     pontoDoPeriodo(periodo.de, periodo.ate),
     pontoDoPeriodo(anterior.de, anterior.ate),
@@ -153,6 +156,7 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
     pode("rh.custo_pessoal.individual").then((p) =>
       p ? valorDaHora(mes) : null,
     ),
+    cicloVigente(),
   ]);
 
   const ponto = doDep(pontoP.linhas);
@@ -255,7 +259,8 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
     quadroDe(foco, periodo.de, periodo.ate, rotulo);
   const linkCusto = custo.competencia
     ? {
-        href: `/rh/custo-de-pessoal?${filtrosUrl()}`,
+        // O Custo de pessoal é por competência: a da folha usada aqui.
+        href: `/rh/custo-de-pessoal?${new URLSearchParams({ mes: custo.competencia.slice(0, 7), ...(departamento ? { dep: departamento } : {}) }).toString()}`,
         rotulo: "Abrir Custo de pessoal",
       }
     : undefined;
@@ -387,10 +392,11 @@ async function Painel({ busca }: { busca: Promise<Busca> }) {
               valor={formatarHoras(totais.banco_positivo_min)}
               status={status(ponto.length ? bancoHoras : null, metaBanco)}
               meta={metaTexto(metaBanco, (v) => `${formatarNumero(v)}h`)}
-              detalhe={`Saldo em ${formatarData(opcoesPonto.ate)}: ${formatarHoras(totais.banco_saldo_min)} · ${textoBancoEmReais(banco, bancoValor, custo.podeVer)}`}
+              detalhe={`Saldo em ${formatarData(opcoesPonto.ate)}: ${formatarSaldoHoras(totais.banco_saldo_min)} · ${textoBancoEmReais(banco, bancoValor, custo.podeVer)}`}
               origem={origemDoBanco(ponto, {
                 ...opcoesPonto,
                 soPositivo: true,
+                ciclo,
                 reais: custo.podeVer ? banco : null,
                 porPessoa: hora
                   ? saldosEmReais(ponto, hora.salarioHora, hora.adicional)

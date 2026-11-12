@@ -40,6 +40,11 @@ export function formatarHoras(minutos: number): string {
   return `${sinal}${numero.format(h)}h${m}`;
 }
 
+/** Saldo de horas com o sinal também no positivo: "+16h49", "-3h10", "0h00". */
+export function formatarSaldoHoras(minutos: number): string {
+  return `${Math.round(minutos) > 0 ? "+" : ""}${formatarHoras(minutos)}`;
+}
+
 const MESES = [
   "jan",
   "fev",

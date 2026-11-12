@@ -23,6 +23,7 @@ import {
   formatarMes,
   formatarNumero,
   formatarPct,
+  formatarSaldoHoras,
   ultimasCompetencias,
 } from "@/lib/formato";
 import { rotuloStatus, type Status, status } from "@/lib/indicadores";
@@ -437,7 +438,7 @@ async function Pessoas({
                 rotulo: "Débitos",
                 valor: formatarHoras(-Math.abs(s.banco_negativo_min)),
               },
-              { rotulo: "Saldo", valor: formatarHoras(s.banco_saldo_min) },
+              { rotulo: "Saldo", valor: formatarSaldoHoras(s.banco_saldo_min) },
             ],
             tabelas: [bancoDoSetor(s.departamento_id)],
             link: {
@@ -746,7 +747,7 @@ async function Pessoas({
                 <span>
                   Banco{" "}
                   <b className="font-semibold text-neutral-900">
-                    {formatarHoras(s.banco_saldo_min)}
+                    {formatarSaldoHoras(s.banco_saldo_min)}
                   </b>
                 </span>
               </div>
@@ -793,7 +794,7 @@ async function Pessoas({
             <span className="ladrilho rounded-full px-3 py-1 text-xs">
               Saldo da empresa{" "}
               <b className="font-semibold">
-                {formatarHoras(totais.banco_saldo_min)}
+                {formatarSaldoHoras(totais.banco_saldo_min)}
               </b>
             </span>
           </div>
@@ -812,7 +813,7 @@ async function Pessoas({
               positivo: s.banco_positivo_min,
               textoNegativo: formatarHoras(-Math.abs(s.banco_negativo_min)),
               textoPositivo: `+${formatarHoras(s.banco_positivo_min)}`,
-              resumo: `saldo ${formatarHoras(s.banco_saldo_min)}`,
+              resumo: `saldo ${formatarSaldoHoras(s.banco_saldo_min)}`,
               detalhe: `${s.colaboradores} pessoas · crédito +${formatarHoras(s.banco_positivo_min)} · débito ${formatarHoras(-Math.abs(s.banco_negativo_min))}`,
             }))}
           />
