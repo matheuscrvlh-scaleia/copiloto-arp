@@ -108,6 +108,12 @@ const ROTULOS_LOJA = {
   fim: "Fim",
   telefone: "Telefone",
   contrato: "Contrato",
+  tipo_loja: "Tipo de loja",
+  ramo: "Ramo",
+  ativacao: "Ativação",
+  rescisao: "Rescisão",
+  piso: "Piso",
+  rua: "Rua",
 };
 
 const opcional = z.preprocess(
@@ -142,10 +148,22 @@ const lojaForm = z
       (v) => (v === "sim" ? true : v === "nao" ? false : null),
       z.boolean().nullable(),
     ),
+    // Usados pelo Sustentabilidade (entrevista na ativação, dispensa por
+    // tipo de loja, cancelamento na rescisão). Todos opcionais.
+    tipo_loja: opcional,
+    ramo: opcional,
+    ativacao: dataOpcional,
+    rescisao: dataOpcional,
+    piso: opcional,
+    rua: opcional,
   })
   .refine((l) => !l.inicio || !l.fim || l.inicio <= l.fim, {
     message: "o fim vem antes do início",
     path: ["fim"],
+  })
+  .refine((l) => !l.ativacao || !l.rescisao || l.ativacao <= l.rescisao, {
+    message: "a rescisão vem antes da ativação",
+    path: ["rescisao"],
   });
 
 export async function salvarLoja(

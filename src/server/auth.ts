@@ -3,7 +3,12 @@ import { cacheLife, cacheTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { cache } from "react";
-import { PERMISSOES, type Permissao } from "@/lib/permissions";
+import {
+  ehPermissaoDePrograma,
+  PERMISSOES,
+  type Permissao,
+  type PermissaoDePrograma,
+} from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { TAG } from "./cache";
@@ -14,6 +19,9 @@ export interface Usuario {
   email: string;
   ativo: boolean;
   permissoes: Permissao[];
+  /** "Programa – lançar" (Sustentabilidade): uma permissão por programa,
+   * fora do catálogo fixo (sustentabilidade.programa.<id>). */
+  programas: PermissaoDePrograma[];
 }
 
 /**
@@ -55,7 +63,7 @@ async function usuarioPorId(id: string): Promise<Usuario | null> {
   if (perfil.error) throw perfil.error;
   if (!perfil.data) return null;
   const { nome, email, ativo, cargo_id } = perfil.data;
-  if (!ativo) return { id, nome, email, ativo, permissoes: [] };
+  if (!ativo) return { id, nome, email, ativo, permissoes: [], programas: [] };
 
   const [individuais, doCargo] = await Promise.all([
     core.from("usuario_permissoes").select("permissao").eq("usuario_id", id),
@@ -81,6 +89,7 @@ async function usuarioPorId(id: string): Promise<Usuario | null> {
     email,
     ativo,
     permissoes: [...todas].filter((p): p is Permissao => p in PERMISSOES),
+    programas: [...todas].filter(ehPermissaoDePrograma),
   };
 }
 
@@ -95,7 +104,9 @@ export async function pode(permissao: Permissao): Promise<boolean> {
  * Route Handlers antes de gravar ou ler com a service role (que ignora o
  * RLS): quem acabou de perder o acesso não passa nem por um minuto.
  */
-export async function podeAgora(permissao: Permissao): Promise<boolean> {
+export async function podeAgora(
+  permissao: Permissao | PermissaoDePrograma,
+): Promise<boolean> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims?.sub) return false;

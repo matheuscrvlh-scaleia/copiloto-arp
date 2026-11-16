@@ -85,6 +85,7 @@ export const ORIGENS = {
   recorrencia: "Recorrência",
   vistoria: "Vistoria",
   importacao: "Importação",
+  modulo: "Outro módulo",
 } as const;
 export type Origem = keyof typeof ORIGENS;
 
@@ -164,4 +165,16 @@ export interface CampoExtra {
   /** Só para "lista". */
   opcoes?: string[];
   obrigatorio?: boolean;
+}
+
+/**
+ * Origem para mostrar: o chamado criado por outro módulo mostra o nome do
+ * módulo ("sustentabilidade" → "Sustentabilidade").
+ */
+export function rotuloDaOrigem(origem: Origem, modulo?: string | null): string {
+  if (origem === "modulo" && modulo)
+    return (
+      modulo.charAt(0).toUpperCase() + modulo.slice(1).replaceAll("_", " ")
+    );
+  return ORIGENS[origem];
 }

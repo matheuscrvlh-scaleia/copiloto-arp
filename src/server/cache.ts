@@ -89,6 +89,19 @@ export const TAG = {
     parametros: "operacoes:parametros",
   },
 
+  sustentabilidade: {
+    /** Parâmetros do módulo, validade por setor e fatores do RCC (sem reais). */
+    parametros: "sustentabilidade:parametros",
+    /** Cadastro dos coletores (local, cor, contêineres, capacidade). */
+    coletores: "sustentabilidade:coletores",
+    /** Programas e indicadores (sem contato do parceiro e sem o link). */
+    programas: "sustentabilidade:programas",
+    /** Formulários: rascunho, versão publicada e versões. */
+    formularios: "sustentabilidade:formularios",
+    /** Cópia dos contratos (os.lojas) e o que é do módulo neles. */
+    contratos: "sustentabilidade:contratos",
+  },
+
   rh: {
     /** Departamentos (nome, código da folha, id no ponto, ativo). */
     departamentos: "rh:departamentos",

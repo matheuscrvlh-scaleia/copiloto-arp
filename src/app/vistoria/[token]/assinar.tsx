@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Assinatura } from "@/components/os/ordem/assinatura";
+import { Assinatura } from "@/components/assinatura";
 import { assinarVistoriaPeloLink } from "@/server/os/acoes/vistoria-link";
 
 // "Li e concordo" e a assinatura do locatário (nome, CPF/CNPJ e o quadro).

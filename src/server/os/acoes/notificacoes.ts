@@ -4,11 +4,11 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { usuarioAtual } from "@/server/auth";
 
-// Sininho: as notificações do Tickets e os lembretes do Comercial (ambos em
-// os.notificacoes). O sino do menu busca daqui ao carregar e ao abrir, e
-// marca como lida. O RLS só deixa ler e marcar as do próprio usuário.
+// Sininho: as notificações do Tickets, os lembretes do Comercial e os do
+// Sustentabilidade (todos em os.notificacoes). O sino do menu busca daqui ao
+// carregar e ao abrir, e marca como lida. O RLS só deixa ler e marcar as do próprio usuário.
 
-const MODULOS_DO_SINO = ["os.", "comercial."];
+const MODULOS_DO_SINO = ["os.", "comercial.", "sustentabilidade."];
 
 export interface NotificacaoDoSino {
   id: number;

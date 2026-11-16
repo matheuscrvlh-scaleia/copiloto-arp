@@ -13,8 +13,8 @@ import {
 import Image from "next/image";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { Assinatura } from "@/components/assinatura";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
-import { Assinatura } from "@/components/os/ordem/assinatura";
 import { formatarMoeda, formatarNumero } from "@/lib/formato";
 import { dataHoraBr } from "@/lib/os/relatorios";
 import { limparTelefone, linkWhatsApp } from "@/lib/os/whatsapp";

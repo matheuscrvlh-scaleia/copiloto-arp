@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   checklistInicial,
+  ehCaminhoInterno,
   extrairMencoes,
   filtrarPessoas,
   lerCamposExtras,
@@ -10,6 +11,7 @@ import {
   marcarItem,
   mencaoEmDigitacao,
   mensagemDoChamado,
+  motivoDaConclusaoExterna,
   motivoParaNaoConcluir,
   quemAvisarDoComentario,
   textoDoCampo,
@@ -259,5 +261,39 @@ describe("avisos e mensagem", () => {
     expect(mensagemDoChamado("{{titulo}} ({{setor}})", dados)).toBe(
       "Lâmpada queimada (Operações)",
     );
+  });
+});
+
+describe("chamado de outro módulo", () => {
+  it("Executar só leva a caminho interno", () => {
+    expect(ehCaminhoInterno("/sustentabilidade/entrevistas/abc?x=1")).toBe(
+      true,
+    );
+    expect(ehCaminhoInterno("/")).toBe(true);
+    expect(ehCaminhoInterno("//site.com/x")).toBe(false);
+    expect(ehCaminhoInterno("/\\site.com")).toBe(false);
+    expect(ehCaminhoInterno("https://site.com")).toBe(false);
+    expect(ehCaminhoInterno("javascript:alert(1)")).toBe(false);
+    expect(ehCaminhoInterno("/a b")).toBe(false);
+  });
+
+  it("conclusão externa explica por que não conclui", () => {
+    expect(
+      motivoDaConclusaoExterna({
+        conclusao_externa: true,
+        acao_rotulo: "a entrevista",
+      }),
+    ).toBe(
+      "Este chamado fecha sozinho ao salvar a entrevista no módulo. Use o botão Executar.",
+    );
+    expect(
+      motivoDaConclusaoExterna({ conclusao_externa: true, acao_rotulo: null }),
+    ).toMatch(/ao salvar o trabalho no módulo/);
+    expect(
+      motivoDaConclusaoExterna({
+        conclusao_externa: false,
+        acao_rotulo: "a entrevista",
+      }),
+    ).toBeNull();
   });
 });

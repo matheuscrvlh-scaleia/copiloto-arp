@@ -20,7 +20,7 @@ import { criarChamadoSistema } from "../criar";
 // Chamados e OS repetem cada um na sua tabela (a OS gera OS).
 
 const COLUNAS =
-  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, prioridade, responsavel_id, aberto_por, pessoal, precisa_confirmacao, destinos_em_ordem, loja_id, ativo_id, checklist, etiquetas, campos, recorrencia, serie_id, serie_data, prazo, criado_em, destinatarios(setor_id, usuario_id, titulo, responsavel_id, ordem)" as const;
+  "id, numero, tipo, titulo, descricao, setor_id, categoria_id, prioridade, responsavel_id, aberto_por, pessoal, precisa_confirmacao, destinos_em_ordem, loja_id, ativo_id, checklist, etiquetas, campos, recorrencia, serie_id, serie_data, prazo, criado_em, acao_url, acao_rotulo, conclusao_externa, origem_modulo, origem_ref, destinatarios(setor_id, usuario_id, titulo, responsavel_id, ordem)" as const;
 
 type Dono = Pick<Alvo, "tipo">;
 
@@ -92,6 +92,13 @@ async function recorrenciasDe(dono: Dono, agora: Date): Promise<number> {
             feito: false,
           })),
           etiquetas: ultima.etiquetas,
+          // Chamado de outro módulo: a ocorrência nova também tem o
+          // Executar e só conclui pelo módulo.
+          acaoUrl: ultima.acao_url,
+          acaoRotulo: ultima.acao_rotulo,
+          conclusaoExterna: ultima.conclusao_externa,
+          origemModulo: ultima.origem_modulo,
+          origemRef: ultima.origem_ref,
           destinatarios: [...ultima.destinatarios]
             .sort((a, b) => a.ordem - b.ordem)
             .map((d) => ({

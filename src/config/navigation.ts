@@ -59,7 +59,14 @@ export type Icone =
   | "solar"
   | "limpeza"
   | "obras"
-  | "diario";
+  | "diario"
+  | "entrevistas"
+  | "respostas"
+  | "questionario"
+  | "clube"
+  | "rondas"
+  | "rcc"
+  | "programas";
 
 export interface NavItem {
   href: string;
@@ -70,6 +77,8 @@ export interface NavItem {
    * Lista: basta uma delas (ex.: Configurações, com abas por permissão).
    */
   permissao: Permissao | Permissao[] | null;
+  /** Também aparece para quem só tem "Programa – lançar" (Sustentabilidade). */
+  ouProgramas?: boolean;
 }
 
 export interface NavSection {
@@ -518,6 +527,74 @@ export const navigation: NavSection[] = [
     ],
   },
   {
+    titulo: "Sustentabilidade",
+    itens: [
+      {
+        href: "/sustentabilidade",
+        label: "Painel",
+        icone: "painel",
+        permissao: "sustentabilidade.painel",
+      },
+      {
+        href: "/sustentabilidade/entrevistas",
+        label: "Entrevistas",
+        icone: "entrevistas",
+        permissao: [
+          "sustentabilidade.entrevistas.ver",
+          "sustentabilidade.entrevistas.aplicar",
+          "sustentabilidade.entrevistas.dispensar",
+        ],
+      },
+      {
+        href: "/sustentabilidade/entrevistas/respostas",
+        label: "Respostas",
+        icone: "respostas",
+        permissao: "sustentabilidade.entrevistas.respostas",
+      },
+      {
+        href: "/sustentabilidade/entrevistas/questionario",
+        label: "Editar questionário",
+        icone: "questionario",
+        permissao: "sustentabilidade.entrevistas.questionario",
+      },
+      {
+        href: "/sustentabilidade/clube",
+        label: "Clube SustentArp",
+        icone: "clube",
+        permissao: [
+          "sustentabilidade.clube.ver",
+          "sustentabilidade.clube.editar",
+        ],
+      },
+      {
+        href: "/sustentabilidade/rondas",
+        label: "Rondas dos coletores",
+        icone: "rondas",
+        permissao: "sustentabilidade.ronda",
+      },
+      {
+        href: "/sustentabilidade/rcc",
+        label: "RCC",
+        icone: "rcc",
+        permissao: "sustentabilidade.rcc",
+      },
+      {
+        href: "/sustentabilidade/programas",
+        label: "Programas",
+        icone: "programas",
+        permissao: "sustentabilidade.programas.gerenciar",
+        ouProgramas: true,
+      },
+      {
+        href: "/sustentabilidade/configuracoes",
+        label: "Configurações",
+        icone: "configuracoes",
+        // Abas Importações e Parâmetros (server/sustentabilidade/configuracoes).
+        permissao: ["sustentabilidade.importar", "sustentabilidade.parametros"],
+      },
+    ],
+  },
+  {
     titulo: "Administração",
     itens: [
       {
@@ -549,12 +626,15 @@ export const navigation: NavSection[] = [
 ];
 
 /** Mantém só os itens que o usuário pode ver e remove seções vazias. */
-export function navigationFor(pode: (p: Permissao) => boolean): NavSection[] {
+export function navigationFor(
+  pode: (p: Permissao) => boolean,
+  temPrograma = false,
+): NavSection[] {
   return navigation
     .map((s) => ({
       ...s,
       itens: s.itens.filter((i) =>
-        i.permissao === null
+        (i.ouProgramas && temPrograma) || i.permissao === null
           ? true
           : Array.isArray(i.permissao)
             ? i.permissao.some(pode)

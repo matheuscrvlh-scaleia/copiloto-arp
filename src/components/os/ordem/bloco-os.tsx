@@ -9,6 +9,7 @@ import {
   Timer,
 } from "lucide-react";
 import Link from "next/link";
+import { Assinatura } from "@/components/assinatura";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import type { Opcao } from "@/components/selecao";
@@ -35,7 +36,6 @@ import { salvarResultado } from "@/server/os/acoes/ordem";
 import { assinarOS } from "@/server/os/acoes/ordem-arquivos";
 import { urlDoSistema } from "@/server/os/base";
 import { type DadosOS, dadosDaOS, modeloMensagem } from "@/server/os/ordem";
-import { Assinatura } from "./assinatura";
 import { Cronometro } from "./cronometro";
 import { FormCustoTerceirizado, FormRateio, QuadroCustos } from "./custos";
 import { aviso, quadro, rotulo, titulo } from "./estilos";

@@ -174,9 +174,71 @@ export const PERMISSOES = {
   "operacoes.exportar": "Exportar Excel e PDF nas telas de Operações",
   "operacoes.parametros":
     "Editar os parâmetros de Operações (limites, contrato da limpeza, termo, obras)",
+
+  "sustentabilidade.entrevistas.ver":
+    "Entrevistas – ver: lista de controle e situação da entrevista de cada locatário",
+  "sustentabilidade.entrevistas.aplicar":
+    "Entrevistas – aplicar: preencher a entrevista no celular ou tablet, colher a assinatura e salvar",
+  "sustentabilidade.entrevistas.respostas":
+    "Entrevistas – ver respostas: abrir as respostas completas e o PDF assinado",
+  "sustentabilidade.entrevistas.dispensar":
+    "Entrevistas – dispensar ou corrigir: marcar dispensada (com motivo) e corrigir entrevista já salva",
+  "sustentabilidade.entrevistas.questionario":
+    "Entrevistas – editar questionário: perguntas, opções e seções, publicar e restaurar versão",
+  "sustentabilidade.clube.ver":
+    "Clube – ver: participantes do Clube SustentArp e situação do termo",
+  "sustentabilidade.clube.editar":
+    "Clube – editar: incluir participante, anexar termo, lançar contribuições e ações",
+  "sustentabilidade.valores":
+    "Ver valores: reais das contribuições do clube, do RCC e do tour (sem ela, só quantidades)",
+  "sustentabilidade.ronda":
+    "Resíduos – lançar ronda: ronda semanal dos coletores",
+  "sustentabilidade.rcc":
+    "Resíduos – RCC: lançar a nota mensal e ver toneladas e valor economizado",
+  "sustentabilidade.programas.gerenciar":
+    "Programas – gerenciar: criar, ativar e inativar programas, montar formulário, definir indicadores e gerar ou desligar o link do parceiro",
+  "sustentabilidade.painel":
+    "Painel de Sustentabilidade: cartões, gráficos e relatório mensal",
+  "sustentabilidade.importar":
+    "Importar histórico: enviar as planilhas antigas, ver a prévia e desfazer",
+  "sustentabilidade.contato":
+    "Ver contato: e-mail e telefone de locatários e parceiros",
+  "sustentabilidade.exportar":
+    "Exportar Excel e PDF nas telas de Sustentabilidade",
+  "sustentabilidade.parametros":
+    "Parâmetros de Sustentabilidade: prazos, fatores, limites e marco inicial, com histórico",
+  "sustentabilidade.formularios.excluir":
+    "Formulários específicos – excluir pergunta, campo, opção, seção ou formulário sem uso (sem ela, só inativar)",
 } as const;
 
 export type Permissao = keyof typeof PERMISSOES;
+
+/**
+ * "Programa – lançar" (Sustentabilidade): uma permissão por programa, com o
+ * código `sustentabilidade.programa.<id do programa>`. O banco cria e apaga
+ * junto com o programa (gatilho em sustentabilidade.programas), por isso ela
+ * não está no catálogo fixo acima; a descrição ("Programa – lançar: <nome>")
+ * fica em core.permissoes.
+ */
+export const PREFIXO_PERMISSAO_PROGRAMA = "sustentabilidade.programa.";
+export type PermissaoDePrograma =
+  `${typeof PREFIXO_PERMISSAO_PROGRAMA}${string}`;
+
+const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+
+export function ehPermissaoDePrograma(p: string): p is PermissaoDePrograma {
+  return (
+    p.startsWith(PREFIXO_PERMISSAO_PROGRAMA) &&
+    UUID.test(p.slice(PREFIXO_PERMISSAO_PROGRAMA.length))
+  );
+}
+
+export const permissaoDoPrograma = (programaId: string): PermissaoDePrograma =>
+  `${PREFIXO_PERMISSAO_PROGRAMA}${programaId}`;
+
+/** O programa de uma permissão "Programa – lançar" (null se não for uma). */
+export const programaDaPermissao = (p: string): string | null =>
+  ehPermissaoDePrograma(p) ? p.slice(PREFIXO_PERMISSAO_PROGRAMA.length) : null;
 
 /** Módulos na ordem em que aparecem nas telas de cargos e usuários. */
 export const MODULOS_DE_PERMISSAO = [
@@ -187,6 +249,7 @@ export const MODULOS_DE_PERMISSAO = [
   { prefixo: "marketing.", titulo: "Marketing" },
   { prefixo: "comercial.", titulo: "Comercial" },
   { prefixo: "operacoes.", titulo: "Operações" },
+  { prefixo: "sustentabilidade.", titulo: "Sustentabilidade" },
   { prefixo: "calendario.", titulo: "Calendário" },
   { prefixo: "formularios.", titulo: "Relatórios" },
 ] as const;

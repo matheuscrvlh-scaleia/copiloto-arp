@@ -8,5 +8,8 @@ import type { Usuario } from "@/server/auth";
  * a barra do topo recebem o mesmo objeto (o React o manda uma vez só).
  */
 export const secoesDo = cache((usuario: Usuario): NavSection[] =>
-  navigationFor((p) => usuario.permissoes.includes(p)),
+  navigationFor(
+    (p) => usuario.permissoes.includes(p),
+    usuario.programas.length > 0,
+  ),
 );

@@ -309,7 +309,9 @@ describe("estrutura e dados iniciais", () => {
        join os.modelo_itens i on i.modelo_id = m.id group by m.nome order by m.nome`,
     );
     expect(rows).toEqual([
-      { nome: "Entrada de cliente", itens: 6 },
+      // A entrevista com o cliente saiu: o Sustentabilidade cria o chamado
+      // dela (20261116120000_os_modulos_externos.sql).
+      { nome: "Entrada de cliente", itens: 5 },
       { nome: "Saída de cliente", itens: 3 },
     ]);
     expect(
@@ -1445,5 +1447,159 @@ describe("portal do lojista: link único e sessão pelo CNPJ", () => {
         /permission denied/,
       );
     });
+  });
+});
+
+describe("chamados de outros módulos (conclusão externa)", () => {
+  const EXTERNO = {
+    tipo: "tarefa",
+    origem: "modulo",
+    origem_modulo: "sustentabilidade",
+    origem_ref: "entrevista:1",
+    acao_url: "/sustentabilidade/entrevistas/1",
+    acao_rotulo: "a entrevista",
+    conclusao_externa: true,
+  } as const;
+
+  it("enum com 'modulo', colunas novas e o check do caminho interno", async () => {
+    const id = await chamado("M colunas", EXTERNO);
+    expect(await campo(id, "origem")).toBe("modulo");
+    expect(await campo(id, "origem_ref")).toBe("entrevista:1");
+    for (const url of ["//site.com", "https://site.com", "relativo", "/a b"])
+      expect(
+        await erro(
+          `insert into os.chamados (tipo, titulo, setor_id, acao_url) values ('tarefa', 'M url', '${SETOR.operacoes}', '${url}')`,
+        ),
+      ).toMatch(/check constraint/);
+    // Conclusão externa sem o Executar, e referência sem módulo.
+    expect(
+      await erro(
+        `insert into os.chamados (tipo, titulo, setor_id, conclusao_externa) values ('tarefa', 'M sem url', '${SETOR.operacoes}', true)`,
+      ),
+    ).toMatch(/conclusao_externa_tem_acao/);
+    expect(
+      await erro(
+        `insert into os.chamados (tipo, titulo, setor_id, origem_ref) values ('tarefa', 'M sem modulo', '${SETOR.operacoes}', 'x')`,
+      ),
+    ).toMatch(/origem_ref_tem_modulo/);
+    // A OS tem as mesmas colunas.
+    const os = await ordem("M ordem", { conclusao_externa: false });
+    expect(
+      await valor(`select conclusao_externa from os.ordens where id = '${os}'`),
+    ).toBe(false);
+  });
+
+  it("quem tem sessão não conclui nem fecha; o servidor conclui", async () => {
+    const id = await chamado("M concluir", EXTERNO);
+    for (const quem of [U.tecnico, U.gestor, U.solicitante])
+      await como(quem, async () => {
+        expect(await mudar(id, "status = 'concluido'")).toMatch(
+          /fecha sozinho ao salvar/,
+        );
+        expect(await mudar(id, "status = 'fechado'")).toMatch(
+          /fecha sozinho ao salvar/,
+        );
+      });
+    // Andar com o chamado continua livre.
+    await como(U.tecnico, async () => {
+      expect(
+        await mudar(
+          id,
+          `status = 'em_andamento', responsavel_id = '${U.tecnico}'`,
+        ),
+      ).toBeNull();
+    });
+    await comoServidor(async () => {
+      expect(await mudar(id, "status = 'concluido'")).toBeNull();
+    });
+    expect(await campo(id, "status")).toBe("concluido");
+    // Confirmar o que o módulo concluiu: quem pediu, pela regra de sempre.
+    await como(U.solicitante, async () => {
+      expect(await mudar(id, "status = 'fechado'")).toBeNull();
+    });
+    expect(await campo(id, "status")).toBe("fechado");
+  });
+
+  it("cancelar com motivo segue a regra de sempre", async () => {
+    const id = await chamado("M cancelar", EXTERNO);
+    await como(U.tecnico, async () => {
+      expect(
+        await mudar(id, "status = 'cancelado', motivo_cancelamento = 'x'"),
+      ).toMatch(/só quem pediu ou quem gerencia/);
+    });
+    await como(U.solicitante, async () => {
+      expect(
+        await mudar(
+          id,
+          "status = 'cancelado', motivo_cancelamento = 'Contrato rescindido'",
+        ),
+      ).toBeNull();
+    });
+    expect(await campo(id, "status")).toBe("cancelado");
+  });
+
+  it("a ligação com o módulo só o servidor muda", async () => {
+    const id = await chamado("M ligacao", EXTERNO);
+    await como(U.gestor, async () => {
+      expect(await mudar(id, "conclusao_externa = false")).toMatch(
+        /módulo de origem não muda/,
+      );
+      expect(await mudar(id, "acao_url = '/outra'")).toMatch(
+        /módulo de origem não muda/,
+      );
+    });
+    await comoServidor(async () => {
+      expect(await mudar(id, "origem_ref = 'entrevista:2'")).toBeNull();
+    });
+    // Chamado comum continua concluindo pela pessoa.
+    const comum = await chamado("M comum", { tipo: "tarefa" });
+    await como(U.tecnico, async () => {
+      expect(await mudar(comum, "status = 'concluido'")).toBeNull();
+    });
+  });
+
+  it("o último destino não conclui o chamado pela pessoa", async () => {
+    const id = await chamado("M destino", EXTERNO);
+    await inserir("os.destinatarios", {
+      chamado_id: id,
+      setor_id: SETOR.operacoes,
+    });
+    const concluir = `update os.destinatarios set status = 'concluido' where chamado_id = '${id}'`;
+    await como(U.tecnico, async () => {
+      expect(await erro(concluir)).toMatch(/fecha sozinho ao salvar/);
+    });
+    expect(await campo(id, "status")).toBe("aberto");
+    await comoServidor(async () => {
+      expect(await erro(concluir)).toBeNull();
+    });
+  });
+});
+
+describe("lojas: dados do contrato para o Sustentabilidade", () => {
+  it("tipo, ramo, ativação, rescisão, piso e rua (opcionais)", async () => {
+    const id = await inserir("os.lojas", {
+      luc: "S-01",
+      nome: "Loja com contrato",
+      tipo_loja: "Área Publicitária",
+      ramo: "Alimentação",
+      ativacao: "2026-03-10",
+      rescisao: "2027-03-09",
+      piso: "L1",
+      rua: "Rua das Flores",
+    });
+    const { rows } = await db.query(
+      `select tipo_loja, ramo, ativacao::text, rescisao::text, piso, rua from os.lojas where id = '${id}'`,
+    );
+    expect(rows[0]).toEqual({
+      tipo_loja: "Área Publicitária",
+      ramo: "Alimentação",
+      ativacao: "2026-03-10",
+      rescisao: "2027-03-09",
+      piso: "L1",
+      rua: "Rua das Flores",
+    });
+    expect(
+      await inserir("os.lojas", { luc: "S-02", nome: "Sem os novos" }),
+    ).not.toBe("");
   });
 });

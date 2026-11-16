@@ -11,6 +11,7 @@ de verdade das colunas; este documento explica o desenho.
 | 4 | `comercial` | **Escrito e testado no PGlite** (`20261104120000_comercial.sql`, `supabase/tests/comercial.test.ts`); falta aplicar no Supabase |
 | 5 | `formularios` | **Criado** (`20261106120000_formularios.sql`, aplicado em 06/11/2026; testes em `supabase/tests/formularios.test.ts`) |
 | 6 | `calendario` | **Criado** (`20261106170000_calendario.sql`, aplicado em 06/11/2026; testes em `supabase/tests/calendario.test.ts`) |
+| 7 | `sustentabilidade` | **Escrito e testado no PGlite** (`20261116130000_sustentabilidade.sql`, `_historico` e `_exemplo`; `supabase/tests/sustentabilidade.test.ts`); falta aplicar no Supabase e expor o schema na API |
 
 ## Decisões gerais
 
@@ -258,6 +259,12 @@ feriados e textos do laudo).
   o próprio); confirmar e reabrir só quem pediu ou o gestor; cancelar só quem
   pediu ou o gestor. A service role e as
   rotinas não passam por esta trava.
+- **Chamado de outro módulo** (`20261116120000_os_modulos_externos.sql`):
+  origem `modulo` com `origem_modulo`/`origem_ref`, botão Executar
+  (`acao_url`, caminho interno; `acao_rotulo`) e `conclusao_externa`: só a
+  service role conclui ou fecha (`src/server/os/sistema.ts`); a pessoa não
+  conclui o chamado nem o destino dele, nem muda essas colunas; cancelar e
+  confirmar seguem as regras acima. Mesmas colunas em `os.ordens`.
 - **Vários destinatários** (`os.sincronizar_destinos`): o chamado anda junto
   com os destinos e só conclui quando todos concluírem.
 - **Agenda** (`os.reservar_horario`): limite por dia, choque e bloqueio numa
@@ -436,6 +443,42 @@ dias de cada item) em `src/lib/calendario.ts`.
   `calendario.concluir(item, feito)`: quem criou, o responsável ou quem edita
   todos; só em tipo com conclusão e item que não se repete.
 - Histórico: `core.auditoria` de tipos e itens.
+
+## sustentabilidade — entrevistas, clube, resíduos e programas
+
+Migrations `20261116130000_sustentabilidade.sql` (schema),
+`20261116130100_sustentabilidade_historico.sql` (módulo no histórico) e
+`20261116130200_sustentabilidade_exemplo.sql` (dados fictícios). Contrato
+completo, com colunas e RLS por tabela: `docs/sustentabilidade.md`.
+
+- **Tarefa e prazo são do Chamados.** Aqui fica só o `chamado_id` (contrato,
+  entrevista, termo, ronda, nota do RCC).
+- `contratos`: cópia de leitura de `os.lojas` (só a sincronização grava), mais
+  o que é do módulo: ativação corrigida, validade específica e dispensa
+  (grant por coluna; quem e quando vêm de gatilho).
+- **Formulários** (`formularios`, `formulario_versoes`, `formulario_alteracoes`):
+  o rascunho (jsonb, `DefinicaoFormulario`) muda à vontade; a versão publicada
+  é imutável e só nasce por `publicar_formulario()`, que recusa tirar pergunta
+  ou opção com resposta ou lançamento em qualquer versão. Um questionário só;
+  os demais são de programa.
+- `entrevistas`: respostas em jsonb (`{pergunta_id: valor}`), na versão em que
+  foram respondidas. Quem só tem "ver" usa `entrevistas_resumo()` (sem as
+  respostas).
+- Clube: `participantes` (por CPF/CNPJ), `termos`, `contribuicoes`, `acoes`.
+- Resíduos: `coletores`, `rondas` + `ronda_itens` (não visitado = sem linha),
+  `rcc_notas`, `rcc_fatores` (vigência).
+- Programas: `programas`, `programa_indicadores`, `programa_links` (token só em
+  sha256), `lancamentos`, `cadastros_lista`. Cada programa cria por gatilho a
+  permissão `sustentabilidade.programa.<id>` ("Programa – lançar").
+- **Dinheiro e contato sempre em tabela à parte**, porque o RLS libera linhas e
+  não colunas: `*_valores` e `rcc_precos` (`sustentabilidade.valores`),
+  `*_contatos` (`sustentabilidade.contato`).
+- Painel: `marcos` (marco inicial por ano), `equivalencias`, `consolidados`
+  (ano fechado) e metas em `core.metas` (`sustentabilidade.*`).
+- `importacoes`: prévia → confirmada → desfeita ou substituída
+  (`confirmar_importacao`, `desfazer_importacao`).
+- Histórico: `core.auditoria` nas tabelas editáveis; `remover_exemplos()` apaga
+  o que é de exemplo.
 
 ## Fase 2: financeiro (proposta, não criada)
 
