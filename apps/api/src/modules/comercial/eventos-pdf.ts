@@ -1,7 +1,9 @@
-import { PDFDocument, type PDFFont, type PDFPage } from "pdf-lib";
+import type { Parametros } from "@arp/shared/comercial/contratos/base";
+import type { PropostaEvento } from "@arp/shared/comercial/contratos/eventos";
 import { reaisPorExtenso } from "@arp/shared/comercial/extenso";
 import { formatarArea, formatarValor } from "@arp/shared/comercial/formato";
 import { formatarData } from "@arp/shared/formato";
+import { PDFDocument, type PDFFont, type PDFPage } from "pdf-lib";
 import {
   CINZA,
   CINZA_ESCURO,
@@ -15,8 +17,6 @@ import {
   x,
   y,
 } from "@/infra/pdf/papel-timbrado";
-import type { Parametros } from "@arp/shared/comercial/contratos/base";
-import type { PropostaEvento } from "@arp/shared/comercial/contratos/eventos";
 
 // Proposta de evento em PDF (spec 4.15), no papel timbrado da ARP, com os
 // mesmos campos da proposta de hoje: cliente, data e horário, área, período

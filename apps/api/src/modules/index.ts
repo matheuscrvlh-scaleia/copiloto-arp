@@ -6,7 +6,12 @@ import { auth } from "./auth";
 import { calendario } from "./calendario";
 import { cameras } from "./cameras";
 import { casca } from "./casca";
-import { comercial } from "./comercial";
+import {
+  censoPublico,
+  comercial,
+  fichaPublica,
+  rotinasDoComercial,
+} from "./comercial";
 import { gestao } from "./gestao";
 import {
   marketing,
@@ -15,6 +20,7 @@ import {
 } from "./marketing";
 import { operacoes } from "./operacoes";
 import { os } from "./os";
+import { rotinasDeOs } from "./os/jobs";
 import { relatorios } from "./relatorios";
 import { rh } from "./rh";
 import { rotinasDeSync } from "./sync/jobs";
@@ -36,6 +42,8 @@ export const MODULOS: readonly {
   { prefixo: "/calendario", plugin: calendario },
   { prefixo: "/marketing", plugin: marketing },
   { prefixo: "/comercial", plugin: comercial },
+  { prefixo: "/ficha", plugin: fichaPublica },
+  { prefixo: "/censo", plugin: censoPublico },
   { prefixo: "/relatorios", plugin: relatorios },
   { prefixo: "/rh", plugin: rh },
   { prefixo: "/operacoes", plugin: operacoes },
@@ -58,4 +66,6 @@ export const EXTERNOS: readonly {
 export const ROTINAS: readonly Rotina[] = [
   ...rotinasDeSync,
   ...rotinasDoMarketing,
+  ...rotinasDoComercial,
+  ...rotinasDeOs,
 ];

@@ -15,9 +15,7 @@ export function tela(request: FastifyRequest): Promise<RespostaPesquisa> {
   return service.tela(contextoDe(request));
 }
 
-export function apoio(
-  request: FastifyRequest,
-): Promise<RespostaApoioPesquisa> {
+export function apoio(request: FastifyRequest): Promise<RespostaApoioPesquisa> {
   return service.apoio(contextoDe(request));
 }
 

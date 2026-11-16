@@ -3,7 +3,11 @@ import type {
   Beneficio,
   RespostaBeneficios,
 } from "@arp/shared/rh/contratos/beneficios";
-import { DIVISOES_RATEIO, parteDoRateio, vigenteEm } from "@arp/shared/rh/custo";
+import {
+  DIVISOES_RATEIO,
+  parteDoRateio,
+  vigenteEm,
+} from "@arp/shared/rh/custo";
 import { titularRecebe, valeNoMes } from "@arp/shared/rh/dependentes";
 import { ROTULO_CONTRATO } from "@arp/shared/rh/rubricas";
 import { useSuspenseQuery } from "@tanstack/react-query";

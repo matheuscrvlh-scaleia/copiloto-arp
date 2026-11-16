@@ -1,5 +1,5 @@
-import { PDFDocument, type PDFPage, rgb } from "pdf-lib";
 import type { BlocoDaFicha } from "@arp/shared/comercial/ficha";
+import { PDFDocument, type PDFPage, rgb } from "pdf-lib";
 import {
   A4,
   CINZA,

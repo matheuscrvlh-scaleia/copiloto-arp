@@ -1,4 +1,8 @@
-import { formatarMes, formatarMoeda, formatarNumero } from "@arp/shared/formato";
+import {
+  formatarMes,
+  formatarMoeda,
+  formatarNumero,
+} from "@arp/shared/formato";
 import type { PreviaDoPlano } from "@arp/shared/rh/contratos/importacoes";
 import { faixaTexto } from "@arp/shared/rh/plano";
 import { useActionState, useEffect, useState } from "react";

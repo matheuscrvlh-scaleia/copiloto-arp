@@ -1,6 +1,10 @@
 import type { Direcao, Meta } from "../indicadores";
 import { minutosEmAguardando, tempoDeResolucaoMin } from "./prazo";
 import type { Origem, StatusChamado } from "./rotulos";
+
+/** A origem como vem do banco (o enum também tem "modulo"). */
+type OrigemNoBanco = Origem | "modulo";
+
 import {
   deBrasilia,
   diaDaSemana,
@@ -297,7 +301,7 @@ export function media(valores: number[]): number | null {
 // ---------------------------------------------------------------------------
 
 type ParaResolucao = {
-  origem: Origem;
+  origem: OrigemNoBanco;
   criado_em: string;
   concluido_em: string | null;
   aguardando_min: number;
@@ -360,7 +364,7 @@ export function confirmacaoParada<
 
 type ParaResposta = {
   id: string;
-  origem: Origem;
+  origem: OrigemNoBanco;
   status: StatusChamado;
   categoria_id: string | null;
   criado_em: string;
@@ -514,7 +518,7 @@ export const SEM_SETOR = "sem_setor";
  * destino conta como interno (null).
  */
 export function setorDeOrigem(
-  c: { origem: Origem; aberto_por: string | null },
+  c: { origem: OrigemNoBanco; aberto_por: string | null },
   destino: string,
   setoresDaPessoa: Map<string, string[]>,
 ): string | null {
@@ -538,7 +542,7 @@ export function matrizEntreSetores<
   T extends {
     id: string;
     setor_id: string;
-    origem: Origem;
+    origem: OrigemNoBanco;
     aberto_por: string | null;
   },
 >(

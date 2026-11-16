@@ -73,9 +73,7 @@ export const respostaIndicadoresCenso = z.object({
   /** Convites só para quem aplica o Censo (os outros veem 0). */
   contagem: z.array(contagemDaRodada),
 });
-export type RespostaIndicadoresCenso = z.infer<
-  typeof respostaIndicadoresCenso
->;
+export type RespostaIndicadoresCenso = z.infer<typeof respostaIndicadoresCenso>;
 
 export const respostaCensoLida = z.object({
   id: z.string(),

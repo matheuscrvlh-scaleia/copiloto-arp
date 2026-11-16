@@ -86,6 +86,90 @@ export const comercial: Modulo = {
       titulo: "Contrato",
       pagina: () => import("./paginas/contrato"),
     },
+    // app/(app)/comercial/censo/page.tsx
+    {
+      caminho: "comercial/censo",
+      titulo: "Censo",
+      pagina: () => import("./paginas/censo/censo"),
+    },
+    // app/(app)/comercial/censo/demonstracao/page.tsx
+    {
+      caminho: "comercial/censo/demonstracao",
+      titulo: "Questionário do Censo (demonstração)",
+      pagina: () => import("./paginas/censo/demonstracao"),
+    },
+    // app/(app)/comercial/censo/presencial/[convite]/page.tsx
+    {
+      caminho: "comercial/censo/presencial/:convite",
+      titulo: "Lançar resposta do Censo",
+      pagina: () => import("./paginas/censo/presencial"),
+    },
+    // app/(app)/comercial/fichas/page.tsx
+    {
+      caminho: "comercial/fichas",
+      titulo: "Fichas cadastrais",
+      pagina: () => import("./paginas/fichas/fichas"),
+    },
+    // app/(app)/comercial/fichas/demonstracao/page.tsx
+    {
+      caminho: "comercial/fichas/demonstracao",
+      titulo: "Ficha cadastral (demonstração)",
+      pagina: () => import("./paginas/fichas/demonstracao"),
+    },
+    // app/(app)/comercial/fichas/[id]/page.tsx
+    {
+      caminho: "comercial/fichas/:id",
+      titulo: "Ficha cadastral",
+      pagina: () => import("./paginas/fichas/ficha"),
+    },
+    // app/(app)/comercial/kit/page.tsx
+    {
+      caminho: "comercial/kit",
+      titulo: "Kit de entrega",
+      pagina: () => import("./paginas/kit/kit"),
+    },
+    // app/(app)/comercial/kit/[id]/page.tsx
+    {
+      caminho: "comercial/kit/:id",
+      titulo: "Documento do kit",
+      pagina: () => import("./paginas/kit/documento"),
+    },
+    // app/(app)/comercial/eventos/page.tsx
+    {
+      caminho: "comercial/eventos",
+      titulo: "Eventos",
+      pagina: () => import("./paginas/eventos/eventos"),
+    },
+    // app/(app)/comercial/eventos/proposta/nova/page.tsx
+    {
+      caminho: "comercial/eventos/proposta/nova",
+      titulo: "Nova proposta de evento",
+      pagina: () => import("./paginas/eventos/nova"),
+    },
+    // app/(app)/comercial/eventos/proposta/[id]/page.tsx
+    {
+      caminho: "comercial/eventos/proposta/:id",
+      titulo: "Proposta de evento",
+      pagina: () => import("./paginas/eventos/proposta"),
+    },
+    // app/(app)/comercial/pesquisa/page.tsx
+    {
+      caminho: "comercial/pesquisa",
+      titulo: "Pesquisa de mercado",
+      pagina: () => import("./paginas/pesquisa/pesquisa"),
+    },
+    // app/(app)/comercial/pesquisa/novo/page.tsx
+    {
+      caminho: "comercial/pesquisa/novo",
+      titulo: "Cadastrar imóvel pesquisado",
+      pagina: () => import("./paginas/pesquisa/novo"),
+    },
+    // app/(app)/comercial/pesquisa/[id]/page.tsx
+    {
+      caminho: "comercial/pesquisa/:id",
+      titulo: "Imóvel pesquisado",
+      pagina: () => import("./paginas/pesquisa/imovel"),
+    },
     // app/(app)/comercial/configuracoes/layout.tsx
     {
       caminho: "comercial/configuracoes",
@@ -121,6 +205,20 @@ export const comercial: Modulo = {
           pagina: () => import("./paginas/configuracoes/historico"),
         },
       ],
+    },
+  ],
+  publicas: [
+    // app/ficha/[token]/page.tsx (e o layout dela)
+    {
+      caminho: "ficha/:token",
+      titulo: "Ficha cadastral",
+      pagina: () => import("./paginas/publicas/ficha"),
+    },
+    // app/censo/[token]/page.tsx (e o layout dela)
+    {
+      caminho: "censo/:token",
+      titulo: "Censo ARP",
+      pagina: () => import("./paginas/publicas/censo"),
     },
   ],
 };

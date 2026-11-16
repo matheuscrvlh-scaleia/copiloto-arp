@@ -1,29 +1,23 @@
 import type { TabelaDetalhe } from "@arp/shared/detalhe";
 import {
-  type ConsultaDoPeriodo,
-  type PedidoDoQuadro,
-  respostaTabelas,
-} from "@arp/shared/rh/contratos/comum";
-import {
-  respostaFuncionarios,
-  respostaPerfil,
-} from "@arp/shared/rh/contratos/funcionarios";
-import {
-  respostaFechamento,
-  respostaJornada,
-  respostaPainel,
-  respostaQuadro,
-} from "@arp/shared/rh/contratos/telas";
-import {
   respostaBeneficioCriado,
   respostaBeneficios,
 } from "@arp/shared/rh/contratos/beneficios";
 import { respostaCadastros } from "@arp/shared/rh/contratos/cadastros";
 import {
+  type ConsultaDoPeriodo,
+  type PedidoDoQuadro,
+  respostaTabelas,
+} from "@arp/shared/rh/contratos/comum";
+import {
   type ConsultaDoCusto,
   respostaComparacao,
   respostaCustoDePessoal,
 } from "@arp/shared/rh/contratos/custo";
+import {
+  respostaFuncionarios,
+  respostaPerfil,
+} from "@arp/shared/rh/contratos/funcionarios";
 import {
   type PreviaDaFolha,
   type PreviaDoPlano,
@@ -38,6 +32,12 @@ import {
   respostaOrcamento,
 } from "@arp/shared/rh/contratos/orcamento";
 import { respostaParametros } from "@arp/shared/rh/contratos/parametros";
+import {
+  respostaFechamento,
+  respostaJornada,
+  respostaPainel,
+  respostaQuadro,
+} from "@arp/shared/rh/contratos/telas";
 import { queryOptions } from "@tanstack/react-query";
 import type { Acao } from "@/components/form-acao";
 import { acaoDaApi, formParaObjeto } from "@/lib/acao";

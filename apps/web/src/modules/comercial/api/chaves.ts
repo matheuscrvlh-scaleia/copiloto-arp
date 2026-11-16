@@ -40,4 +40,33 @@ export const chavesCom = {
     ["comercial", "configuracoes", "historico", grupo, limite] as const,
   importacoes: ["comercial", "importacoes"] as const,
   tiposImportacao: () => ["comercial", "importacoes", "tipos"] as const,
+  // Parte B
+  censo: ["comercial", "censo"] as const,
+  telaCenso: () => ["comercial", "censo", "tela"] as const,
+  indicadoresCenso: () => ["comercial", "censo", "indicadores"] as const,
+  feedbacksCenso: (rodada: string, origem: string) =>
+    ["comercial", "censo", "feedbacks", rodada, origem] as const,
+  rodadasCenso: () => ["comercial", "censo", "rodadas"] as const,
+  rodadaCenso: (id: string) => ["comercial", "censo", "rodadas", id] as const,
+  questionarioCenso: () => ["comercial", "censo", "questionario"] as const,
+  presencialCenso: (convite: string) =>
+    ["comercial", "censo", "presencial", convite] as const,
+  fichas: ["comercial", "fichas"] as const,
+  listaFichas: (desde: string, tipo: string) =>
+    ["comercial", "fichas", "lista", desde, tipo] as const,
+  demonstracaoFicha: () => ["comercial", "fichas", "demonstracao"] as const,
+  ficha: (id: string) => ["comercial", "fichas", "uma", id] as const,
+  kit: ["comercial", "kit"] as const,
+  telaKit: () => ["comercial", "kit", "tela"] as const,
+  documentoKit: (id: string) => ["comercial", "kit", "documento", id] as const,
+  eventos: ["comercial", "eventos"] as const,
+  telaEventos: () => ["comercial", "eventos", "tela"] as const,
+  apoioEventos: () => ["comercial", "eventos", "apoio"] as const,
+  feriadosEventos: (anos: string) =>
+    ["comercial", "eventos", "feriados", anos] as const,
+  proposta: (id: string) => ["comercial", "eventos", "proposta", id] as const,
+  pesquisa: ["comercial", "pesquisa"] as const,
+  telaPesquisa: () => ["comercial", "pesquisa", "tela"] as const,
+  apoioPesquisa: () => ["comercial", "pesquisa", "apoio"] as const,
+  imovel: (id: string) => ["comercial", "pesquisa", "imovel", id] as const,
 } satisfies Record<string, QueryKey | ((...a: never[]) => QueryKey)>;

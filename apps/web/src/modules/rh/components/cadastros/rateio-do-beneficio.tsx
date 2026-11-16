@@ -1,4 +1,8 @@
-import { formatarMes, formatarMoeda, formatarNumero } from "@arp/shared/formato";
+import {
+  formatarMes,
+  formatarMoeda,
+  formatarNumero,
+} from "@arp/shared/formato";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { salvarTotalDoMes } from "../../api";

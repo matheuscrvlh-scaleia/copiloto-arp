@@ -91,8 +91,7 @@ function Detalhe() {
       { id: "configuracoes", rotulo: "Configurações" },
     ];
   const pedida = busca.get("aba") ?? "";
-  const aba: Aba =
-    abas.find((a) => a.id === pedida)?.id ?? "colaboradores";
+  const aba: Aba = abas.find((a) => a.id === pedida)?.id ?? "colaboradores";
 
   const lancadosNoMes = info.recebemNoMes - info.semValorNoMes;
   const resumo: { rotulo: string; valor: string; detalhe?: string }[] =

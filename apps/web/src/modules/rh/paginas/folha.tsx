@@ -42,9 +42,7 @@ function Folha() {
 
 /** Id inválido ou folha que não existe: a API responde 404 (tela de não encontrada). */
 function Editor() {
-  const { data: dados } = useSuspenseQuery(
-    consultaDaFolha(useParametro("id")),
-  );
+  const { data: dados } = useSuspenseQuery(consultaDaFolha(useParametro("id")));
   const { folha: f } = dados;
   const editavel = f.status !== "fechada";
 

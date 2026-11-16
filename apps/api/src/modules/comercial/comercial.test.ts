@@ -288,11 +288,12 @@ descreverComBanco("comercial (/api/v1/comercial)", () => {
     expect(outro.statusCode).toBe(404);
   });
 
-  it("importação: tipo sem leitor ainda responde em preparação", async () => {
+  it("importação: confirmar sem prévia responde que não encontrou", async () => {
+    // Censo, Fichas e Pesquisa já têm leitor (parte B).
     const r = await admin.pedir("POST", `${COM}/importacoes/censo/confirmar`, {
       importacao_id: "00000000-0000-4000-8000-000000000000",
     });
     expect(r.statusCode).toBe(422);
-    expect(r.json().erro.mensagem).toMatch(/em preparação/);
+    expect(r.json().erro.mensagem).toMatch(/Importação não encontrada/);
   });
 });

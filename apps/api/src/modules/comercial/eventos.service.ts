@@ -277,7 +277,9 @@ async function montar(ctx: Contexto, form: Formulario) {
     pessoas: v.pessoas,
   });
   if (!s)
-    throw new ErroDeNegocio("Sem faixa de preço para esta área nos parâmetros.");
+    throw new ErroDeNegocio(
+      "Sem faixa de preço para esta área nos parâmetros.",
+    );
   const valores = valoresDaProposta(s, v.desconto_primeira_edicao);
 
   let fechamento: string | null = null;

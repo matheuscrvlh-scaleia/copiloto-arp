@@ -1071,8 +1071,8 @@ export function valorDaCelula(v: unknown): ValorCelula {
 export async function abasDoExcel(bytes: Uint8Array): Promise<AbaDoRateio[]> {
   const { default: ExcelJS } = await import("exceljs");
   const livro = new ExcelJS.Workbook();
-  // atalho: exceljs tipa o load com o Buffer antigo do Node.
-  await livro.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+  // Cópia própria: o exceljs lê um ArrayBuffer (sem o Buffer do Node).
+  await livro.xlsx.load(bytes.slice().buffer);
   return livro.worksheets.map((ws) => ({
     nome: ws.name,
     celula: (endereco: string) => valorDaCelula(ws.getCell(endereco).value),

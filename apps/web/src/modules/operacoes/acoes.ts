@@ -47,9 +47,10 @@ const AGUA = [chavesOp.agua(), chavesOp.painel(), chavesOp.importacoes()];
 const ENERGIA = [chavesOp.energia(), chavesOp.painel()];
 const CONTAS = [chavesOp.contas(), chavesOp.painel(), chavesOp.importacoes()];
 
-const texto = (form: FormData, campo: string) => String(form.get(campo) ?? "");
+export const texto = (form: FormData, campo: string) =>
+  String(form.get(campo) ?? "");
 
-async function invalidar(chaves: readonly (readonly string[])[]) {
+export async function invalidar(chaves: readonly (readonly string[])[]) {
   await Promise.all(
     chaves.map((queryKey) =>
       clienteDeConsultas.invalidateQueries({ queryKey }).catch(() => {}),
@@ -58,7 +59,7 @@ async function invalidar(chaves: readonly (readonly string[])[]) {
 }
 
 /** Chama a API e traduz em `{ ok }` / `{ erro }` (o EstadoAcao de antes). */
-async function executar(
+export async function executar(
   fazer: () => Promise<unknown>,
   invalida: readonly (readonly string[])[],
   ok?: string,

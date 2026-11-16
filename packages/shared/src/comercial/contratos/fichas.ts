@@ -4,7 +4,7 @@ import { momento } from "./base";
 
 // Fichas cadastrais (spec 4.12): a tela interna e a ficha pelo link.
 //
-//   GET    /api/v1/comercial/fichas?dias=&tipo=            → RespostaFichas
+//   GET    /api/v1/comercial/fichas?desde=&tipo=           → RespostaFichas
 //   GET    /api/v1/comercial/fichas/demonstracao           → RespostaDemonstracaoFicha
 //   GET    /api/v1/comercial/fichas/:id                    → RespostaDetalheFicha
 //   GET    /api/v1/comercial/fichas/:id/pdf                → PDF
@@ -55,10 +55,15 @@ export const fichaDaLista = z.object({
 });
 export type FichaDaLista = z.infer<typeof fichaDaLista>;
 
+/** Geradas desde `desde` (aaaa-mm-dd; sem ele, todas) e do tipo. */
 export const consultaFichas = z.object({
-  dias: z.string().max(10).optional(),
-  tipo: z.string().max(10).optional(),
+  desde: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  tipo: z.enum(TIPOS_FICHA).optional(),
 });
+export type ConsultaFichas = z.infer<typeof consultaFichas>;
 
 export const respostaFichas = momento.extend({
   fichas: z.array(fichaDaLista),
@@ -121,7 +126,9 @@ export const detalheDaFicha = z.object({
       gerada_em: z.string(),
     }),
   ),
-  principal: z.object({ id: z.string(), nome: z.string().nullable() }).nullable(),
+  principal: z
+    .object({ id: z.string(), nome: z.string().nullable() })
+    .nullable(),
   fiadores: z.array(
     z.object({
       id: z.string(),

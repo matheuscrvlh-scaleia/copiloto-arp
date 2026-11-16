@@ -5,12 +5,19 @@ import type {
   RespostaImovel,
   RespostaPesquisa,
 } from "@arp/shared/comercial/contratos/pesquisa";
+import type { Aba } from "@arp/shared/comercial/importacao";
 import { valorM2DoPainel } from "@arp/shared/comercial/pesquisa";
+import {
+  chaveDoImovel,
+  type ImovelImportado,
+  lerPesquisa,
+} from "@arp/shared/comercial/pesquisa-importacao";
 import { lerValorBr } from "@arp/shared/formato";
 import { z } from "zod";
 import type { Contexto } from "@/contexto";
 import { ErroDeNegocio, ErroDePermissao, ErroNaoEncontrado } from "@/erros";
 import { banco } from "@/infra/banco";
+import { codigoDoBanco } from "@/infra/banco/erros";
 import {
   contextoCom,
   listas,
@@ -19,6 +26,7 @@ import {
   valoresDaLista,
 } from "./base";
 import { dadosEnet } from "./fontes";
+import { ErroImportacao, importador } from "./importacoes.service";
 import * as repo from "./pesquisa.repository";
 import { primeiroErro, traduzir } from "./traduzir";
 
@@ -221,3 +229,59 @@ export async function corrigir(
   }
   if (!mudou.length) throw new ErroDePermissao(SEM_PERMISSAO);
 }
+
+// ---------------------------------------------------------------------------
+// Importação da aba Base de Dados (Configurações › Importações)
+// ---------------------------------------------------------------------------
+
+/** Lê o arquivo com as listas dos parâmetros e o que já está na pesquisa. */
+async function lerPesquisaDoArquivo(ctx: Contexto, abas: Aba[]) {
+  const [todas, existentes] = await Promise.all([
+    listas(ctx),
+    banco.comoUsuario(ctx.usuario.id, repo.existentes),
+  ]);
+  const manuais = new Set<string>();
+  const importados = new Set<string>();
+  for (const i of existentes)
+    (i.importacao_id ? importados : manuais).add(
+      chaveDoImovel({
+        ...i,
+        area_m2: Number(i.area_m2),
+        aluguel: Number(i.aluguel),
+      }),
+    );
+  return lerPesquisa(
+    abas,
+    {
+      bairros: valoresDaLista(todas, "pesquisa_bairro"),
+      tipos: valoresDaLista(todas, "pesquisa_tipo"),
+    },
+    { manuais, importados },
+  );
+}
+
+export const importadorPesquisa = importador<ImovelImportado | null>(
+  (ctx, abas) => lerPesquisaDoArquivo(ctx, abas),
+  async (linhas, g) => {
+    const imoveis = linhas
+      .map((l) => l.dados)
+      .filter((d): d is ImovelImportado => d !== null);
+    if (!imoveis.length)
+      throw new ErroImportacao("Nenhum imóvel novo para importar.");
+    try {
+      const gravados = await repo.incluirVarios(
+        g.tx,
+        imoveis.map((i) => ({
+          ...i,
+          criado_por: g.usuarioId,
+          importacao_id: g.importacaoId,
+        })),
+      );
+      return gravados.length;
+    } catch (e) {
+      if (e instanceof ErroDePermissao || codigoDoBanco(e) === "42501")
+        throw new ErroImportacao(SEM_PERMISSAO);
+      throw e;
+    }
+  },
+);

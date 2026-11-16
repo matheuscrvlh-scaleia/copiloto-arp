@@ -1,11 +1,3 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { Suspense } from "react";
-import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
-import { Nota, Secao, Tabela } from "@/components/dashboard/tabela";
-import { classeCampo } from "@/components/estilos";
-import { FormAcao } from "@/components/form-acao";
-import { Protegido } from "@/components/protegido";
-import { Selecao } from "@/components/selecao";
 import {
   competenciaDe,
   formatarDataHora,
@@ -19,6 +11,14 @@ import {
   metaVigente,
 } from "@arp/shared/indicadores";
 import type { NivelJornada } from "@arp/shared/rh/contratos/parametros";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { Suspense } from "react";
+import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
+import { Nota, Secao, Tabela } from "@/components/dashboard/tabela";
+import { classeCampo } from "@/components/estilos";
+import { FormAcao } from "@/components/form-acao";
+import { Protegido } from "@/components/protegido";
+import { Selecao } from "@/components/selecao";
 import {
   consultaDosParametros,
   removerJornada,

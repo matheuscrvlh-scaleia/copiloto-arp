@@ -9,12 +9,15 @@ import type { Contexto } from "@/contexto";
 import { ErroDePermissao } from "@/erros";
 import { banco } from "@/infra/banco";
 import { listas } from "./base";
+import { importadorCenso } from "./censo.service";
+import { importadorFichas } from "./fichas.service";
 import * as repo from "./importacoes.repository";
 import {
   ErroImportacao,
   type Importador,
   importador,
 } from "./importacoes.service";
+import { importadorPesquisa } from "./pesquisa.service";
 
 // Leitor e gravação de cada tipo de importação. Feedbacks antigos (aba
 // Feedbacks → registros de contato de um tipo marcado como feedback) é deste
@@ -71,4 +74,7 @@ const feedbacks = importador<FeedbackLido>(
 
 export const IMPORTADORES: Partial<Record<TipoImportacao, Importador>> = {
   contatos: feedbacks,
+  censo: importadorCenso,
+  fichas: importadorFichas,
+  pesquisa: importadorPesquisa,
 };

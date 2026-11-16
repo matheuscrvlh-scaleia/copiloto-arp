@@ -1,15 +1,3 @@
-import { Suspense } from "react";
-import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
-import {
-  BarrasHorizontais,
-  Colunas,
-  Linhas,
-} from "@/components/dashboard/graficos";
-import {
-  CartaoIndicador,
-  CartaoPendente,
-} from "@/components/dashboard/indicador";
-import { Secao } from "@/components/dashboard/tabela";
 import {
   formatarData,
   formatarDataHora,
@@ -23,6 +11,18 @@ import {
   porCategoria,
   soma,
 } from "@arp/shared/rh/orcamento";
+import { Suspense } from "react";
+import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
+import {
+  BarrasHorizontais,
+  Colunas,
+  Linhas,
+} from "@/components/dashboard/graficos";
+import {
+  CartaoIndicador,
+  CartaoPendente,
+} from "@/components/dashboard/indicador";
+import { Secao } from "@/components/dashboard/tabela";
 import { AbasDoOrcamento, FiltrosDoOrcamento } from "../components/orcamento";
 import { useTelaDoOrcamento } from "../orcamento-dados";
 
@@ -38,7 +38,6 @@ export default function Page() {
 function Tela() {
   const t = useTelaDoOrcamento();
   const {
-    lanca,
     hoje,
     anoAtual,
     anos,

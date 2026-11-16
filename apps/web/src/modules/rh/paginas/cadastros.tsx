@@ -1,3 +1,9 @@
+import { competenciaDe, formatarMes, formatarMoeda } from "@arp/shared/formato";
+import {
+  GRUPOS_CLASSIFICAVEIS,
+  GRUPOS_RUBRICA,
+  type GrupoRubrica,
+} from "@arp/shared/rh/rubricas";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
@@ -6,12 +12,6 @@ import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import { SemAcesso } from "@/components/protegido";
 import { Selecao } from "@/components/selecao";
-import { competenciaDe, formatarMes, formatarMoeda } from "@arp/shared/formato";
-import {
-  GRUPOS_CLASSIFICAVEIS,
-  GRUPOS_RUBRICA,
-  type GrupoRubrica,
-} from "@arp/shared/rh/rubricas";
 import { usePermissao } from "@/lib/sessao";
 import {
   consultaDosCadastros,
@@ -161,9 +161,8 @@ function Financeiro() {
 
 /** Departamentos e rubricas (vieram de Parâmetros). */
 function Estrutura() {
-  const { departamentos, rubricas } = useSuspenseQuery(
-    consultaDosCadastros,
-  ).data;
+  const { departamentos, rubricas } =
+    useSuspenseQuery(consultaDosCadastros).data;
   const dados = { departamentos, rubricas };
   return (
     <>

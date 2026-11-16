@@ -1,16 +1,20 @@
 import {
+  type IndicadoresCenso,
+  type LinhaGrupo,
+  VAZIO,
+} from "@arp/shared/comercial/censo";
+import {
+  formatarMoeda,
+  formatarNumero,
+  formatarPct,
+} from "@arp/shared/formato";
+import {
   PDFDocument,
   type PDFFont,
   type PDFPage,
   rgb,
   StandardFonts,
 } from "pdf-lib";
-import {
-  type IndicadoresCenso,
-  type LinhaGrupo,
-  VAZIO,
-} from "@arp/shared/comercial/censo";
-import { formatarMoeda, formatarNumero, formatarPct } from "@arp/shared/formato";
 import { LOGO_PNG_BASE64 } from "@/infra/pdf/logo";
 import { A4, cor, MM, seguro } from "@/infra/pdf/papel-timbrado";
 

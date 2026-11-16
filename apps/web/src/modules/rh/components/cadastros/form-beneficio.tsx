@@ -31,7 +31,9 @@ export function FormBeneficio({
       acao={
         b
           ? salvarBeneficio
-          : criarBeneficio((id) => navegar.push(`${rotaDoBeneficio(id)}?criado=1`))
+          : criarBeneficio((id) =>
+              navegar.push(`${rotaDoBeneficio(id)}?criado=1`),
+            )
       }
       rotulo={b ? "Salvar benefício" : "Cadastrar e abrir"}
       className="flex flex-col gap-6"
