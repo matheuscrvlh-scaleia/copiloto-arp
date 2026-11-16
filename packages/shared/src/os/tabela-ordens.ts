@@ -1,0 +1,88 @@
+import { formatarDataHora } from "../formato";
+import type { CelulaExportar, ColunaExportar } from "./exportar";
+import type {
+  Execucao,
+  MotivoAguardando,
+  StatusChamado,
+} from "./rotulos";
+import { STATUS } from "./rotulos";
+
+// Linha da lista de OS como a tela e o arquivo exportado mostram. Fica fora
+// da lista (componente do navegador) porque a exportação monta as mesmas
+// colunas no servidor, com o filtro inteiro.
+
+export interface LinhaOSTela {
+  id: string;
+  numero: number;
+  titulo: string;
+  status: StatusChamado;
+  aguardando: MotivoAguardando | null;
+  execucao: Execucao | null;
+  tipoServico: string;
+  local: string;
+  /** Setor e responsável ("Na fila" sem responsável). */
+  setor: string;
+  responsavel: string;
+  /** Prazo (ISO) e se já passou com a OS em aberto. */
+  prazo: string | null;
+  atrasada: boolean;
+  tecnicos: string;
+  periodos: string;
+  minutos: number;
+  duracao: string;
+  minutoHomem: number;
+  hh: string;
+  rodando: boolean;
+  rateio: boolean;
+  /** null: quem vê não tem os.custos. */
+  valor: number | null;
+  valorRateio: number | null;
+  /** A mesma tela com ?c=<id> (janela lateral). */
+  href: string;
+}
+
+export function colunasDeOS(comCustos: boolean): ColunaExportar[] {
+  return [
+    { titulo: "Nº", numero: true },
+    { titulo: "Título" },
+    { titulo: "Tipo" },
+    { titulo: "Status" },
+    { titulo: "Setor" },
+    { titulo: "Responsável" },
+    { titulo: "Prazo" },
+    { titulo: "Local" },
+    { titulo: "Técnicos" },
+    { titulo: "Períodos" },
+    { titulo: "Duração" },
+    { titulo: "H.H." },
+    { titulo: "Rateio" },
+    ...(comCustos
+      ? [
+          { titulo: "Valor", numero: true, formato: "#,##0.00" },
+          { titulo: "Valor com rateio", numero: true, formato: "#,##0.00" },
+        ]
+      : []),
+  ];
+}
+
+export function linhaDeOS(
+  l: LinhaOSTela,
+  comCustos: boolean,
+): CelulaExportar[] {
+  return [
+    l.numero,
+    l.titulo,
+    l.tipoServico,
+    STATUS[l.status],
+    l.setor,
+    l.responsavel,
+    l.prazo ? formatarDataHora(l.prazo) : "",
+    l.local,
+    l.tecnicos,
+    l.periodos,
+    l.duracao,
+    l.hh,
+    l.rateio ? "Sim" : "Não",
+    ...(comCustos ? [l.valor, l.valorRateio] : []),
+  ];
+}

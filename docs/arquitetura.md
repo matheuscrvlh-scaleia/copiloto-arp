@@ -1,165 +1,241 @@
-# Arquitetura do código e padrão de desempenho
+# Arquitetura
 
-Vale para todo módulo novo e para toda tela que for mexida. O objetivo é
-uma tela que abre na hora (o "esqueleto" vem pronto do cache) e só espera
-pelo que é da pessoa, com o mínimo de idas ao banco.
+Vale para todo o código do repositório. Quem cria ou mexe num módulo segue
+este documento; quando ele não cobre um caso, o módulo de referência
+(`calendario`) é o exemplo.
 
-## Onde cada coisa fica
+## Visão geral
 
 ```
-src/app/             só rotas: page, layout, loading, route.ts e componentes
-                     que só aquela tela usa. Sem Supabase e sem "use server".
-src/server/<modulo>/ tudo que roda só no servidor ("server-only"):
-  *.ts               leituras (camada de dados): uma função por consulta,
-                     com React cache() e, quando é configuração, "use cache"
-  acoes/<tela>.ts    Server Actions ("use server"): validam com Zod,
-                     conferem a permissão, gravam e invalidam o cache
-src/server/cache.ts  tags do cache (TAG), a única lista de nomes
-src/server/auth.ts   usuarioAtual(), pode() e podeAgora()
-src/server/arquivos/ fotos, PDFs e planilhas (ver "Arquivos" abaixo)
-src/lib/             regras puras (sem banco, sem Next), com testes
-src/components/      UI reaproveitável (Server Components por padrão)
-src/connectors/      sistemas externos, sem Next (ver integracoes.md)
-supabase/            migrations, RLS e testes do banco
+navegador ─▶ nginx do host (HTTPS, arp.copiloto.scaleia.ai)
+               └─ tudo ─▶ web (nginx + React estático, 127.0.0.1:8081 → 80)
+                            ├─ /api/* ─▶ api (Fastify, api:3000 na rede do Docker)
+                            └─ o resto: arquivos do build
+api ─▶ db (Postgres 17, só na rede interna do Docker)
+api ─▶ disco (/dados/arquivos: fotos, PDFs, planilhas)
+api ─▶ sistemas externos (só leitura), pelas rotinas agendadas
 ```
 
-Regra prática: se o arquivo importa `@/lib/supabase/*` ou tem
-`"use server"`, ele mora em `src/server`. A página monta a tela chamando
-funções de `src/server` e componentes de `src/components`.
+Front e API saem da mesma origem: o cookie de sessão é `SameSite=Strict`
+e não existe CORS. A API fica atrás de dois proxies (nginx do host → nginx
+do `web`): ela só aceita `X-Forwarded-For`/`X-Forwarded-Proto` de loopback
+e das redes privadas do Docker (`PROXIES_CONFIAVEIS`), e é daí que saem o IP
+real (limite de tentativas, logs) e o protocolo. A porta `127.0.0.1:3001`
+da API continua publicada só para diagnóstico direto no servidor.
 
-## Leitura de dados
+## Repositório
 
-1. **Uma ida ao banco por informação, em paralelo.** Comece todas as
-   consultas independentes antes de esperar por qualquer uma
-   (`Promise.all`, ou crie a promessa no pai e passe para os filhos, que
-   esperam dentro do próprio `<Suspense>`). Nada de `await` em sequência
-   quando uma consulta não depende da outra.
-2. **Só as colunas e linhas que a tela mostra.** Listas usam um conjunto de
-   colunas fixo (ex.: `COLUNAS_RESUMO` em `server/os/base.ts`), paginação
-   no banco (`range`) e contagem com `{ count: "exact", head: true }`.
-   Filtro, ordenação e soma ficam no banco, não no JavaScript.
-3. **React `cache()`** em toda função de leitura usada por mais de um
-   componente na mesma tela (deduplica dentro da requisição).
-4. **Sessão dentro de `<Suspense>`.** Quem lê cookies (`usuarioAtual`,
-   `contexto`, cliente com sessão) fica atrás de um `<Suspense>` com um
-   esqueleto do mesmo tamanho do conteúdo. O cabeçalho e o que não depende
-   da pessoa ficam fora, para entrar no esqueleto estático. Nunca `await`
-   da sessão no topo de um layout.
-5. **Nada pesado no cliente.** Componente cliente recebe só os campos que
-   mostra. Biblioteca pesada (planilha, PDF, arrastar e soltar, gráfico)
-   carrega sob demanda (`import()` na hora do clique, ou `next/dynamic`) ou
-   fica no servidor.
-6. **Trabalho que não muda a resposta vai para depois**: log, aviso,
-   notificação e e-mail usam `after()` (`next/server`).
-
-## Cache de dados
-
-O banco aplica o RLS com a sessão de cada pessoa, e o cache do servidor
-(`"use cache"`) não pode ler cookies. Por isso há só dois tipos de dado em
-cache no servidor:
-
-| O quê | Como | Tag | Perfil |
-|---|---|---|---|
-| Perfil e permissões de quem está logado | `usuarioAtual()` (token validado a cada requisição; perfil por id) | `TAG.permissoes`, `TAG.usuario(id)` | `sessao` |
-| Configuração do módulo, igual para todos que usam o módulo (setores, catálogo, parâmetros, feriados, pessoas, empresa) | função interna com `"use cache"` lendo pela service role, **chamada só depois de conferir o mesmo acesso que o RLS exige** | `TAG.<modulo>.*` | `referencia` |
-
-Todo o resto (chamados, folha, custos, valores, qualquer dado de negócio)
-é lido **com a sessão**, pelo RLS, sem cache no servidor.
-
-Modelo (ver `server/os/base.ts`):
-
-```ts
-// Exportada: confere o acesso e devolve do cache.
-export const setores = cache(async () => {
-  await exigirModulo(); // mesma regra do RLS da tabela
-  return setoresDoModulo();
-});
-
-// NÃO exportada: lê pela service role, guardada no cache.
-async function setoresDoModulo() {
-  "use cache";
-  cacheLife("referencia");
-  cacheTag(TAG.os.setores);
-  const { data, error } = await osAdmin().from("setores").select("*");
-  ...
-}
+```
+docker-compose.yml        db, migrar (migrations), api e web
+apps/
+  api/                    Node 24 + Fastify 5 + TypeScript
+    .env                  (fora do git; modelo em .env.example)
+    Dockerfile
+    db/migrations/        SQL numerado; nunca editar um já aplicado
+    db/tests/             testes do RLS
+    src/
+      server.ts           sobe o processo (HTTP + rotinas agendadas)
+      migrar.ts           comando das migrations (processo à parte)
+      app.ts              monta o Fastify (plugins + módulos)
+      contexto.ts         quem fez o pedido; `pode` e `exigir`
+      erros.ts            erros que o service lança
+      config/             env validado com Zod
+      infra/              banco, cofre, arquivos, agendador, eventos,
+                          senhas, páginas, log
+      http/               plugins: erros, segurança, sessão, permissão
+      connectors/         sistemas externos (só leitura, sem Fastify)
+      modules/index.ts    lista dos módulos e das rotinas agendadas
+      modules/<modulo>/   ver "Camadas"
+  web/                    React 19 + Vite + TypeScript + Tailwind 4
+    .env                  (só VITE_*; nada secreto)
+    Dockerfile, nginx.conf
+    src/
+      app/                roteador, provedores, casca (menu, barra)
+      components/         UI compartilhada
+      lib/                cliente da API, sessão, utilitários de tela
+      modules/<modulo>/   páginas, componentes e chamadas do módulo
+packages/
+  shared/                 regras puras e contratos, usados pelos dois lados
+    src/<modulo>/         cálculo, formato, validação (Zod), tipos
 ```
 
-Cuidados:
+`packages/shared` não importa nada de Node, de React nem do banco. É o
+único código que os dois lados compartilham.
 
-- A função com `"use cache"` nunca é exportada e nunca recebe um id que
-  não veio da sessão validada.
-- Argumentos e tags ficam em texto puro no cache: só ids. Nunca e-mail,
-  nome, token ou valor.
-- Só entra em cache o que todo mundo com acesso ao módulo pode ver. Se a
-  tabela tem RLS por pessoa, por setor ou por permissão específica (ex.:
-  valores de custo), não vai para o cache do servidor.
+## Camadas da API (MVC)
 
-## Gravação (Server Actions)
+Cada módulo em `apps/api/src/modules/<modulo>/` é dividido por recurso:
 
-1. Validar a entrada com Zod.
-2. Conferir a permissão. Se a gravação usa a **service role**, conferir com
-   `podeAgora()` (direto no banco, sem cache). Com o cliente da sessão, o
-   RLS já confere.
-3. Gravar.
-4. Invalidar: `updateTag(TAG.x)` para cada tag do que mudou. Em Route
-   Handler, sincronização e rotina (onde `updateTag` não existe):
-   `revalidateTag(TAG.x, { expire: 0 })`, para a próxima visita já vir
-   com o dado novo; `"max"` serve uma vez o dado antigo enquanto atualiza,
-   e só vale quando isso não importa. Se a tela também mostra dado lido
-   na requisição, `refresh()`.
-5. Log e notificação em `after()` (`registrarDepois()` em `server/logs.ts`).
+```
+<modulo>/
+  index.ts                 plugin Fastify do módulo: registra as rotas
+  <recurso>.routes.ts      caminho, método, permissão, schema Zod → controller
+  <recurso>.controller.ts  HTTP: lê a requisição validada, chama o service,
+                           devolve a resposta. Sem regra e sem SQL.
+  <recurso>.service.ts     caso de uso: regra de negócio, permissão fina,
+                           transação, log. Sem `request`/`reply`.
+  <recurso>.repository.ts  acesso ao banco (Kysely). Só consultas.
+  jobs.ts                  rotinas agendadas do módulo (se houver)
+```
 
-Leitura que pode passar de 1000 linhas (limite do PostgREST, que corta
-sem avisar) usa `lerTudo()` de `server/supabase-paginas.ts`, com ordem por
-chave única.
+A dependência só desce: routes → controller → service → repository. O
+service recebe um `Contexto` (quem pediu) e nunca um objeto do Fastify. A
+regra pura (cálculo, classificação, formatação) fica em `packages/shared`
+e é chamada pelo service e pela tela. O passo a passo para portar um módulo
+está em `docs/guia-de-modulo-api.md`; o módulo de referência da API é
+`auth`.
 
-Quem cria uma tabela de configuração nova cria a tag em `TAG` e invalida em
-toda ação que grava nela.
+Convenções:
 
-## Arquivos
+- Rotas em `/api/v1/<modulo>/<recurso>`, substantivos no plural, em
+  português, kebab-case. `GET` lê, `POST` cria ou executa, `PATCH` altera,
+  `DELETE` remove.
+- Toda entrada (params, query, body) tem schema Zod na rota. O schema e o
+  tipo da resposta moram em `packages/shared/src/<modulo>/contratos.ts`
+  quando a tela também usa.
+- Toda rota declara o acesso: `{ acesso: "publico" }`, `{ acesso:
+  "autenticado" }` ou `{ permissao: "os.acessar" }`. Rota sem declaração
+  é negada (403) e o teste `rotas.test.ts` falha.
+- Erros são lançados (`ErroDeNegocio`, `ErroDePermissao`,
+  `ErroNaoEncontrado`, `ErroDeValidacao`); o plugin de erros converte.
+  Controller não monta resposta de erro.
 
-Todo arquivo (foto, PDF, planilha) passa por `src/server/arquivos`:
-`gravarArquivo`, `lerArquivo`, `linkDeLeitura`, `prepararEnvio`,
-`removerArquivos`. Ninguém chama o disco direto, e o Supabase Storage não
-é mais usado (a migração está em `docs/deploy-vps.md`).
+### Resposta
 
-- Onde ficam: no disco da VPS (`ARQUIVOS_DIR`); em desenvolvimento, sem
-  ela, em `./dados/arquivos`.
-- Aqui não há RLS: conferir a permissão com `podeAgora()` (ou o token do
-  link público) **antes** de chamar.
-- Para o navegador, só link assinado (`/api/arquivos/<token>`, HMAC com
-  `ARQUIVOS_CHAVE` e prazo). Envio grande vai direto do navegador, com
-  `prepararEnvio` e `enviarParaLink` (`src/lib/enviar-arquivo.ts`); depois
-  a ação confere tamanho e tipo (`infoDoArquivo`, `inicioDoArquivo`).
-- Os arquivos saem da mesma origem do sistema: só imagem, PDF, vídeo e
-  texto abrem na aba; o resto (SVG, HTML...) sempre baixa.
+```
+200/201  { ...dados }                         leitura ou gravação
+200      { mensagem: "Salvo." }               gravação sem dado de volta
+4xx/5xx  { erro: { codigo, mensagem, campos? } }
+```
+
+`mensagem` de erro é para a pessoa ler (português, sem detalhe técnico).
+`codigo` é estável (`validacao`, `nao_autenticado`, `sem_permissao`,
+`senha_provisoria`, `nao_encontrado`, `conflito`, `regra`, `limite`,
+`interno`; lista em `@arp/shared/contratos/erro`). Erro 5xx nunca devolve
+mensagem do banco nem stack.
 
 ## Banco
 
-- Política de RLS chama função de permissão dentro de `(select ...)`:
-  `using ((select core.pode('x')))`. Assim o Postgres calcula uma vez por
-  consulta, não uma vez por linha.
-- Regra que depende da linha (dono, setor, envolvido) compara a coluna com
-  um conjunto calculado uma vez: `setor_id = any (array(select os.meus_setores()))`,
-  `id in (select os.meus_chamados_envolvidos())`. Nada de função por linha
-  que faz subconsulta.
-- Tabela filha vê o que o pai vê com `exists (select 1 from <pai> p where
-  p.id = <filha>.pai_id)` (sem security definer: o RLS do pai vale ali).
-- Política `for all` também entra no SELECT: separe em `insert`, `update`
-  e `delete` quando a regra de edição for mais cara que a de leitura.
-- Quando a regra existe também como função (ex.: `os.ve_chamado`), as duas
-  mudam juntas; `supabase/tests/os-rls.test.ts` compara uma com a outra.
-- Toda chave estrangeira e toda coluna usada em filtro ou ordenação de
-  lista tem índice.
+Postgres 17 próprio. O schema veio do Supabase (migration `0001_base.sql`)
+com as mesmas tabelas, funções, gatilhos e **políticas de RLS**. A
+segurança dos dados tem duas camadas: a permissão da rota e o RLS.
 
-## Infraestrutura
+- A API conecta com o papel `arp_api`, que sozinho não lê nada
+  (`NOINHERIT`). Toda consulta roda dentro de um dos escopos de
+  `infra/banco`:
 
-- Produção na VPS com Docker (`docs/deploy-vps.md`). A VPS precisa ficar
-  em São Paulo, perto do Supabase (`sa-east-1`), pelo mesmo motivo do item
-  abaixo.
-- Enquanto a Vercel estiver no ar, as funções rodam em São Paulo (`gru1`, `vercel.json`), a mesma
-  região do Supabase (`sa-east-1`). Cada consulta ao banco de outra região
-  custa ~120 ms.
-- Supabase com chaves JWT assimétricas (Project Settings › JWT Keys): o
-  `getClaims()` valida o token localmente, sem ir ao servidor de Auth.
+  | Escopo | Papel no Postgres | Quando |
+  |---|---|---|
+  | `banco.comoUsuario(usuarioId, fn)` | `authenticated` + `request.jwt.claims` | tudo o que é feito em nome de quem está logado. O RLS vale. |
+  | `banco.comoServico(fn)` | `service_role` (ignora o RLS) | rotinas, sincronização, login, link público, e gravações que o RLS não cobre, **sempre depois** de conferir a permissão no service. |
+  | `banco.comoAnonimo(fn)` | `anon` | o que o banco libera para visitante. |
+
+  Cada escopo é uma transação (`set local role` + `set_config(...,
+  true)`): tudo o que acontece dentro é atômico e o papel não vaza para a
+  próxima requisição.
+- `auth.uid()` devolve o usuário do escopo. As políticas usam `(select
+  core.pode('...'))`, calculado uma vez por consulta.
+- Mudança de schema: nova migration em `apps/api/db/migrations`. Tabela
+  nova nasce com RLS e política. Nunca editar migration aplicada (o
+  executor guarda o checksum em `infra.migracoes` e recusa).
+- As migrations rodam por um comando à parte (`npm run db:migrar`; no
+  Docker, o serviço `migrar`, que termina antes de a API subir), com a
+  conexão de administrador (`DATABASE_ADMIN_URL`), uma transação por
+  arquivo. O mesmo comando cria o papel `arp_api` se ele não existir. Banco
+  clonado da produção: `npm run db:marcar-base` registra as migrations da
+  base sem rodar. O processo que serve HTTP nunca roda migration nem recebe
+  a conexão de administrador.
+- Os valores saem do banco como o PostgREST entregava: `date` como texto
+  (`"2026-11-16"`), `timestamptz` como ISO em UTC, `numeric` e `bigint`
+  como número. A conexão usa o fuso UTC.
+- Consulta com Kysely e os tipos gerados (`npm run db:tipos`). SQL cru só
+  com `sql` do Kysely (parâmetros sempre vinculados; nunca concatenar).
+- Lista grande pagina no banco. Filtro, ordenação e soma ficam no SQL.
+
+## Sessão (cookie + JWT)
+
+- `POST /api/v1/auth/entrar` confere a senha (argon2id; hashes bcrypt
+  herdados são aceitos e trocados no primeiro acesso) e cria a sessão em
+  `auth.sessoes`.
+- Dois cookies `HttpOnly; Secure; SameSite=Strict`:
+  - `__Host-arp_acesso`: JWT curto (10 min) com `sub` e `sid`.
+  - `__Secure-arp_renovacao` (`Path=/api/v1/auth`): token opaco, guardado
+    só como hash, trocado a cada uso; reuso de um token antigo encerra a
+    sessão. Folga de 10 s para duas abas que renovam juntas: nesse intervalo
+    o token anterior ainda rende um acesso novo (mas nenhum token novo).
+  - Com `SITE_URL` em http (desenvolvimento local) os nomes saem sem
+    prefixo e sem `Secure` (`arp_acesso`, `arp_renovacao`): o navegador
+    recusaria os prefixos sem HTTPS. Em https, sempre com.
+- A cada requisição a API valida o JWT e lê o usuário e as permissões no
+  banco (sem cache: quem perde o acesso perde na hora).
+- Limites: 8 h de sessão e 30 min sem uso (`packages/shared/src/sessao`).
+  Só `POST /api/v1/auth/uso` (que a tela chama quando a pessoa mexe) e o
+  login contam como uso: consultas automáticas não prolongam a sessão.
+- Login: mensagem única para e-mail inexistente, senha errada e usuário
+  inativo ou bloqueado; depois de `LOGIN_TENTATIVAS` erros do mesmo e-mail
+  e IP em `LOGIN_JANELA_MINUTOS` (contados em `core.logs`), bloqueia.
+- Gravações exigem o cabeçalho `X-ARP: 1` e `Origin` do próprio site
+  (defesa extra contra CSRF, além do `SameSite`). Única exceção: o envio de
+  arquivo por link assinado (`PUT /api/v1/arquivos/<token>`), que vale pelo
+  token.
+- Senha provisória: enquanto estiver marcada, a API só aceita trocar a
+  senha e sair.
+- Links públicos (portal, ordem, ficha, censo, responder, vistoria) não
+  usam a sessão: valem pelo token do link, conferido no service.
+
+## Segurança
+
+- Entrada validada com Zod em toda rota; saída só com os campos da tela.
+- `@fastify/helmet`, limite de requisições (mais rígido em login e em
+  toda rota pública), corpo limitado (1 MiB; arquivo vai por link de envio
+  ou formulário com limite próprio), `trustProxy` só para os dois nginx
+  (loopback e redes privadas do Docker).
+- Segredos só no `.env` da API. O front não recebe segredo algum.
+- Credenciais das integrações cifradas (AES-256-GCM, `INTEGRACOES_CHAVE`).
+- Arquivos: só por `infra/arquivos`; para o navegador, link assinado
+  (HMAC, com prazo). Conferir a permissão antes de assinar.
+- Contêineres sem root, sistema de arquivos só leitura, portas publicadas
+  só em `127.0.0.1`, banco sem porta publicada.
+- Log estruturado (pino) sem senha, token, cookie ou dado pessoal.
+- Auditoria de linhas pelo gatilho do banco (`core.auditoria`); eventos
+  do sistema em `core.logs` (`infra/eventos`).
+
+## Rotinas agendadas
+
+O agendador roda dentro da API (`infra/agendador`), com trava no banco
+(`pg_try_advisory_lock`) para nunca rodar em dobro: se a mesma rotina ainda
+está rodando (aqui ou em outra instância), a nova execução é pulada. Cada
+módulo declara as suas em `jobs.ts` e as lista em `modules/index.ts`.
+Horários em UTC, os mesmos de antes. Toda execução fica em
+`integracao.sync_runs` ou em `core.logs`. `AGENDADOR=0` desliga.
+
+## Front
+
+- Rotas com React Router; cada módulo exporta as suas em
+  `modules/<modulo>/rotas.tsx`, carregadas sob demanda (`lazy`).
+- Dados com TanStack Query. Cada módulo tem `api.ts` com as chamadas
+  tipadas (contratos de `@arp/shared`) e as chaves de consulta. Página lê
+  com `useSuspenseQuery` dentro de `<Suspense>` com esqueleto; gravação
+  com `useMutation`, que invalida as chaves do que mudou.
+- Nenhum `fetch` solto: tudo por `lib/api.ts` (cookies, cabeçalho `X-ARP`,
+  renovação da sessão, erro padronizado).
+- A tela esconde o que a pessoa não pode usar (`usePermissao`), mas quem
+  garante é a API.
+- Biblioteca pesada (planilha, PDF, gráfico, arrastar) entra por
+  `import()` na hora do uso.
+- Componentes de UI compartilhados em `src/components`; do módulo, em
+  `modules/<modulo>/components`.
+
+## Qualidade
+
+- TypeScript estrito nos três pacotes; sem `any` e sem `as` para calar o
+  compilador.
+- Biome (lint e formatação) e Vitest. `npm run check` e `npm test` na raiz
+  rodam tudo e precisam passar antes de publicar.
+- Regra pura tem teste em `packages/shared`. Service com regra de
+  permissão tem teste. O RLS tem teste em `apps/api/db/tests`. Os testes de
+  integração da API usam o banco de homologação (`apps/api/.env` e
+  `.env.teste`) e são pulados, com aviso, se ele não estiver acessível.
+- Nada de valor de negócio fixo no código (metas, encargos, faixas): é
+  parâmetro no banco.
+- Nunca dados reais de clientes, funcionários ou credenciais no repo.
