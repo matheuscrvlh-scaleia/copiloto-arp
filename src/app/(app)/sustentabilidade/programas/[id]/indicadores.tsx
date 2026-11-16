@@ -65,7 +65,10 @@ export async function AbaIndicadores({ c }: { c: ContextoDaAba }) {
             de valores diferentes do campo Produtor).
           </p>
         ) : (
-          <div className="overflow-x-auto" data-guia="lista-indicadores">
+          <div
+            className="relative overflow-x-auto"
+            data-guia="lista-indicadores"
+          >
             <table className="w-full min-w-[56rem] text-sm">
               <thead>
                 <tr className="text-left text-xs text-neutral-500">

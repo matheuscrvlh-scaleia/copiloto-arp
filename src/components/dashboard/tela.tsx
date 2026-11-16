@@ -107,7 +107,10 @@ export function TopoDaTela({
         )}
       </div>
       {acoes && (
-        <div data-guia="exportar" className="flex shrink-0 gap-2">
+        <div
+          data-guia="exportar"
+          className="flex max-w-full shrink-0 flex-wrap gap-2"
+        >
           {acoes}
         </div>
       )}

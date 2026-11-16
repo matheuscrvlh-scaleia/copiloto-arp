@@ -548,7 +548,7 @@ function Grade({
 }) {
   const atual = (valor ?? {}) as Record<string, string>;
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[28rem] text-sm">
         <thead>
           <tr className="text-xs text-neutral-500">

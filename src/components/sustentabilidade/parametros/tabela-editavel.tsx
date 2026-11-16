@@ -59,7 +59,7 @@ export function TabelaEditavel({
       {linhas.length === 0 ? (
         <p className="text-sm text-neutral-500">{vazio}</p>
       ) : (
-        <div className="-mx-2 overflow-x-auto">
+        <div className="relative -mx-2 overflow-x-auto">
           <table className="w-full min-w-max border-collapse text-sm">
             <thead>
               <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">

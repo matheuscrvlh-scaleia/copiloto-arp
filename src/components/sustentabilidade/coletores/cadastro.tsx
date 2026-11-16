@@ -70,7 +70,7 @@ export function CadastroDeColetores({
 
       <div
         data-guia="su-coletores-lista"
-        className="overflow-x-auto rounded-2xl border border-neutral-900/[0.06]"
+        className="relative overflow-x-auto rounded-2xl border border-neutral-900/[0.06]"
       >
         <table className="w-full min-w-[40rem] text-sm">
           <thead className="bg-neutral-900/[0.03] text-left text-xs text-neutral-600">
