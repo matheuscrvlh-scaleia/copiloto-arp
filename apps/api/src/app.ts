@@ -17,7 +17,7 @@ import { permissao } from "@/http/permissao";
 import { seguranca } from "@/http/seguranca";
 import { banco } from "@/infra/banco";
 import { log } from "@/infra/log";
-import { MODULOS } from "@/modules";
+import { EXTERNOS, MODULOS } from "@/modules";
 
 // Monta o Fastify: plugins de HTTP (erros, segurança, permissão), a rota de
 // saúde e os módulos. Não escuta porta nem liga o agendador: isso é do
@@ -95,6 +95,8 @@ export async function criarApp(modulos = MODULOS): Promise<FastifyInstance> {
 
   for (const { prefixo, plugin } of modulos)
     await app.register(plugin, { prefix: `/api/v1${prefixo}` });
+  for (const { prefixo, plugin } of EXTERNOS)
+    await app.register(plugin, { prefix: prefixo });
 
   await app.ready();
   return app;

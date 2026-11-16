@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { EventoWp } from "@/connectors/marketing/site";
+import type { EventoWp } from "../conectores/site";
 import {
   decodificarHtml,
   eventoDoSite,

@@ -56,7 +56,7 @@ export const GARANTIAS = Object.keys(CAMPOS_GARANTIA) as Garantia[];
 
 /** Checkboxes "garantia.<g>" = campo → { g: [campos na ordem do catálogo] }. */
 export function obrigatoriosDoForm(
-  form: Iterable<[string, FormDataEntryValue]>,
+  form: Iterable<[string, unknown]>,
 ): Record<Garantia, string[]> {
   const marcados = new Map<string, Set<string>>();
   for (const [k, v] of form) {

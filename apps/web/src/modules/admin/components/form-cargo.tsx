@@ -1,0 +1,70 @@
+import type { Cargo } from "@arp/shared/admin/contratos";
+import { useMemo } from "react";
+import { classeCampo } from "@/components/estilos";
+import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
+import { Link, useNavegar } from "@/lib/navegacao";
+import { CaixasDePermissao } from "@/modules/admin/components/permissoes";
+import { Secao } from "@/modules/admin/components/ui";
+import { criarCargo, salvarCargo } from "../api";
+
+const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
+
+export function FormCargo({ cargo }: { cargo?: Cargo }) {
+  const navegar = useNavegar();
+  // Cargo novo: depois de criar, volta para a lista.
+  const criar = useMemo(
+    () => criarCargo(() => navegar.push("/admin/usuarios/cargos")),
+    [navegar],
+  );
+  return (
+    <FormAcao
+      acao={cargo ? salvarCargo : criar}
+      rotulo={cargo ? "Salvar" : "Criar cargo"}
+      rotuloEnviando={cargo ? "Salvando…" : "Criando…"}
+      botaoNoFim={false}
+      className="vidro rounded-[1.75rem] p-6 md:p-8"
+    >
+      <input type="hidden" name="id" value={cargo?.id ?? ""} />
+      <Secao titulo="Dados" descricao="Como o cargo aparece na escolha.">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,20rem)_1fr]">
+          <label className={rotulo}>
+            Nome
+            <input
+              name="nome"
+              required
+              defaultValue={cargo?.nome}
+              placeholder="Ex.: Gestão de RH"
+              className={classeCampo}
+            />
+          </label>
+          <label className={rotulo}>
+            Descrição
+            <input
+              name="descricao"
+              maxLength={200}
+              defaultValue={cargo?.descricao ?? ""}
+              placeholder="Para quem é este cargo"
+              className={classeCampo}
+            />
+          </label>
+        </div>
+      </Secao>
+      <Secao
+        titulo="Permissões"
+        larga
+        descricao="O que quem tiver este cargo pode ver e fazer. Vale na hora para todos os usuários dele."
+      >
+        <CaixasDePermissao marcadas={cargo?.permissoes ?? []} />
+      </Secao>
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutral-200/70 pt-6">
+        <Link
+          href="/admin/usuarios/cargos"
+          className="rounded-full px-4 py-2 text-sm text-neutral-600 hover:text-neutral-900"
+        >
+          Cancelar
+        </Link>
+        <EnvioDaAcao className="flex-row-reverse" />
+      </div>
+    </FormAcao>
+  );
+}

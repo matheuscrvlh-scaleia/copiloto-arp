@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Turnover } from "@/connectors/copiloto-rh/schemas";
+import type { Turnover } from "../conectores/copiloto-rh";
 import { tipoDoDesligamento, turnoverDaApi } from "./turnover";
 
 const contagens = (

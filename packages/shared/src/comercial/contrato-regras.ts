@@ -1,5 +1,4 @@
-import type { Empresa } from "@/connectors/publicos";
-import { somarDias, somarMeses } from "./datas";
+import type { Empresa } from "../conectores/publicos";
 import { soDigitos } from "../documentos";
 import {
   caixaAlta,
@@ -14,6 +13,7 @@ import {
   type PessoaJuridica,
   textoNormal,
 } from "./contrato-esquema";
+import { somarDias, somarMeses } from "./datas";
 
 // ---------------------------------------------------------------------------
 // Padrões dos parâmetros

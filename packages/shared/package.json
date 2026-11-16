@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./*.json": "./src/*.json",
     "./*": "./src/*.ts"
   },
   "scripts": {

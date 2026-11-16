@@ -1,4 +1,4 @@
-import type { EventoWp } from "@/connectors/marketing/site";
+import type { EventoWp } from "../conectores/site";
 
 // Agenda de eventos publicada no site (WordPress). Cada post vira um evento
 // com o primeiro início e o último fim; datas e horas são as de Brasília,

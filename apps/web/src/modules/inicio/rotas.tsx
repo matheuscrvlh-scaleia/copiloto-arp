@@ -1,7 +1,6 @@
 import type { Modulo } from "@/app/rota";
 
-// Módulo de exemplo do mecanismo de rotas. A tela de Gestão (o Dashboard)
-// ainda é um marcador: entra de verdade quando o módulo for portado.
+// A primeira tela: o Dashboard da Gestão (números do RH no período).
 
 export const inicio: Modulo = {
   nome: "inicio",

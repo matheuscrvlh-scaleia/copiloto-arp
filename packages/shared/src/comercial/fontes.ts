@@ -1,5 +1,5 @@
 // Registros do RD Station e do ENET como as APIs entregam (spec 4.1 e 4.2).
-// Hoje são de exemplo (server/comercial/exemplo); o conector real vai
+// Hoje são de exemplo (comercial/exemplo); o conector real vai
 // validar a resposta com Zod e devolver estes mesmos tipos. Só o que está
 // aqui pode aparecer nas telas do Comercial. O nome do campo na exportação
 // que o time usa vem no comentário.

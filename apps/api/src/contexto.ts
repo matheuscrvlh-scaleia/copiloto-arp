@@ -50,3 +50,19 @@ export async function exigir(
   });
   if (!ok) throw new ErroDePermissao();
 }
+
+/** Como `exigir`, mas basta uma das permissões (telas abertas por duas). */
+export async function exigirAlguma(
+  ctx: Contexto,
+  permissoes: readonly Permissao[],
+): Promise<void> {
+  const ok = await banco.comoUsuario(ctx.usuario.id, async (tx) => {
+    const r = await sql<{
+      pode: boolean;
+    }>`select coalesce(bool_or(core.pode(p)), false) as pode from unnest(${permissoes}::text[]) as p`.execute(
+      tx,
+    );
+    return r.rows[0]?.pode === true;
+  });
+  if (!ok) throw new ErroDePermissao();
+}

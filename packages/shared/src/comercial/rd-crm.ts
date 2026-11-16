@@ -3,7 +3,7 @@ import type {
   ContatoRdCrm,
   ItemRdCrm,
   NegociacaoRdCrm,
-} from "@/connectors/rd-crm";
+} from "../conectores/rd-crm";
 import type { RdContatoCrm, RdOportunidade, RdRef } from "./fontes";
 
 // Negociação da API v2 do RD Station CRM → formato das telas do Comercial.

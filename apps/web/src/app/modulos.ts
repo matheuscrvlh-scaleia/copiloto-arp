@@ -1,4 +1,13 @@
+import { admin } from "@/modules/admin/rotas";
+import { calendario } from "@/modules/calendario/rotas";
+import { comercial } from "@/modules/comercial/rotas";
+import { financeiro } from "@/modules/financeiro/rotas";
 import { inicio } from "@/modules/inicio/rotas";
+import { marketing } from "@/modules/marketing/rotas";
+import { operacoes } from "@/modules/operacoes/rotas";
+import { os } from "@/modules/os/rotas";
+import { relatorios } from "@/modules/relatorios/rotas";
+import { rh } from "@/modules/rh/rotas";
 import type { Modulo } from "./rota";
 
 /**
@@ -6,4 +15,15 @@ import type { Modulo } from "./rota";
  * aqui (e o import acima), em ordem alfabética. O `rotas.tsx` é só a lista
  * de endereços: o código de cada tela é baixado quando ela abre.
  */
-export const MODULOS: Modulo[] = [inicio];
+export const MODULOS: Modulo[] = [
+  admin,
+  calendario,
+  comercial,
+  financeiro,
+  inicio,
+  marketing,
+  operacoes,
+  os,
+  relatorios,
+  rh,
+];

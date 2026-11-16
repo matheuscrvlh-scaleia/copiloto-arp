@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gerarEnet } from "@/server/comercial/exemplo/enet";
+import { gerarEnet } from "./exemplo/enet";
 import type { EnetCliente, EnetContrato, EnetLuc } from "./fontes";
 import {
   comStatus,

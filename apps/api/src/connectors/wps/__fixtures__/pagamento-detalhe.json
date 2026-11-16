@@ -1,0 +1,283 @@
+{
+  "quantidade": 7,
+  "subdetalhes": {
+    "dinheiro": {
+      "quantidade": 0,
+      "descricao": "dinheiro"
+    },
+    "cheque": {
+      "quantidade": 0,
+      "descricao": "cheque"
+    },
+    "cartao_credito": {
+      "quantidade": 4,
+      "detalhes": [
+        {
+          "codigo": 41338,
+          "descricao": "ROTATIVO",
+          "data": "2026-01-15 11:45:20",
+          "ticket": "2718998090",
+          "placa": "BBB-2333",
+          "recibo": "40661",
+          "valorBruto": 194,
+          "valorLiquido": 88,
+          "desconto": 106,
+          "operador": "APIKEY_WPSPAYDEV",
+          "parcial": 0,
+          "nsu": "52318",
+          "docTef": "4976642",
+          "autorizacaotef": "21490",
+          "terminal": {
+            "codigo": 200,
+            "descricao": "MOBILE",
+            "tipo": "CAIXA"
+          },
+          "formaPagamento": {
+            "codigo": 2,
+            "codigoMapeado": 302,
+            "descricao": "CRÉDITO MASTERCARD",
+            "codigoBandeiraTef": "10003",
+            "descricaoPagamentoBase": "MOBILE: CARTAO MASTER"
+          },
+          "tarifa": "MOBILE VALET",
+          "rps": {
+            "id_interno": 36515,
+            "numero": 36358,
+            "serie": "200",
+            "data_emissao": "2022-06-28 18:42:45"
+          }
+        },
+        {
+          "codigo": 41338,
+          "descricao": "ROTATIVO",
+          "data": "2026-01-15 11:45:20",
+          "ticket": "2718998090",
+          "placa": "BBB-2333",
+          "recibo": "40661",
+          "valorBruto": 194,
+          "valorLiquido": 88,
+          "desconto": 106,
+          "operador": "APIKEY_WPSPAYDEV",
+          "parcial": 0,
+          "nsu": "52318",
+          "docTef": "4976642",
+          "autorizacaotef": "21490",
+          "terminal": {
+            "codigo": 200,
+            "descricao": "MOBILE",
+            "tipo": "CAIXA"
+          },
+          "formaPagamento": {
+            "codigo": 2,
+            "codigoMapeado": 302,
+            "descricao": "CRÉDITO MASTERCARD",
+            "codigoBandeiraTef": "10003",
+            "descricaoPagamentoBase": "MOBILE: CARTAO MASTER"
+          },
+          "tarifa": "MOBILE VALET",
+          "rps": {
+            "id_interno": 40899,
+            "numero": 40699,
+            "data_emissao": "2026-01-15 11:45:20"
+          }
+        },
+        {
+          "codigo": 41339,
+          "descricao": "ROTATIVO",
+          "data": "2026-01-15 13:57:23",
+          "ticket": "2718996363",
+          "placa": "JLU-2345",
+          "recibo": "40662",
+          "valorBruto": 240,
+          "valorLiquido": 240,
+          "operador": "APIKEY_WPSPAYDEV",
+          "parcial": 0,
+          "nsu": "23019",
+          "docTef": "1781757",
+          "autorizacaotef": "9004",
+          "terminal": {
+            "codigo": 200,
+            "descricao": "MOBILE",
+            "tipo": "CAIXA"
+          },
+          "formaPagamento": {
+            "codigo": 2,
+            "codigoMapeado": 302,
+            "descricao": "CRÉDITO MASTERCARD",
+            "codigoBandeiraTef": "10003",
+            "descricaoPagamentoBase": "MOBILE: CARTAO MASTER"
+          },
+          "tarifa": "M TARIFA 41",
+          "rps": {
+            "id_interno": 36516,
+            "numero": 36359,
+            "serie": "200",
+            "data_emissao": "2022-06-28 18:42:45"
+          }
+        },
+        {
+          "codigo": 41339,
+          "descricao": "ROTATIVO",
+          "data": "2026-01-15 13:57:23",
+          "ticket": "2718996363",
+          "placa": "JLU-2345",
+          "recibo": "40662",
+          "valorBruto": 240,
+          "valorLiquido": 240,
+          "operador": "APIKEY_WPSPAYDEV",
+          "parcial": 0,
+          "nsu": "23019",
+          "docTef": "1781757",
+          "autorizacaotef": "9004",
+          "terminal": {
+            "codigo": 200,
+            "descricao": "MOBILE",
+            "tipo": "CAIXA"
+          },
+          "formaPagamento": {
+            "codigo": 2,
+            "codigoMapeado": 302,
+            "descricao": "CRÉDITO MASTERCARD",
+            "codigoBandeiraTef": "10003",
+            "descricaoPagamentoBase": "MOBILE: CARTAO MASTER"
+          },
+          "tarifa": "M TARIFA 41",
+          "rps": {
+            "id_interno": 40900,
+            "numero": 40700,
+            "data_emissao": "2026-01-15 13:57:23"
+          }
+        }
+      ],
+      "descricao": "cartao_credito"
+    },
+    "cartao_debito": {
+      "quantidade": 0,
+      "descricao": "cartao_debito"
+    },
+    "carteira_digital": {
+      "quantidade": 0,
+      "descricao": "carteira_digital"
+    },
+    "tag": {
+      "quantidade": 0,
+      "descricao": "tag"
+    },
+    "isento": {
+      "quantidade": 1,
+      "detalhes": [
+        {
+          "codigo": 41337,
+          "descricao": "ROTATIVO",
+          "data": "2026-01-15 09:27:36",
+          "ticket": "2718995995",
+          "placa": "LOU-2468",
+          "recibo": "0",
+          "valorBruto": 12,
+          "valorLiquido": 0,
+          "operador": "1",
+          "parcial": 5,
+          "terminal": {
+            "codigo": 13,
+            "descricao": "CAIXA ACESSOS",
+            "tipo": "CAIXA"
+          },
+          "formaPagamento": {
+            "codigo": 0,
+            "codigoMapeado": 0,
+            "descricao": "DINHEIRO",
+            "descricaoPagamentoBase": "DINHEIRO"
+          },
+          "tarifa": "EXTRA",
+          "externo": {
+            "codigo": 6,
+            "data": "2026-01-15 09:20:47",
+            "ticket": "2718995995"
+          },
+          "rps": {
+            "id_interno": 36514,
+            "numero": 36357,
+            "serie": "200",
+            "data_emissao": "2022-06-28 18:42:30"
+          }
+        }
+      ],
+      "descricao": "isento"
+    },
+    "desconto": {
+      "quantidade": 2,
+      "detalhes": [
+        {
+          "codigo": 41338,
+          "descricao": "ROTATIVO",
+          "data": "2026-01-15 11:45:20",
+          "ticket": "2718998090",
+          "placa": "BBB-2333",
+          "recibo": "40661",
+          "valorBruto": 194,
+          "valorLiquido": 88,
+          "desconto": 106,
+          "operador": "APIKEY_WPSPAYDEV",
+          "parcial": 0,
+          "nsu": "52318",
+          "docTef": "4976642",
+          "autorizacaotef": "21490",
+          "terminal": {
+            "codigo": 200,
+            "descricao": "MOBILE",
+            "tipo": "CAIXA"
+          },
+          "formaPagamento": {
+            "codigo": 2,
+            "codigoMapeado": 302,
+            "descricao": "CRÉDITO MASTERCARD",
+            "codigoBandeiraTef": "10003",
+            "descricaoPagamentoBase": "MOBILE: CARTAO MASTER"
+          },
+          "tarifa": "MOBILE VALET",
+          "rps": {
+            "id_interno": 36515,
+            "numero": 36358,
+            "serie": "200",
+            "data_emissao": "2022-06-28 18:42:45"
+          }
+        },
+        {
+          "codigo": 41338,
+          "descricao": "ROTATIVO",
+          "data": "2026-01-15 11:45:20",
+          "ticket": "2718998090",
+          "placa": "BBB-2333",
+          "recibo": "40661",
+          "valorBruto": 194,
+          "valorLiquido": 88,
+          "desconto": 106,
+          "operador": "APIKEY_WPSPAYDEV",
+          "parcial": 0,
+          "nsu": "52318",
+          "docTef": "4976642",
+          "autorizacaotef": "21490",
+          "terminal": {
+            "codigo": 200,
+            "descricao": "MOBILE",
+            "tipo": "CAIXA"
+          },
+          "formaPagamento": {
+            "codigo": 2,
+            "codigoMapeado": 302,
+            "descricao": "CRÉDITO MASTERCARD",
+            "codigoBandeiraTef": "10003",
+            "descricaoPagamentoBase": "MOBILE: CARTAO MASTER"
+          },
+          "tarifa": "MOBILE VALET",
+          "rps": {
+            "id_interno": 40899,
+            "numero": 40699,
+            "data_emissao": "2026-01-15 11:45:20"
+          }
+        }
+      ],
+      "descricao": "desconto"
+    }
+  }
+}

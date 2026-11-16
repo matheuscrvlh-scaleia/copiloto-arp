@@ -1,0 +1,921 @@
+import type { Detalhe } from "@arp/shared/detalhe";
+import {
+  formatarData,
+  formatarHoras,
+  formatarNumero,
+  formatarPct,
+  formatarSaldoHoras,
+} from "@arp/shared/formato";
+import { rotuloStatus, status } from "@arp/shared/indicadores";
+import { descreverPeriodo } from "@arp/shared/periodo";
+import {
+  absenteismo,
+  colunasDeAbono,
+  extrasDe,
+  type LinhaPonto,
+  porSetor,
+  somarPonto,
+  type TotaisSetor,
+} from "@arp/shared/rh/calculos";
+import { saldosEmReais } from "@arp/shared/rh/custo";
+import {
+  tabelaDeExtras,
+  tabelaDeHorasPerdidas,
+  tabelaDoBanco,
+} from "@arp/shared/rh/detalhes";
+import {
+  origemDasHorasPerdidas,
+  origemDoAbsenteismo,
+  origemDoBanco,
+  origemDoSetor,
+  origemDosAbonos,
+} from "@arp/shared/rh/modais";
+import { avisoDoPonto } from "@arp/shared/rh/ponto-periodo";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { Suspense } from "react";
+import {
+  CartaoCarregando,
+  FiltrosCarregando,
+  IndicadoresCarregando,
+  TelaCarregando,
+} from "@/components/carregando";
+import { FiltroPeriodo } from "@/components/dashboard/filtro-periodo";
+import {
+  BarrasDivergentes,
+  BarrasHorizontais,
+  type FatiaRosca,
+  Pontos,
+  Rosca,
+} from "@/components/dashboard/graficos";
+import {
+  CartaoIndicador,
+  type Variacao,
+} from "@/components/dashboard/indicador";
+import {
+  type Coluna,
+  Nota,
+  paraBusca,
+  Secao,
+  Tabela,
+} from "@/components/dashboard/tabela";
+import { TabelaBusca } from "@/components/dashboard/tabela-busca";
+import { ProvedorDetalhe } from "@/components/modal-detalhe";
+import { PageHeader } from "@/components/page-header";
+import { Protegido } from "@/components/protegido";
+import { consultaDaJornada } from "../api";
+import { AbasDaJornada } from "../components/abas-jornada";
+import { useFiltrosDoPeriodo } from "../filtros";
+
+/** Valores distintos, em ordem, como opções de um filtro. */
+const opcoesDe = (valores: string[]) =>
+  [...new Set(valores)]
+    .sort((a, b) => a.localeCompare(b))
+    .map((v) => ({ valor: v, rotulo: v }));
+
+/** Cor da fatia pela posição (1 a 5). */
+const CORES: FatiaRosca["cor"][] = [1, 2, 3, 4, 5];
+
+export default function Page() {
+  return (
+    <>
+      <PageHeader
+        title="Jornada"
+        description="Absenteísmo e banco de horas por setor e por funcionário, a partir do ponto (Secullum)."
+      />
+      <Suspense fallback={<Esqueleto />}>
+        <Protegido permissao="rh.jornada">
+          <Jornada />
+        </Protegido>
+      </Suspense>
+    </>
+  );
+}
+
+function Jornada() {
+  const filtrosDaUrl = useFiltrosDoPeriodo();
+  const { data } = useSuspenseQuery(consultaDaJornada(filtrosDaUrl));
+  const {
+    filtros: { periodo, anterior, rotulo, hoje, departamento, departamentos },
+    ponto: pontoP,
+    anterior: pontoAntP,
+    metaAbs,
+    ciclo,
+  } = data;
+  const rotuloAnt = descreverPeriodo(anterior);
+  // R$ do banco (rh.custo_pessoal) e salário/hora (custo individual): a API
+  // só manda com a permissão; os mapas vêm como pares.
+  const reais = data.reais && {
+    ...data.reais,
+    porDepartamento: new Map(data.reais.porDepartamento),
+  };
+  const hora = data.hora && {
+    ...data.hora,
+    salarioHora: new Map(data.hora.salarioHora),
+  };
+  const filtros = (
+    <FiltroPeriodo
+      de={periodo.de}
+      ate={periodo.ate}
+      atalho={periodo.atalho}
+      hoje={hoje}
+      departamentos={departamentos}
+      departamento={departamento}
+    />
+  );
+  const aviso = avisoDoPonto(pontoP);
+  if (aviso.semDado)
+    return (
+      <div className="flex flex-col gap-6">
+        {filtros}
+        <AbasDaJornada />
+        <Secao titulo="Sem ponto no período">
+          <p className="text-sm text-neutral-600">{aviso.semDado}</p>
+        </Secao>
+      </div>
+    );
+  const doDep = (ls: LinhaPonto[]) =>
+    departamento ? ls.filter((l) => l.departamento_id === departamento) : ls;
+  const linhas = doDep(pontoP.linhas);
+
+  const totais = somarPonto(linhas);
+  const linhasAnt = doDep(pontoAntP.linhas);
+  const totaisAnt =
+    linhasAnt.length && !avisoDoPonto(pontoAntP).parcial
+      ? somarPonto(linhasAnt)
+      : null;
+  const efetivo = pontoP.efetivo ?? periodo;
+  const setores = porSetor(linhas);
+  const abonos = colunasDeAbono(linhas);
+  const meta = metaAbs
+    ? { valor: metaAbs.meta, texto: `Meta: até ${formatarPct(metaAbs.meta)}` }
+    : undefined;
+  // De onde vem cada número (modal ao clicar). A tela já exige rh.jornada.
+  const opcoes = {
+    mes: efetivo.de,
+    ate: efetivo.ate,
+    pessoas: true,
+    meta: metaAbs ? `até ${formatarPct(metaAbs.meta)}` : undefined,
+  };
+  const horasPerdidas = {
+    faltas: origemDasHorasPerdidas(linhas, "faltas", opcoes),
+    atrasos: origemDasHorasPerdidas(linhas, "atrasos", opcoes),
+  };
+  // Variação contra o mês anterior (menos é melhor em faltas e absenteísmo).
+  const vsAnterior = (
+    atual: number,
+    antes: number | null | undefined,
+    formato: (v: number) => string,
+    menosEhMelhor = true,
+  ): Variacao | undefined => {
+    if (antes === null || antes === undefined) return undefined;
+    const d = atual - antes;
+    return {
+      texto: `${d > 0 ? "+" : ""}${formato(d)} vs ${rotuloAnt}`,
+      sentido: d === 0 ? "neutro" : d < 0 === menosEhMelhor ? "bom" : "ruim",
+    };
+  };
+  const pp = (v: number) => `${formatarNumero(v, 1)} p.p.`;
+  const doSetor = (id: string | null) =>
+    linhas.filter((l) => l.departamento_id === id);
+  const chaveSetor = (id: string | null) => id ?? "sem";
+  const bancoPorPessoa = hora
+    ? saldosEmReais(linhas, hora.salarioHora, hora.adicional)
+    : undefined;
+
+  // Banco de horas: por setor e os extremos por pessoa.
+  const detalheBancoSetor = Object.fromEntries(
+    setores.map((s) => [
+      chaveSetor(s.departamento_id),
+      {
+        secao: "Banco de horas",
+        titulo: s.departamento,
+        subtitulo: `Saldo de cada pessoa em ${rotulo}, de quem mais deve para quem mais tem crédito`,
+        resumo: [
+          { rotulo: "Pessoas", valor: String(s.colaboradores) },
+          {
+            rotulo: "Créditos",
+            valor: `${formatarSaldoHoras(s.banco_positivo_min)}`,
+          },
+          {
+            rotulo: "Débitos",
+            valor: formatarHoras(-Math.abs(s.banco_negativo_min)),
+          },
+          { rotulo: "Saldo", valor: formatarSaldoHoras(s.banco_saldo_min) },
+        ],
+        tabelas: [
+          tabelaDoBanco(doSetor(s.departamento_id), undefined, bancoPorPessoa),
+        ],
+      } satisfies Detalhe,
+    ]),
+  );
+  const porSaldo = [...linhas].sort(
+    (a, b) => a.banco_saldo_min - b.banco_saldo_min,
+  );
+  const extremosBanco = [
+    ...porSaldo.filter((l) => l.banco_saldo_min < 0).slice(0, 6),
+    ...porSaldo
+      .filter((l) => l.banco_saldo_min > 0)
+      .slice(-6)
+      .reverse(),
+  ];
+
+  // Horas extras: por tipo (cor fixa pela ordem dos tipos), setor e pessoa.
+  const tiposExtra = Object.keys(totais.extras_por_tipo).sort((a, b) =>
+    a.localeCompare(b, "pt-BR", { numeric: true }),
+  );
+  const fatiasExtras: FatiaRosca[] = tiposExtra.slice(0, 5).map((tipo, k) => ({
+    chave: tipo,
+    rotulo: tipo,
+    valor: totais.extras_por_tipo[tipo] ?? 0,
+    texto: formatarHoras(totais.extras_por_tipo[tipo] ?? 0),
+    cor: CORES[k] ?? "neutro",
+  }));
+  const detalheExtras: Detalhe = {
+    secao: "Horas extras",
+    titulo: `Horas extras de ${rotulo}`,
+    subtitulo: "Do ponto (Secullum), de quem fez mais para quem fez menos",
+    resumo: [
+      { rotulo: "Total", valor: formatarHoras(totais.extras_min) },
+      ...tiposExtra.map((tipo) => ({
+        rotulo: tipo,
+        valor: formatarHoras(totais.extras_por_tipo[tipo] ?? 0),
+      })),
+      {
+        rotulo: "Noturnas (parte)",
+        valor: formatarHoras(totais.extras_noturnas_min),
+      },
+      {
+        rotulo: "Intervalo (à parte)",
+        valor: formatarHoras(totais.extras_intervalo_min),
+      },
+    ].slice(0, 8),
+    tabelas: [tabelaDeExtras(linhas)],
+  };
+  const detalheExtrasPorTipo = Object.fromEntries(
+    tiposExtra.map((tipo) => [
+      tipo,
+      {
+        secao: "Horas extras",
+        titulo: tipo,
+        subtitulo: `Quem fez extras ${tipo === "Sem divisão por %" ? "sem divisão por percentual" : `a ${tipo.replace("Ex", "")}`} em ${rotulo}`,
+        tabelas: [tabelaDeExtras(linhas, tipo)],
+      } satisfies Detalhe,
+    ]),
+  );
+  const detalheExtrasSetor = Object.fromEntries(
+    setores.map((s) => [
+      chaveSetor(s.departamento_id),
+      {
+        secao: "Horas extras",
+        titulo: s.departamento,
+        subtitulo: `Horas extras de cada pessoa em ${rotulo}`,
+        resumo: [
+          { rotulo: "Extras", valor: formatarHoras(s.extras_min) },
+          {
+            rotulo: "Noturnas (parte)",
+            valor: formatarHoras(s.extras_noturnas_min),
+          },
+          {
+            rotulo: "Intervalo (à parte)",
+            valor: formatarHoras(s.extras_intervalo_min),
+          },
+          { rotulo: "Pessoas", valor: String(s.colaboradores) },
+        ],
+        tabelas: [tabelaDeExtras(doSetor(s.departamento_id))],
+      } satisfies Detalhe,
+    ]),
+  );
+  const maisExtras = [...linhas]
+    .filter((l) => extrasDe(l).total > 0)
+    .sort((a, b) => extrasDe(b).total - extrasDe(a).total)
+    .slice(0, 10);
+
+  // Faltas: por setor (horas e dias) e quem mais faltou.
+  const detalheFaltasSetor = Object.fromEntries(
+    setores.map((s) => [
+      chaveSetor(s.departamento_id),
+      {
+        secao: "Faltas",
+        titulo: s.departamento,
+        subtitulo: `Quem teve faltas em ${rotulo}`,
+        resumo: [
+          { rotulo: "Faltas", valor: formatarHoras(s.faltas_min) },
+          { rotulo: "Dias", valor: formatarNumero(s.faltas_dias, 1) },
+          {
+            rotulo: "DSR descontado",
+            valor: formatarHoras(Math.abs(s.dsr_debito_min)),
+          },
+          { rotulo: "Pessoas", valor: String(s.colaboradores) },
+        ],
+        tabelas: [tabelaDeHorasPerdidas(doSetor(s.departamento_id), "faltas")],
+      } satisfies Detalhe,
+    ]),
+  );
+  const maisFaltas = [...linhas]
+    .filter((l) => l.faltas_min > 0)
+    .sort((a, b) => b.faltas_min - a.faltas_min)
+    .slice(0, 10);
+
+  const pessoas = [...linhas].sort(
+    (a, b) =>
+      (absenteismo(b) ?? -1) - (absenteismo(a) ?? -1) ||
+      a.nome.localeCompare(b.nome),
+  );
+  // Absenteísmo de cada pessoa frente à meta (filtro da tabela).
+  const situacao = (l: LinhaPonto) =>
+    rotuloStatus(status(absenteismo(l), metaAbs));
+
+  const colunasSetor: Coluna<TotaisSetor>[] = [
+    { titulo: "Setor", valor: (s) => s.departamento },
+    { titulo: "Pessoas", valor: (s) => s.colaboradores, numero: true },
+    {
+      titulo: "Horas previstas",
+      valor: (s) => formatarHoras(s.previstas_min),
+      numero: true,
+    },
+    {
+      titulo: "Faltas",
+      valor: (s) => formatarHoras(s.faltas_min),
+      numero: true,
+    },
+    {
+      titulo: "Atrasos",
+      valor: (s) => formatarHoras(s.atrasos_min),
+      numero: true,
+    },
+    {
+      titulo: "Abonos",
+      valor: (s) => formatarHoras(s.abonos_min),
+      numero: true,
+    },
+    {
+      titulo: "Absenteísmo",
+      valor: (s) => formatarPct(s.absenteismo),
+      numero: true,
+    },
+    {
+      titulo: "Extras",
+      valor: (s) => formatarHoras(s.extras_min),
+      numero: true,
+    },
+    {
+      titulo: "Banco (+)",
+      valor: (s) => formatarSaldoHoras(s.banco_positivo_min),
+      numero: true,
+    },
+    {
+      titulo: "Banco (−)",
+      valor: (s) => formatarHoras(s.banco_negativo_min),
+      numero: true,
+    },
+  ];
+
+  const colunasPessoa: Coluna<LinhaPonto>[] = [
+    { titulo: "Colaborador", valor: (l) => l.nome },
+    { titulo: "Matrícula", valor: (l) => l.matricula ?? "—", numero: true },
+    { titulo: "Setor", valor: (l) => l.departamento },
+    {
+      titulo: "Previstas",
+      valor: (l) => formatarHoras(l.previstas_min),
+      numero: true,
+    },
+    {
+      titulo: "Faltas",
+      valor: (l) => formatarHoras(l.faltas_min),
+      numero: true,
+    },
+    {
+      titulo: "Dias de falta",
+      valor: (l) => formatarNumero(l.faltas_dias, 1),
+      numero: true,
+    },
+    {
+      titulo: "Atrasos",
+      valor: (l) => formatarHoras(l.atrasos_min),
+      numero: true,
+    },
+    ...abonos.map(
+      (a): Coluna<LinhaPonto> => ({
+        titulo: a,
+        valor: (l) => formatarHoras(l.abonos_min[a] ?? 0),
+        numero: true,
+      }),
+    ),
+    {
+      titulo: "Absenteísmo",
+      valor: (l) => formatarPct(absenteismo(l)),
+      numero: true,
+    },
+    {
+      titulo: "Extras",
+      valor: (l) => formatarHoras(extrasDe(l).total),
+      numero: true,
+    },
+    {
+      titulo: "Banco (saldo)",
+      valor: (l) => formatarSaldoHoras(l.banco_saldo_min),
+      numero: true,
+    },
+  ];
+
+  return (
+    <ProvedorDetalhe>
+      <div className="flex flex-col gap-6">
+        {filtros}
+        <AbasDaJornada />
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <CartaoIndicador
+            titulo="Absenteísmo"
+            tom="escuro"
+            valor={formatarPct(totais.absenteismo)}
+            status={status(totais.absenteismo, metaAbs)}
+            meta={
+              metaAbs
+                ? `Meta: até ${formatarPct(metaAbs.meta)}`
+                : "Defina a meta em Parâmetros"
+            }
+            detalhe={`${totais.colaboradores} pessoas no período`}
+            variacao={
+              totais.absenteismo !== null
+                ? vsAnterior(totais.absenteismo, totaisAnt?.absenteismo, pp)
+                : undefined
+            }
+            origem={origemDoAbsenteismo(linhas, opcoes)}
+          />
+          <CartaoIndicador
+            titulo="Faltas"
+            valor={formatarHoras(totais.faltas_min)}
+            detalhe={`${formatarNumero(totais.faltas_dias, 1)} dias · atrasos ${formatarHoras(totais.atrasos_min)}`}
+            variacao={vsAnterior(
+              totais.faltas_min,
+              totaisAnt?.faltas_min,
+              formatarHoras,
+            )}
+            origem={horasPerdidas.faltas}
+          />
+          <CartaoIndicador
+            titulo="Horas extras"
+            valor={formatarHoras(totais.extras_min)}
+            detalhe={`${formatarHoras(totais.extras_noturnas_min)} à noite · intervalo ${formatarHoras(totais.extras_intervalo_min)} à parte`}
+            variacao={vsAnterior(
+              totais.extras_min,
+              totaisAnt?.extras_min,
+              formatarHoras,
+            )}
+            origem={detalheExtras}
+          />
+          <CartaoIndicador
+            titulo="Abonos"
+            valor={formatarHoras(totais.abonos_min)}
+            detalhe="Não entram no absenteísmo"
+            origem={origemDosAbonos(linhas, abonos, opcoes)}
+          />
+          <CartaoIndicador
+            titulo="Banco de horas"
+            tom="verde"
+            valor={formatarSaldoHoras(totais.banco_saldo_min)}
+            detalhe={`Positivo ${formatarSaldoHoras(totais.banco_positivo_min)} · negativo ${formatarHoras(totais.banco_negativo_min)}`}
+            variacao={vsAnterior(
+              totais.banco_saldo_min,
+              totaisAnt?.banco_saldo_min,
+              formatarHoras,
+              false,
+            )}
+            origem={origemDoBanco(linhas, {
+              ...opcoes,
+              meta: undefined,
+              reais:
+                reais && departamento
+                  ? {
+                      ...reais,
+                      valor: reais.porDepartamento.get(departamento) ?? null,
+                    }
+                  : reais,
+              porPessoa: bancoPorPessoa,
+              // Fechamento: o valor de cada pessoa pede o custo individual.
+              ciclo: ciclo && {
+                ...ciclo,
+                link: hora
+                  ? {
+                      href: "/rh/jornada/banco-de-horas",
+                      rotulo: "Fechamento do ciclo",
+                    }
+                  : undefined,
+              },
+            })}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+          <Secao
+            titulo="Absenteísmo por setor"
+            descricao={`${rotulo} · passe o mouse para ver faltas e atrasos`}
+            className="xl:col-span-3"
+          >
+            <BarrasHorizontais
+              descricao="Absenteísmo por setor"
+              meta={meta}
+              itens={setores.map((s) => ({
+                chave: s.departamento_id ?? "sem",
+                rotulo: s.departamento,
+                valor: s.absenteismo ?? 0,
+                texto: formatarPct(s.absenteismo),
+                detalhe: `${s.colaboradores} pessoas · faltas ${formatarHoras(s.faltas_min)} · atrasos ${formatarHoras(s.atrasos_min)}`,
+              }))}
+              detalhes={Object.fromEntries(
+                setores.map((s) => [
+                  s.departamento_id ?? "sem",
+                  origemDoSetor(
+                    s,
+                    linhas.filter(
+                      (l) => l.departamento_id === s.departamento_id,
+                    ),
+                    opcoes,
+                  ),
+                ]),
+              )}
+            />
+          </Secao>
+          <Secao
+            titulo="Horas perdidas"
+            tom="escuro"
+            descricao="O que forma o absenteísmo do mês"
+            className="xl:col-span-2"
+          >
+            <Rosca
+              descricao="Horas perdidas: faltas e atrasos"
+              centro={{
+                valor: formatarHoras(totais.faltas_min + totais.atrasos_min),
+                rotulo: `de ${formatarHoras(totais.previstas_min)} previstas`,
+              }}
+              fatias={[
+                {
+                  chave: "faltas",
+                  rotulo: "Faltas",
+                  valor: totais.faltas_min,
+                  texto: formatarHoras(totais.faltas_min),
+                  cor: 1,
+                },
+                {
+                  chave: "atrasos",
+                  rotulo: "Atrasos",
+                  valor: totais.atrasos_min,
+                  texto: formatarHoras(totais.atrasos_min),
+                  cor: 2,
+                },
+              ]}
+              detalhes={horasPerdidas}
+            />
+          </Secao>
+        </div>
+
+        {/* Mesma altura nos dois; as linhas que passarem dela rolam. */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <Secao
+            titulo="Banco de horas por setor"
+            descricao={`Débitos ← zero → créditos em ${rotulo}; clique para ver cada pessoa`}
+            className="flex flex-col xl:h-[28rem]"
+          >
+            <div className="flex h-full flex-col gap-5">
+              <div className="min-h-0 flex-1">
+                <BarrasDivergentes
+                  rolar
+                  descricao="Banco de horas por setor: débitos e créditos"
+                  rotulos={{
+                    negativo: "Débito (devem horas)",
+                    positivo: "Crédito (a folgar ou pagar)",
+                  }}
+                  linhas={setores.map((s) => ({
+                    chave: chaveSetor(s.departamento_id),
+                    rotulo: s.departamento,
+                    negativo: Math.abs(s.banco_negativo_min),
+                    positivo: s.banco_positivo_min,
+                    textoNegativo: formatarHoras(
+                      -Math.abs(s.banco_negativo_min),
+                    ),
+                    textoPositivo: `${formatarSaldoHoras(s.banco_positivo_min)}`,
+                    resumo: `saldo ${formatarSaldoHoras(s.banco_saldo_min)}`,
+                    detalhe: `${s.colaboradores} pessoas`,
+                  }))}
+                  detalhes={detalheBancoSetor}
+                />
+              </div>
+              <dl className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  {
+                    rotulo: "Créditos",
+                    valor: `${formatarSaldoHoras(totais.banco_positivo_min)}`,
+                  },
+                  {
+                    rotulo: "Débitos",
+                    valor: formatarHoras(-Math.abs(totais.banco_negativo_min)),
+                  },
+                  {
+                    rotulo: "Devem horas",
+                    valor: String(
+                      linhas.filter((l) => l.banco_saldo_min < 0).length,
+                    ),
+                    unidade: "pessoas",
+                  },
+                  {
+                    rotulo: "Têm crédito",
+                    valor: String(
+                      linhas.filter((l) => l.banco_saldo_min > 0).length,
+                    ),
+                    unidade: "pessoas",
+                  },
+                ].map((x) => (
+                  <div
+                    key={x.rotulo}
+                    className="min-w-0 rounded-2xl bg-neutral-900/[0.04] px-4 py-3"
+                  >
+                    <dt className="truncate text-[11px] text-neutral-500">
+                      {x.rotulo}
+                    </dt>
+                    <dd className="mt-0.5 truncate text-lg font-semibold tabular-nums">
+                      {x.valor}
+                      {x.unidade && (
+                        <span className="ml-1 text-xs font-normal text-neutral-500">
+                          {x.unidade}
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </Secao>
+          <Secao
+            titulo="Banco de horas por pessoa"
+            descricao="Quem mais deve horas e quem mais tem crédito"
+            className="flex flex-col xl:h-[28rem]"
+          >
+            <BarrasDivergentes
+              rolar
+              descricao="Saldo do banco de horas: quem mais deve e quem mais tem crédito"
+              rotulos={{ negativo: "Deve horas", positivo: "Tem crédito" }}
+              linhas={extremosBanco.map((l) => ({
+                chave: l.colaborador_id,
+                rotulo: l.nome,
+                negativo: Math.max(-l.banco_saldo_min, 0),
+                positivo: Math.max(l.banco_saldo_min, 0),
+                textoNegativo:
+                  l.banco_saldo_min < 0
+                    ? formatarSaldoHoras(l.banco_saldo_min)
+                    : "",
+                textoPositivo:
+                  l.banco_saldo_min > 0
+                    ? formatarSaldoHoras(l.banco_saldo_min)
+                    : "",
+                resumo: l.departamento,
+                detalhe: `créditos ${formatarSaldoHoras(l.banco_creditos_min)} · débitos ${formatarHoras(-Math.abs(l.banco_debitos_min))}`,
+              }))}
+            />
+          </Secao>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+          <Secao
+            titulo="Horas extras por tipo"
+            tom="escuro"
+            descricao="Pelo percentual do ponto; clique para ver quem fez"
+            className="xl:col-span-2"
+          >
+            <Rosca
+              descricao="Horas extras por tipo"
+              vazio="Nenhuma hora extra no período."
+              centro={{
+                valor: formatarHoras(totais.extras_min),
+                rotulo: `${formatarHoras(totais.extras_noturnas_min)} à noite`,
+              }}
+              fatias={fatiasExtras}
+              detalhes={detalheExtrasPorTipo}
+            />
+          </Secao>
+          <Secao
+            titulo="Horas extras por setor"
+            descricao={`${rotulo} · clique para ver cada pessoa`}
+            className="xl:col-span-3"
+          >
+            <BarrasHorizontais
+              descricao="Horas extras por setor"
+              vazio="Nenhuma hora extra no período."
+              itens={[...setores]
+                .sort((a, b) => b.extras_min - a.extras_min)
+                .map((s) => ({
+                  chave: chaveSetor(s.departamento_id),
+                  rotulo: s.departamento,
+                  valor: s.extras_min / 60,
+                  texto: formatarHoras(s.extras_min),
+                  detalhe: `${formatarHoras(s.extras_noturnas_min)} à noite · intervalo ${formatarHoras(s.extras_intervalo_min)} à parte`,
+                }))}
+              detalhes={detalheExtrasSetor}
+            />
+          </Secao>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <Secao
+            titulo="Quem mais fez horas extras"
+            descricao={`As 10 pessoas com mais extras em ${rotulo}`}
+          >
+            <BarrasHorizontais
+              descricao="As 10 pessoas com mais horas extras"
+              vazio="Nenhuma hora extra no período."
+              itens={maisExtras.map((l) => ({
+                chave: l.colaborador_id,
+                rotulo: l.nome,
+                valor: extrasDe(l).total / 60,
+                texto: formatarHoras(extrasDe(l).total),
+                detalhe: `${l.departamento} · ${Object.entries(
+                  extrasDe(l).porTipo,
+                )
+                  .map(([tipo, m]) => `${tipo} ${formatarHoras(m)}`)
+                  .join(" · ")}`,
+              }))}
+            />
+          </Secao>
+          <Secao
+            titulo="Quem mais faltou"
+            descricao={`As 10 pessoas com mais horas de falta em ${rotulo}`}
+          >
+            <BarrasHorizontais
+              descricao="As 10 pessoas com mais horas de falta"
+              vazio="Nenhuma falta no período."
+              itens={maisFaltas.map((l) => ({
+                chave: l.colaborador_id,
+                rotulo: l.nome,
+                valor: l.faltas_min / 60,
+                texto: formatarHoras(l.faltas_min),
+                detalhe: `${l.departamento} · ${formatarNumero(l.faltas_dias, 1)} dia(s) · absenteísmo ${formatarPct(absenteismo(l))}`,
+              }))}
+            />
+          </Secao>
+        </div>
+
+        <Secao
+          titulo="Faltas por setor"
+          descricao={`Horas de falta em ${rotulo}, com os dias e o DSR descontado; clique para ver cada pessoa`}
+        >
+          <BarrasHorizontais
+            descricao="Faltas por setor"
+            vazio="Nenhuma falta no período."
+            itens={[...setores]
+              .sort((a, b) => b.faltas_min - a.faltas_min)
+              .map((s) => ({
+                chave: chaveSetor(s.departamento_id),
+                rotulo: s.departamento,
+                valor: s.faltas_min / 60,
+                texto: formatarHoras(s.faltas_min),
+                detalhe: `${formatarNumero(s.faltas_dias, 1)} dia(s) · DSR descontado ${formatarHoras(Math.abs(s.dsr_debito_min))}`,
+              }))}
+            detalhes={detalheFaltasSetor}
+          />
+        </Secao>
+
+        <Secao
+          titulo="Absenteísmo por funcionário"
+          tom="escuro"
+          descricao="Cada bolinha é uma pessoa; passe o mouse para ver quem é. Os números estão na tabela abaixo."
+        >
+          <Pontos
+            descricao="Absenteísmo de cada funcionário no mês"
+            sufixo="%"
+            meta={meta}
+            itens={pessoas
+              .filter((l) => absenteismo(l) !== null)
+              .map((l) => ({
+                chave: l.colaborador_id,
+                rotulo: l.nome,
+                valor: absenteismo(l) ?? 0,
+                texto: formatarPct(absenteismo(l)),
+                detalhe: `${l.departamento} · faltas ${formatarHoras(l.faltas_min)} · atrasos ${formatarHoras(l.atrasos_min)}`,
+              }))}
+          />
+        </Secao>
+
+        <Secao titulo="Por setor" tom="verde">
+          <Tabela
+            colunas={colunasSetor}
+            linhas={setores}
+            chave={(s) => s.departamento_id ?? "sem"}
+            rodape={[
+              "Total",
+              totais.colaboradores,
+              formatarHoras(totais.previstas_min),
+              formatarHoras(totais.faltas_min),
+              formatarHoras(totais.atrasos_min),
+              formatarHoras(totais.abonos_min),
+              formatarPct(totais.absenteismo),
+              formatarHoras(totais.extras_min),
+              formatarSaldoHoras(totais.banco_positivo_min),
+              formatarHoras(totais.banco_negativo_min),
+            ]}
+          />
+        </Secao>
+
+        <Secao
+          titulo="Por funcionário"
+          descricao={`${pessoas.length} pessoas, do maior absenteísmo para o menor`}
+        >
+          <TabelaBusca
+            placeholder="Buscar pelo nome, matrícula ou setor…"
+            porPagina={10}
+            filtros={[
+              {
+                chave: "setor",
+                rotulo: "Setor",
+                todos: "Todos os setores",
+                opcoes: opcoesDe(pessoas.map((l) => l.departamento)),
+              },
+              ...(metaAbs
+                ? [
+                    {
+                      chave: "abs",
+                      rotulo: "Absenteísmo",
+                      todos: "Qualquer absenteísmo",
+                      opcoes: (["ok", "atencao", "fora", "sem_dado"] as const)
+                        .map((s) => rotuloStatus(s))
+                        .filter((r) => pessoas.some((l) => situacao(l) === r))
+                        .map((r) => ({ valor: r, rotulo: r })),
+                    },
+                  ]
+                : []),
+              {
+                chave: "banco",
+                rotulo: "Banco de horas",
+                todos: "Qualquer saldo",
+                opcoes: ["Deve horas", "Tem crédito", "Zerado"].map((v) => ({
+                  valor: v,
+                  rotulo: v,
+                })),
+              },
+            ]}
+            {...paraBusca(
+              colunasPessoa,
+              pessoas,
+              (l) => l.colaborador_id,
+              (l) => `${l.nome} ${l.matricula ?? ""} ${l.departamento}`,
+              (l) => ({
+                setor: l.departamento,
+                abs: situacao(l),
+                banco:
+                  l.banco_saldo_min < 0
+                    ? "Deve horas"
+                    : l.banco_saldo_min > 0
+                      ? "Tem crédito"
+                      : "Zerado",
+              }),
+            )}
+          />
+        </Secao>
+
+        <Nota>
+          Fonte: ponto (Secullum) de {formatarData(efetivo.de)} a{" "}
+          {formatarData(efetivo.ate)} (o dia de hoje entra amanhã)
+          {aviso.parcial ? `; ${aviso.parcial}` : ""}. Absenteísmo = (faltas +
+          atrasos) ÷ horas previstas. Os abonos ({abonos.join(", ") || "nenhum"}
+          ) aparecem separados até a confirmação de qual coluna é atestado.
+          Horas extras: soma dos percentuais (Ex80%, Ex100%…) ou a coluna
+          "Extras" nos horários sem divisão; a parte noturna (ExNot) já está
+          dentro e as extras de intervalo (ExInt) ficam à parte até a
+          confirmação. O valor em R$ das extras vem da folha.
+        </Nota>
+      </div>
+    </ProvedorDetalhe>
+  );
+}
+
+/** Blocos no lugar dos cartões da tela enquanto os dados chegam. */
+function Esqueleto() {
+  return (
+    <TelaCarregando>
+      <FiltrosCarregando />
+      <IndicadoresCarregando
+        className="sm:grid-cols-2 xl:grid-cols-5"
+        quantidade={5}
+      />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <CartaoCarregando className="xl:col-span-3" altura="h-80" />
+        <CartaoCarregando className="xl:col-span-2" altura="h-80" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <CartaoCarregando altura="h-80" />
+        <CartaoCarregando altura="h-80" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <CartaoCarregando className="xl:col-span-2" altura="h-80" />
+        <CartaoCarregando className="xl:col-span-3" altura="h-80" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <CartaoCarregando altura="h-80" />
+        <CartaoCarregando altura="h-80" />
+      </div>
+      <CartaoCarregando />
+      <CartaoCarregando />
+      <CartaoCarregando />
+      <CartaoCarregando />
+    </TelaCarregando>
+  );
+}

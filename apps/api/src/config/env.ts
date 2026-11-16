@@ -63,6 +63,18 @@ const esquema = z
     /** Erros de senha do mesmo e-mail e IP, na janela, antes de bloquear. */
     LOGIN_TENTATIVAS: inteiro(10, 1, 1000),
     LOGIN_JANELA_MINUTOS: inteiro(15, 1, 1440),
+    // Acesso das integrações quando não há credencial salva na tela
+    // (Administração › Integrações). Opcionais.
+    SECULLUM_USUARIO: z.string().min(1).optional(),
+    SECULLUM_SENHA: z.string().min(1).optional(),
+    SECULLUM_BANCO_ID: z.string().min(1).optional(),
+    WPS_BASE_URL: z.url().optional(),
+    WPS_USUARIO: z.string().min(1).optional(),
+    WPS_SENHA: z.string().min(1).optional(),
+    WPS_ESTACIONAMENTO_ID: z.coerce.number().int().positive().optional(),
+    COPILOTO_RH_BASE_URL: z.url().optional(),
+    COPILOTO_RH_USUARIO: z.string().min(1).optional(),
+    COPILOTO_RH_SENHA: z.string().min(1).optional(),
   })
   .superRefine((v, ctx) => {
     if (v.NODE_ENV !== "production") return;

@@ -1,0 +1,443 @@
+import {
+  formatarData,
+  formatarMoeda,
+  formatarNumero,
+  formatarPct,
+} from "@arp/shared/formato";
+import {
+  diaADia,
+  linhasDeCampanha,
+  linkNaPlataforma,
+  PLATAFORMAS,
+  quebraMeta,
+  rotuloSituacao,
+  rotuloTipo,
+  termosDePesquisa,
+} from "@arp/shared/marketing/anuncios";
+import type { DadosAnuncios } from "@arp/shared/marketing/contratos/fontes";
+import { diaDaSemana, linhaDeFiltros } from "@arp/shared/marketing/periodo";
+import { useSuspenseQueries } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
+import { Suspense } from "react";
+import {
+  CartaoCarregando,
+  IndicadoresCarregando,
+  TelaCarregando,
+} from "@/components/carregando";
+import { AreaLinha } from "@/components/dashboard/graficos/area-linha";
+import { BarrasHorizontais } from "@/components/dashboard/graficos/barras-horizontais";
+import { Colunas } from "@/components/dashboard/graficos/colunas";
+import { Rosca } from "@/components/dashboard/graficos/rosca";
+import { Secao } from "@/components/dashboard/tabela";
+import { TabelaLista } from "@/components/dashboard/tabela-lista";
+import {
+  AbrirNaFerramenta,
+  CartaoDaTela,
+  Cartoes,
+  Fonte,
+  fontesReais,
+  hrefCom,
+  TopoDaTela,
+  variacaoContra,
+} from "@/components/dashboard/tela";
+import { PageHeader } from "@/components/page-header";
+import { Protegido } from "@/components/protegido";
+import { Link, naoEncontrado, useBusca, useParametro } from "@/lib/navegacao";
+import {
+  consultaDasLandingPages,
+  consultaDoRdDosAnuncios,
+  consultaDosAnuncios,
+} from "../api";
+import {
+  INTERESSES,
+  type Interesse,
+  interesseDasLandingPages,
+  lerFiltrosMkt,
+  useContextoMkt,
+} from "../base";
+
+// /marketing/anuncios/:id: o detalhe de uma campanha, no período da lista.
+
+const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+export default function Page() {
+  return (
+    <Suspense fallback={<Esqueleto />}>
+      <Protegido permissao="marketing.anuncios">
+        <Tela />
+      </Protegido>
+    </Suspense>
+  );
+}
+
+const ehInteresse = (v: string): v is Interesse => v in INTERESSES;
+
+function Tela() {
+  const id = useParametro("id");
+  const b = useBusca();
+  // Detalhe usa os filtros que vieram no link (não os lembrados).
+  const f = lerFiltrosMkt(useContextoMkt(), b, null, "semana_passada");
+  const it = f.um("interesse");
+  const interesse: Interesse | "" = ehInteresse(it) ? it : "";
+  const [{ data: anuncios }, { data: rd }, { data: lps }] = useSuspenseQueries({
+    queries: [
+      consultaDosAnuncios,
+      consultaDoRdDosAnuncios,
+      consultaDasLandingPages,
+    ],
+  });
+  const interesseDe = interesseDasLandingPages(lps);
+  const aceita = interesse
+    ? (c: { conversion_identifier: string }) =>
+        interesseDe(c.conversion_identifier) === interesse
+    : undefined;
+  const conversoes = aceita ? rd.conversoes.filter(aceita) : rd.conversoes;
+  const c = linhasDeCampanha(anuncios, conversoes, f.periodo).linhas.find(
+    (l) => l.id === id,
+  );
+  if (!c) {
+    const existe = anuncios.campanhas.some((x) => x.id === id);
+    if (!existe) naoEncontrado();
+  }
+  const ant = linhasDeCampanha(anuncios, conversoes, f.anterior).linhas.find(
+    (l) => l.id === id,
+  );
+  const campanha = anuncios.campanhas.find((x) => x.id === id);
+  if (!campanha) naoEncontrado();
+  const ref = { id, nome: campanha.nome, plataforma: campanha.plataforma };
+  const dias = diaADia(anuncios, conversoes, ref, f.periodo);
+  const voltar = hrefCom(
+    "/marketing/anuncios",
+    Object.fromEntries(Object.entries(b).filter(([k]) => k !== "_")),
+    {},
+  );
+
+  const filtros = linhaDeFiltros([
+    { rotulo: "Período", valor: f.rotulo },
+    {
+      rotulo: "Interesse do lead",
+      valor: interesse ? INTERESSES[interesse] : "Todos",
+    },
+  ]);
+
+  return (
+    <>
+      <Link
+        href={voltar}
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900"
+      >
+        <ArrowLeft className="size-4" aria-hidden /> Performance de anúncios
+      </Link>
+      <PageHeader
+        title={campanha.nome}
+        description={`${PLATAFORMAS[campanha.plataforma].ferramenta} · ${rotuloTipo(campanha.tipo)}${rotuloSituacao(campanha.situacao) ? ` · ${rotuloSituacao(campanha.situacao)}` : ""}`}
+      />
+      <div className="flex flex-col gap-6">
+        <TopoDaTela
+          dadosDe={f.ctx.dadosDe}
+          filtros={filtros}
+          reais={fontesReais(
+            campanha.plataforma === "meta" && "Meta Ads",
+            rd.lidoEm && "leads do RD Station",
+          )}
+          acoes={
+            <AbrirNaFerramenta
+              href={linkNaPlataforma(ref)}
+              ferramenta={PLATAFORMAS[campanha.plataforma].ferramenta}
+            />
+          }
+        />
+        {!c ? (
+          <p className="vidro rounded-[1.75rem] p-6 text-sm text-neutral-600">
+            Sem gasto nesta campanha em {f.rotulo}. Escolha outro período na
+            lista.
+          </p>
+        ) : (
+          <>
+            <Cartoes modulo="marketing">
+              <CartaoDaTela
+                titulo="Investimento"
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `investimento da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
+                valor={formatarMoeda(c.investimento)}
+                variacao={
+                  ant
+                    ? variacaoContra(
+                        c.investimento,
+                        ant.investimento,
+                        f.rotuloAnterior,
+                        "neutro",
+                      )
+                    : undefined
+                }
+                fonte={PLATAFORMAS[c.plataforma].ferramenta}
+              />
+              <CartaoDaTela
+                titulo="Leads no RD"
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `leads da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
+                valor={formatarNumero(c.leadsRd)}
+                variacao={
+                  ant
+                    ? variacaoContra(c.leadsRd, ant.leadsRd, f.rotuloAnterior)
+                    : undefined
+                }
+                detalhe={`Conversões da plataforma: ${formatarNumero(c.conversoesPlataforma)}`}
+                fonte="RD Station"
+              />
+              <CartaoDaTela
+                titulo="Custo por lead"
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `investimento e leads da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
+                valor={
+                  c.custoPorLead === null
+                    ? "sem lead"
+                    : formatarMoeda(c.custoPorLead)
+                }
+                variacao={
+                  ant?.custoPorLead && c.custoPorLead
+                    ? variacaoContra(
+                        c.custoPorLead,
+                        ant.custoPorLead,
+                        f.rotuloAnterior,
+                        "menor_melhor",
+                      )
+                    : undefined
+                }
+                fonte="Anúncios e RD Station"
+              />
+              <CartaoDaTela
+                titulo="Cliques no link"
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `cliques da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
+                valor={formatarNumero(c.cliques)}
+                detalhe={`CTR ${formatarPct(c.ctr, 2)} · CPC ${formatarMoeda(c.cpc)}${c.frequencia ? ` · frequência ${formatarNumero(c.frequencia, 2)}` : ""}`}
+                fonte={PLATAFORMAS[c.plataforma].ferramenta}
+              />
+            </Cartoes>
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <Secao
+                titulo="Investimento por dia"
+                descricao={f.rotulo}
+                calculo="Investimento (spend) da campanha em cada dia do período, como a plataforma informa no relatório diário. Fonte: Meta Ads, Google Ads ou TikTok Ads, conforme a campanha."
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
+              >
+                <AreaLinha
+                  descricao="Investimento por dia"
+                  itens={dias.map((d) => ({
+                    chave: d.data,
+                    rotulo:
+                      dias.length > 14
+                        ? d.data.slice(8, 10)
+                        : `${DIAS[diaDaSemana(d.data)]} ${d.data.slice(8, 10)}`,
+                    titulo: formatarData(d.data),
+                    valor: d.investimento,
+                    texto: formatarMoeda(d.investimento),
+                    detalhe: `${formatarNumero(d.cliques)} cliques`,
+                  }))}
+                />
+                <Fonte>{PLATAFORMAS[c.plataforma].ferramenta}</Fonte>
+              </Secao>
+              <Secao
+                titulo="Leads no RD por dia"
+                descricao={f.rotulo}
+                calculo="Conversões do RD Station em cada dia cujo traffic_campaign (UTM) é igual ao nome desta campanha. As conversões que a plataforma conta ficam de fora. Fonte: RD Station."
+                exemplo={
+                  c.plataforma !== "meta" &&
+                  `leads de exemplo da campanha do ${PLATAFORMAS[c.plataforma].ferramenta}`
+                }
+              >
+                <Colunas
+                  descricao="Leads no RD por dia"
+                  itens={dias.map((d) => ({
+                    chave: d.data,
+                    rotulo:
+                      dias.length > 14
+                        ? d.data.slice(8, 10)
+                        : (DIAS[diaDaSemana(d.data)] ?? ""),
+                    titulo: formatarData(d.data),
+                    valor: d.leadsRd,
+                    texto: formatarNumero(d.leadsRd),
+                    detalhe: `Conversões da plataforma: ${d.conversoesPlataforma}`,
+                  }))}
+                />
+                <Fonte>RD Station</Fonte>
+              </Secao>
+            </div>
+
+            {c.plataforma === "meta" && (
+              <QuebrasMeta anuncios={anuncios} id={id} periodo={f.periodo} />
+            )}
+            {c.plataforma === "google" && c.tipo === "SEARCH" && (
+              <Secao
+                titulo="Termos de pesquisa"
+                descricao={`Os 20 com mais cliques · ${f.rotulo}`}
+              >
+                <TabelaLista
+                  semBusca
+                  colunas={[
+                    { titulo: "Termo" },
+                    { titulo: "Impressões", numero: true },
+                    { titulo: "Cliques", numero: true },
+                    { titulo: "Investimento", numero: true },
+                  ]}
+                  ordemInicial={{ coluna: 2, desc: true }}
+                  linhas={termosDePesquisa(
+                    anuncios.google.termos,
+                    id,
+                    f.periodo,
+                  ).map((t) => ({
+                    chave: t.termo,
+                    busca: t.termo,
+                    celulas: [
+                      t.termo,
+                      formatarNumero(t.impressoes),
+                      formatarNumero(t.cliques),
+                      formatarMoeda(t.investimento),
+                    ],
+                    ordem: [t.termo, t.impressoes, t.cliques, t.investimento],
+                  }))}
+                />
+                <Fonte>Google Ads (search_term_view)</Fonte>
+              </Secao>
+            )}
+
+            <Secao titulo="Dia a dia" descricao={f.rotulo}>
+              <TabelaLista
+                semBusca
+                colunas={[
+                  { titulo: "Data" },
+                  { titulo: "Investimento", numero: true },
+                  { titulo: "Impressões", numero: true },
+                  { titulo: "Cliques no link", numero: true },
+                  { titulo: "Conversões da plataforma", numero: true },
+                  { titulo: "Leads no RD", numero: true },
+                  { titulo: "Custo por lead", numero: true },
+                ]}
+                ordemInicial={{ coluna: 0, desc: false }}
+                linhas={dias.map((d) => ({
+                  chave: d.data,
+                  busca: d.data,
+                  celulas: [
+                    `${formatarData(d.data)} (${DIAS[diaDaSemana(d.data)]})`,
+                    formatarMoeda(d.investimento),
+                    formatarNumero(d.impressoes),
+                    formatarNumero(d.cliques),
+                    formatarNumero(d.conversoesPlataforma),
+                    formatarNumero(d.leadsRd),
+                    d.leadsRd ? formatarMoeda(d.investimento / d.leadsRd) : "—",
+                  ],
+                  ordem: [
+                    d.data,
+                    d.investimento,
+                    d.impressoes,
+                    d.cliques,
+                    d.conversoesPlataforma,
+                    d.leadsRd,
+                    d.leadsRd ? d.investimento / d.leadsRd : null,
+                  ],
+                }))}
+                rodape={[
+                  "Total",
+                  formatarMoeda(c.investimento),
+                  formatarNumero(c.impressoes),
+                  formatarNumero(c.cliques),
+                  formatarNumero(c.conversoesPlataforma),
+                  formatarNumero(c.leadsRd),
+                  formatarMoeda(c.custoPorLead),
+                ]}
+              />
+              <Fonte>{PLATAFORMAS[c.plataforma].ferramenta} e RD Station</Fonte>
+            </Secao>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+function QuebrasMeta({
+  anuncios,
+  id,
+  periodo,
+}: {
+  anuncios: DadosAnuncios;
+  id: string;
+  periodo: { de: string; ate: string };
+}) {
+  const plat = quebraMeta(
+    anuncios.meta.quebras,
+    id,
+    periodo,
+    "publisher_platform",
+  );
+  const estados = quebraMeta(anuncios.meta.quebras, id, periodo, "region");
+  const total = plat.reduce((s, p) => s + p.investimento, 0);
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <Secao
+        titulo="Facebook × Instagram"
+        calculo="Investimento da campanha no período, dividido por onde o anúncio apareceu (publisher_platform: Facebook, Instagram, Messenger, Audience Network). No centro, o total investido. Fonte: Meta Ads, relatório diário com a quebra por plataforma."
+        descricao="Investimento por onde o anúncio apareceu"
+      >
+        <Rosca
+          descricao="Investimento por plataforma do Meta"
+          centro={{ valor: formatarMoeda(total, 0), rotulo: "investido" }}
+          fatias={plat.map((p) => ({
+            chave: p.chave,
+            rotulo: p.chave === "instagram" ? "Instagram" : "Facebook",
+            valor: p.investimento,
+            texto: `${formatarMoeda(p.investimento)} · ${formatarNumero(p.cliques)} cliques`,
+            cor: p.chave === "instagram" ? 5 : 1,
+          }))}
+        />
+        <Fonte>Meta Ads (publisher_platform)</Fonte>
+      </Secao>
+      <Secao
+        titulo="Por estado"
+        calculo="Investimento da campanha no período por estado de quem viu o anúncio (quebra region do Meta Ads). Mostra onde o anúncio foi entregue, não onde mora quem virou lead. Fonte: Meta Ads."
+        descricao="Investimento por região de quem viu o anúncio"
+      >
+        <BarrasHorizontais
+          descricao="Investimento por estado"
+          itens={estados.map((e) => ({
+            chave: e.chave,
+            rotulo: e.chave,
+            valor: e.investimento,
+            texto: formatarMoeda(e.investimento),
+            detalhe: `${formatarNumero(e.impressoes)} impressões · ${formatarNumero(e.cliques)} cliques`,
+          }))}
+        />
+        <Fonte>Meta Ads (region)</Fonte>
+      </Secao>
+    </div>
+  );
+}
+
+function Esqueleto() {
+  return (
+    <TelaCarregando>
+      <CartaoCarregando altura="h-20" />
+      <IndicadoresCarregando
+        className="sm:grid-cols-2 xl:grid-cols-4"
+        quantidade={4}
+      />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <CartaoCarregando altura="h-72" />
+        <CartaoCarregando altura="h-72" />
+      </div>
+    </TelaCarregando>
+  );
+}

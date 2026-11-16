@@ -4,7 +4,12 @@ import { defineConfig } from "tsup";
 // parte). `@arp/shared` é TypeScript puro e entra no pacote; o resto fica em
 // node_modules (dependências de produção).
 export default defineConfig({
-  entry: { server: "src/server.ts", migrar: "src/migrar.ts" },
+  entry: {
+    server: "src/server.ts",
+    migrar: "src/migrar.ts",
+    // Reprocesso manual das sincronizações (src/sincronizar.ts).
+    sincronizar: "src/sincronizar.ts",
+  },
   format: "esm",
   target: "node24",
   platform: "node",

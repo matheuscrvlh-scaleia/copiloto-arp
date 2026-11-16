@@ -1,30 +1,30 @@
+import {
+  type ModuloComFiltros,
+  type NotificacaoDoSino,
+  type RespostaNotificacoes,
+  respostaAvisos,
+  respostaFiltros,
+  respostaNotificacoes,
+} from "@arp/shared/contratos/casca";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { z } from "zod";
 import { api } from "@/lib/api";
 import { clienteDeConsultas } from "@/lib/consulta";
 import { useBusca } from "@/lib/navegacao";
 
-// Chamadas da casca (menu, sino, barra de filtros). O que a API precisa
-// responder está descrito em cada função; os schemas ficam aqui enquanto o
-// módulo da API não existe, e devem ir para
-// packages/shared/src/contratos/casca.ts quando ele for escrito.
+// Chamadas da casca (menu, sino, barra de filtros). Contrato:
+// @arp/shared/contratos/casca.
+
+export type {
+  Aviso,
+  ModuloComFiltros,
+  NotificacaoDoSino,
+} from "@arp/shared/contratos/casca";
+export { MODULOS_COM_FILTROS } from "@arp/shared/contratos/casca";
 
 // ---------------------------------------------------------------------------
 // Avisos: pendências do sistema, só para quem pode resolvê-las.
 // ---------------------------------------------------------------------------
-
-const aviso = z.object({
-  /** Estável por tipo de pendência ("rubricas", "folha", "metas"...). */
-  id: z.string(),
-  titulo: z.string(),
-  descricao: z.string(),
-  /** Tela (caminho interno) onde a pendência se resolve. */
-  href: z.string(),
-});
-export type Aviso = z.infer<typeof aviso>;
-
-const respostaAvisos = z.object({ avisos: z.array(aviso) });
 
 /** GET /api/v1/avisos → { avisos: Aviso[] } */
 export const consultaDosAvisos = queryOptions({
@@ -38,21 +38,6 @@ export const consultaDosAvisos = queryOptions({
 // ---------------------------------------------------------------------------
 // Notificações do sino (Tickets e lembretes do Comercial): as não lidas.
 // ---------------------------------------------------------------------------
-
-const notificacaoDoSino = z.object({
-  id: z.number().int(),
-  tipo: z.string(),
-  titulo: z.string(),
-  texto: z.string().nullable(),
-  href: z.string(),
-  /** ISO 8601. */
-  criado_em: z.string(),
-});
-export type NotificacaoDoSino = z.infer<typeof notificacaoDoSino>;
-
-const respostaNotificacoes = z.object({
-  notificacoes: z.array(notificacaoDoSino),
-});
 
 /** De quanto em quanto tempo o sino busca as notificações. */
 const ATUALIZAR_MS = 120_000;
@@ -79,7 +64,7 @@ export const consultaDasNotificacoes = queryOptions({
 
 /** Tira da lista na hora, sem esperar a API. */
 function esquecer(manter: (n: NotificacaoDoSino) => boolean) {
-  clienteDeConsultas.setQueryData<z.infer<typeof respostaNotificacoes>>(
+  clienteDeConsultas.setQueryData<RespostaNotificacoes>(
     CHAVE_DAS_NOTIFICACOES,
     (atual) => atual && { notificacoes: atual.notificacoes.filter(manter) },
   );
@@ -103,18 +88,6 @@ export function marcarTodasLidas(): void {
 // ---------------------------------------------------------------------------
 
 export type Busca = Record<string, string | string[] | undefined>;
-
-export const MODULOS_COM_FILTROS = [
-  "marketing",
-  "comercial",
-  "operacoes",
-] as const;
-export type ModuloComFiltros = (typeof MODULOS_COM_FILTROS)[number];
-
-const respostaFiltros = z.object({
-  /** Só a query da tela ("periodo=mes&plataforma=meta"); null sem registro. */
-  query: z.string().nullable(),
-});
 
 const chaveDosFiltros = (modulo: ModuloComFiltros, tela: string) =>
   ["casca", "filtros", modulo, tela] as const;

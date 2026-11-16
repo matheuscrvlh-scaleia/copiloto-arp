@@ -984,18 +984,22 @@ export function lerBusca(valor: unknown): string {
  * `%` são curingas: tudo isso vira espaço.
  */
 export function filtrosDaBusca(texto: string): string[] {
+  return palavrasDaBusca(texto).map((p) => {
+    const partes = [`titulo.ilike.*${p}*`, `descricao.ilike.*${p}*`];
+    const n = p.replace(/^#/, "");
+    if (/^\d{1,9}$/.test(n)) partes.push(`numero.eq.${n}`);
+    return partes.join(",");
+  });
+}
+
+/** As palavras da busca (até 6, sem a sintaxe e os curingas), para o SQL. */
+export function palavrasDaBusca(texto: string): string[] {
   return texto
     .replace(/[,()"\\:*%]/g, " ")
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 6)
-    .map((palavra) => {
-      const p = palavra.slice(0, 40);
-      const partes = [`titulo.ilike.*${p}*`, `descricao.ilike.*${p}*`];
-      const n = p.replace(/^#/, "");
-      if (/^\d{1,9}$/.test(n)) partes.push(`numero.eq.${n}`);
-      return partes.join(",");
-    });
+    .map((palavra) => palavra.slice(0, 40));
 }
 
 /** Colunas que o banco sabe ordenar (nomes de setor e de pessoas, não). */

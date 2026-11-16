@@ -5,7 +5,7 @@ import type {
   Obra,
   Relatorio,
   Video,
-} from "@/connectors/diario-de-obras/schemas";
+} from "../conectores/diario-de-obras";
 import { diaDaSemana, somarDias } from "../os/tempo";
 
 // Diário de Obra (spec 4.9): status e indicadores calculados só com o que a

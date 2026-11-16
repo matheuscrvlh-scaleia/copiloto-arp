@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import relatorioDaApi from "@/connectors/diario-de-obras/__fixtures__/relatorio.json";
-import { relatorioSchema } from "@/connectors/diario-de-obras/schemas";
+import relatorioDaApi from "../conectores/__fixtures__/diario-de-obras/relatorio.json";
+import { relatorioSchema } from "../conectores/diario-de-obras";
 import {
   aAprovar,
   alertasDoPainel,

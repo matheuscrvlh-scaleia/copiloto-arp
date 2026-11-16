@@ -1,10 +1,6 @@
+import { oportunidadesDoCrm } from "@arp/shared/comercial/rd-crm";
 import { describe, expect, it } from "vitest";
-import {
-  createRdCrmClient,
-  renovarRdCrm,
-  trocarCodigoRdCrm,
-} from "@/connectors/rd-crm";
-import { oportunidadesDoCrm } from "./rd-crm";
+import { createRdCrmClient, renovarRdCrm, trocarCodigoRdCrm } from "./rd-crm";
 
 // Respostas no formato da documentação da API v2 do RD Station CRM
 // (nomes fictícios).

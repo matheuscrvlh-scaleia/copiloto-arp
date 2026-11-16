@@ -1,4 +1,4 @@
-import type { Turnover } from "@/connectors/copiloto-rh/schemas";
+import type { Turnover } from "../conectores/copiloto-rh";
 
 // Turnover do Copiloto RH. As taxas e contagens vêm prontas da API
 // (GET /v1/turnover), calculadas pelo mesmo código da tela Relatórios ›

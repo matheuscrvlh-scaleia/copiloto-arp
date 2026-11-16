@@ -11,7 +11,8 @@
     "test": "vitest run",
     "db:migrar": "tsx --env-file=.env src/migrar.ts",
     "db:marcar-base": "tsx --env-file=.env src/migrar.ts --marcar-base",
-    "db:tipos": "kysely-codegen"
+    "db:tipos": "kysely-codegen",
+    "sincronizar": "tsx --env-file=.env src/sincronizar.ts"
   },
   "dependencies": {
     "@arp/shared": "^1.0.0",

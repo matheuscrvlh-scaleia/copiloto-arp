@@ -10,6 +10,11 @@ import {
 // (as mesmas do sistema anterior). Os demais seguem como vieram e o plugin
 // de erros responde 500 sem detalhe.
 
+/** Código do Postgres de um erro que passou sem tradução (ex.: 23503). */
+export function codigoDoBanco(e: unknown): string | undefined {
+  return e instanceof pg.DatabaseError ? e.code : undefined;
+}
+
 export function erroDoBanco(e: unknown): ErroDaApi | null {
   if (!(e instanceof pg.DatabaseError)) return null;
   switch (e.code) {

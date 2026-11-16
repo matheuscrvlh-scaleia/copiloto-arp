@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { cnpjValido } from "../documentos";
 import { lerValorBr } from "../formato";
-import type { Database } from "../supabase/database.types";
 
 // Parâmetros de Operações (spec 4.12): todos os campos de
 // operacoes.parametros, em grupos que salvam separado. A validação repete os
@@ -226,16 +225,12 @@ export const ESQUEMAS = {
 
 export type DadosDoGrupo<G extends Grupo> = z.infer<(typeof ESQUEMAS)[G]>;
 
-// Toda coluna de operacoes.parametros tem lugar num grupo: coluna nova (de
-// qualquer migration) sem campo aqui quebra o typecheck.
-type Colunas = Exclude<
-  keyof Database["operacoes"]["Tables"]["parametros"]["Row"],
-  "id" | "atualizado_em" | "atualizado_por"
->;
-type NosGrupos = { [G in Grupo]: keyof DadosDoGrupo<G> }[Grupo];
-export const TODAS_AS_COLUNAS: [Exclude<Colunas, NosGrupos>] extends [never]
-  ? true
-  : Exclude<Colunas, NosGrupos> = true;
+/**
+ * Colunas que têm lugar num grupo. A API confere contra os tipos do banco
+ * (modules/operacoes/base.service.ts): coluna nova de operacoes.parametros
+ * sem campo aqui quebra o typecheck.
+ */
+export type ColunasNosGrupos = { [G in Grupo]: keyof DadosDoGrupo<G> }[Grupo];
 
 /** Colunas de cada grupo (para saber o que o histórico mostra em cada aba). */
 export const COLUNAS_DO_GRUPO: Record<Grupo, string[]> = Object.fromEntries(

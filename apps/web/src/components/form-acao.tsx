@@ -144,6 +144,14 @@ export function FormAcao({
   );
 }
 
+/**
+ * O FormAcao em volta está enviando? É o `useFormStatus().pending` de antes:
+ * aqui o envio é pelo onSubmit, que o `useFormStatus` não vê.
+ */
+export function useEnviandoAcao(): boolean {
+  return use(ContextoEnvio)?.enviando ?? false;
+}
+
 /** Botão de enviar do FormAcao em volta. */
 export function EnvioDaAcao({ className = "" }: { className?: string }) {
   const envio = use(ContextoEnvio);
