@@ -4,11 +4,12 @@ import { Secao } from "@/components/admin/ui";
 import { classeCampo } from "@/components/estilos";
 import { EnvioDaAcao, FormAcao } from "@/components/form-acao";
 import { salvarCargo } from "@/server/admin/acoes/usuarios";
-import type { Cargo } from "@/server/admin/dados";
+import { type Cargo, permissoesDePrograma } from "@/server/admin/dados";
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
 
-export function FormCargo({ cargo }: { cargo?: Cargo }) {
+export async function FormCargo({ cargo }: { cargo?: Cargo }) {
+  const programas = await permissoesDePrograma();
   return (
     <FormAcao
       acao={salvarCargo}
@@ -47,7 +48,10 @@ export function FormCargo({ cargo }: { cargo?: Cargo }) {
         larga
         descricao="O que quem tiver este cargo pode ver e fazer. Vale na hora para todos os usuários dele."
       >
-        <CaixasDePermissao marcadas={cargo?.permissoes ?? []} />
+        <CaixasDePermissao
+          marcadas={cargo?.permissoes ?? []}
+          programas={programas}
+        />
       </Secao>
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutral-200/70 pt-6">
         <Link

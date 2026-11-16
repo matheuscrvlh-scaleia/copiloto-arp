@@ -46,6 +46,15 @@ monta à mão.
   de pergunta, obrigatórias, seções, prévia, data e limite para encerrar,
   link para copiar ou mandar pelo WhatsApp e respostas com resumo por
   pergunta e Excel. Quem responde não precisa de login.
+- **Sustentabilidade**: entrevistas de resíduos por contrato (questionário
+  editável com versões, aplicação no tablet com assinatura e PDF, validade
+  por setor e chamado automático no vencimento), Clube SustentArp (termos,
+  contribuições e ações), rondas dos coletores, notas do RCC, programas com
+  formulário próprio e link para o parceiro lançar sem login, painel com
+  consolidado do ano, equivalências e relatório mensal em PDF, e importação
+  das planilhas e do Forms antigos. Contratos lidos de `os.lojas` (ENET só
+  leitura); água e solar vêm de Operações. Contrato do banco em
+  [docs/sustentabilidade.md](docs/sustentabilidade.md).
 
 As especificações completas estão na pasta do projeto ARP (fora do repo).
 Integrações: [docs/integracoes.md](docs/integracoes.md).

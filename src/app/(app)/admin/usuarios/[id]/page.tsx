@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AcaoRapida } from "@/components/admin/acao-rapida";
 import { CampoSenha } from "@/components/admin/campo-senha";
+import { rotuloDaPermissao } from "@/components/admin/grupos-permissao";
 import { EscolhaDeCargo } from "@/components/admin/permissoes";
 import { Avatar, Secao, Situacao } from "@/components/admin/ui";
 import { classeCampo } from "@/components/estilos";
@@ -13,7 +14,6 @@ import { NotificarAoAbrir } from "@/components/notificacoes";
 import { Carregando } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarData, formatarDataHora } from "@/lib/formato";
-import { PERMISSOES } from "@/lib/permissions";
 import {
   alternarUsuario,
   excluirUsuario,
@@ -21,7 +21,12 @@ import {
   salvarUsuario,
   trocarSenha,
 } from "@/server/admin/acoes/usuarios";
-import { cargos, cargosParaEscolha, usuarioAdmin } from "@/server/admin/dados";
+import {
+  cargos,
+  cargosParaEscolha,
+  permissoesDePrograma,
+  usuarioAdmin,
+} from "@/server/admin/dados";
 import { usuarioAtual } from "@/server/auth";
 
 export const metadata: Metadata = { title: "Usuário" };
@@ -56,10 +61,11 @@ async function Edicao({
   searchParams,
 }: Pick<PageProps<"/admin/usuarios/[id]">, "params" | "searchParams">) {
   const [{ id }, busca] = await Promise.all([params, searchParams]);
-  const [u, todosCargos, eu] = await Promise.all([
+  const [u, todosCargos, eu, programas] = await Promise.all([
     usuarioAdmin(id),
     cargos(),
     usuarioAtual(),
+    permissoesDePrograma(),
   ]);
   if (!u) notFound();
   const souEu = u.id === eu.id;
@@ -186,7 +192,7 @@ async function Edicao({
                 key={p}
                 className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-xs text-amber-950"
               >
-                {PERMISSOES[p]}
+                {rotuloDaPermissao(p, programas)}
               </li>
             ))}
           </ul>

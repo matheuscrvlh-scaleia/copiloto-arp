@@ -10885,8 +10885,30 @@ export type Database = {
       acessa: { Args: never; Returns: boolean }
       confirmar_importacao: { Args: { p_id: string }; Returns: undefined }
       desfazer_importacao: { Args: { p_id: string }; Returns: number }
-      entrevistas_resumo: { Args: never; Returns: string[] }
-      itens_da_definicao: { Args: { p_definicao: Json }; Returns: string[] }
+      entrevistas_resumo: {
+        Args: never
+        Returns: {
+          id: string
+          contrato_id: string
+          lucs: string[]
+          cliente_doc: string
+          data: string
+          tipo: string
+          setor: string
+          formulario_versao: number
+          origem: string
+          entrevistador_id: string | null
+          chamado_id: string | null
+          valida_ate: string | null
+          tem_pdf: boolean
+          exemplo: boolean
+        }[]
+      }
+      itens_da_definicao: {
+        Args: { p_definicao: Json }
+        Returns: { pergunta_id: string; opcao_id: string | null }[]
+      }
+      liberar_substituida: { Args: { p_id: string }; Returns: undefined }
       meus_programas: { Args: never; Returns: string[] }
       pode_alguma: { Args: { p: string[] }; Returns: boolean }
       publicar_formulario: {
@@ -10894,7 +10916,10 @@ export type Database = {
         Returns: number
       }
       remover_exemplos: { Args: never; Returns: undefined }
-      uso_do_formulario: { Args: { p_id: string }; Returns: string[] }
+      uso_do_formulario: {
+        Args: { p_id: string }
+        Returns: { pergunta_id: string; opcao_id: string | null; usos: number }[]
+      }
     }
     Enums: {
       [_ in never]: never

@@ -3,13 +3,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AcaoRapida } from "@/components/admin/acao-rapida";
+import { temTodasAsPermissoes } from "@/components/admin/grupos-permissao";
 import { Abas, BotaoLink, Situacao } from "@/components/admin/ui";
 import { Carregando, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { formatarNumero } from "@/lib/formato";
-import { MODULOS_DE_PERMISSAO as MODULOS, PERMISSOES } from "@/lib/permissions";
+import { MODULOS_DE_PERMISSAO as MODULOS } from "@/lib/permissions";
 import { alternarCargo, apagarCargo } from "@/server/admin/acoes/usuarios";
-import { cargos } from "@/server/admin/dados";
+import { cargos, permissoesDePrograma } from "@/server/admin/dados";
 import { ABAS_USUARIOS } from "../abas";
 import { confirmarExclusao, confirmarInativacao } from "./textos";
 
@@ -41,7 +42,10 @@ export default function Page() {
 }
 
 async function Lista() {
-  const lista = await cargos();
+  const [lista, programas] = await Promise.all([
+    cargos(),
+    permissoesDePrograma(),
+  ]);
   if (lista.length === 0) {
     return (
       <p className="vidro rounded-[1.75rem] p-6 text-sm text-neutral-500">
@@ -52,9 +56,9 @@ async function Lista() {
   return (
     <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
       {lista.map((c) => {
-        // O cargo ativo com acesso a tudo ganha o cartão escuro de destaque.
-        const tudo =
-          c.ativo && c.permissoes.length === Object.keys(PERMISSOES).length;
+        // O cargo ativo com acesso a tudo (fixas e programas que existem)
+        // ganha o cartão escuro de destaque.
+        const tudo = c.ativo && temTodasAsPermissoes(c.permissoes, programas);
         const apagado = tudo
           ? "text-[rgb(255_255_255/0.60)]"
           : "text-neutral-500";

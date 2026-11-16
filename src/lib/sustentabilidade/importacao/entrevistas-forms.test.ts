@@ -34,6 +34,15 @@ describe("colunas do Forms", () => {
     expect(new Set(perguntas.map((p) => p.id)).size).toBe(46);
     expect(perguntas.find((p) => p.titulo === "Possui PGRS?")?.id).toBe("q16");
   });
+
+  it("subpergunta com letra (18b.) vira q18b e a seguinte continua em q19", () => {
+    const { perguntas } = colunasDoForms([
+      "18. Pergunta fictícia",
+      "18b. Qual?",
+      "Pergunta sem número",
+    ]);
+    expect(perguntas.map((p) => p.id)).toEqual(["q18", "q18b", "q19"]);
+  });
 });
 
 describe("lerEntrevistas", () => {

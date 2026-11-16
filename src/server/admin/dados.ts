@@ -2,12 +2,20 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { cache } from "react";
 import {
+  type CodigoPermissao,
+  ehCodigoConhecido,
+  type ProgramaPermissao,
+} from "@/components/admin/grupos-permissao";
+import {
   type DefinicaoIntegracao,
   INTEGRACOES,
   SISTEMAS,
   type Sistema,
 } from "@/lib/integracoes";
-import { PERMISSOES, type Permissao } from "@/lib/permissions";
+import {
+  ehPermissaoDePrograma,
+  PREFIXO_PERMISSAO_PROGRAMA,
+} from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { usuarioAtual } from "../auth";
@@ -20,7 +28,8 @@ import { temNoAmbiente } from "../integracoes";
 // dados da empresa, que todo usuário logado lê e ficam no cache
 // (TAG.empresa).
 
-const ehPermissao = (p: string): p is Permissao => p in PERMISSOES;
+// Fixa do catálogo ou "Programa – lançar" (sustentabilidade.programa.<id>).
+const ehPermissao = ehCodigoConhecido;
 
 export interface Cargo {
   id: string;
@@ -28,7 +37,7 @@ export interface Cargo {
   descricao: string | null;
   /** Inativo continua nos usuários, mas não dá permissão. */
   ativo: boolean;
-  permissoes: Permissao[];
+  permissoes: CodigoPermissao[];
   usuarios: number;
 }
 
@@ -39,10 +48,32 @@ export interface UsuarioAdmin {
   ativo: boolean;
   cargoId: string | null;
   /** Permissões individuais (fora as do cargo). */
-  permissoes: Permissao[];
+  permissoes: CodigoPermissao[];
   criadoEm: string;
   ultimoAcesso: string | null;
 }
+
+/**
+ * As permissões "Programa – lançar" que existem (uma por programa, criada
+ * pelo banco), com a descrição de core.permissoes. O RLS deixa todo usuário
+ * logado ler o catálogo.
+ */
+export const permissoesDePrograma = cache(
+  async (): Promise<ProgramaPermissao[]> => {
+    const { data, error } = await (await createClient())
+      .schema("core")
+      .from("permissoes")
+      .select("codigo, descricao")
+      .like("codigo", `${PREFIXO_PERMISSAO_PROGRAMA}%`)
+      .order("descricao");
+    if (error) throw error;
+    return (data ?? []).flatMap((p) =>
+      ehPermissaoDePrograma(p.codigo)
+        ? [{ codigo: p.codigo, descricao: p.descricao }]
+        : [],
+    );
+  },
+);
 
 export const cargos = cache(async (): Promise<Cargo[]> => {
   const core = (await createClient()).schema("core");
@@ -53,7 +84,7 @@ export const cargos = cache(async (): Promise<Cargo[]> => {
   ]);
   for (const r of [lista, perms, usuarios]) if (r.error) throw r.error;
   // Agrupa uma vez (em vez de filtrar a lista inteira para cada cargo).
-  const permissoesDe = new Map<string, Permissao[]>();
+  const permissoesDe = new Map<string, CodigoPermissao[]>();
   for (const p of perms.data ?? []) {
     if (!ehPermissao(p.permissao)) continue;
     permissoesDe.set(p.cargo_id, [
@@ -104,7 +135,7 @@ export const usuarios = cache(async (): Promise<UsuarioAdmin[]> => {
   ]);
   if (lista.error) throw lista.error;
   if (perms.error) throw perms.error;
-  const individuais = new Map<string, Permissao[]>();
+  const individuais = new Map<string, CodigoPermissao[]>();
   for (const p of perms.data ?? []) {
     if (!ehPermissao(p.permissao)) continue;
     individuais.set(p.usuario_id, [

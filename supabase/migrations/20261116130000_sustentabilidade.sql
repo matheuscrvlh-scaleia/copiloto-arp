@@ -430,7 +430,14 @@ create table sustentabilidade.entrevistas (
   importacao_id uuid references sustentabilidade.importacoes (id) on delete set null,
   exemplo boolean not null default false,
   criado_em timestamptz not null default now(),
-  atualizado_em timestamptz not null default now()
+  atualizado_em timestamptz not null default now(),
+  -- Os caminhos dos arquivos são da própria entrevista: o servidor assina e
+  -- apaga o que está na linha, então ninguém aponta para arquivo alheio.
+  check (pdf is null or pdf like 'entrevistas/' || id || '/%'),
+  check (assinatura_respondente is null or assinatura_respondente like 'entrevistas/' || id || '/%'),
+  check (assinatura_entrevistador is null or assinatura_entrevistador like 'entrevistas/' || id || '/%'),
+  check (jsonb_typeof(anexos) = 'array' and not jsonb_path_exists(anexos,
+    '$[*] ? (!(@.caminho starts with $p))', jsonb_build_object('p', 'entrevistas/' || id || '/anexos/')))
 );
 create index entrevistas_contrato on sustentabilidade.entrevistas (contrato_id, data desc);
 create index entrevistas_data on sustentabilidade.entrevistas (data desc);
@@ -507,7 +514,10 @@ create table sustentabilidade.termos (
   criado_por uuid default auth.uid() references core.usuarios (id) on delete set null,
   criado_em timestamptz not null default now(),
   unique (participante_id, ano),
-  check (valido_ate >= assinado_em)
+  check (valido_ate >= assinado_em),
+  -- Arquivos só do próprio participante (o servidor assina o que está aqui).
+  check (arquivo is null or arquivo like 'clube/termos/' || participante_id || '/%'),
+  check (assinatura is null or assinatura like 'clube/termos/' || participante_id || '/%')
 );
 create index termos_valido_ate on sustentabilidade.termos (valido_ate);
 create index termos_chamado on sustentabilidade.termos (chamado_id);
@@ -571,7 +581,7 @@ create table sustentabilidade.rondas (
   data_hora timestamptz not null default now(),
   chamado_id uuid references os.chamados (id) on delete set null,
   observacao text check (length(observacao) <= 1000),
-  foto text,
+  foto text check (foto like 'rondas/%'),
   lancado_por uuid default auth.uid() references core.usuarios (id) on delete set null,
   exemplo boolean not null default false,
   criado_em timestamptz not null default now(),
@@ -589,7 +599,7 @@ create table sustentabilidade.ronda_itens (
   conteineres int not null check (conteineres >= 0),
   ocupacao_pct int not null check (ocupacao_pct between 0 and 100 and ocupacao_pct % 10 = 0),
   observacao text check (length(observacao) <= 1000),
-  foto text,
+  foto text check (foto like 'rondas/%'),
   unique (ronda_id, coletor_id)
 );
 create index ronda_itens_coletor on sustentabilidade.ronda_itens (coletor_id);
@@ -629,7 +639,7 @@ create table sustentabilidade.rcc_notas (
   empresa text not null check (btrim(empresa) <> ''),
   numero text not null check (btrim(numero) <> ''),
   -- PDF da nota (obrigatório), caminho em src/server/arquivos.
-  pdf text not null check (btrim(pdf) <> ''),
+  pdf text not null check (pdf like 'rcc/%'),
   cacambas_a int not null default 0 check (cacambas_a >= 0),
   cacambas_b int not null default 0 check (cacambas_b >= 0),
   chamado_id uuid references os.chamados (id) on delete set null,
@@ -699,6 +709,23 @@ create unique index programa_links_ativo on sustentabilidade.programa_links (pro
 create index programa_links_programa on sustentabilidade.programa_links (programa_id);
 create index programa_links_criado_por on sustentabilidade.programa_links (criado_por);
 create index programa_links_desligado_por on sustentabilidade.programa_links (desligado_por);
+
+-- Link desligado não volta: o token antigo não pode valer de novo.
+create function sustentabilidade.link_desligado_fica()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.desligado_em is not null then
+    raise exception 'link desligado não pode ser religado; gere um link novo' using errcode = '22023';
+  end if;
+  return new;
+end;
+$$;
+create trigger link_desligado_fica before update of desligado_em, desligado_por
+    on sustentabilidade.programa_links
+  for each row execute function sustentabilidade.link_desligado_fica();
 
 create table sustentabilidade.lancamentos (
   id uuid primary key default gen_random_uuid(),
@@ -1107,6 +1134,40 @@ begin
   update sustentabilidade.importacoes
     set status = 'confirmada', confirmado_por = (select auth.uid()), confirmado_em = now()
     where id = p_id;
+end;
+$$;
+
+-- Antes de gravar as linhas de uma prévia que substitui outra: tira as
+-- linhas da anterior e a marca "substituida". Necessário nas entrevistas,
+-- em que o índice entrevistas_unica não deixa as duas coexistirem; depois,
+-- confirmar_importacao não acha mais nada da anterior.
+create function sustentabilidade.liberar_substituida(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v sustentabilidade.importacoes;
+begin
+  select * into v from sustentabilidade.importacoes where id = p_id for update;
+  if not found then
+    raise exception 'importação não encontrada' using errcode = 'P0001';
+  end if;
+  if not core.pode('sustentabilidade.importar') then
+    raise exception 'sem permissão para importar' using errcode = '42501';
+  end if;
+  if v.status <> 'previa' then
+    raise exception 'esta importação não é mais uma prévia' using errcode = '22023';
+  end if;
+  if v.substitui is null then
+    return;
+  end if;
+  perform 1 from sustentabilidade.importacoes where id = v.substitui for update;
+  delete from sustentabilidade.lancamentos where importacao_id = v.substitui;
+  delete from sustentabilidade.entrevistas where importacao_id = v.substitui;
+  update sustentabilidade.importacoes set status = 'substituida'
+    where id = v.substitui and status = 'confirmada';
 end;
 $$;
 
@@ -1805,6 +1866,7 @@ grant execute on function sustentabilidade.publicar_formulario(uuid, text) to au
 grant execute on function sustentabilidade.entrevistas_resumo() to authenticated;
 grant execute on function sustentabilidade.confirmar_importacao(uuid) to authenticated;
 grant execute on function sustentabilidade.desfazer_importacao(uuid) to authenticated;
+grant execute on function sustentabilidade.liberar_substituida(uuid) to authenticated;
 grant execute on function sustentabilidade.remover_exemplos() to authenticated;
 
 -- ---------------------------------------------------------------------------

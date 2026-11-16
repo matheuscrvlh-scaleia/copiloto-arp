@@ -171,6 +171,7 @@ com RLS `sustentabilidade.valores` (o RLS libera linhas, não colunas), auditori
 | `entrevistas_resumo() → table(...)` | Dados de controle das entrevistas salvas, sem respostas |
 | `confirmar_importacao(uuid) → void` | Prévia → confirmada; trata `substitui` |
 | `desfazer_importacao(uuid) → int` | Apaga o que a importação trouxe e devolve quantas linhas saíram |
+| `liberar_substituida(uuid)` | Antes de gravar as linhas de uma prévia que substitui outra: tira as linhas da anterior e a marca "substituida" (o índice `entrevistas_unica` não deixa as duas coexistirem) |
 | `remover_exemplos() → void` | Apaga o que é de exemplo (`parametros`); poupa o que recebeu dado real |
 
 Gatilhos: `programa_permissao` (cria, renomeia e apaga `sustentabilidade.programa.<id>` em
@@ -259,3 +260,18 @@ Oficina, `publico_1` = Turista): o id de opção é único no formulário inteir
   (excluir × inativar, dependentes, travados, conferência antes de publicar, versões).
 - `questionario-inicial.ts`: as 46 perguntas do Forms "Questionário RSU" (versão 1).
 - `importacao/`: leitores das planilhas de 4.10.
+
+## Travas de segurança (revisão de 16/11/2026)
+
+- Caminho de arquivo preso à própria linha por `check`: entrevista em
+  `entrevistas/<id>/` (PDF, assinaturas e `anexos`), termo em
+  `clube/termos/<participante>/`, ronda em `rondas/`, nota em `rcc/`. O
+  servidor assina e apaga o caminho que está na linha; sem a trava, quem
+  grava a coluna apontaria para arquivo alheio.
+- Link do parceiro desligado não volta (gatilho `link_desligado_fica`).
+- Chamado de módulo só pelo sistema: `os.limpar_campos_de_modulo` zera
+  `origem_modulo`, `origem_ref`, `acao_*` e `conclusao_externa` em insert com
+  sessão.
+- A página do parceiro não devolve os custos calculados pela ARP (álbum e
+  copo do tour); o parceiro vê os reais que ele mesmo digitou (a confirmar
+  com a área).

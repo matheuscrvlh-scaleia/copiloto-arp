@@ -4,8 +4,13 @@ import { refresh, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
+import {
+  ehCodigoConhecido,
+  planoDePermissoes,
+  programasInexistentes,
+} from "@/components/admin/grupos-permissao";
 import type { EstadoAcao } from "@/components/form-acao";
-import { PERMISSOES, type Permissao } from "@/lib/permissions";
+import { ehPermissaoDePrograma } from "@/lib/permissions";
 import { SENHA_PROVISORIA } from "@/lib/senha-provisoria";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -36,8 +41,14 @@ const ROTULOS = {
   descricao: "Descrição",
 };
 
+// Fixa do catálogo ou "Programa – lançar" (a existência desta é conferida no
+// banco em salvarCargo; o que o cliente manda não vale como prova).
 const permissoes = z.array(
-  z.string().refine((p): p is Permissao => p in PERMISSOES, "desconhecida"),
+  z.string().refine((p) => ehCodigoConhecido(p), "desconhecida"),
+);
+// As de programa que a tela mostrou: só estas podem ser revogadas.
+const programasVistas = z.array(
+  z.string().refine((p) => ehPermissaoDePrograma(p), "desconhecida"),
 );
 const cargoId = z.preprocess(
   (v) => (v === "" || v == null ? null : v),
@@ -301,6 +312,7 @@ const cargo = z.object({
     z.string().max(200, "máximo de 200 caracteres").nullable(),
   ),
   permissoes,
+  programas_vistas: programasVistas,
 });
 
 export async function salvarCargo(
@@ -311,8 +323,16 @@ export async function salvarCargo(
   const d = cargo.safeParse({
     ...Object.fromEntries(form),
     permissoes: valores(form, "permissoes"),
+    programas_vistas: valores(form, "programas_vistas"),
   });
   if (!d.success) return primeiroErro(d.error, ROTULOS);
+  const faltam = await inexistentes(d.data.permissoes);
+  if (faltam === null)
+    return { erro: "Não foi possível salvar. Tente de novo." };
+  if (faltam.length)
+    return {
+      erro: "Há um programa que não existe mais. Recarregue a página e tente de novo.",
+    };
   // Várias gravações: invalida mesmo se uma do meio falhar.
   try {
     const r = await gravarCargo(d.data);
@@ -353,9 +373,11 @@ async function gravarCargo(
     .eq("cargo_id", id);
   if (atual.error) return semOk(erroDoBanco(atual.error));
   const tem = new Set(atual.data.map((p) => p.permissao));
-  const querer = new Set<string>(c.permissoes);
-  const conceder = [...querer].filter((p) => !tem.has(p));
-  const revogar = [...tem].filter((p) => !querer.has(p));
+  const { conceder, revogar } = planoDePermissoes(
+    tem,
+    c.permissoes,
+    c.programas_vistas,
+  );
   if (conceder.length) {
     const { error } = await core
       .from("cargo_permissoes")
@@ -371,6 +393,25 @@ async function gravarCargo(
     if (error) return semOk(erroDoBanco(error));
   }
   return { id };
+}
+
+/**
+ * As permissões de programa pedidas que não existem em core.permissoes
+ * (null se a leitura falhou). Só consulta o banco se houver alguma.
+ */
+async function inexistentes(pedidas: string[]): Promise<string[] | null> {
+  const doPrograma = pedidas.filter(ehPermissaoDePrograma);
+  if (!doPrograma.length) return [];
+  const { data, error } = await (await createClient())
+    .schema("core")
+    .from("permissoes")
+    .select("codigo")
+    .in("codigo", doPrograma);
+  if (error) return null;
+  return programasInexistentes(
+    doPrograma,
+    data.map((p) => p.codigo),
+  );
 }
 
 /** erroDoBanco sempre devolve a mensagem de erro. */

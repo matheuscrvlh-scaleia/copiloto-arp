@@ -251,7 +251,7 @@ describe("estrutura e dados iniciais", () => {
     ]);
     expect(
       await linhas("select 1 from os.categorias where pai_id is null"),
-    ).toBe(20);
+    ).toBe(26); // 20 + 6 da Sustentabilidade (20261116140000)
     expect(
       (
         await db.query<{ nome: string }>(
@@ -1487,6 +1487,17 @@ describe("chamados de outros módulos (conclusão externa)", () => {
     expect(
       await valor(`select conclusao_externa from os.ordens where id = '${os}'`),
     ).toBe(false);
+  });
+
+  it("quem tem sessão não cria chamado de módulo (as colunas ficam vazias)", async () => {
+    const linha = await como(U.gestor, () =>
+      valor<string>(
+        `insert into os.chamados (tipo, titulo, setor_id, aberto_por, origem_modulo, origem_ref, acao_url, acao_rotulo, conclusao_externa)
+         values ('tarefa', 'M forjado', '${SETOR.operacoes}', '${U.gestor}', 'sustentabilidade', 'entrevista:1', '/x', 'a x', true)
+         returning concat_ws('|', origem_modulo, origem_ref, acao_url, acao_rotulo, conclusao_externa)`,
+      ),
+    );
+    expect(linha).toBe("f");
   });
 
   it("quem tem sessão não conclui nem fecha; o servidor conclui", async () => {

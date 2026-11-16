@@ -215,3 +215,30 @@ alter table os.lojas
   add column rescisao date,
   add column piso text,
   add column rua text;
+
+-- ---------------------------------------------------------------------------
+-- Só o sistema (service role, sem auth.uid()) cria chamado de módulo: quem
+-- tem sessão não forja origem_modulo/origem_ref (o módulo acharia o chamado
+-- como dele) nem conclusao_externa (ninguém concluiria).
+-- ---------------------------------------------------------------------------
+create function os.limpar_campos_de_modulo()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is not null then
+    new.acao_url := null;
+    new.acao_rotulo := null;
+    new.conclusao_externa := false;
+    new.origem_modulo := null;
+    new.origem_ref := null;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger limpar_campos_de_modulo before insert on os.chamados
+  for each row execute function os.limpar_campos_de_modulo();
+create trigger limpar_campos_de_modulo before insert on os.ordens
+  for each row execute function os.limpar_campos_de_modulo();

@@ -994,6 +994,13 @@ describe("RLS de gravação", () => {
     expect(
       await como(U.gestora, () =>
         erro(
+          `update sustentabilidade.programa_links set desligado_em = null where programa_id = '${P.turismo}'`,
+        ),
+      ),
+    ).toMatch(/não pode ser religado/);
+    expect(
+      await como(U.gestora, () =>
+        erro(
           `update sustentabilidade.programa_links set ultimo_acesso_em = now() where programa_id = '${P.turismo}'`,
         ),
       ),
@@ -1010,6 +1017,57 @@ describe("RLS de gravação", () => {
     } finally {
       await db.exec("reset role");
     }
+  });
+});
+
+describe("caminhos de arquivo presos à própria linha", () => {
+  it("entrevista, termo, ronda e RCC recusam caminho de arquivo alheio", async () => {
+    const id = "d0000000-0000-4000-8000-0000000000aa";
+    const ins = (pdf: string, anexos = "[]") =>
+      erro(
+        `insert into sustentabilidade.entrevistas (id, contrato_id, data, formulario_versao, pdf, anexos)
+         values ('${id}', 'c0000000-0000-4000-8000-000000000006', '2026-01-02', 1, '${pdf}', '${anexos}')`,
+      );
+    expect(await ins("entrevistas/outra-entrevista/entrevista.pdf")).toMatch(
+      /check constraint/,
+    );
+    expect(await ins("importacoes/x/planilha.xlsx")).toMatch(
+      /check constraint/,
+    );
+    expect(
+      await ins(
+        `entrevistas/${id}/a.pdf`,
+        '[{"nome":"x","caminho":"clube/termos/y/z.pdf"}]',
+      ),
+    ).toMatch(/check constraint/);
+    expect(
+      await ins(
+        `entrevistas/${id}/a.pdf`,
+        `[{"nome":"x","caminho":"entrevistas/${id}/anexos/1-x.pdf"}]`,
+      ),
+    ).toBeNull();
+    const pid = await valor<string>(
+      "select id from sustentabilidade.participantes limit 1",
+    );
+    expect(
+      await erro(
+        `insert into sustentabilidade.termos (participante_id, ano, assinado_em, valido_ate, arquivo)
+         values ('${pid}', 2031, '2031-01-01', '2032-01-01', 'clube/termos/outro/t.pdf')`,
+      ),
+    ).toMatch(/check constraint/);
+    expect(
+      await erro(
+        "insert into sustentabilidade.rondas (foto) values ('entrevistas/x/a.pdf')",
+      ),
+    ).toMatch(/check constraint/);
+    expect(
+      await erro(
+        "insert into sustentabilidade.rcc_notas (competencia, empresa, numero, pdf, cacambas_a) values ('2026-01-01', 'E', '1', 'clube/termos/x.pdf', 1)",
+      ),
+    ).toMatch(/check constraint/);
+    await db.query(
+      `delete from sustentabilidade.entrevistas where id = '${id}'`,
+    );
   });
 });
 
@@ -1519,10 +1577,26 @@ describe("importações", () => {
     expect(await status(a)).toBe("substituida");
     expect(await daImportacao(a)).toBe(0);
     expect(await daImportacao(b)).toBe(5);
+
+    // liberar_substituida (antes de gravar as linhas): a anterior sai já e
+    // fica "substituida"; a prévia segue prévia até confirmar.
+    const c = await previa(U.importa, b);
     await como(U.importa, () =>
-      db.query(`select sustentabilidade.desfazer_importacao('${b}')`),
+      db.query(`select sustentabilidade.liberar_substituida('${c}')`),
     );
+    expect(await status(b)).toBe("substituida");
+    expect(await status(c)).toBe("previa");
     expect(await daImportacao(b)).toBe(0);
+    await linhas(c, 2);
+    await como(U.importa, () =>
+      db.query(`select sustentabilidade.confirmar_importacao('${c}')`),
+    );
+    expect(await daImportacao(c)).toBe(2);
+
+    await como(U.importa, () =>
+      db.query(`select sustentabilidade.desfazer_importacao('${c}')`),
+    );
+    expect(await daImportacao(c)).toBe(0);
     expect(await status(a)).toBe("substituida");
 
     const e = await como(U.importa, () =>

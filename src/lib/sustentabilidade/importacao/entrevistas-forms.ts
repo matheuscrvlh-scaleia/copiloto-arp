@@ -87,7 +87,7 @@ const META = [
   /^score/,
 ];
 const GRADE = /^(.*?)\s*\[(.+)\]\s*$/;
-const NUMERO = /^q?(\d{1,2})\s*(?:[.)\-–:]|\s)\s*/i;
+const NUMERO = /^q?(\d{1,2})([a-z])?\s*(?:[.)\-–:]|\s)\s*/i;
 
 interface ColunaDePergunta {
   indice: number;
@@ -105,6 +105,7 @@ export function colunasDoForms(cabecalho: Celula[]): {
   let carimbo: number | null = null;
   const perguntas: ColunaDePergunta[] = [];
   let n = 0;
+  let sufixo = "";
   let baseAnterior: string | null = null;
   cabecalho.forEach((c, indice) => {
     const t = texto(c);
@@ -120,9 +121,11 @@ export function colunasDoForms(cabecalho: Celula[]): {
     if (!(g && baseAnterior !== null && normalizar(base) === baseAnterior)) {
       const num = NUMERO.exec(base);
       n = num ? Number(num[1]) : n + 1;
+      // "18b." é a subpergunta q18b do questionário v1.
+      sufixo = num?.[2]?.toLowerCase() ?? "";
     }
     baseAnterior = g ? normalizar(base) : null;
-    perguntas.push({ indice, id: `q${n}`, titulo: base.trim(), item });
+    perguntas.push({ indice, id: `q${n}${sufixo}`, titulo: base.trim(), item });
   });
   return { carimbo, perguntas };
 }

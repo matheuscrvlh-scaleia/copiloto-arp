@@ -1,3 +1,4 @@
+import { formatarMoeda } from "@/lib/formato";
 import {
   type Aba,
   type Aviso,
@@ -387,7 +388,7 @@ export function lerTourDasAbas(abas: Aba[]): Leitura<TourLido, ResumoTour> {
         avisos.push({
           nivel: "aviso",
           aba: abaGestao.nome,
-          mensagem: `${ano}: resultado lido ${a.resultado.toFixed(2)} × ${r.resultado.toFixed(2)} no resumo (diferença ${arred2(a.resultado - r.resultado).toFixed(2)}).`,
+          mensagem: `${ano}: resultado lido ${formatarMoeda(a.resultado)} × ${formatarMoeda(r.resultado)} no resumo (diferença ${formatarMoeda(arred2(a.resultado - r.resultado))}).`,
         });
     }
   }

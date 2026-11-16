@@ -4,41 +4,99 @@ import { Check, Lock } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Selecao } from "@/components/selecao";
+import { MODULOS_DE_PERMISSAO as MODULOS } from "@/lib/permissions";
 import {
-  MODULOS_DE_PERMISSAO as MODULOS,
-  PERMISSOES,
-  type Permissao,
-} from "@/lib/permissions";
-
-const TODAS = Object.keys(PERMISSOES) as Permissao[];
+  type CodigoPermissao,
+  codigosDoGrupo,
+  gruposDePermissao,
+  type ProgramaPermissao,
+  rotuloDaPermissao,
+} from "./grupos-permissao";
 
 /**
  * Caixas de permissão por módulo. As que vêm de `herdadas` (o cargo)
  * aparecem marcadas e travadas; só as individuais vão no formulário, no
- * campo "permissoes".
+ * campo "permissoes". `programas` são as "Programa – lançar" (uma por
+ * programa): ficam num subgrupo de Sustentabilidade e vão também em
+ * "programas_vistas", para o servidor só revogar o que a tela mostrou.
  */
 export function CaixasDePermissao({
   marcadas,
   herdadas = [],
+  programas = [],
   rotuloHerdada = "pelo cargo",
 }: {
-  marcadas: Permissao[];
-  herdadas?: Permissao[];
+  marcadas: CodigoPermissao[];
+  herdadas?: CodigoPermissao[];
+  programas?: ProgramaPermissao[];
   rotuloHerdada?: string;
 }) {
   const [sel, setSel] = useState(() => new Set(marcadas));
   const herdou = new Set(herdadas);
+  const grupos = gruposDePermissao(programas);
 
   return (
     <div className="flex flex-col gap-4">
-      {MODULOS.map((m) => {
-        const doModulo = TODAS.filter((p) => p.startsWith(m.prefixo));
+      {programas.map((p) => (
+        <input
+          key={p.codigo}
+          type="hidden"
+          name="programas_vistas"
+          value={p.codigo}
+        />
+      ))}
+      {grupos.map((m) => {
+        const doModulo = codigosDoGrupo(m);
         const livres = doModulo.filter((p) => !herdou.has(p));
         const todasMarcadas =
           livres.length > 0 && livres.every((p) => sel.has(p));
         const nMarcadas = doModulo.filter(
           (p) => herdou.has(p) || sel.has(p),
         ).length;
+        const caixa = (p: CodigoPermissao, rotulo: string) => {
+          const travada = herdou.has(p);
+          const marcada = travada || sel.has(p);
+          return (
+            <li key={p} className="min-w-0">
+              <label
+                className={`flex h-full items-start gap-3 rounded-2xl px-2 py-2 text-sm transition ${travada ? "cursor-default" : "cursor-pointer hover:bg-neutral-100"} ${marcada ? "bg-neutral-100/60" : ""}`}
+              >
+                <input
+                  type="checkbox"
+                  name={travada ? undefined : "permissoes"}
+                  value={p}
+                  checked={marcada}
+                  disabled={travada}
+                  onChange={(e) =>
+                    setSel((s) => {
+                      const n = new Set(s);
+                      e.target.checked ? n.add(p) : n.delete(p);
+                      return n;
+                    })
+                  }
+                  className="peer sr-only"
+                />
+                <span
+                  aria-hidden
+                  className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border transition peer-focus-visible:ring-4 peer-focus-visible:ring-neutral-900/10 ${marcada ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"} ${travada ? "opacity-50" : ""}`}
+                >
+                  {travada ? (
+                    <Lock className="size-3" />
+                  ) : marcada ? (
+                    <Check className="size-3" />
+                  ) : null}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-neutral-800">{rotulo}</span>
+                  <span className="block break-all text-[11px] text-neutral-400">
+                    {p}
+                    {travada && ` · ${rotuloHerdada}`}
+                  </span>
+                </span>
+              </label>
+            </li>
+          );
+        };
         return (
           <fieldset
             key={m.prefixo}
@@ -70,53 +128,18 @@ export function CaixasDePermissao({
               )}
             </div>
             <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 xl:grid-cols-3">
-              {doModulo.map((p) => {
-                const travada = herdou.has(p);
-                const marcada = travada || sel.has(p);
-                return (
-                  <li key={p} className="min-w-0">
-                    <label
-                      className={`flex h-full items-start gap-3 rounded-2xl px-2 py-2 text-sm transition ${travada ? "cursor-default" : "cursor-pointer hover:bg-neutral-100"} ${marcada ? "bg-neutral-100/60" : ""}`}
-                    >
-                      <input
-                        type="checkbox"
-                        name={travada ? undefined : "permissoes"}
-                        value={p}
-                        checked={marcada}
-                        disabled={travada}
-                        onChange={(e) =>
-                          setSel((s) => {
-                            const n = new Set(s);
-                            e.target.checked ? n.add(p) : n.delete(p);
-                            return n;
-                          })
-                        }
-                        className="peer sr-only"
-                      />
-                      <span
-                        aria-hidden
-                        className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border transition peer-focus-visible:ring-4 peer-focus-visible:ring-neutral-900/10 ${marcada ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"} ${travada ? "opacity-50" : ""}`}
-                      >
-                        {travada ? (
-                          <Lock className="size-3" />
-                        ) : marcada ? (
-                          <Check className="size-3" />
-                        ) : null}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-neutral-800">
-                          {PERMISSOES[p]}
-                        </span>
-                        <span className="block break-all text-[11px] text-neutral-400">
-                          {p}
-                          {travada && ` · ${rotuloHerdada}`}
-                        </span>
-                      </span>
-                    </label>
-                  </li>
-                );
-              })}
+              {m.fixas.map((p) => caixa(p, rotuloDaPermissao(p, programas)))}
             </ul>
+            {m.programas.length > 0 && (
+              <>
+                <h3 className="mb-1 mt-4 px-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Programas (lançar)
+                </h3>
+                <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 xl:grid-cols-3">
+                  {m.programas.map((p) => caixa(p.codigo, p.descricao))}
+                </ul>
+              </>
+            )}
           </fieldset>
         );
       })}
@@ -128,7 +151,7 @@ interface CargoNaEscolha {
   id: string;
   nome: string;
   ativo: boolean;
-  permissoes: Permissao[];
+  permissoes: CodigoPermissao[];
 }
 
 /**

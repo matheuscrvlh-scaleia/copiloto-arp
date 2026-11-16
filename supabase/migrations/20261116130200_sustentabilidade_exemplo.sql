@@ -306,7 +306,7 @@ from sustentabilidade.participantes p where p.exemplo;
 -- Termo do ano: dois locatários a vencer e um não locatário vencido.
 insert into sustentabilidade.termos (participante_id, ano, assinado_em, valido_ate, arquivo)
 select p.id, extract(year from t.d)::int, t.d, (t.d + interval '12 months')::date,
-  'sustentabilidade/exemplo/termo-' || right(p.id::text, 2) || '.pdf'
+  'clube/termos/' || p.id || '/exemplo-termo.pdf'
 from sustentabilidade.participantes p
 cross join lateral (select right(p.id::text, 2)::int as n) x
 cross join lateral (
@@ -392,7 +392,7 @@ insert into sustentabilidade.rcc_precos (vigente_desde, preco_a, preco_b, exempl
 
 insert into sustentabilidade.rcc_notas (id, competencia, empresa, numero, pdf, cacambas_a, cacambas_b, exemplo)
 select md5('rcc-nota-' || m)::uuid, make_date(2026, m, 1), 'Coletora de entulho (fictícia)',
-  'NF ' || (1200 + m * 61), 'sustentabilidade/exemplo/rcc-2026-' || lpad(m::text, 2, '0') || '.pdf',
+  'NF ' || (1200 + m * 61), 'rcc/exemplo/rcc-2026-' || lpad(m::text, 2, '0') || '.pdf',
   2 + (m * 3) % 5, (m * 2) % 4, true
 from generate_series(1, 10) m;
 
