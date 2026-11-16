@@ -16,6 +16,9 @@ RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# A checagem de tipos passou do heap padrão do Node (16/11/2026, módulo
+# Sustentabilidade). A VPS tem 8 GB; 4 GB cabem com o app no ar.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 # O .env entra só durante o build: o Next embute as NEXT_PUBLIC_* no
 # JavaScript do navegador e algumas telas pré-renderizadas leem o banco.
 RUN --mount=type=secret,id=env,target=/app/.env.production.local,required=true \
