@@ -62,14 +62,14 @@ export const GUIAS_ADMIN: Record<string, Guia> = {
     ],
   },
   "/admin/configuracoes/ia": {
-    versao: 1,
+    versao: 2,
     passos: [
       abertura(
         "IA ARP",
         "O assistente do sistema: responde perguntas sobre os dados que cada pessoa já pode ver, lendo as mesmas telas com as mesmas permissões.",
       ),
       secao(
-        "<b>Uso e custos:</b> perguntas, tokens e gasto por dia, hora, pessoa, cargo e módulo. <b>Limites:</b> tokens por mês por cargo ou pessoa. <b>Ajustes:</b> ligar e desligar, esforço, teto de gasto, prazo de guarda das conversas e preços. Quem pode usar se define pela permissão <b>IA – usar</b> em Usuários e cargos.",
+        "<b>Uso e custos:</b> perguntas, tokens e gasto por dia, hora, pessoa, cargo e módulo. <b>Limites:</b> tokens por mês por cargo ou pessoa (sem limite, a IA não barra ninguém). <b>Ajustes:</b> ligar e desligar, esforço, teto de gasto, prazo de guarda das conversas e preços. <b>Conversas:</b> ler as conversas da equipe com a IA (permissão <b>IA – conversas</b>; cada leitura fica no histórico). Quem pode usar se define pela permissão <b>IA – usar</b> em Usuários e cargos.",
       ),
     ],
   },

@@ -1,6 +1,7 @@
 import { respostaMensagem } from "@arp/shared/contratos/auth";
 import {
   type ConfigDaIa,
+  type ConsultaConversasDaEquipe,
   type ConsultaDoUso,
   type EntradaLimite,
   type EntradaPergunta,
@@ -8,11 +9,13 @@ import {
   eventoDoAssistente,
   respostaConfig,
   respostaConversa,
+  respostaConversaDaEquipe,
   respostaConversas,
+  respostaConversasDaEquipe,
   respostaEstado,
   respostaUso,
 } from "@arp/shared/ia/contratos";
-import { queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { clienteDeConsultas, VALIDADE } from "@/lib/consulta";
 
@@ -22,6 +25,10 @@ export const chavesIa = {
   tudo: ["ia"] as const,
   estado: () => ["ia", "estado"] as const,
   conversas: () => ["ia", "conversas"] as const,
+  historico: (busca: string) => ["ia", "conversas", busca] as const,
+  equipe: (q: Omit<ConsultaConversasDaEquipe, "antes">) =>
+    ["ia", "equipe", q] as const,
+  daEquipe: (id: string) => ["ia", "equipe", "conversa", id] as const,
   conversa: (id: string) => ["ia", "conversa", id] as const,
   config: () => ["ia", "config"] as const,
   uso: (q: ConsultaDoUso) => ["ia", "uso", q] as const,
@@ -34,13 +41,48 @@ export const consultaDoEstado = queryOptions({
     api.get("/ia/estado", { esquema: respostaEstado, sinal: signal }),
 });
 
-/** GET /api/v1/ia/conversas */
-export const consultaDasConversas = queryOptions({
-  queryKey: chavesIa.conversas(),
-  queryFn: ({ signal }) =>
-    api.get("/ia/conversas", { esquema: respostaConversas, sinal: signal }),
-  select: (r) => r.conversas,
-});
+/** GET /api/v1/ia/conversas: o histórico todo, de 30 em 30, com busca. */
+export const consultaDasConversas = (busca: string) =>
+  infiniteQueryOptions({
+    queryKey: chavesIa.historico(busca),
+    queryFn: ({ signal, pageParam }) =>
+      api.get("/ia/conversas", {
+        esquema: respostaConversas,
+        consulta: { busca: busca || undefined, antes: pageParam ?? undefined },
+        sinal: signal,
+      }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (r) => r.proxima,
+    select: (d) => d.pages.flatMap((p) => p.conversas),
+  });
+
+/** GET /api/v1/ia/equipe/conversas (ia.conversas) */
+export const consultaConversasDaEquipe = (
+  q: Omit<ConsultaConversasDaEquipe, "antes">,
+) =>
+  infiniteQueryOptions({
+    queryKey: chavesIa.equipe(q),
+    queryFn: ({ signal, pageParam }) =>
+      api.get("/ia/equipe/conversas", {
+        esquema: respostaConversasDaEquipe,
+        consulta: { ...q, antes: pageParam ?? undefined },
+        sinal: signal,
+      }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (r) => r.proxima,
+  });
+
+/** GET /api/v1/ia/equipe/conversas/:id (ia.conversas; fica no histórico) */
+export const consultaConversaDaEquipe = (id: string) =>
+  queryOptions({
+    queryKey: chavesIa.daEquipe(id),
+    queryFn: ({ signal }) =>
+      api.get(`/ia/equipe/conversas/${id}`, {
+        esquema: respostaConversaDaEquipe,
+        sinal: signal,
+      }),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
 
 /** GET /api/v1/ia/conversas/:id */
 export const consultaDaConversa = (id: string) =>

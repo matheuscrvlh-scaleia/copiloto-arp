@@ -316,13 +316,19 @@ Administração › Integrações.
   pelo conector (`turno()`, streaming). Instruções + catálogo vão no `system`
   com cache (iguais para todos); nome, permissões e telas da pessoa no início
   da conversa; data e tela aberta a cada pergunta.
+- Ferramentas: `consultar` (lê a fonte), `calcular` (filtra, agrupa e soma a
+  lista inteira no servidor; `calculo.ts`) e `detalhar_fontes`. Fonte cuja
+  tela faz contas no navegador descreve a regra em `config.ia` (ex.: custo
+  por lead em `marketing/fontes.routes.ts`).
 - Resposta em `text/event-stream` (`POST /api/v1/ia/perguntas`); na tela,
   `api.fluxo` em `lib/api.ts`. O nginx do `web` repassa `X-Accel-Buffering:
   no` para o do host não segurar os pedaços.
-- Banco (schema `ia`, migration 0009): `config` (uma linha: ligada, esforço,
-  tetos, guarda, preços por modelo), `limites` (tokens/mês por cargo ou
-  pessoa; pessoa > cargo > padrão), `conversas` e `perguntas` (só o dono lê;
-  nem o gestor), `uso` (uma linha por pergunta, com o cargo do momento; fica
+- Banco (schema `ia`, migrations 0009 e 0010): `config` (uma linha: ligada,
+  esforço, tetos, guarda, preços por modelo), `limites` (tokens/mês por cargo
+  ou pessoa; pessoa > cargo > padrão; sem nenhum, sem limite), `conversas` e
+  `perguntas` (o dono lê e apaga; quem tem `ia.conversas` só lê, em
+  Configurações › IA › Conversas, e cada abertura vira o evento
+  `ia_conversa_lida`), `uso` (uma linha por pergunta, com o cargo do momento; fica
   depois de a conversa ser apagada). A rotina `ia.limpeza` apaga as
   conversas além do prazo de guarda.
 

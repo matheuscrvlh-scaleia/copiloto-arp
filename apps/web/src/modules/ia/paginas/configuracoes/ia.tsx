@@ -30,6 +30,7 @@ import { notificar } from "@/components/notificacoes";
 import { Carregando } from "@/components/page-header";
 import { mensagemDoErro } from "@/lib/api";
 import { Link } from "@/lib/navegacao";
+import { useSessao } from "@/lib/sessao";
 import {
   consultaDaConfig,
   consultaDoUso,
@@ -37,18 +38,20 @@ import {
   salvarConfig,
   salvarLimite,
 } from "../../api";
+import ConversasDaEquipe from "./conversas";
 
-// Administração › Configurações › IA (ia.gerenciar): quanto a IA ARP é
-// usada (por dia, hora, pessoa, cargo e módulo), quanto custa, os limites
-// de tokens por cargo e por pessoa e os ajustes. O gestor vê números de
-// uso; o conteúdo das conversas é só de quem conversou.
+// Administração › Configurações › IA: quanto a IA ARP é usada (por dia,
+// hora, pessoa, cargo e módulo), quanto custa, os limites de tokens por
+// cargo e por pessoa e os ajustes (ia.gerenciar); e as conversas da equipe,
+// só para ler (ia.conversas). Quem tem só ia.conversas vê só as conversas.
 
-type Aba = "uso" | "limites" | "ajustes";
+type Aba = "uso" | "limites" | "ajustes" | "conversas";
 
 const ABAS: { valor: Aba; rotulo: string }[] = [
   { valor: "uso", rotulo: "Uso e custos" },
   { valor: "limites", rotulo: "Limites" },
   { valor: "ajustes", rotulo: "Ajustes" },
+  { valor: "conversas", rotulo: "Conversas" },
 ];
 
 const dolar = (v: number) =>
@@ -69,16 +72,23 @@ function diasAtras(fim: string, dias: number): string {
 }
 
 export default function Page() {
+  const sessao = useSessao();
+  if (!sessao.pode("ia.gerenciar")) return <ConversasDaEquipe />;
+  return <Gestao conversas={sessao.pode("ia.conversas")} />;
+}
+
+function Gestao({ conversas }: { conversas: boolean }) {
   const [aba, setAba] = useState<Aba>("uso");
   const { data } = useSuspenseQuery(consultaDaConfig);
+  const abas = conversas ? ABAS : ABAS.filter((a) => a.valor !== "conversas");
   return (
     <div className="flex flex-col gap-5">
       <Destaque config={data} />
-      <div className="max-w-md">
+      <div className="max-w-lg">
         <BotoesDeEscolha
           nome="Seção"
           valor={aba}
-          opcoes={ABAS}
+          opcoes={abas}
           aoMudar={(v) => {
             const achada = ABAS.find((a) => a.valor === v);
             if (achada) setAba(achada.valor);
@@ -88,6 +98,7 @@ export default function Page() {
       {aba === "uso" && <Uso cotacao={data.config.cotacao_dolar} />}
       {aba === "limites" && <Limites dados={data} />}
       {aba === "ajustes" && <Ajustes dados={data} />}
+      {aba === "conversas" && conversas && <ConversasDaEquipe />}
     </div>
   );
 }

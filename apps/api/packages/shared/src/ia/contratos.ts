@@ -98,9 +98,22 @@ export const conversaResumida = z.object({
 });
 export type ConversaResumida = z.infer<typeof conversaResumida>;
 
+/** Histórico: busca no título e nas perguntas; páginas pela data (cursor). */
+export const consultaDasConversas = z.object({
+  busca: z.string().trim().max(200).optional(),
+  /** `proxima` da página anterior. */
+  antes: z.iso.datetime({ offset: true }).optional(),
+});
+export type ConsultaDasConversas = z.infer<typeof consultaDasConversas>;
+
+export const POR_PAGINA = 30;
+
 export const respostaConversas = z.object({
   conversas: z.array(conversaResumida),
+  /** Cursor da página seguinte; null quando acabou. */
+  proxima: z.string().nullable(),
 });
+export type RespostaConversas = z.infer<typeof respostaConversas>;
 
 export const AVALIACOES = [1, -1] as const;
 
@@ -123,6 +136,41 @@ export const respostaConversa = z.object({
 export type RespostaConversa = z.infer<typeof respostaConversa>;
 
 export const idDaConversa = z.object({ id: z.uuid() });
+
+// ---------------------------------------------------------------------------
+// Conversas da equipe (ia.conversas): quem tem a permissão lê as conversas
+// das outras pessoas. Cada abertura fica no histórico do sistema.
+// ---------------------------------------------------------------------------
+
+export const consultaConversasDaEquipe = consultaDasConversas.extend({
+  usuario_id: z.uuid().optional(),
+  de: z.iso.date().optional(),
+  ate: z.iso.date().optional(),
+});
+export type ConsultaConversasDaEquipe = z.infer<
+  typeof consultaConversasDaEquipe
+>;
+
+export const conversaDaEquipe = conversaResumida.extend({
+  usuario_id: z.uuid(),
+  pessoa: z.string(),
+  perguntas: z.number().int(),
+});
+export type ConversaDaEquipe = z.infer<typeof conversaDaEquipe>;
+
+export const respostaConversasDaEquipe = z.object({
+  conversas: z.array(conversaDaEquipe),
+  proxima: z.string().nullable(),
+  pessoas: z.array(z.object({ id: z.uuid(), nome: z.string() })),
+});
+export type RespostaConversasDaEquipe = z.infer<
+  typeof respostaConversasDaEquipe
+>;
+
+export const respostaConversaDaEquipe = respostaConversa.extend({
+  pessoa: z.string(),
+});
+export type RespostaConversaDaEquipe = z.infer<typeof respostaConversaDaEquipe>;
 
 export const entradaAvaliacao = z.object({
   avaliacao: z.union([z.literal(1), z.literal(-1), z.null()]),

@@ -2,12 +2,17 @@ import { Readable } from "node:stream";
 import type { RespostaMensagem } from "@arp/shared/contratos/auth";
 import type {
   ConfigDaIa,
+  ConsultaConversasDaEquipe,
+  ConsultaDasConversas,
   ConsultaDoUso,
   EntradaLimite,
   EntradaPergunta,
   EventoDoAssistente,
   RespostaConfig,
   RespostaConversa,
+  RespostaConversaDaEquipe,
+  RespostaConversas,
+  RespostaConversasDaEquipe,
   RespostaEstado,
   RespostaUso,
 } from "@arp/shared/ia/contratos";
@@ -49,8 +54,10 @@ export async function perguntar(
     .send(Readable.from(comoSse(eventos)));
 }
 
-export async function conversas(request: FastifyRequest) {
-  return { conversas: await assistente.conversas(contextoDe(request)) };
+export function conversas(
+  request: FastifyRequest<{ Querystring: ConsultaDasConversas }>,
+): Promise<RespostaConversas> {
+  return assistente.conversas(contextoDe(request), request.query);
 }
 
 export function conversa(
@@ -108,4 +115,16 @@ export function uso(
   request: FastifyRequest<{ Querystring: ConsultaDoUso }>,
 ): Promise<RespostaUso> {
   return gestao.uso(contextoDe(request), request.query);
+}
+
+export function conversasDaEquipe(
+  request: FastifyRequest<{ Querystring: ConsultaConversasDaEquipe }>,
+): Promise<RespostaConversasDaEquipe> {
+  return gestao.conversasDaEquipe(contextoDe(request), request.query);
+}
+
+export function conversaDaEquipe(
+  request: FastifyRequest<ComId>,
+): Promise<RespostaConversaDaEquipe> {
+  return gestao.conversaDaEquipe(contextoDe(request), request.params.id);
 }

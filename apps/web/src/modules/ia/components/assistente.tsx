@@ -6,7 +6,11 @@ import {
 } from "@arp/shared/ia/contratos";
 import { formatarTokens } from "@arp/shared/ia/regras";
 import type { Permissao } from "@arp/shared/permissions";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ArrowUp,
   Check,
@@ -14,6 +18,7 @@ import {
   History,
   LoaderCircle,
   MessageSquarePlus,
+  Search,
   Sparkles,
   Square,
   ThumbsDown,
@@ -21,7 +26,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useSecoes } from "@/app/shell/secoes";
 import { ondeEstou } from "@/config/navigation";
 import { ErroDaApi, mensagemDoErro } from "@/lib/api";
@@ -626,23 +631,37 @@ function Historico({
   aoAbrir: (id: string) => void;
   aoApagar: (id: string) => void;
 }) {
-  const { data, isPending, error } = useQuery(consultaDasConversas);
+  const [busca, setBusca] = useState("");
+  const termo = useDeferredValue(busca.trim());
+  const { data, isPending, error, hasNextPage, fetchNextPage, isFetching } =
+    useInfiniteQuery(consultaDasConversas(termo));
   const [apagando, setApagando] = useState<string | null>(null);
-  if (isPending)
-    return (
-      <p className="flex-1 px-5 py-5 text-sm text-neutral-500">Carregando…</p>
-    );
-  if (error)
-    return (
-      <p role="alert" className="flex-1 px-5 py-5 text-sm text-red-700">
-        {mensagemDoErro(error)}
-      </p>
-    );
   return (
     <div className="flex-1 overflow-y-auto px-3 py-3">
-      {data.length === 0 ? (
+      <label className="relative mb-2 block px-1">
+        <span className="sr-only">Buscar nas conversas</span>
+        <Search
+          className="pointer-events-none absolute top-1/2 left-4 size-3.5 -translate-y-1/2 text-neutral-400"
+          aria-hidden
+        />
+        <input
+          type="search"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar nas conversas"
+          maxLength={200}
+          className="w-full rounded-full border border-neutral-200 bg-white py-2 pr-3 pl-9 text-sm outline-none focus:border-neutral-400"
+        />
+      </label>
+      {isPending ? (
+        <p className="px-2 py-3 text-sm text-neutral-500">Carregando…</p>
+      ) : error ? (
+        <p role="alert" className="px-2 py-3 text-sm text-red-700">
+          {mensagemDoErro(error)}
+        </p>
+      ) : data.length === 0 ? (
         <p className="px-2 py-3 text-sm text-neutral-500">
-          Nenhuma conversa ainda.
+          {termo ? "Nada encontrado." : "Nenhuma conversa ainda."}
         </p>
       ) : (
         <ul className="flex flex-col gap-1">
@@ -683,9 +702,20 @@ function Historico({
           ))}
         </ul>
       )}
+      {hasNextPage && (
+        <button
+          type="button"
+          disabled={isFetching}
+          onClick={() => void fetchNextPage()}
+          className="mx-auto mt-2 block rounded-full px-4 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 disabled:opacity-50"
+        >
+          {isFetching ? "Carregando…" : "Carregar mais"}
+        </button>
+      )}
       <p className="px-3 pt-4 text-[11px] text-neutral-400">
-        Só você vê as suas conversas. Elas são apagadas depois do prazo de
-        guarda definido pela empresa.
+        Suas conversas são suas: além de você, só quem a empresa autorizou em
+        Configurações › IA pode lê-las (e cada leitura fica registrada). Elas
+        são apagadas depois do prazo de guarda.
       </p>
     </div>
   );

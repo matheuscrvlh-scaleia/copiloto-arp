@@ -206,6 +206,7 @@ export const EVENTOS = {
   sustentabilidade_ano_reaberto: "Reabriu o ano no Painel de Sustentabilidade",
   ia_configuracao: "Alterou a configuração da IA",
   ia_conversas_apagadas: "Apagou conversas da IA pelo prazo de guarda",
+  ia_conversa_lida: "Leu a conversa de outra pessoa com a IA",
 } as const;
 export type Evento = keyof typeof EVENTOS;
 

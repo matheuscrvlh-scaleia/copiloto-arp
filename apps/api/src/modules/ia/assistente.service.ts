@@ -1,11 +1,13 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import {
-  type ConversaResumida,
+  type ConsultaDasConversas,
   type EntradaPergunta,
   type EventoDoAssistente,
   type FonteConsultada,
+  POR_PAGINA,
   precoDoModelo,
   type RespostaConversa,
+  type RespostaConversas,
   type RespostaEstado,
 } from "@arp/shared/ia/contratos";
 import {
@@ -34,7 +36,7 @@ import {
 import * as repo from "./assistente.repository";
 import { type Fonte, montarCatalogo, textoDoCatalogo } from "./catalogo";
 import { rotasRegistradas } from "./consulta";
-import { executarFerramenta, FERRAMENTAS } from "./ferramentas";
+import { executarFerramenta, FERRAMENTAS, LEITURAS } from "./ferramentas";
 import {
   contextoDaConversa,
   contextoDoTurno,
@@ -43,7 +45,7 @@ import {
 
 // IA ARP: a pessoa pergunta, a IA consulta as fontes do sistema (com o
 // acesso da pessoa) e responde em streaming. Cada pergunta fica na conversa
-// (só o dono lê) e no registro de uso (tokens, custo, módulos consultados).
+// (o dono e quem tem ia.conversas leem) e no registro de uso (tokens, custo, módulos consultados).
 
 type Mensagem = Anthropic.Beta.BetaMessageParam;
 
@@ -148,11 +150,39 @@ export async function estado(ctx: Contexto): Promise<RespostaEstado> {
 // Conversas
 // ---------------------------------------------------------------------------
 
-export async function conversas(ctx: Contexto): Promise<ConversaResumida[]> {
-  return banco.comoUsuario(ctx.usuario.id, (tx) => repo.conversas(tx));
+/** Histórico da própria pessoa: busca e páginas de POR_PAGINA. */
+export async function conversas(
+  ctx: Contexto,
+  c: ConsultaDasConversas,
+): Promise<RespostaConversas> {
+  const linhas = await banco.comoUsuario(ctx.usuario.id, (tx) =>
+    repo.conversas(tx, {
+      ...c,
+      usuarioId: ctx.usuario.id,
+      limite: POR_PAGINA + 1,
+    }),
+  );
+  return paginar(linhas, ({ id, titulo, atualizada_em }) => ({
+    id,
+    titulo,
+    atualizada_em,
+  }));
 }
 
-const fontesSalvas = z.array(
+/** Corta a linha a mais (que só diz se há próxima página). */
+export function paginar<L extends { atualizada_em: string }, R>(
+  linhas: L[],
+  mapear: (l: L) => R,
+): { conversas: R[]; proxima: string | null } {
+  const pagina = linhas.slice(0, POR_PAGINA);
+  const ultima = pagina.at(-1);
+  return {
+    conversas: pagina.map(mapear),
+    proxima: linhas.length > POR_PAGINA && ultima ? ultima.atualizada_em : null,
+  };
+}
+
+export const fontesSalvas = z.array(
   z.object({ caminho: z.string(), modulo: z.string(), ok: z.boolean() }),
 );
 
@@ -161,7 +191,7 @@ export async function conversa(
   id: string,
 ): Promise<RespostaConversa> {
   const r = await banco.comoUsuario(ctx.usuario.id, async (tx) => {
-    const c = await repo.conversa(tx, id);
+    const c = await repo.conversa(tx, id, ctx.usuario.id);
     return c ? { ...c, perguntas: await repo.perguntas(tx, id) } : null;
   });
   if (!r) throw new ErroNaoEncontrado("Conversa não encontrada.");
@@ -293,7 +323,7 @@ export async function perguntar(
     let conversaId = entrada.conversa_id ?? null;
     let historico: Mensagem[] = [];
     if (conversaId) {
-      if (!(await repo.conversa(tx, conversaId))) return null;
+      if (!(await repo.conversa(tx, conversaId, ctx.usuario.id))) return null;
       historico = (await repo.historico(tx, conversaId)).flatMap((t) =>
         ehMensagens(t.mensagens) ? t.mensagens : [],
       );
@@ -403,7 +433,7 @@ async function* responder(
       }
 
       for (const u of pedidos)
-        if (u.name === "consultar") {
+        if (LEITURAS.has(u.name)) {
           const alvo = z.object({ caminho: z.string() }).safeParse(u.input);
           if (alvo.success)
             yield {
@@ -417,7 +447,7 @@ async function* responder(
         }
       const resultados = await Promise.all(
         pedidos.map(async (u) => {
-          if (u.name === "consultar" && ++consultas > p.s.maxConsultas)
+          if (LEITURAS.has(u.name) && ++consultas > p.s.maxConsultas)
             return {
               conteudo: `Limite de ${p.s.maxConsultas} consultas desta pergunta atingido. Responda com o que já tem e diga o que faltou.`,
               erro: true,

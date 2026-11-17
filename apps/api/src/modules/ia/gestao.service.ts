@@ -1,9 +1,13 @@
 import {
   type ConfigDaIa,
+  type ConsultaConversasDaEquipe,
   type ConsultaDoUso,
   type EntradaLimite,
+  POR_PAGINA,
   precoDoModelo,
   type RespostaConfig,
+  type RespostaConversaDaEquipe,
+  type RespostaConversasDaEquipe,
   type RespostaUso,
 } from "@arp/shared/ia/contratos";
 import { z } from "zod";
@@ -16,7 +20,8 @@ import {
   credencialEmUso,
   IntegracaoNaoConfigurada,
 } from "@/modules/sync/credenciais.service";
-import { catalogo } from "./assistente.service";
+import * as conversasRepo from "./assistente.repository";
+import { catalogo, fontesSalvas, paginar } from "./assistente.service";
 import * as repo from "./gestao.repository";
 
 // Gestão da IA ARP (ia.gerenciar): ligar e desligar, esforço, tetos,
@@ -119,4 +124,76 @@ export async function uso(
     por_modelo: await repo.porModelo(tx, q.de, q.ate),
     por_status: await repo.porStatus(tx, q.de, q.ate),
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Conversas da equipe (ia.conversas): só leitura. Nomes vêm de core, por isso
+// service role depois de exigir. Abrir uma conversa fica no histórico.
+// ---------------------------------------------------------------------------
+
+export async function conversasDaEquipe(
+  ctx: Contexto,
+  c: ConsultaConversasDaEquipe,
+): Promise<RespostaConversasDaEquipe> {
+  await exigir(ctx, "ia.conversas");
+  const r = await banco.comoServico(async (tx) => ({
+    linhas: await conversasRepo.conversas(tx, {
+      ...c,
+      usuarioId: c.usuario_id,
+      limite: POR_PAGINA + 1,
+    }),
+    pessoas: await repo.pessoasComConversa(tx),
+  }));
+  const nomes = new Map(r.pessoas.map((p) => [p.id, p.nome]));
+  const contagem = await banco.comoServico((tx) =>
+    repo.perguntasPorConversa(
+      tx,
+      r.linhas.slice(0, POR_PAGINA).map((l) => l.id),
+    ),
+  );
+  return {
+    ...paginar(r.linhas, (l) => ({
+      id: l.id,
+      titulo: l.titulo,
+      atualizada_em: l.atualizada_em,
+      usuario_id: l.usuario_id,
+      pessoa: nomes.get(l.usuario_id) ?? "—",
+      perguntas: contagem.get(l.id) ?? 0,
+    })),
+    pessoas: r.pessoas,
+  };
+}
+
+export async function conversaDaEquipe(
+  ctx: Contexto,
+  id: string,
+): Promise<RespostaConversaDaEquipe> {
+  await exigir(ctx, "ia.conversas");
+  const r = await banco.comoServico(async (tx) => {
+    const c = await conversasRepo.conversa(tx, id);
+    if (!c) return null;
+    return {
+      ...c,
+      pessoa: (await repo.nomeDe(tx, c.usuario_id)) ?? "—",
+      perguntas: await conversasRepo.perguntas(tx, id),
+    };
+  });
+  if (!r) throw new ErroNaoEncontrado("Conversa não encontrada.");
+  if (r.usuario_id !== ctx.usuario.id)
+    registrarDepois({
+      modulo: "admin",
+      evento: "ia_conversa_lida",
+      descricao: `Leu a conversa de ${r.pessoa} com a IA`,
+      usuarioId: ctx.usuario.id,
+      detalhes: { conversa_id: r.id, dono_id: r.usuario_id },
+    });
+  return {
+    id: r.id,
+    titulo: r.titulo,
+    pessoa: r.pessoa,
+    perguntas: r.perguntas.map((p) => ({
+      ...p,
+      fontes: fontesSalvas.catch([]).parse(p.fontes),
+    })),
+  };
 }

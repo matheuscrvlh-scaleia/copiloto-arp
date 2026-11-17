@@ -218,6 +218,8 @@ export const PERMISSOES = {
     "Usar a IA ARP: perguntar sobre os dados do sistema (ela só lê o que a pessoa já pode ver)",
   "ia.gerenciar":
     "Configurar a IA ARP: ligar e desligar, modelo, limites de uso e o painel de consumo",
+  "ia.conversas":
+    "Ler as conversas das outras pessoas com a IA ARP (cada leitura fica no histórico)",
 } as const;
 
 export type Permissao = keyof typeof PERMISSOES;

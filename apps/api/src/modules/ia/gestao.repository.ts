@@ -259,3 +259,43 @@ export async function porStatus(tx: Tx, de: string, ate: string) {
     .orderBy(sql`2`, "desc")
     .execute();
 }
+
+/** Quem já conversou com a IA (para o filtro da tela de conversas). */
+export function pessoasComConversa(tx: Tx) {
+  return tx
+    .selectFrom("core.usuarios as u")
+    .select(["u.id", "u.nome"])
+    .where((eb) =>
+      eb.exists(
+        eb
+          .selectFrom("ia.conversas as c")
+          .select("c.id")
+          .whereRef("c.usuario_id", "=", "u.id"),
+      ),
+    )
+    .orderBy("u.nome")
+    .execute();
+}
+
+export async function perguntasPorConversa(
+  tx: Tx,
+  ids: string[],
+): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+  const r = await tx
+    .selectFrom("ia.perguntas")
+    .select(["conversa_id", sql<number>`count(*)::int`.as("n")])
+    .where("conversa_id", "in", ids)
+    .groupBy("conversa_id")
+    .execute();
+  return new Map(r.map((l) => [l.conversa_id, l.n]));
+}
+
+export async function nomeDe(tx: Tx, usuarioId: string) {
+  const r = await tx
+    .selectFrom("core.usuarios")
+    .select("nome")
+    .where("id", "=", usuarioId)
+    .executeTakeFirst();
+  return r?.nome;
+}

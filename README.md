@@ -32,8 +32,9 @@ regras.
   histórico e configurações (IA).
 - **IA ARP**: assistente no cabeçalho de toda tela. Responde sobre os dados
   que a pessoa já pode ver, lendo as mesmas telas com as mesmas permissões;
-  liberada por cargo ou pessoa (`ia.usar`), com limites de tokens, teto de
-  gasto e painel de uso em Administração › Configurações › IA.
+  liberada por cargo ou pessoa (`ia.usar`). Em Administração › Configurações
+  › IA: painel de uso, limites de tokens (opcionais), teto de gasto e as
+  conversas da equipe (`ia.conversas`).
 
 ## Stack
 

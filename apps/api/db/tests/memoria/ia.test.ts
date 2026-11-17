@@ -1,5 +1,6 @@
-// IA ARP (0009_ia): quem configura, quem conversa e quem vê o uso.
-// - conversas e perguntas: só o dono (nem o gestor lê o conteúdo);
+// IA ARP (0009_ia, 0010): quem configura, quem conversa e quem vê o uso.
+// - conversas e perguntas: o dono, e quem tem ia.conversas só lê (gerenciar
+//   a IA não basta);
 // - uso: o dono vê o seu, o gestor vê tudo, ninguém grava pela sessão;
 // - configuração e limites: lê quem usa ou gerencia, muda só quem gerencia.
 import { beforeAll, describe, expect, it } from "vitest";
@@ -10,6 +11,7 @@ const U = {
   ana: "00000000-0000-0000-0000-0000000000a2",
   bia: "00000000-0000-0000-0000-0000000000a3",
   fora: "00000000-0000-0000-0000-0000000000a4",
+  auditor: "00000000-0000-0000-0000-0000000000a5",
 };
 
 const PERMISSOES: Record<keyof typeof U, string[]> = {
@@ -17,6 +19,7 @@ const PERMISSOES: Record<keyof typeof U, string[]> = {
   ana: ["ia.usar"],
   bia: ["ia.usar"],
   fora: [],
+  auditor: ["ia.conversas"],
 };
 
 let db: BancoDeTeste;
@@ -67,9 +70,9 @@ describe("permissões novas", () => {
   it("estão no catálogo do banco", async () => {
     expect(
       await valor<number>(
-        "select count(*)::int from core.permissoes where codigo in ('ia.usar', 'ia.gerenciar')",
+        "select count(*)::int from core.permissoes where codigo in ('ia.usar', 'ia.gerenciar', 'ia.conversas')",
       ),
-    ).toBe(2);
+    ).toBe(3);
   });
 });
 
@@ -81,6 +84,10 @@ describe("configuração", () => {
         "select (precos -> 'claude-opus-5-5' ->> 'saida')::int from ia.config",
       ),
     ).toBe(20);
+    // Sem limite de fábrica: só existe se alguém puser.
+    expect(
+      await valor<number | null>("select limite_padrao_mes from ia.config"),
+    ).toBeNull();
   });
 
   it("quem usa lê; quem não tem a IA não vê", async () => {
@@ -162,7 +169,23 @@ describe("conversas", () => {
     ).toMatch(/row-level security/);
   });
 
-  it("ninguém além do dono lê, nem o gestor", async () => {
+  it("quem tem ia.conversas lê, mas não apaga nem avalia", async () => {
+    expect(
+      await como<number>(U.auditor, "select count(*)::int from ia.perguntas"),
+    ).toBe(1);
+    await db.comoUsuario(U.auditor, async () => {
+      await db.query("delete from ia.conversas");
+      await db.query("delete from ia.perguntas");
+      await db.query("update ia.perguntas set avaliacao = 1");
+    });
+    expect(
+      await valor<number>(
+        "select count(*)::int from ia.perguntas where avaliacao is null",
+      ),
+    ).toBe(1);
+  });
+
+  it("os outros não leem, nem o gestor da IA", async () => {
     for (const u of [U.bia, U.gestor]) {
       expect(
         await como<number>(u, "select count(*)::int from ia.conversas"),

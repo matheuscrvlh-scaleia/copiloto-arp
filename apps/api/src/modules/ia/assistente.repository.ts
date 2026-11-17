@@ -40,21 +40,72 @@ export async function usoDoMes(tx: Tx, usuarioId: string) {
   return { tokensDaPessoa: r.tokens, gastoTotal: r.custo };
 }
 
-export function conversas(tx: Tx) {
-  return tx
-    .selectFrom("ia.conversas")
-    .select(["id", "titulo", "atualizada_em"])
-    .orderBy("atualizada_em", "desc")
-    .limit(60)
-    .execute();
+export interface FiltroDeConversas {
+  /** Só as desta pessoa (o histórico de cada um). */
+  usuarioId?: string;
+  busca?: string;
+  /** Cursor: a data da última conversa da página anterior. */
+  antes?: string;
+  de?: string;
+  ate?: string;
+  limite: number;
 }
 
-export function conversa(tx: Tx, id: string) {
-  return tx
+const semCuringa = (t: string) => t.replace(/[\\%_]/g, "\\$&");
+
+/** Conversas da mais recente para a mais antiga, com busca e página. */
+export function conversas(tx: Tx, f: FiltroDeConversas) {
+  let q = tx
+    .selectFrom("ia.conversas as c")
+    .select(["c.id", "c.titulo", "c.atualizada_em", "c.usuario_id"])
+    .orderBy("c.atualizada_em", "desc")
+    .orderBy("c.id", "desc")
+    .limit(f.limite);
+  if (f.usuarioId) q = q.where("c.usuario_id", "=", f.usuarioId);
+  if (f.antes)
+    q = q.where(
+      sql<boolean>`date_trunc('milliseconds', c.atualizada_em) < ${f.antes}::timestamptz`,
+    );
+  if (f.de)
+    q = q.where(
+      sql<boolean>`c.atualizada_em >= (${f.de}::date::timestamp at time zone 'America/Sao_Paulo')`,
+    );
+  if (f.ate)
+    q = q.where(
+      sql<boolean>`c.atualizada_em < ((${f.ate}::date + 1)::timestamp at time zone 'America/Sao_Paulo')`,
+    );
+  const busca = f.busca?.trim();
+  if (busca) {
+    const termo = `%${semCuringa(busca)}%`;
+    q = q.where((eb) =>
+      eb.or([
+        eb("c.titulo", "ilike", termo),
+        eb.exists(
+          eb
+            .selectFrom("ia.perguntas as p")
+            .select("p.id")
+            .whereRef("p.conversa_id", "=", "c.id")
+            .where((e) =>
+              e.or([
+                e("p.pergunta", "ilike", termo),
+                e("p.resposta", "ilike", termo),
+              ]),
+            ),
+        ),
+      ]),
+    );
+  }
+  return q.execute();
+}
+
+/** Uma conversa; com `usuarioId`, só se for dessa pessoa. */
+export function conversa(tx: Tx, id: string, usuarioId?: string) {
+  let q = tx
     .selectFrom("ia.conversas")
-    .select(["id", "titulo"])
-    .where("id", "=", id)
-    .executeTakeFirst();
+    .select(["id", "titulo", "usuario_id"])
+    .where("id", "=", id);
+  if (usuarioId) q = q.where("usuario_id", "=", usuarioId);
+  return q.executeTakeFirst();
 }
 
 export function perguntas(tx: Tx, conversaId: string) {

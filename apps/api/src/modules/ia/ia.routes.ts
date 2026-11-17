@@ -1,6 +1,8 @@
 import { respostaMensagem } from "@arp/shared/contratos/auth";
 import {
   configDaIa,
+  consultaConversasDaEquipe,
+  consultaDasConversas,
   consultaDoUso,
   entradaAvaliacao,
   entradaLimite,
@@ -9,14 +11,17 @@ import {
   idDaConversa,
   respostaConfig,
   respostaConversa,
+  respostaConversaDaEquipe,
   respostaConversas,
+  respostaConversasDaEquipe,
   respostaEstado,
   respostaUso,
 } from "@arp/shared/ia/contratos";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import * as controller from "./ia.controller";
 
-// IA ARP (prefixo /api/v1/ia). O chat: `ia.usar`; a gestão: `ia.gerenciar`.
+// IA ARP (prefixo /api/v1/ia). O chat: `ia.usar`; a gestão: `ia.gerenciar`;
+// ler as conversas das outras pessoas: `ia.conversas`.
 // Estas rotas ficam fora do catálogo da própria IA (catalogo.ts).
 
 /** Cada pergunta pode gerar várias chamadas à Claude: limite próprio. */
@@ -58,7 +63,10 @@ export const rotasDaIa: FastifyPluginAsyncZod = async (app) => {
     "/conversas",
     {
       config: { permissao: "ia.usar" },
-      schema: { response: { 200: respostaConversas } },
+      schema: {
+        querystring: consultaDasConversas,
+        response: { 200: respostaConversas },
+      },
     },
     controller.conversas,
   );
@@ -127,5 +135,30 @@ export const rotasDaIa: FastifyPluginAsyncZod = async (app) => {
       schema: { querystring: consultaDoUso, response: { 200: respostaUso } },
     },
     controller.uso,
+  );
+
+  // Conversas das outras pessoas: só leitura, com registro de cada abertura.
+  app.get(
+    "/equipe/conversas",
+    {
+      config: { permissao: "ia.conversas" },
+      schema: {
+        querystring: consultaConversasDaEquipe,
+        response: { 200: respostaConversasDaEquipe },
+      },
+    },
+    controller.conversasDaEquipe,
+  );
+
+  app.get(
+    "/equipe/conversas/:id",
+    {
+      config: { permissao: "ia.conversas" },
+      schema: {
+        params: idDaConversa,
+        response: { 200: respostaConversaDaEquipe },
+      },
+    },
+    controller.conversaDaEquipe,
   );
 };

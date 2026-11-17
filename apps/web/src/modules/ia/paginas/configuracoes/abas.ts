@@ -7,8 +7,8 @@ export function abasDeConfiguracoes(sessao: Sessao): Aba[] {
     {
       href: "/admin/configuracoes/ia",
       rotulo: "IA",
-      descricao: "Assistente IA ARP: uso, custos, limites e ajustes",
-      pode: sessao.pode("ia.gerenciar"),
+      descricao: "Assistente IA ARP: uso, custos, limites, ajustes e conversas",
+      pode: sessao.pode(["ia.gerenciar", "ia.conversas"]),
     },
   ].flatMap(({ pode, ...aba }) => (pode ? [aba] : []));
 }

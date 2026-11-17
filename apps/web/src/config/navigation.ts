@@ -633,7 +633,7 @@ export const navigation: NavSection[] = [
         label: "Configurações",
         icone: "configuracoes",
         // Abas por permissão (modules/ia/paginas/configuracoes/abas.ts).
-        permissao: ["ia.gerenciar"],
+        permissao: ["ia.gerenciar", "ia.conversas"],
       },
     ],
   },

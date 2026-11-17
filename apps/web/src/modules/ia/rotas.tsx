@@ -18,7 +18,7 @@ export const ia: Modulo = {
         {
           caminho: "ia",
           titulo: "IA",
-          permissao: "ia.gerenciar",
+          permissao: ["ia.gerenciar", "ia.conversas"],
           pagina: () => import("./paginas/configuracoes/ia"),
         },
       ],
