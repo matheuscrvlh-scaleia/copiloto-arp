@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 #
 # Imagem do front (React estático servido por nginx).
-# O contexto do build é a RAIZ do repositório (npm workspaces):
-#   docker build -f apps/web/Dockerfile .
+# O contexto do build é a pasta do app:
+#   docker build apps/web
 #
 # As variáveis VITE_* entram no JavaScript na hora do build. Hoje a tela não
 # usa nenhuma (fala com a API pela mesma origem); se um dia usar, ela chega
@@ -11,25 +11,16 @@
 
 # --- 1. Dependências e build ------------------------------------------------
 FROM node:24-alpine AS build
-WORKDIR /repo
+WORKDIR /app
 
 # Só os manifestos primeiro: a camada do `npm ci` é reaproveitada enquanto
-# as dependências não mudarem.
+# as dependências não mudarem. Sem scripts de instalação: nada do que o
+# build usa depende deles.
 COPY package.json package-lock.json ./
-COPY apps/api/package.json apps/api/
-COPY apps/web/package.json apps/web/
-COPY packages/shared/package.json packages/shared/
+RUN npm ci --ignore-scripts --no-audit --no-fund
 
-# Instala só o que o front usa (o workspace web, o shared e a raiz). Sem
-# scripts de instalação: nada do que o build usa depende deles.
-RUN npm ci --workspace @arp/web --workspace @arp/shared \
-      --include-workspace-root --ignore-scripts --no-audit --no-fund
-
-COPY tsconfig.base.json ./
-COPY packages/shared packages/shared
-COPY apps/web apps/web
-
-RUN npm run build --workspace @arp/web
+COPY . .
+RUN npm run build
 
 # --- 2. Servidor ------------------------------------------------------------
 # nginx oficial na variante sem root: o processo roda como o usuário 101.
@@ -39,8 +30,8 @@ FROM nginxinc/nginx-unprivileged:1.31-alpine
 # net.ipv4.ip_unprivileged_port_start=0, então o usuário 101 abre a 80 sem
 # capacidade nenhuma (funciona com `cap_drop: ALL` e `no-new-privileges`).
 # Não se usa setcap no binário nem root "só para abrir a porta".
-COPY apps/web/nginx.conf /etc/nginx/nginx.conf
-COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY --from=build /app/dist /usr/share/nginx/html
 
 USER 101
 EXPOSE 80

@@ -19,7 +19,7 @@ fundação).
 | `app/**/route.ts` (PDF, planilha, webhook) | rota `GET/POST` do módulo |
 | `app/api/cron/<x>`, `app/api/sync/<x>` | `modules/<modulo>/jobs.ts` (seção 10) |
 | `lib/<x>` (regra pura) | `@arp/shared/<x>` (já copiado; não duplique) |
-| tipos e schemas de entrada/saída | `packages/shared/src/<modulo>/contratos.ts` |
+| tipos e schemas de entrada/saída | `packages/shared/src/<modulo>/contratos.ts` (nos dois apps) |
 | `connectors/<sistema>` | `apps/api/src/connectors/<sistema>` (sem Fastify, só leitura) |
 | `supabase/tests/*.sql` (RLS) | `apps/api/db/tests/<modulo>.test.ts` |
 
@@ -211,7 +211,7 @@ Regras do escopo:
 ### Consultas (repository)
 
 Recebe a `tx`, devolve linhas. Tipos gerados em `infra/banco/tipos.ts`
-(`npm run db:tipos -w @arp/api` depois de criar migration); as tabelas têm o
+(`npm run db:tipos` depois de criar migration); as tabelas têm o
 schema no nome.
 
 ```ts
@@ -356,7 +356,7 @@ Mudou o schema? Nova migration `apps/api/db/migrations/NNNN_nome.sql` (o
 próximo número; nunca edite uma aplicada: o executor confere o checksum).
 Tabela nova nasce com `enable row level security`, política com `(select
 core.pode('...'))` e `grant` para `authenticated`/`service_role`. Depois:
-`npm run db:migrar -w @arp/api`, `npm run db:tipos -w @arp/api` e um caso em
+`npm run db:migrar`, `npm run db:tipos` e um caso em
 `apps/api/db/tests`. Como vários módulos são portados ao mesmo tempo,
 **combine o número com quem coordena** antes de criar o arquivo. Portar um
 módulo normalmente **não** precisa de migration: o schema já veio inteiro.
@@ -582,9 +582,9 @@ marketing `10 3` e `50 10`, diário de obras `*/30 * * * *`.
 ## 12. Antes de entregar
 
 ```
-npx biome check apps/api packages/shared
-npm run typecheck -w @arp/api
-npm test -w @arp/api
+cd apps/api
+npm run check
+npm test
 ```
 
 - Toda rota com `config` de acesso e schemas de entrada; `rotas.test.ts`

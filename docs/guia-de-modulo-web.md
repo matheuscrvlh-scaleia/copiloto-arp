@@ -23,7 +23,7 @@ o que este guia manda mudar.
 | `lib/<x>` (regra pura) | `@arp/shared/<x>` (ex.: `@arp/shared/formato`, `@arp/shared/os/rotulos`) |
 | `server/<modulo>/**` (leitura) | `modules/<modulo>/api.ts`: chamadas tipadas + chaves de consulta |
 | `server/<modulo>/acoes/**` (Server Actions) | `modules/<modulo>/api.ts`: `acaoDaApi(...)` ou função para `useMutation` |
-| tipos e schemas de entrada/saída | `packages/shared/src/<modulo>/contratos.ts` → `@arp/shared/<modulo>/contratos` |
+| tipos e schemas de entrada/saída | `packages/shared/src/<modulo>/contratos.ts` (nos dois apps) → `@arp/shared/<modulo>/contratos` |
 | `config/navigation.ts`, `config/guias/**` | `config/**` (já portados, completos) |
 
 O que já existe e não se recria: `lib/api.ts`, `lib/acao.ts`,
@@ -395,7 +395,7 @@ Os tipos `Detalhe` e `TabelaDetalhe` moram em `@arp/shared/detalhe`
 
 ## 12. Testes
 
-Vitest + Testing Library (`npm test -w @arp/web`). A API falsa e a sessão
+Vitest + Testing Library (`npm test` em `apps/web`). A API falsa e a sessão
 de teste estão em `src/teste/api-falsa.ts`:
 
 ```tsx
@@ -420,10 +420,10 @@ guias citam contra as telas).
 ## 13. Antes de entregar
 
 ```
-npx biome check apps/web
-npm run typecheck -w @arp/web
-npm test -w @arp/web
-npm run build -w @arp/web
+cd apps/web
+npm run check
+npm test
+npm run build
 ```
 
 Confira também:

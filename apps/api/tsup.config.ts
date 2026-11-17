@@ -1,7 +1,8 @@
 import { defineConfig } from "tsup";
 
 // Dois programas: o servidor HTTP e o executor de migrations (comando à
-// parte). `@arp/shared` é TypeScript puro e entra no pacote; o resto fica em
+// parte). `@arp/shared` (packages/shared, achado pelo `paths` do
+// tsconfig) é TypeScript puro e entra no pacote; o resto fica em
 // node_modules (dependências de produção).
 export default defineConfig({
   entry: {

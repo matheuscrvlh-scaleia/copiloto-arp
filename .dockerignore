@@ -1,9 +1,0 @@
-**/node_modules
-**/dist
-**/.env
-**/.env.*
-.git
-dados
-docs
-**/*.test.ts
-**/*.test.tsx

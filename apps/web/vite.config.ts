@@ -8,7 +8,12 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "@arp/shared": fileURLToPath(
+        new URL("./packages/shared/src", import.meta.url),
+      ),
+    },
   },
   server: {
     port: 5173,

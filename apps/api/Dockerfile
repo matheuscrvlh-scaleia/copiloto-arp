@@ -1,46 +1,33 @@
 # syntax=docker/dockerfile:1
 #
-# Imagem da API (Node 24 + Fastify). O contexto do build é a RAIZ do
-# repositório (npm workspaces):
-#   docker build -f apps/api/Dockerfile .
+# Imagem da API (Node 24 + Fastify). O contexto do build é a pasta do app:
+#   docker build apps/api
 #
 # A mesma imagem serve o HTTP (`node dist/server.js`, o padrão) e roda as
 # migrations (`node dist/migrar.js`, serviço `migrar` do compose).
 
 # --- 1. Build ---------------------------------------------------------------
 FROM node:24-alpine AS build
-WORKDIR /repo
+WORKDIR /app
 
 # Só os manifestos primeiro: a camada do `npm ci` é reaproveitada enquanto
 # as dependências não mudarem.
 COPY package.json package-lock.json ./
-COPY apps/api/package.json apps/api/
-COPY apps/web/package.json apps/web/
-COPY packages/shared/package.json packages/shared/
+RUN npm ci --no-audit --no-fund
 
-RUN npm ci --workspace @arp/api --workspace @arp/shared \
-      --include-workspace-root --no-audit --no-fund
+COPY . .
 
-COPY tsconfig.base.json ./
-COPY packages/shared packages/shared
-COPY apps/api apps/api
-
-# dist/server.js e dist/migrar.js, com @arp/shared dentro.
-RUN npm run build --workspace @arp/api
+# dist/server.js e dist/migrar.js, com packages/shared dentro.
+RUN npm run build
 
 # --- 2. Dependências de produção --------------------------------------------
 FROM node:24-alpine AS producao
-WORKDIR /repo
+WORKDIR /app
 
 COPY package.json package-lock.json ./
-COPY apps/api/package.json apps/api/
-COPY apps/web/package.json apps/web/
-COPY packages/shared/package.json packages/shared/
 
-# Sem devDependencies. O mkdir garante a pasta mesmo quando o npm põe tudo
-# na raiz (o COPY do estágio final falharia se ela não existisse).
-RUN npm ci --workspace @arp/api --omit=dev --no-audit --no-fund \
- && mkdir -p apps/api/node_modules \
+# Sem devDependencies.
+RUN npm ci --omit=dev --no-audit --no-fund \
  && npm cache clean --force
 
 # --- 3. Execução ------------------------------------------------------------
@@ -51,14 +38,11 @@ ENV NODE_ENV=production \
     PORT=3000 \
     ARQUIVOS_DIR=/dados/arquivos
 
-# Mesma árvore do repositório: o Node acha as dependências em
-# /app/node_modules subindo a partir de /app/apps/api.
-WORKDIR /app/apps/api
-COPY --from=producao /repo/node_modules /app/node_modules
-COPY --from=producao /repo/apps/api/node_modules ./node_modules
-COPY --from=build /repo/apps/api/dist ./dist
-COPY apps/api/package.json ./
-COPY apps/api/db/migrations ./db/migrations
+WORKDIR /app
+COPY --from=producao /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY package.json ./
+COPY db/migrations ./db/migrations
 
 # Pasta dos arquivos (o compose monta o volume aqui), já do usuário sem root.
 RUN mkdir -p /dados/arquivos && chown node:node /dados/arquivos

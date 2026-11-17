@@ -46,9 +46,17 @@ regras.
 docker-compose.yml   db, migrar (migrations), api e web
 apps/api             API (src/), migrations (db/migrations), scripts
 apps/web             front (src/), nginx.conf do contêiner
-packages/shared      regras puras e contratos (Zod) dos dois lados
+apps/*/packages/shared  regras puras e contratos (Zod), uma cópia por app
 docs/                arquitetura e guias
 ```
+
+Cada app é independente: tem o seu `package.json`, `package-lock.json`,
+`node_modules`, `tsconfig.json`, `biome.json`, `.dockerignore` e Dockerfile
+(o contexto do build é a pasta do app). A raiz não tem `package.json`.
+
+`packages/shared` existe nos dois apps, igual. Mudou um arquivo, copie para
+o outro: o teste `copia-identica.test.ts` falha enquanto as cópias forem
+diferentes.
 
 Como o código é organizado, sessão, segurança e rotinas:
 [docs/arquitetura.md](docs/arquitetura.md). Passo a passo de um módulo:
@@ -60,23 +68,23 @@ Como o código é organizado, sessão, segurança e rotinas:
 Precisa de Node 24 e de um Postgres 17 acessível.
 
 ```
-npm install
+cd apps/api && npm install && cd ../web && npm install && cd ../..
 cp apps/api/.env.example apps/api/.env     # preencha (ver "Variáveis")
 cp apps/web/.env.example apps/web/.env
-npm run db:migrar -w @arp/api              # cria o papel arp_api e o schema
-npm run dev:api                            # API em 127.0.0.1:3000
-npm run dev:web                            # tela em localhost:5173 (/api → API)
+cd apps/api && npm run db:migrar           # cria o papel arp_api e o schema
+npm run dev                                # (apps/api) API em 127.0.0.1:3000
+npm run dev                                # (apps/web) tela em localhost:5173 (/api → API)
 ```
 
 Com `SITE_URL=http://localhost:5173` os cookies saem sem `Secure`, para o
 navegador aceitar sem HTTPS.
 
-Antes de concluir qualquer mudança:
+Antes de concluir qualquer mudança, em `apps/api` e em `apps/web`:
 
 ```
-npm run check     # biome + typecheck dos três pacotes
-npm test          # vitest em api, web e shared
-npm run build     # api (tsup) e web (vite)
+npm run check     # biome + typecheck (do app e do seu packages/shared)
+npm test          # vitest do app e do seu packages/shared
+npm run build     # api (tsup) ou web (vite)
 ```
 
 Os testes de integração da API usam o banco de `apps/api/.env` e os usuários
@@ -144,12 +152,12 @@ Conferir depois de subir: `docker compose ps` (tudo `healthy`),
   aplicado: o executor guarda o checksum em `infra.migracoes` e recusa.
 - Mudança de schema: arquivo novo, com RLS e política na tabela nova e teste
   em `apps/api/db/tests`.
-- Rodar: `npm run db:migrar -w @arp/api` em desenvolvimento; no servidor o
+- Rodar: `npm run db:migrar` (em `apps/api`) em desenvolvimento; no servidor o
   `docker compose up` já roda (`docker compose run --rm migrar` para rodar
   só elas).
-- Banco clonado da produção antiga: `npm run db:marcar-base -w @arp/api`
+- Banco clonado da produção antiga: `npm run db:marcar-base` (em `apps/api`)
   registra as migrations da base sem rodar.
-- Tipos do Kysely: `npm run db:tipos -w @arp/api`.
+- Tipos do Kysely: `npm run db:tipos` (em `apps/api`).
 
 ## Rotinas agendadas
 

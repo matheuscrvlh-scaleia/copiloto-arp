@@ -30,7 +30,8 @@ docker-compose.yml        db, migrar (migrations), api e web
 apps/
   api/                    Node 24 + Fastify 5 + TypeScript
     .env                  (fora do git; modelo em .env.example)
-    Dockerfile
+    Dockerfile, package.json, tsconfig.json, biome.json
+    packages/shared/      cópia das regras puras e contratos (ver abaixo)
     db/migrations/        SQL numerado; nunca editar um já aplicado
     db/tests/             testes do RLS
     src/
@@ -51,16 +52,22 @@ apps/
     scripts/fumaca.ts     chama todas as rotas GET e mostra status e tempo
   web/                    React 19 + Vite + TypeScript + Tailwind 4
     .env                  (só VITE_*; nada secreto)
-    Dockerfile, nginx.conf
+    Dockerfile, nginx.conf, package.json, tsconfig.json, biome.json
+    packages/shared/      cópia das regras puras e contratos (ver abaixo)
     src/
       app/                roteador, provedores, casca (menu, barra)
       components/         UI compartilhada
       lib/                cliente da API, sessão, utilitários de tela
       modules/<modulo>/   páginas, componentes e chamadas do módulo
-packages/
-  shared/                 regras puras e contratos, usados pelos dois lados
-    src/<modulo>/         cálculo, formato, validação (Zod), tipos
+apps/*/packages/shared/   regras puras e contratos, usados pelos dois lados
+  src/<modulo>/           cálculo, formato, validação (Zod), tipos
 ```
+
+Cada app é independente (dependências, tsconfig, Biome e imagem Docker
+próprios; a raiz não tem `package.json`). Por isso `packages/shared` tem uma
+cópia em cada app, importada como `@arp/shared/...` (alias no `tsconfig.json`
+e no Vite/Vitest). As duas cópias são iguais: toda mudança vai para as duas,
+e `copia-identica.test.ts` falha se divergirem.
 
 `packages/shared` não importa nada de Node, de React nem do banco. É o
 único código que os dois lados compartilham. Só os testes dele usam Node
@@ -264,7 +271,7 @@ mesmos de antes. Toda execução fica em `integracao.sync_runs` ou em
 
 - Rodar uma sincronização na hora, fora do agendador (o que antes era
   chamar `/api/sync/*`): `node dist/sincronizar.js <nome> [argumentos]` no
-  contêiner da API (`npm run sincronizar -w @arp/api -- <nome>` em
+  contêiner da API (`npm run sincronizar -- <nome>` em `apps/api` em
   desenvolvimento). Segue as mesmas travas e registra em
   `integracao.sync_runs`. Os nomes e argumentos estão em `src/sincronizar.ts`.
 - Desligamento (SIGTERM): o agendador para de disparar, a API fecha as
@@ -315,10 +322,10 @@ Com `AGENDADOR=0` nada disso roda.
 
 ## Qualidade
 
-- TypeScript estrito nos três pacotes; sem `any` e sem `as` para calar o
+- TypeScript estrito nos dois apps e no shared; sem `any` e sem `as` para calar o
   compilador.
-- Biome (lint e formatação) e Vitest. `npm run check` e `npm test` na raiz
-  rodam tudo e precisam passar antes de publicar.
+- Biome (lint e formatação) e Vitest. `npm run check` e `npm test` em `apps/api`
+  e em `apps/web` rodam tudo e precisam passar antes de publicar.
 - Regra pura tem teste em `packages/shared`. Service com regra de
   permissão tem teste. O RLS tem teste em `apps/api/db/tests`. Os testes de
   integração da API usam o banco de homologação (`apps/api/.env` e

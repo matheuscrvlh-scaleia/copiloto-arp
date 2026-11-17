@@ -20,8 +20,7 @@ x-logs: &logs
 
 x-api: &api
   build:
-    context: .
-    dockerfile: apps/api/Dockerfile
+    context: apps/api
   image: copiloto-arp-api
   env_file: apps/api/.env
   init: true
@@ -113,8 +112,7 @@ services:
 
   web:
     build:
-      context: .
-      dockerfile: apps/web/Dockerfile
+      context: apps/web
     image: copiloto-arp-web
     restart: unless-stopped
     env_file: apps/web/.env

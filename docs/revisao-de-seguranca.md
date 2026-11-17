@@ -136,7 +136,7 @@ achado alto é do portal do lojista e expõe dados da loja, não os internos.
 
 - Onde: `apps/api/src/modules/relatorios/publico.service.ts:142-193`
   (comentário `atalho` em `:179`); limite em
-  `packages/shared/src/formularios/campos.ts:64`.
+  `apps/*/packages/shared/src/formularios/campos.ts:64`.
 - Cenário: um relatório aberto com pergunta "Envio de arquivo" tem link
   público (vai até em QR code). Qualquer visitante chama
   `POST /relatorios/publico/<token>/arquivos` em série: 10 MB por pedido,
@@ -175,7 +175,7 @@ achado alto é do portal do lojista e expõe dados da loja, não os internos.
 
 ### B3. Endereço base de integração aceita qualquer host https
 
-- Onde: `packages/shared/src/integracoes.ts:133-134`, `:251-252`, `:544`;
+- Onde: `apps/*/packages/shared/src/integracoes.ts:133-134`, `:251-252`, `:544`;
   chamada em `apps/api/src/connectors/http.ts:84` (segue redirecionamento).
 - Cenário: quem tem `admin.integracoes` salva como `base_url` um endereço
   seu que redireciona para um serviço interno da VPS ou da rede do Docker;

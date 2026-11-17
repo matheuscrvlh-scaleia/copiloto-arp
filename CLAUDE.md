@@ -7,8 +7,11 @@ docs/guia-de-modulo-api.md e docs/guia-de-modulo-web.md.
 - Camadas da API (`apps/api/src/modules/<modulo>`): routes → controller →
   service → repository; a dependência só desce. Controller sem regra e sem
   SQL; service sem `request`/`reply`; SQL só no repository (Kysely).
+- Cada app (`apps/api`, `apps/web`) é independente: package.json, lock,
+  tsconfig, biome e Dockerfile próprios; a raiz não tem `package.json`.
 - Regra pura, formato e contrato (Zod) ficam em `packages/shared`, que não
-  importa Node, React nem banco.
+  importa Node, React nem banco. Há uma cópia em cada app e as duas são
+  iguais: toda mudança vai para as duas (`copia-identica.test.ts` confere).
 - Toda rota declara o acesso (`acesso` ou `permissao`) e valida a entrada com
   Zod; a resposta leva só os campos da tela.
 - Banco: `comoUsuario` para o que é feito em nome de quem está logado (o RLS
@@ -32,4 +35,5 @@ docs/guia-de-modulo-api.md e docs/guia-de-modulo-web.md.
   link.
 - TypeScript estrito: sem `any`, sem `as` para calar o compilador. Código,
   comentários e mensagens em português.
-- Antes de concluir: `npm run check` e `npm test` (na raiz).
+- Antes de concluir: `npm run check` e `npm test` em `apps/api` e em
+  `apps/web`.

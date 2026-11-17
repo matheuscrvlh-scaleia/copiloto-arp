@@ -1,0 +1,7 @@
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+dados
+**/*.test.ts
+**/*.test.tsx

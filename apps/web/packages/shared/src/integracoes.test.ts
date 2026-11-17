@@ -1,0 +1,252 @@
+import { describe, expect, it } from "vitest";
+import {
+  AUTORIZACAO_GOOGLE,
+  escolhaInicial,
+  escoposFaltando,
+  INTEGRACOES,
+  juntarSegredos,
+  linhaDoProduto,
+  resultadoDoProduto,
+  retornoDoRd,
+  SISTEMAS,
+  separarSegredos,
+  valorDaEscolha,
+} from "./integracoes";
+
+describe("segredos das integrações", () => {
+  it("um só continua texto puro (credenciais já salvas abrem igual)", () => {
+    const def = INTEGRACOES.secullum;
+    expect(juntarSegredos(def, { segredo: "abc" })).toBe("abc");
+    expect(separarSegredos(def, "abc")).toEqual({ segredo: "abc" });
+  });
+
+  it("vários viram JSON, sem os vazios, e voltam iguais", () => {
+    const def = INTEGRACOES.mkt_google;
+    const junto = juntarSegredos(def, {
+      client_secret: "s",
+      refresh_token: "r",
+      developer_token: "",
+    });
+    expect(JSON.parse(junto)).toEqual({
+      client_secret: "s",
+      refresh_token: "r",
+    });
+    expect(separarSegredos(def, junto)).toEqual({
+      client_secret: "s",
+      refresh_token: "r",
+    });
+    expect(separarSegredos(def, "não é json")).toEqual({});
+  });
+
+  it("o Marketing tem 6 acessos com prefixo mkt_; o RD Station fica na Administração", () => {
+    const mkt = SISTEMAS.filter((s) => INTEGRACOES[s].modulo === "marketing");
+    expect(mkt).toEqual([
+      "mkt_google",
+      "mkt_youtube",
+      "mkt_meta",
+      "mkt_tiktok",
+      "mkt_asana",
+      "mkt_site",
+    ]);
+    // O banco libera marketing.parametros pelo prefixo, menos o RD Station.
+    for (const s of SISTEMAS)
+      expect(INTEGRACOES[s].modulo === "marketing").toBe(
+        s.startsWith("mkt_") && s !== "mkt_rd_station",
+      );
+  });
+});
+
+describe("Google e Meta: um acesso, vários produtos", () => {
+  const google = INTEGRACOES.mkt_google.parametros;
+  const meta = INTEGRACOES.mkt_meta.parametros;
+  const vazioGoogle = {
+    client_id: "x.apps.googleusercontent.com",
+    customer_id: "",
+    login_customer_id: "",
+    property_id: "",
+    site_url: "",
+    account_id: "",
+  };
+
+  it("limpa ids com prefixo, traço e espaço", () => {
+    expect(
+      google.parse({
+        ...vazioGoogle,
+        customer_id: "1234567890",
+        property_id: "properties/42",
+        account_id: "accounts/987",
+      }),
+    ).toMatchObject({
+      customer_id: "1234567890",
+      property_id: "42",
+      account_id: "987",
+    });
+    expect(
+      meta.parse({ ad_account_id: " act_123 ", page_id: "", instagram_id: "" }),
+    ).toEqual({ ad_account_id: "123", page_id: "", instagram_id: "" });
+  });
+
+  it("Meta pede pelo menos um produto; o Google escolhe depois de conectar", () => {
+    expect(google.safeParse(vazioGoogle).success).toBe(true);
+    expect(
+      google.safeParse({ ...vazioGoogle, customer_id: "123-456" }).success,
+    ).toBe(false);
+    expect(
+      meta.safeParse({ ad_account_id: "", page_id: "", instagram_id: "" })
+        .success,
+    ).toBe(false);
+    expect(
+      google.safeParse({ ...vazioGoogle, site_url: "espacoarp.com.br" })
+        .success,
+    ).toBe(false);
+    expect(
+      google.safeParse({
+        ...vazioGoogle,
+        site_url: "sc-domain:espacoarp.com.br",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("YouTube: acesso próprio com o app do Google, canal escolhido depois", () => {
+    const def = INTEGRACOES.mkt_youtube;
+    const yt = def.parametros;
+    const vazio = { channel_id: "" };
+    expect(yt.parse({})).toEqual(vazio);
+    expect(def.autorizar?.appDe).toBe("mkt_google");
+    expect(def.campos.map((c) => c.nome)).toEqual(["channel_id"]);
+    expect(def.segredos.every((s) => s.gerado)).toBe(true);
+    expect(yt.safeParse({ ...vazio, channel_id: "canal" }).success).toBe(false);
+    expect(
+      yt.safeParse({ ...vazio, channel_id: `UC${"a".repeat(22)}` }).success,
+    ).toBe(true);
+    expect(INTEGRACOES.mkt_google.campos.map((c) => c.nome)).not.toContain(
+      "channel_id",
+    );
+  });
+
+  it("lê a situação de cada produto na mensagem do teste", () => {
+    const msg = [
+      linhaDoProduto("Google Ads", false, "falta o token de desenvolvedor"),
+      linhaDoProduto("YouTube", true, "canal “ARP”"),
+    ].join("\n");
+    expect(resultadoDoProduto(msg, "YouTube")).toBe(true);
+    expect(resultadoDoProduto(msg, "Google Ads")).toBe(false);
+    expect(resultadoDoProduto(msg, "Analytics 4")).toBeNull();
+    expect(resultadoDoProduto(null, "YouTube")).toBeNull();
+  });
+});
+
+describe("volta da autorização do RD Station", () => {
+  const url = (s: string) => new URL(s, "https://arp.copiloto.scaleia.ai");
+
+  it("code e state do RD na raiz seguem para a rota de retorno", () => {
+    expect(retornoDoRd(url("/?code=abc&state=rd.xyz"))).toBe(
+      "/api/integracoes/rd-station/retorno?code=abc&state=rd.xyz",
+    );
+  });
+
+  it("sem state do RD, fora da raiz ou sem code, nada muda", () => {
+    expect(retornoDoRd(url("/?code=abc&state=outro"))).toBeNull();
+    expect(retornoDoRd(url("/?code=abc"))).toBeNull();
+    expect(retornoDoRd(url("/gestao?code=abc&state=rd.x"))).toBeNull();
+    expect(retornoDoRd(url("/?state=rd.x"))).toBeNull();
+  });
+});
+
+describe("escopos do Google", () => {
+  const todos = Object.keys(AUTORIZACAO_GOOGLE.escopos.mkt_google);
+  const youtube = Object.keys(AUTORIZACAO_GOOGLE.escopos.mkt_youtube);
+
+  it("todos concedidos: nada falta", () => {
+    expect(escoposFaltando("mkt_google", todos)).toEqual([]);
+    expect(escoposFaltando("mkt_youtube", youtube)).toEqual([]);
+  });
+
+  it("desmarcados na tela viram o nome do produto", () => {
+    const sem = todos.filter((e) => !/business/.test(e));
+    expect(escoposFaltando("mkt_google", sem)).toEqual(["Perfil da Empresa"]);
+    expect(escoposFaltando("mkt_google", [])).toHaveLength(todos.length);
+    const semAnalytics = youtube.filter((e) => !/yt-analytics/.test(e));
+    expect(escoposFaltando("mkt_youtube", semAnalytics)).toEqual([
+      "YouTube Analytics",
+    ]);
+  });
+
+  it("cada conta só pede o seu: o YouTube não entra no Google", () => {
+    expect(todos.some((e) => /youtube|yt-analytics/.test(e))).toBe(false);
+    expect(youtube.filter((e) => e.startsWith("https://"))).toEqual([
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/yt-analytics.readonly",
+    ]);
+  });
+
+  it("pede só leitura, menos Ads e Perfil da Empresa (sem escopo de leitura)", () => {
+    const escrita = [...todos, ...youtube].filter(
+      (e) => e.startsWith("https://") && !/readonly|userinfo/.test(e),
+    );
+    expect(escrita).toEqual([
+      "https://www.googleapis.com/auth/adwords",
+      "https://www.googleapis.com/auth/business.manage",
+    ]);
+  });
+});
+
+describe("segredo gerado pelo botão Conectar", () => {
+  it("é opcional e é o que a autorização preenche (fora do formulário)", () => {
+    for (const s of SISTEMAS) {
+      const def = INTEGRACOES[s];
+      for (const sg of def.segredos.filter((x) => x.gerado)) {
+        expect(sg.opcional, `${s}.${sg.nome}`).toBe(true);
+        expect(def.autorizar?.segredo, s).toBe(sg.nome);
+      }
+    }
+  });
+});
+
+describe("escolhas do Google (descoberta)", () => {
+  const p = INTEGRACOES.mkt_google.parametros;
+  const base = {
+    client_id: "app",
+    property_id: "",
+    site_url: "",
+    account_id: "",
+  };
+
+  it("conta do Ads pela MCC vem como conta@mcc e é salva separada", () => {
+    expect(p.parse({ ...base, customer_id: "123@999" })).toMatchObject({
+      customer_id: "123",
+      login_customer_id: "999",
+    });
+    expect(p.parse({ ...base, customer_id: "123" })).toMatchObject({
+      customer_id: "123",
+      login_customer_id: "",
+    });
+  });
+
+  it("parâmetros já salvos (separados) abrem iguais", () => {
+    const salvo = { ...base, customer_id: "123", login_customer_id: "999" };
+    expect(p.parse(salvo)).toMatchObject(salvo);
+    expect(valorDaEscolha("customer_id", salvo)).toBe("123@999");
+    expect(valorDaEscolha("property_id", { property_id: "42" })).toBe("42");
+  });
+
+  it("sem nenhum produto escolhido também salva (escolhe depois de conectar)", () => {
+    expect(p.safeParse({ ...base, customer_id: "" }).success).toBe(true);
+  });
+
+  it("escolha inicial: mantém o salvo, pega a única, não chuta entre várias", () => {
+    const um = { opcoes: [{ valor: "1", rotulo: "A" }] };
+    const dois = {
+      opcoes: [
+        { valor: "1", rotulo: "A" },
+        { valor: "2", rotulo: "B" },
+      ],
+    };
+    expect(escolhaInicial("", um)).toBe("1");
+    expect(escolhaInicial("2", dois)).toBe("2");
+    expect(escolhaInicial("", dois)).toBe("");
+    expect(escolhaInicial("9", dois)).toBe("");
+    expect(escolhaInicial("9", { opcoes: [], erro: "403" })).toBe("9");
+  });
+});

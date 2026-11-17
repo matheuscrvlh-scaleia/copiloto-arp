@@ -8,7 +8,8 @@ import { GUIAS, guiaDa, TRILHAS, trilhasDa } from "./index";
 
 /**
  * Texto de todos os .tsx/.ts (menos testes) das telas e de onde saem os
- * títulos que elas mostram: as regras de packages/shared e os módulos da API
+ * títulos que elas mostram: as regras de packages/shared (a cópia do web) e
+ * os módulos da API
  * (no sistema antigo, tudo isso ficava na mesma pasta src).
  */
 function fontes(): string[] {
@@ -24,7 +25,7 @@ function fontes(): string[] {
     }
   };
   percorrer(raiz);
-  percorrer(join(repo, "packages", "shared", "src"));
+  percorrer(join(raiz, "..", "packages", "shared", "src"));
   percorrer(join(repo, "apps", "api", "src", "modules"));
   return textos;
 }

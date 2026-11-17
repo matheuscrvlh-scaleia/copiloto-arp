@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* Classes escritas nas regras compartilhadas (rótulos, tons de status). */
-@source "../../../packages/shared/src";
+@source "../packages/shared/src";
 
 /* dark: vale quando <html data-theme="dark"> (escolha salva no navegador). */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));

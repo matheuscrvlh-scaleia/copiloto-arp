@@ -16,7 +16,7 @@ import { sincronizarWps } from "@/modules/sync/wps.service";
 //   node dist/sincronizar.js secullum [2026-09 2026-10 …]   reprocessa meses
 //   node dist/sincronizar.js wps [2026-09-01 [2026-09-30]]   reprocessa dias
 //   node dist/sincronizar.js rd-station|rd-crm|copiloto-rh|meta|diario-de-obras
-// Em desenvolvimento: npm run sincronizar -w @arp/api -- secullum 2026-09
+// Em desenvolvimento: npm run sincronizar -- secullum 2026-09
 
 const SINCRONIZACOES: Record<string, (args: string[]) => Promise<unknown>> = {
   secullum: (meses) =>
