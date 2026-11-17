@@ -75,6 +75,8 @@ const esquema = z
     COPILOTO_RH_BASE_URL: z.url().optional(),
     COPILOTO_RH_USUARIO: z.string().min(1).optional(),
     COPILOTO_RH_SENHA: z.string().min(1).optional(),
+    ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    CLAUDE_MODELO: z.string().min(1).optional(),
   })
   .superRefine((v, ctx) => {
     if (v.NODE_ENV !== "production") return;

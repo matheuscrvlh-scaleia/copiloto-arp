@@ -18,6 +18,7 @@
     "check": "biome check && npm run typecheck"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.9.0",
     "@fastify/cookie": "^11.1.5",
     "@fastify/helmet": "^13.2.0",
     "@fastify/multipart": "^10.1.9",

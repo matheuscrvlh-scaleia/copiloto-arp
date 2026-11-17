@@ -21,6 +21,7 @@ import {
   Play,
   Search,
   Send,
+  Sparkles,
   Sun,
   Users,
 } from "lucide-react";
@@ -54,6 +55,7 @@ const ICONE: Record<Sistema, LucideIcon> = {
   mkt_asana: ListChecks,
   mkt_site: Globe,
   sus_growatt: Sun,
+  claude: Sparkles,
 };
 
 export const COR_SITUACAO = {

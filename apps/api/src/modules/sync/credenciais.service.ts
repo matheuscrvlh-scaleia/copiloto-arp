@@ -5,6 +5,10 @@ import {
 } from "@arp/shared/integracoes";
 import { env } from "@/config/env";
 import {
+  type ClaudeConfig,
+  createClaudeClient,
+} from "@/connectors/claude/client";
+import {
   type CopilotoRhConfig,
   createCopilotoRhClient,
 } from "@/connectors/copiloto-rh/client";
@@ -176,6 +180,13 @@ const DO_AMBIENTE: Partial<Record<Sistema, () => Credencial | null>> = {
       segredo: env.COPILOTO_RH_SENHA,
     };
   },
+  claude() {
+    if (!env.ANTHROPIC_API_KEY) return null;
+    return {
+      parametros: { modelo: env.CLAUDE_MODELO ?? "" },
+      segredo: env.ANTHROPIC_API_KEY,
+    };
+  },
 };
 
 /** Há credencial completa nas variáveis de ambiente? (Nunca devolve valores.) */
@@ -235,6 +246,19 @@ export function configGrowatt({
     token: segredo,
     usinaId: Number(p.usina_id),
   };
+}
+
+export function configClaude({
+  parametros,
+  segredo,
+}: Credencial): ClaudeConfig {
+  const p = INTEGRACOES.claude.parametros.parse(parametros);
+  return { apiKey: segredo, modelo: String(p.modelo) };
+}
+
+/** IA (Claude) com a credencial em uso. As telas que usam a IA chamam esta. */
+export async function claude() {
+  return createClaudeClient(configClaude(await credencialEmUso("claude")));
 }
 
 export async function growatt() {

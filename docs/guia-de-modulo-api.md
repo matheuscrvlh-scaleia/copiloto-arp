@@ -523,6 +523,25 @@ caminho pode ter até 4096 caracteres.
   `@/infra/cofre` (mesma chave e formato de antes).
 - Chamada externa **fora** do escopo do banco (seção 4).
 
+### IA (Claude)
+
+A chave e o modelo ficam em Administração › Integrações (ou
+`ANTHROPIC_API_KEY`/`CLAUDE_MODELO` no `.env`). No service da tela, depois de
+`exigir(ctx, permissao)` e de ler os dados (fora do escopo do banco):
+
+```ts
+import { claude } from "@/modules/sync/credenciais.service";
+
+const ia = await claude(); // IntegracaoNaoConfigurada se não houver chave
+const resumo = await ia.texto({ instrucoes: INSTRUCOES, conteudo, esforco: "low" });
+const analise = await ia.json({ instrucoes, conteudo, schema: analiseSchema });
+```
+
+- `instrucoes` é fixo por tela (vai com cache); o que muda vai em `conteudo`.
+- Mande só o necessário: o conteúdo sai do sistema para a Anthropic. Nunca
+  registre o conteúdo nem a resposta no log.
+- Recusa da IA e resposta cortada viram `ConnectorError`.
+
 ## 10. Rotinas agendadas (`api/cron/*`, `api/sync/*`)
 
 ```ts

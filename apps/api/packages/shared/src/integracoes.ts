@@ -24,6 +24,7 @@ export const SISTEMAS = [
   "mkt_asana",
   "mkt_site",
   "sus_growatt",
+  "claude",
 ] as const;
 export type Sistema = (typeof SISTEMAS)[number];
 
@@ -81,6 +82,9 @@ export interface DefinicaoIntegracao {
     explicacao: string;
   };
 }
+
+/** Modelo da Claude quando a integração não escolhe outro. */
+export const MODELO_CLAUDE_PADRAO = "claude-opus-5-5";
 
 const texto = z.string().trim().min(1, "obrigatório");
 
@@ -593,6 +597,38 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
         .number({ error: "só números" })
         .int("só números")
         .positive("só números"),
+    }),
+  },
+  claude: {
+    nome: "Inteligência artificial (Claude)",
+    modulo: "admin",
+    serve:
+      "IA da Anthropic usada pelas telas que oferecem resumo, análise ou sugestão. Os textos enviados saem do sistema para a API da Anthropic.",
+    campos: [
+      {
+        nome: "modelo",
+        rotulo: "Modelo",
+        tipo: "text",
+        exemplo: MODELO_CLAUDE_PADRAO,
+        opcional: true,
+        ajuda: `Id do modelo na API da Anthropic. Em branco, ${MODELO_CLAUDE_PADRAO}`,
+      },
+    ],
+    segredos: [
+      {
+        nome: "segredo",
+        rotulo: "Chave da API",
+        ajuda:
+          "Criada em platform.claude.com › API keys (começa com sk-ant-). O consumo é cobrado nessa conta",
+      },
+    ],
+    parametros: z.object({
+      modelo: z
+        .string()
+        .trim()
+        .optional()
+        .transform((v) => v || MODELO_CLAUDE_PADRAO)
+        .pipe(z.string().regex(/^claude-[a-z0-9.-]+$/, "id inválido")),
     }),
   },
 };

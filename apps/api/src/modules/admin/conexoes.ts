@@ -8,6 +8,7 @@ import {
 } from "@arp/shared/integracoes";
 import { paraBrasilia } from "@arp/shared/os/tempo";
 import { env } from "@/config/env";
+import { createClaudeClient } from "@/connectors/claude/client";
 import {
   createCopilotoRhClient,
   ESCOPOS_NECESSARIOS,
@@ -21,6 +22,7 @@ import type { Contexto } from "@/contexto";
 import { banco } from "@/infra/banco";
 import {
   type Credencial,
+  configClaude,
   configCopiloto,
   configDiario,
   configGrowatt,
@@ -164,6 +166,13 @@ const EXTENSOES: Partial<Record<Sistema, ExtensaoDaIntegracao>> = {
       const a = await api.agora();
       const kwh = (v: number | null) => formatarNumero(v ?? 0, 1);
       return `Conectado à usina “${usina.name}” (${formatarNumero(usina.peak_power ?? 0)} kWp) · agora ${kwh(a.current_power)} kW · hoje ${kwh(a.today_energy)} kWh · total ${formatarNumero(a.total_energy ?? 0)} kWh`;
+    },
+  },
+  claude: {
+    // Só consulta o modelo (não gasta tokens).
+    async testar(c) {
+      const m = await createClaudeClient(configClaude(c)).verificar();
+      return `Chave aceita · modelo ${m.nome} (${m.id})`;
     },
   },
   copiloto_rh: {
