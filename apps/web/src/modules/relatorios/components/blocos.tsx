@@ -2,6 +2,7 @@ import { formatarNumero } from "@arp/shared/formato";
 import {
   type Campo,
   type Resumo,
+  ROTULO_OUTRO,
   ROTULO_TIPO,
   recebeResposta,
   resumir,
@@ -10,10 +11,12 @@ import {
   ROTULO_SITUACAO,
   type Situacao,
 } from "@arp/shared/formularios/formulario";
+import { Colunas } from "@/components/dashboard/graficos/colunas";
+import { type FatiaRosca, Rosca } from "@/components/dashboard/graficos/rosca";
 import { Secao } from "@/components/dashboard/tabela";
 
 // Peças das telas de Formulários (servidor): o selo da situação e o resumo
-// das respostas, pergunta a pergunta.
+// das respostas, pergunta a pergunta (rosca, colunas das notas ou barras).
 
 const TOM: Record<Situacao, string> = {
   rascunho: "bg-neutral-900/[0.06] text-neutral-700",
@@ -72,24 +75,96 @@ function Barras({
   );
 }
 
-function CorpoDoResumo({ r }: { r: Resumo }) {
+/** Escolha única, lista ou sim/não com até 5 opções: cabe numa rosca. */
+const NA_ROSCA = 5;
+
+const CORES = [1, 2, 3, 4, 5] as const;
+
+/** Fatias na ordem das opções (a cor é da opção, não do ranking). */
+function RoscaDasOpcoes({
+  itens,
+  base,
+}: {
+  itens: { rotulo: string; n: number }[];
+  base: number;
+}) {
+  const top = itens.reduce((a, i) => (i.n > a.n ? i : a), { rotulo: "", n: 0 });
+  const fatias: FatiaRosca[] = itens.map((i, k) => ({
+    chave: i.rotulo,
+    rotulo: i.rotulo,
+    valor: i.n,
+    texto: `${formatarNumero(i.n)} · ${formatarNumero(base ? (i.n / base) * 100 : 0)}%`,
+    cor: i.rotulo === ROTULO_OUTRO ? "neutro" : (CORES[k % CORES.length] ?? 1),
+  }));
+  return (
+    <Rosca
+      fatias={fatias}
+      descricao="Respostas por opção"
+      centro={{
+        valor: `${formatarNumero(base ? (top.n / base) * 100 : 0)}%`,
+        rotulo: top.rotulo,
+      }}
+    />
+  );
+}
+
+function CorpoDoResumo({ c, r }: { c: Campo; r: Resumo }) {
   if (r.respondidas === 0)
     return <p className="text-sm text-neutral-500">Ninguém respondeu ainda.</p>;
   switch (r.tipo) {
     case "contagem":
-      return <Barras itens={r.itens} base={r.respondidas} />;
-    case "nota":
+      if (c.tipo !== "multipla" && r.itens.length <= NA_ROSCA)
+        return <RoscaDasOpcoes itens={r.itens} base={r.respondidas} />;
       return (
         <div className="flex flex-col gap-3">
-          <p className="text-3xl font-semibold tabular-nums">
-            {formatarNumero(r.media, 1)}
-            <span className="ml-1 text-sm font-normal text-neutral-500">
-              de média
-            </span>
-          </p>
           <Barras itens={r.itens} base={r.respondidas} />
+          {c.tipo === "multipla" && (
+            <p className="text-xs text-neutral-500">
+              Cada pessoa pode marcar mais de uma opção; a % é sobre quem
+              respondeu.
+            </p>
+          )}
         </div>
       );
+    case "nota": {
+      // "Notas altas": a metade de cima da escala (ex.: 4 e 5 de 1 a 5).
+      const metade = Math.ceil(r.itens.length / 2);
+      const altas = r.itens.slice(-metade).reduce((s, i) => s + i.n, 0);
+      const maior = Number(r.itens.at(-1)?.rotulo ?? 0);
+      return (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+            <p className="text-3xl font-semibold tabular-nums">
+              {formatarNumero(r.media, 1)}
+              <span className="ml-1 text-sm font-normal text-neutral-500">
+                de {formatarNumero(maior)} em média
+              </span>
+            </p>
+            <p className="text-sm text-neutral-500">
+              <span className="font-semibold text-neutral-900 tabular-nums">
+                {formatarNumero((altas / r.respondidas) * 100)}%
+              </span>{" "}
+              deram nota{" "}
+              {r.itens
+                .slice(-metade)
+                .map((i) => i.rotulo)
+                .join(" ou ")}
+            </p>
+          </div>
+          <Colunas
+            rotularTodas
+            descricao="Quantas pessoas deram cada nota"
+            itens={r.itens.map((i) => ({
+              chave: i.rotulo,
+              rotulo: i.rotulo,
+              titulo: `Nota ${i.rotulo}`,
+              valor: i.n,
+              texto: `${formatarNumero(i.n)} · ${formatarNumero((i.n / r.respondidas) * 100)}%`,
+            }))}
+          />
+        </div>
+      );
+    }
     case "numero":
       return (
         <dl className="grid grid-cols-3 gap-3 text-sm">
@@ -155,74 +230,10 @@ export function ResumoDasRespostas({
             titulo={`${i + 1}. ${c.titulo}`}
             descricao={`${ROTULO_TIPO[c.tipo]} · ${formatarNumero(r.respondidas)} de ${formatarNumero(respostas.length)} responderam`}
           >
-            <CorpoDoResumo r={r} />
+            <CorpoDoResumo c={c} r={r} />
           </Secao>
         );
       })}
     </div>
-  );
-}
-
-const DIA = 86_400_000;
-/** "aaaa-mm-dd" do dia em Brasília (UTC-3). */
-const diaDe = (t: number) =>
-  new Date(t - 3 * 3_600_000).toISOString().slice(0, 10);
-const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
-
-/** Barras das respostas por dia nos últimos `dias` dias (Brasília). */
-export function RespostasPorDia({
-  datas,
-  agora,
-  dias = 30,
-}: {
-  datas: string[];
-  agora: Date;
-  dias?: number;
-}) {
-  const lista = Array.from({ length: dias }, (_, i) =>
-    diaDe(agora.getTime() - (dias - 1 - i) * DIA),
-  );
-  const conta = new Map(lista.map((d) => [d, 0]));
-  for (const iso of datas) {
-    const d = diaDe(new Date(iso).getTime());
-    const n = conta.get(d);
-    if (n !== undefined) conta.set(d, n + 1);
-  }
-  const valores = lista.map((d) => ({ d, n: conta.get(d) ?? 0 }));
-  const total = valores.reduce((s, v) => s + v.n, 0);
-  const pico = valores.reduce((m, v) => (v.n > m.n ? v : m), {
-    d: "",
-    n: 0,
-  });
-  const max = Math.max(pico.n, 1);
-  return (
-    <Secao
-      titulo="Respostas por dia"
-      descricao={`${formatarNumero(total)} ${total === 1 ? "resposta" : "respostas"} nos últimos ${dias} dias${pico.n ? ` · pico em ${ddmm(pico.d)}, com ${formatarNumero(pico.n)}` : ""}.`}
-    >
-      <div
-        role="img"
-        aria-label={`Respostas por dia nos últimos ${dias} dias: ${formatarNumero(total)} no total.`}
-        className="flex h-32 items-end gap-[3px]"
-      >
-        {valores.map((v) => (
-          <div
-            key={v.d}
-            title={`${ddmm(v.d)}: ${formatarNumero(v.n)}`}
-            className="flex h-full min-w-0 flex-1 items-end"
-          >
-            <div
-              className={`w-full rounded-t-[3px] ${v.n ? "bg-neutral-900" : "bg-neutral-900/[0.08]"}`}
-              style={{ height: v.n ? `${(v.n / max) * 100}%` : "3px" }}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 flex justify-between text-xs text-neutral-500 tabular-nums">
-        <span>{ddmm(lista[0] ?? "")}</span>
-        <span>{ddmm(lista[Math.floor(dias / 2)] ?? "")}</span>
-        <span>hoje</span>
-      </div>
-    </Secao>
   );
 }

@@ -4,8 +4,9 @@ import {
   recebeResposta,
   textoDaResposta,
 } from "@arp/shared/formularios/campos";
+import { metricasDasRespostas } from "@arp/shared/formularios/metricas";
 import { useSuspenseQueries } from "@tanstack/react-query";
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { Nota, Secao } from "@/components/dashboard/tabela";
 import { TabelaLista } from "@/components/dashboard/tabela-lista";
@@ -19,12 +20,18 @@ import {
   consultaDoFormulario,
   rotaDoFormulario,
 } from "../api";
-import { RespostasPorDia, ResumoDasRespostas } from "../components/blocos";
+import { ResumoDasRespostas } from "../components/blocos";
 import { CabecalhoDoFormulario } from "../components/cabecalho";
 import { ChatDasRespostas } from "../components/chat";
+import {
+  CartoesDasRespostas,
+  HorariosDasRespostas,
+  RitmoDasRespostas,
+  TaxaPorPergunta,
+} from "../components/metricas";
 
-// /relatorios/:id: as respostas de um relatório (chat, por dia, resumo por
-// pergunta, lista e Excel).
+// /relatorios/:id: as respostas de um relatório (cartões, chat, ritmo por
+// dia, horários, taxa por pergunta, resumo por pergunta, lista e Excel).
 
 export default function Pagina() {
   return (
@@ -74,6 +81,10 @@ function Respostas() {
     ...perguntas.map((c, i) => ({ titulo: `${i + 1}. ${c.titulo}` })),
   ];
   const agora = dadosDe(new Date());
+  const m = useMemo(
+    () => metricasDasRespostas(f.campos, respostas, new Date()),
+    [f.campos, respostas],
+  );
 
   return (
     <>
@@ -128,6 +139,8 @@ function Respostas() {
           </Secao>
         ) : (
           <>
+            <CartoesDasRespostas m={m} agora={new Date()} />
+
             <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
               <ChatDasRespostas
                 campos={f.campos}
@@ -136,10 +149,14 @@ function Respostas() {
                   respostas: r.respostas,
                 }))}
               />
-              <RespostasPorDia
-                datas={respostas.map((r) => r.enviada_em)}
-                agora={new Date()}
-              />
+              <div className="flex flex-col gap-4">
+                <RitmoDasRespostas m={m} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+              <HorariosDasRespostas m={m} />
+              <TaxaPorPergunta m={m} campos={f.campos} />
             </div>
 
             <div className="flex flex-col gap-3">

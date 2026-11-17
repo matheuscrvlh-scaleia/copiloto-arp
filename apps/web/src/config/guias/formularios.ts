@@ -75,7 +75,19 @@ export const GUIAS_FORMULARIOS: Record<string, Guia> = {
         alvo: "secao:Respostas por dia",
         titulo: "Respostas por dia",
         texto:
-          "Quantas respostas chegaram em cada um dos últimos 30 dias. Passe o mouse na barra para ver o dia.",
+          "Quantas respostas chegaram em cada um dos últimos 30 dias, com o total acumulado logo abaixo. Passe o mouse na barra para ver o dia. Acima, os cartões: total, últimos 7 dias contra os 7 anteriores, completude e a última resposta.",
+      },
+      {
+        alvo: "secao:Quando as pessoas respondem",
+        titulo: "Quando as pessoas respondem",
+        texto:
+          "Respostas por dia da semana e faixa de 3 horas (Brasília): bom para escolher quando mandar o link de novo.",
+      },
+      {
+        alvo: "secao:Taxa de resposta por pergunta",
+        titulo: "Taxa de resposta por pergunta",
+        texto:
+          "Quanto cada pergunta foi respondida por quem a viu. Pergunta com taxa baixa costuma estar confusa ou longa demais.",
       },
       {
         alvo: "secao:Todas as respostas",

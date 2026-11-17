@@ -302,7 +302,8 @@ const aceitaOutro = (c: Campo) => c.outro && COM_OUTRO.includes(c.tipo);
 export const ehOutro = (c: Campo, v: string) =>
   aceitaOutro(c) && !c.opcoes.includes(v);
 
-const vazio = (v: unknown) =>
+/** Resposta em branco (nada, texto vazio ou lista vazia). */
+export const vazio = (v: unknown) =>
   v === undefined ||
   v === null ||
   (typeof v === "string" && v.trim() === "") ||
