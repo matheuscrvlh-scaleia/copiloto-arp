@@ -105,6 +105,20 @@ descreverComBanco("casca (avisos, sino, filtros lembrados)", () => {
     expect((await admin.pedir("GET", FILTROS)).json()).toEqual({ query: null });
   });
 
+  // "Respostas das entrevistas" (Sustentabilidade): o nome da tela tem
+  // hífen, como no sistema antigo.
+  it("filtros lembrados: tela com hífen no nome grava e lê", async () => {
+    const rota = `${V1}/preferencias/filtros/sustentabilidade/entrevistas-respostas`;
+    const antes = (await admin.pedir("GET", rota)).json().query;
+    const gravou = await admin.pedir("PUT", rota, { query: "tipo=entrada" });
+    expect(gravou.statusCode).toBe(200);
+    expect((await admin.pedir("GET", rota)).json()).toEqual({
+      query: "tipo=entrada",
+    });
+    await admin.pedir("PUT", rota, { query: antes ?? "" });
+    expect((await admin.pedir("GET", rota)).json()).toEqual({ query: antes });
+  });
+
   it("filtros lembrados: módulo ou tela fora do padrão é recusado", async () => {
     const modulo = await admin.pedir(
       "GET",

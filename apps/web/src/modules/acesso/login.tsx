@@ -1,11 +1,11 @@
-import { entradaEntrar, respostaEu } from "@arp/shared/contratos/auth";
+import { entradaEntrar } from "@arp/shared/contratos/auth";
 import { destinoSeguro } from "@arp/shared/destino-seguro";
 import { useActionState, useState } from "react";
 import { TelaDeAcesso } from "@/components/tela-de-acesso";
 import { INICIO } from "@/config/navigation";
-import { api, mensagemDoErro } from "@/lib/api";
+import { mensagemDoErro } from "@/lib/api";
 import { useParametrosDeBusca, useTitulo } from "@/lib/navegacao";
-import { definirSessao, SoSemSessao } from "@/lib/sessao";
+import { entrar as entrarNoSistema, SoSemSessao } from "@/lib/sessao";
 
 interface EstadoLogin {
   erro?: string;
@@ -25,11 +25,7 @@ async function entrar(
   if (!dados.success)
     return { erro: "Informe um e-mail válido e a senha.", email };
   try {
-    const eu = await api.post("/auth/entrar", dados.data, {
-      esquema: respostaEu,
-      renovar: false,
-    });
-    definirSessao(eu);
+    await entrarNoSistema(dados.data);
     return { email };
   } catch (erro) {
     return { erro: mensagemDoErro(erro), email };

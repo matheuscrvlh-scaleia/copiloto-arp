@@ -41,8 +41,10 @@ export async function renovar(
     gravarCookies(reply, credenciais);
     return { sessao };
   } catch (erro) {
-    // A sessão acabou: não deixa cookie morto no navegador.
-    limparCookies(reply);
+    // A sessão acabou: não deixa cookie morto no navegador. Só nesse caso:
+    // sem token (ou com a pessoa já em outra sessão) a resposta não toca em
+    // cookie, para não apagar os de um `entrar` que respondeu antes desta.
+    if (erro instanceof service.ErroDeSessaoEncerrada) limparCookies(reply);
     throw erro;
   }
 }

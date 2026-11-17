@@ -4,6 +4,7 @@ import { createMemoryRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { criarClienteDeConsultas } from "@/lib/consulta";
+import { TRAVA_DA_RECARGA } from "@/lib/versao-nova";
 import { apiFalsa, erro, euDeTeste, json } from "@/teste/api-falsa";
 import {
   destinoDoRedirecionamento,
@@ -28,6 +29,16 @@ const moduloDeTeste: Modulo = {
       titulo: "Folha",
       permissao: "rh.folha",
       pagina: async () => ({ default: () => <p>Tela da folha</p> }),
+    },
+    {
+      caminho: "tela-que-sumiu",
+      // Aba aberta durante um deploy: o arquivo da tela não existe mais.
+      pagina: () =>
+        Promise.reject(
+          new TypeError(
+            "Failed to fetch dynamically imported module: /assets/tela-abc123.js",
+          ),
+        ),
     },
     {
       caminho: "com-erro",
@@ -251,5 +262,19 @@ describe("endereços antigos", () => {
   it("a lista não tem origem repetida", () => {
     const origens = REDIRECIONAMENTOS.map((r) => r.de);
     expect(new Set(origens).size).toBe(origens.length);
+  });
+});
+
+describe("aba aberta durante um deploy", () => {
+  it("a página já recarregou e a tela continua sem baixar: limite de erro normal", async () => {
+    // A trava diz que a recarga automática acabou de acontecer.
+    window.sessionStorage.setItem(TRAVA_DA_RECARGA, String(Date.now()));
+    apiFalsa({ ...DA_CASCA, "GET /api/v1/auth/eu": json(euDeTeste()) });
+    abrir("/tela-que-sumiu");
+    expect(await screen.findByText("Algo não saiu como esperado")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Recarregar a página" }),
+    ).toBeTruthy();
+    window.sessionStorage.clear();
   });
 });

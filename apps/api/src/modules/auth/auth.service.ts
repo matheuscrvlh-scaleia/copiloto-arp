@@ -237,6 +237,18 @@ export function eu(ctx: Contexto): RespostaEu {
 }
 
 /**
+ * A renovação falhou e o navegador pode largar os cookies: a sessão do token
+ * apresentado acabou e a pessoa não abriu outra depois dela.
+ *
+ * Fora disso a resposta de erro não mexe em cookie: ela pode chegar ao
+ * navegador depois da resposta de um `entrar` (a tela de login pergunta quem
+ * está logado, tenta renovar e a pessoa entra nesse meio-tempo), e apagar
+ * os cookies ali derrubaria a sessão que acabou de nascer. Encerrar a sessão
+ * no banco (reuso inclusive) não depende disto.
+ */
+export class ErroDeSessaoEncerrada extends ErroNaoAutenticado {}
+
+/**
  * Troca o token de renovação por um novo e emite outro acesso. Token que já
  * foi trocado (reuso: alguém copiou o cookie) encerra a sessão.
  */
@@ -251,15 +263,23 @@ export async function renovar(
   // desfaria o encerramento da sessão.
   const r = await banco.comoServico(async (tx) => {
     const s = await repo.sessaoComUsuario(tx, lido.sessaoId, { travar: true });
-    if (!s || s.revogada) return { tipo: "invalida" } as const;
-    if (!s.ativo || s.bloqueado) {
-      await repo.revogarSessao(tx, s.id, "bloqueado");
-      return { tipo: "invalida" } as const;
-    }
-    if (vencida(s, agora)) {
-      await repo.revogarSessao(tx, s.id, "expirou");
-      return { tipo: "expirou" } as const;
-    }
+    // Sessão que não existe: nada se sabe de quem pediu.
+    if (!s) return { tipo: "invalida", haMaisNova: true } as const;
+    const acabou = async (
+      tipo: "invalida" | "expirou" | "reuso",
+      motivo?: repo.MotivoDoFim,
+    ) => {
+      if (motivo) await repo.revogarSessao(tx, s.id, motivo);
+      return {
+        tipo,
+        usuarioId: s.usuario_id,
+        sessaoId: s.id,
+        haMaisNova: await repo.haSessaoMaisNova(tx, s.usuario_id, s.id),
+      } as const;
+    };
+    if (s.revogada) return acabou("invalida");
+    if (!s.ativo || s.bloqueado) return acabou("invalida", "bloqueado");
+    if (vencida(s, agora)) return acabou("expirou", "expirou");
     if (mesmoHash(s.token_hash, lido.hash)) {
       const novo = novoTokenDeRenovacao(s.id);
       await repo.trocarToken(tx, s.id, novo.hash);
@@ -271,8 +291,7 @@ export async function renovar(
       agora - new Date(s.renovada_em).getTime() <= FOLGA_DA_RENOVACAO_MS
     )
       return { tipo: "ok", s, token: null } as const;
-    await repo.revogarSessao(tx, s.id, "reuso");
-    return { tipo: "reuso", usuarioId: s.usuario_id, sessaoId: s.id } as const;
+    return acabou("reuso", "reuso");
   });
   if (r.tipo === "reuso") {
     log.warn(
@@ -288,10 +307,13 @@ export async function renovar(
       usuarioId: r.usuarioId,
       detalhes: { sessao: r.sessaoId, ip: origem.ip },
     });
-    throw new ErroNaoAutenticado();
   }
-  if (r.tipo === "expirou") throw new ErroNaoAutenticado(EXPIROU);
-  if (r.tipo === "invalida") throw new ErroNaoAutenticado();
+  if (r.tipo !== "ok") {
+    const mensagem = r.tipo === "expirou" ? EXPIROU : undefined;
+    throw r.haMaisNova
+      ? new ErroNaoAutenticado(mensagem)
+      : new ErroDeSessaoEncerrada(mensagem);
+  }
 
   const acesso = await assinarAcesso(r.s.usuario_id, r.s.id, agora);
   const fim = new Date(new Date(r.s.criada_em).getTime() + DURACAO_MAXIMA_MS);

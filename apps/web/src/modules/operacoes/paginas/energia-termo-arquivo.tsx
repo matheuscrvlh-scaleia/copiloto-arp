@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { Carregando } from "@/components/carregando";
+import { PonteDeArquivo } from "@/components/ponte-de-arquivo";
 import { useParametro, useParametrosDeBusca } from "@/lib/navegacao";
 import { hrefDoTermo } from "../api";
 
@@ -12,8 +11,5 @@ export default function Pagina() {
   const formato =
     useParametrosDeBusca().get("formato") === "docx" ? "docx" : "pdf";
   const destino = hrefDoTermo(encodeURIComponent(id), formato);
-  useEffect(() => {
-    window.location.replace(destino);
-  }, [destino]);
-  return <Carregando />;
+  return <PonteDeArquivo destino={destino} voltar="/operacoes/energia/termo" />;
 }

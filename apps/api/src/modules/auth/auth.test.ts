@@ -5,6 +5,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { criarApp } from "@/app";
+import { env } from "@/config/env";
 import { COOKIE_ACESSO, COOKIE_RENOVACAO } from "@/http/sessao";
 import { banco } from "@/infra/banco";
 import { eventosPendentes } from "@/infra/eventos";
@@ -12,6 +13,7 @@ import { MODULOS } from "@/modules";
 import { descreverComBanco, ipDeTeste, Navegador, TESTE } from "@/testes/apoio";
 
 const AUTH = "/api/v1/auth";
+const TESTE_ORIGEM = env.SITE_URL;
 
 // Rotas de mentira para conferir as travas que valem para os módulos.
 const deTeste: FastifyPluginAsyncZod = async (app) => {
@@ -310,6 +312,64 @@ descreverComBanco("acesso (/api/v1/auth)", () => {
       AUTH,
     );
     expect((await n.pedir("POST", `${AUTH}/renovar`)).statusCode).toBe(401);
+  });
+
+  // A corrida do login: a tela pergunta quem está logado, toma 401 e tenta
+  // renovar; a pessoa entra nesse meio-tempo e o 401 do renovar chega ao
+  // navegador DEPOIS dos cookies novos. Essa resposta não pode apagá-los.
+  it("renovar que falha não apaga os cookies de quem acabou de entrar", async () => {
+    // Sem token nenhum (primeira visita) e com token ilegível.
+    const { n } = await entrar();
+    const semToken = await app.inject({
+      method: "POST",
+      url: `${AUTH}/renovar`,
+      headers: { origin: TESTE_ORIGEM, "x-arp": "1" },
+    });
+    expect(semToken.statusCode).toBe(401);
+    expect(semToken.headers["set-cookie"]).toBeUndefined();
+    const ilegivel = await app.inject({
+      method: "POST",
+      url: `${AUTH}/renovar`,
+      headers: {
+        origin: TESTE_ORIGEM,
+        "x-arp": "1",
+        cookie: `${COOKIE_RENOVACAO}=nada-que-preste`,
+      },
+    });
+    expect(ilegivel.statusCode).toBe(401);
+    expect(ilegivel.headers["set-cookie"]).toBeUndefined();
+
+    // Token de uma sessão anterior, já vencida, da mesma pessoa: o pedido
+    // saiu antes do `entrar` e a resposta chega depois.
+    const { n: antes } = await entrar();
+    const antigo = antes.cookie(COOKIE_RENOVACAO) ?? "";
+    await envelhecer(sessaoDe(antes), { ultimo_uso: "31 minutes" });
+    const { n: depois } = await entrar();
+    const atrasado = new Navegador(app);
+    atrasado.definirCookie(COOKIE_RENOVACAO, antigo, AUTH);
+    const falhou = await atrasado.pedir("POST", `${AUTH}/renovar`);
+    expect(falhou.statusCode).toBe(401);
+    expect(falhou.headers["set-cookie"]).toBeUndefined();
+
+    // As sessões novas seguem valendo, e renovam.
+    for (const navegador of [n, depois]) {
+      expect((await navegador.pedir("GET", `${AUTH}/eu`)).statusCode).toBe(200);
+      expect(
+        (await navegador.pedir("POST", `${AUTH}/renovar`)).statusCode,
+      ).toBe(200);
+    }
+  });
+
+  it("renovar de sessão encerrada, sem outra mais nova, limpa os cookies", async () => {
+    const { n } = await entrar();
+    await envelhecer(sessaoDe(n), { ultimo_uso: "31 minutes" });
+    const r = await n.pedir("POST", `${AUTH}/renovar`);
+    expect(r.statusCode).toBe(401);
+    expect(r.cookies.map((c) => c.name).sort()).toEqual(
+      [COOKIE_ACESSO, COOKIE_RENOVACAO].sort(),
+    );
+    expect(n.cookie(COOKIE_ACESSO)).toBeUndefined();
+    expect(n.cookie(COOKIE_RENOVACAO)).toBeUndefined();
   });
 
   it("30 min sem uso encerra a sessão; o aviso de uso adia", async () => {

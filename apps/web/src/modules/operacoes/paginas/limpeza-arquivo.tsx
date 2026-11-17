@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { Carregando } from "@/components/carregando";
+import { PonteDeArquivo } from "@/components/ponte-de-arquivo";
 import {
   useCaminho,
   useParametro,
@@ -18,8 +17,5 @@ export default function Pagina() {
   const destino = planilha
     ? hrefDaPlanilhaDoRateio(mes)
     : `${hrefDoDemonstrativo(mes)}${bloco ? `?${new URLSearchParams({ bloco }).toString()}` : ""}`;
-  useEffect(() => {
-    window.location.replace(destino);
-  }, [destino]);
-  return <Carregando />;
+  return <PonteDeArquivo destino={destino} voltar="/operacoes/limpeza" />;
 }

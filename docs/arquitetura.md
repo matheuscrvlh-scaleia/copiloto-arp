@@ -179,6 +179,12 @@ segurança dos dados tem duas camadas: a permissão da rota e o RLS.
     só como hash, trocado a cada uso; reuso de um token antigo encerra a
     sessão. Folga de 10 s para duas abas que renovam juntas: nesse intervalo
     o token anterior ainda rende um acesso novo (mas nenhum token novo).
+  - Renovação que falha só manda apagar os cookies quando a sessão do
+    token apresentado acabou e a pessoa não abriu outra depois. Sem token, ou
+    com sessão mais nova, a resposta não toca em cookie: ela pode chegar ao
+    navegador depois da resposta de um `entrar`. Na tela, `entrar` espera a
+    renovação que estiver no ar, e a checagem inicial só tenta renovar se
+    alguém já entrou por aquele navegador (`lib/sessao.tsx`).
   - Com `SITE_URL` em http (desenvolvimento local) os nomes saem sem
     prefixo e sem `Secure` (`arp_acesso`, `arp_renovacao`): o navegador
     recusaria os prefixos sem HTTPS. Em https, sempre com.
@@ -273,8 +279,12 @@ na hora em que a tela abre e guardados na **memória do processo**
 (`modules/marketing/memoria.ts`, o `use cache` do sistema antigo): uma hora
 quando deu certo, segundos quando falhou. Quem salva, testa ou sincroniza a
 integração chama `esquecerLeituras(tag)`. As rotinas `marketing.aquecer-*`
-refazem as leituras do dia antes de o time chegar. A memória é por
-processo: reiniciar a API esvazia, e duas instâncias não a dividem.
+refazem as leituras do dia (Meta e Google) antes de o time chegar. A memória
+é por processo: reiniciar a API esvazia, e duas instâncias não a dividem.
+Por isso `marketing.aquecer-manha` é marcada com `naSubida`: o agendador a
+roda também quando a API sobe (depois do `listen`, em segundo plano, com a
+mesma trava do horário e sem derrubar a subida se a fonte não responder).
+Com `AGENDADOR=0` nada disso roda.
 
 ## Front
 
@@ -292,6 +302,16 @@ processo: reiniciar a API esvazia, e duas instâncias não a dividem.
   `import()` na hora do uso.
 - Componentes de UI compartilhados em `src/components`; do módulo, em
   `modules/<modulo>/components`.
+- Aba aberta durante um deploy: os arquivos das telas têm hash no nome e
+  os da versão anterior somem. A tela cujo `import()` falha recarrega a
+  página uma vez (`lib/versao-nova.ts`, trava em `sessionStorage`); na
+  segunda falha vale o limite de erro. O nginx manda `no-store` em todo 404
+  de `/assets/` (cache longo só para resposta boa).
+- Endereço antigo que entregava um arquivo (PDF, planilha, termo): a tela
+  é uma ponte (`components/ponte-de-arquivo.tsx`) que passa para a API e
+  mostra o aviso final com "Tentar de novo" e "Voltar". Erro da API num
+  endereço aberto direto no navegador (`GET` com `Accept: text/html`) sai
+  como texto simples, só com a mensagem (`http/erros.ts`).
 
 ## Qualidade
 

@@ -112,20 +112,53 @@ export function configurarApi(novas: Partial<typeof reacoes>): () => void {
 // ---------------------------------------------------------------------------
 
 let renovando: Promise<boolean> | null = null;
+/** O `entrar` que está no ar (ver `semRenovacaoNoMeio`). */
+let entrando: Promise<void> | null = null;
 
 /** Pede um acesso novo. true se a sessão continua valendo. */
 export function renovarSessao(): Promise<boolean> {
-  renovando ??= fetch(`${BASE_DA_API}/auth/renovar`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "X-ARP": "1", Accept: "application/json" },
-  })
-    .then((r) => r.ok)
+  renovando ??= (entrando ?? Promise.resolve())
+    .then(() =>
+      fetch(`${BASE_DA_API}/auth/renovar`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "X-ARP": "1", Accept: "application/json" },
+      }),
+    )
+    .then(async (r) => {
+      // Lê o corpo até o fim: sem isso o pedido fica "pendente" no navegador.
+      await r.text().catch(() => undefined);
+      return r.ok;
+    })
     .catch(() => false)
     .finally(() => {
       renovando = null;
     });
   return renovando;
+}
+
+/**
+ * Faz o pedido de entrar sem nenhuma renovação no meio. A tela de login
+ * pergunta quem está logado ao abrir e, no 401, tenta renovar; se a pessoa
+ * entra nesse meio-tempo, a resposta atrasada do `renovar` (pedido sem a
+ * sessão nova) chegava depois dos cookies do `entrar` e os apagava. Aqui o
+ * `entrar` espera a renovação que já saiu, e a que for pedida enquanto ele
+ * está no ar espera por ele (e sai já com os cookies novos).
+ */
+export async function semRenovacaoNoMeio<T>(
+  entrar: () => Promise<T>,
+): Promise<T> {
+  while (renovando || entrando) await (renovando ?? entrando);
+  const pedido = entrar();
+  entrando = pedido
+    .then(
+      () => undefined,
+      () => undefined,
+    )
+    .finally(() => {
+      entrando = null;
+    });
+  return pedido;
 }
 
 // ---------------------------------------------------------------------------

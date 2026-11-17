@@ -11,6 +11,7 @@ import { Notificacoes } from "@/components/notificacoes";
 import { INICIO } from "@/config/navigation";
 import { Redirecionar } from "@/lib/navegacao";
 import { ExigeSessao, ROTA_TROCAR_SENHA } from "@/lib/sessao";
+import { carregarTela } from "@/lib/versao-nova";
 import { Casca, CascaCarregando } from "./casca";
 import { REDIRECIONAMENTOS, RedirecionamentoAntigo } from "./redirecionamentos";
 import { type Modulo, paraRotaDoRoteador } from "./rota";
@@ -82,7 +83,9 @@ export function montarRotas(modulos: Modulo[]): RouteObject[] {
         {
           path: "login",
           lazy: async () => ({
-            Component: (await import("@/modules/acesso/login")).default,
+            Component: (
+              await carregarTela(() => import("@/modules/acesso/login"))
+            ).default,
           }),
         },
         ...publicas,
@@ -94,8 +97,11 @@ export function montarRotas(modulos: Modulo[]): RouteObject[] {
             {
               path: "trocar-senha",
               lazy: async () => ({
-                Component: (await import("@/modules/acesso/trocar-senha"))
-                  .default,
+                Component: (
+                  await carregarTela(
+                    () => import("@/modules/acesso/trocar-senha"),
+                  )
+                ).default,
               }),
             },
             {

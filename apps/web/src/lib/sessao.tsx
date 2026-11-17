@@ -1,4 +1,5 @@
 import {
+  type EntradaEntrar,
   type PrazosDaSessao,
   type RespostaEu,
   respostaEu,
@@ -13,7 +14,7 @@ import {
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { createContext, type ReactNode, use, useMemo } from "react";
 import { Outlet, useLocation } from "react-router";
-import { api, ErroDaApi, enderecoDoLogin } from "./api";
+import { api, ErroDaApi, enderecoDoLogin, semRenovacaoNoMeio } from "./api";
 import { clienteDeConsultas, VALIDADE } from "./consulta";
 import { Redirecionar } from "./navegacao";
 
@@ -70,23 +71,52 @@ export function montarSessao(eu: RespostaEu): Sessao {
 /** Chave da consulta da sessão. */
 export const CHAVE_DA_SESSAO = ["sessao"] as const;
 
+// Lembrete, neste navegador, de que alguém entrou (os cookies são HttpOnly:
+// a tela não os vê). Sem ele não há o que renovar, e a pergunta "quem sou
+// eu" da tela de login não dispara um `renovar` que só pode falhar.
+const LEMBRETE = "arp.sessao";
+
+function haLembrete(): boolean {
+  try {
+    return window.localStorage.getItem(LEMBRETE) !== null;
+  } catch {
+    // Sem acesso ao armazenamento: na dúvida, tenta renovar.
+    return true;
+  }
+}
+
+function lembrar(haSessao: boolean): void {
+  try {
+    if (haSessao) window.localStorage.setItem(LEMBRETE, "1");
+    else window.localStorage.removeItem(LEMBRETE);
+  } catch {
+    // Só um atalho: sem ele a tela tenta renovar e a API responde.
+  }
+}
+
 /**
  * Quem está logado, ou null sem sessão. Um 401 aqui já passou pela tentativa
- * de renovar (lib/api.ts); não leva ao login sozinho: quem decide é a guarda
- * da rota (a tela de login também faz esta pergunta).
+ * de renovar (lib/api.ts), a não ser que ninguém tenha entrado por este
+ * navegador; não leva ao login sozinho: quem decide é a guarda da rota (a
+ * tela de login também faz esta pergunta).
  */
 export const consultaDaSessao = queryOptions({
   queryKey: CHAVE_DA_SESSAO,
   queryFn: async ({ signal }): Promise<RespostaEu | null> => {
     try {
-      return await api.get("/auth/eu", {
+      const eu = await api.get("/auth/eu", {
         esquema: respostaEu,
         sinal: signal,
         irParaOLogin: false,
+        renovar: haLembrete(),
       });
+      lembrar(true);
+      return eu;
     } catch (erro) {
-      if (erro instanceof ErroDaApi && erro.codigo === "nao_autenticado")
+      if (erro instanceof ErroDaApi && erro.codigo === "nao_autenticado") {
+        lembrar(false);
         return null;
+      }
       throw erro;
     }
   },
@@ -95,9 +125,28 @@ export const consultaDaSessao = queryOptions({
   refetchOnWindowFocus: true,
 });
 
-/** Guarda a resposta de entrar (ou esquece a sessão, com null). */
-export function definirSessao(eu: RespostaEu | null): void {
+/**
+ * Guarda a resposta de entrar (ou esquece a sessão, com null). A pergunta
+ * "quem sou eu" que ainda estiver no ar é cancelada antes: ela saiu sem a
+ * sessão nova, e a resposta dela (ninguém logado) passaria por cima.
+ */
+export async function definirSessao(eu: RespostaEu | null): Promise<void> {
+  lembrar(eu !== null);
+  await clienteDeConsultas.cancelQueries({ queryKey: CHAVE_DA_SESSAO });
   clienteDeConsultas.setQueryData(CHAVE_DA_SESSAO, eu);
+}
+
+/**
+ * Entra no sistema. Nenhuma renovação corre junto (`semRenovacaoNoMeio`): o
+ * 401 de um `renovar` pedido sem a sessão nova não pode chegar depois dos
+ * cookies que o `entrar` acabou de gravar.
+ */
+export async function entrar(dados: EntradaEntrar): Promise<RespostaEu> {
+  const eu = await semRenovacaoNoMeio(() =>
+    api.post("/auth/entrar", dados, { esquema: respostaEu, renovar: false }),
+  );
+  await definirSessao(eu);
+  return eu;
 }
 
 /** Pergunta de novo quem está logado (depois de trocar a senha, por exemplo). */
@@ -116,6 +165,7 @@ export async function sair(motivo?: "expirou"): Promise<void> {
       renovar: false,
     })
     .catch(() => undefined);
+  lembrar(false);
   clienteDeConsultas.clear();
   window.location.assign(
     motivo ? enderecoDoLogin(window.location, motivo) : ROTA_DO_LOGIN,

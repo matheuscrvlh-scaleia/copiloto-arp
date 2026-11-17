@@ -12,6 +12,9 @@ import { avisosPendentes } from "@/modules/os/base.service";
 
 const app = await criarApp();
 await app.listen({ host: env.HOST, port: env.PORT });
+// Depois do `listen`: a API já responde (healthcheck) quando o agendador
+// liga. As rotinas marcadas com `naSubida` (aquecer as leituras do
+// Marketing) começam aqui, em segundo plano, e nunca derrubam a subida.
 const agendador =
   env.AGENDADOR && ROTINAS.length ? iniciarAgendador(ROTINAS) : null;
 

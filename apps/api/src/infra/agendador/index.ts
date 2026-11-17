@@ -18,6 +18,13 @@ export interface Rotina {
    * core.logs) e pode lançar: o agendador registra a falha no log e segue.
    */
   executar: () => Promise<void>;
+  /**
+   * true: roda também quando a API sobe, além do horário. Para o que mora
+   * na memória do processo e se perde a cada reinício (as leituras ao vivo
+   * do Marketing). Em segundo plano e com a mesma trava do horário: não
+   * atrasa nem derruba a subida, e não roda junto com a execução agendada.
+   */
+  naSubida?: boolean;
 }
 
 /** Roda uma vez, com a trava. Exportado para os testes. */
@@ -45,20 +52,25 @@ export function iniciarAgendador(rotinas: readonly Rotina[]): {
   if (nomes.size !== rotinas.length)
     throw new Error("Há rotinas agendadas com o mesmo nome.");
   const rodando = new Set<Promise<void>>();
+  // `rodar` nunca rejeita: a promessa só serve para esperar no desligamento.
+  const disparar = (r: Rotina) => {
+    const p = rodar(r).finally(() => rodando.delete(p));
+    rodando.add(p);
+    return p;
+  };
   const agendadas = rotinas.map(
     (r) =>
-      new Cron(r.cron, { name: r.nome, timezone: "UTC", protect: true }, () => {
-        const p = rodar(r).finally(() => rodando.delete(p));
-        rodando.add(p);
-        return p;
-      }),
+      new Cron(r.cron, { name: r.nome, timezone: "UTC", protect: true }, () =>
+        disparar(r),
+      ),
   );
   log.info({ rotinas: [...nomes] }, "agendador ligado");
+  // Quem chama (server.ts) já está atendendo: isto não é esperado.
+  for (const r of rotinas) if (r.naSubida) void disparar(r);
   return {
     parar: () => {
       for (const a of agendadas) a.stop();
     },
-    // `rodar` nunca rejeita: registra a falha no log e segue.
     emAndamento: async () => {
       await Promise.all(rodando);
     },

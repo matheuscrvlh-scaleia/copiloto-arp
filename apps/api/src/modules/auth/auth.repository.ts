@@ -226,3 +226,26 @@ export async function gravarSenha(
     .where("id", "=", usuarioId)
     .execute();
 }
+
+/**
+ * A pessoa tem outra sessão valendo, aberta depois desta? (Ela entrou de
+ * novo: os cookies do navegador podem já ser os da sessão nova.)
+ */
+export async function haSessaoMaisNova(
+  tx: Tx,
+  usuarioId: string,
+  sessaoId: string,
+): Promise<boolean> {
+  const r = await sql`
+    select 1
+    from auth.sessoes n
+    join auth.sessoes s on s.id = ${sessaoId}
+    where n.usuario_id = ${usuarioId}
+      and n.id <> s.id
+      and n.criada_em >= s.criada_em
+      and n.revogada_em is null
+      and n.expira_em > now()
+    limit 1
+  `.execute(tx);
+  return r.rows.length > 0;
+}

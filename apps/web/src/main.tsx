@@ -4,6 +4,11 @@ import { retornoDoRd } from "@arp/shared/integracoes";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/provedores";
+import { ligarRecargaPorVersaoNova } from "./lib/versao-nova";
+
+// Aba aberta durante um deploy: tela cujo arquivo não existe mais recarrega
+// a página uma vez (lib/versao-nova.ts).
+ligarRecargaPorVersaoNova();
 
 const raiz = document.getElementById("raiz");
 if (!raiz) throw new Error("index.html sem o elemento #raiz");

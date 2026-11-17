@@ -6,6 +6,7 @@ import { LimiteDeErro } from "@/components/limite-de-erro";
 import { SemAcesso } from "@/components/protegido";
 import { useCaminho, useTitulo } from "@/lib/navegacao";
 import { useSessaoOpcional } from "@/lib/sessao";
+import { carregarTela } from "@/lib/versao-nova";
 
 // Como um módulo declara as suas telas (modules/<modulo>/rotas.tsx). O
 // roteador (app/roteador.tsx) junta as de todos os módulos de app/modulos.ts.
@@ -82,7 +83,7 @@ export function paraRotaDoRoteador(rota: Rota, publica: boolean): RouteObject {
   const { pagina } = rota;
   const lazy = pagina
     ? async () => {
-        const { default: Pagina } = await pagina();
+        const { default: Pagina } = await carregarTela(pagina);
         function Component() {
           return (
             <Tela rota={rota} publica={publica}>

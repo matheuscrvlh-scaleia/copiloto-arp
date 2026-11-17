@@ -23,5 +23,13 @@ export const rotinasDoMarketing: Rotina[] = [
     cron: "10 3 * * *",
     executar: aquecer,
   },
-  { nome: "marketing.aquecer-manha", cron: "50 10 * * *", executar: aquecer },
+  {
+    nome: "marketing.aquecer-manha",
+    cron: "50 10 * * *",
+    executar: aquecer,
+    // A memória é do processo: cada reinício (deploy) a esvazia, e a
+    // primeira abertura do Painel esperaria todas as fontes (mais de 20 s).
+    // O agendador roda esta também na subida, em segundo plano.
+    naSubida: true,
+  },
 ];

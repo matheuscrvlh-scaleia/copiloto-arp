@@ -58,7 +58,14 @@ export type ModuloComFiltros = (typeof MODULOS_COM_FILTROS)[number];
 
 export const parametrosDosFiltros = z.object({
   modulo: z.enum(MODULOS_COM_FILTROS),
-  tela: z.string().regex(/^[a-z_]+$/),
+  // Minúsculas, com "_" ou "-" entre as palavras ("agua_extrato",
+  // "entrevistas-respostas": os nomes das telas são os do sistema antigo, e
+  // a chave gravada em core.preferencias é "<modulo>.filtros.<tela>"). Sem
+  // ponto nem barra: a tela nunca alcança a chave de outra coisa.
+  tela: z
+    .string()
+    .max(60)
+    .regex(/^[a-z]+(?:[_-][a-z]+)*$/),
 });
 export type ParametrosDosFiltros = z.infer<typeof parametrosDosFiltros>;
 

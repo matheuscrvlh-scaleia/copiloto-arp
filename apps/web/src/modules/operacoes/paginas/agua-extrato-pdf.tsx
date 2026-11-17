@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { Carregando } from "@/components/carregando";
+import { PonteDeArquivo } from "@/components/ponte-de-arquivo";
 import { useBusca } from "@/lib/navegacao";
 import { CAMPOS_DO_EXTRATO, camposDaBusca, hrefDoExtratoPdf } from "../api";
 
@@ -10,8 +9,5 @@ export default function Pagina() {
   const destino = hrefDoExtratoPdf(
     camposDaBusca(useBusca(), CAMPOS_DO_EXTRATO),
   );
-  useEffect(() => {
-    window.location.replace(destino);
-  }, [destino]);
-  return <Carregando />;
+  return <PonteDeArquivo destino={destino} voltar="/operacoes/agua/extrato" />;
 }
