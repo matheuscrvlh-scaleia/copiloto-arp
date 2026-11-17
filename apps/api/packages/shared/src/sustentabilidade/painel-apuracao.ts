@@ -204,22 +204,38 @@ export interface GeracaoDoMes {
   /** aaaa-mm-01 */
   mes: string;
   kwh: number;
-  co2_t: number | null;
 }
 
-/** Geração por mês e o CO₂ evitado (null enquanto Operações não informa). */
+/** Fator de emissão da rede: kg de CO₂ por kWh, a partir de uma data. */
+export interface VigenciaDeCo2 {
+  vigenteDesde: string;
+  kgPorKwh: number;
+}
+
+/**
+ * Geração por mês e o CO₂ evitado (t) = kWh × fator vigente no mês ÷ 1000.
+ * Se algum mês com geração não tem fator vigente, o CO₂ fica null (melhor
+ * "sem dado" do que um total menor que o real).
+ */
 export function apurarEnergia(
   geracao: readonly GeracaoDoMes[],
   competencias: readonly string[],
+  fatoresCo2: readonly VigenciaDeCo2[],
 ): { energia: Mensal; co2: number | null } {
   const doMes = new Map(geracao.map((g) => [g.mes, g]));
   const meses = competencias.map((c) => doMes.get(c) ?? null);
+  const co2 = competencias.map((c, i) => {
+    const kwh = meses[i]?.kwh;
+    if (kwh === undefined) return undefined;
+    const fator = fatorVigente(fatoresCo2, c);
+    return fator ? (kwh * fator.kgPorKwh) / 1000 : null;
+  });
   return {
     energia: {
       total: somaOuNull(meses.map((g) => g?.kwh ?? null)),
       porMes: meses.map((g) => g?.kwh ?? null),
     },
-    co2: somaOuNull(meses.map((g) => g?.co2_t ?? null)),
+    co2: co2.includes(null) ? null : somaOuNull(co2),
   };
 }
 
@@ -317,6 +333,7 @@ export interface EntradaDoPeriodo {
   indicadores: readonly IndicadorDePrograma[];
   lancamentos: readonly LancamentoDoPainel[];
   geracao: readonly GeracaoDoMes[];
+  fatoresCo2: readonly VigenciaDeCo2[];
   notas: readonly NotaDoRcc[];
   fatores: readonly VigenciaDeFator[];
   precos: readonly VigenciaDePreco[] | null;
@@ -333,7 +350,7 @@ export function apurarPeriodo(e: EntradaDoPeriodo): PeriodoApurado {
   const competencias = competenciasDoAno(e.ano, e.ateMes);
   const grupos = apurarGrupos(e.indicadores, e.lancamentos, competencias);
   const doGrupo = (nome: string) => grupoPorNome(grupos, nome);
-  const { energia, co2 } = apurarEnergia(e.geracao, competencias);
+  const { energia, co2 } = apurarEnergia(e.geracao, competencias, e.fatoresCo2);
   return {
     ano: e.ano,
     ateMes: e.ateMes,

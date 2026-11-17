@@ -80,8 +80,6 @@ export interface SolarDoMes {
    * ou, com o inversor, a soma dos dias lidos da Growatt.
    */
   kwh: number;
-  /** Sem fator de emissão cadastrado em Operações: sempre null. */
-  co2_t: null;
   /** Leitura mais recente: da fatura ou o último dia lido do inversor. */
   ultima_leitura: string | null;
   exemplo: boolean;
@@ -117,7 +115,6 @@ export function solarPorMes(
       {
         mes,
         kwh: Math.round(kwh * 100) / 100,
-        co2_t: null,
         ultima_leitura: datas.at(-1) ?? null,
         exemplo: lidas.some((f) => f.exemplo),
       },
@@ -144,7 +141,6 @@ export function solarDoInversor(meses: MesDoInversor[]): SolarDoMes[] {
     .map((m) => ({
       mes: m.mes,
       kwh: Math.round(m.kwh * 100) / 100,
-      co2_t: null,
       ultima_leitura: m.ultimo_dia,
       exemplo: false,
     }));

@@ -21,9 +21,11 @@ import type {
   EquivalenciaCadastrada,
   LinhaDeSetor,
   MarcoDoPainel,
+  VigenciaDeCo2,
   VigenciaDoRcc,
 } from "../../api-config";
 import {
+  novaVigenciaCo2,
   novaVigenciaRcc,
   salvarEquivalencias,
   salvarMarcos,
@@ -595,6 +597,7 @@ export function FormPainel({
   marcos,
   metas,
   equivalencias,
+  fatoresCo2,
   comValores,
 }: {
   ano: number;
@@ -602,6 +605,7 @@ export function FormPainel({
   marcos: MarcoDoPainel[];
   metas: Map<string, number>;
   equivalencias: EquivalenciaCadastrada[];
+  fatoresCo2: VigenciaDeCo2[];
   comValores: boolean;
 }) {
   const ROTA = "/sustentabilidade/configuracoes/parametros?aba=painel";
@@ -717,6 +721,66 @@ export function FormPainel({
             })}
           </div>
         </FormAcao>
+      </Secao>
+
+      <Secao
+        titulo="Fator de emissão (CO₂ evitado)"
+        descricao="O CO₂ evitado do painel é a geração solar de cada mês × o fator vigente no mês. Use o fator médio de emissão do Sistema Interligado Nacional publicado pelo MCTI (t CO₂/MWh, o mesmo número que kg CO₂/kWh). Cada mudança cria uma vigência nova; a anterior fica como estava."
+      >
+        <div data-guia="su-parametros-co2" className="flex flex-col gap-5">
+          <Tabela
+            colunas={[
+              {
+                titulo: "Vigente desde",
+                valor: (v: VigenciaDeCo2) => formatarData(v.vigenteDesde),
+              },
+              {
+                titulo: "kg de CO₂ por kWh",
+                numero: true,
+                valor: (v: VigenciaDeCo2) => formatarNumero(v.kgPorKwh, 5),
+              },
+            ]}
+            linhas={fatoresCo2}
+            chave={(v) => v.vigenteDesde}
+            vazio="Nenhum fator cadastrado: o CO₂ evitado fica sem dado."
+          />
+          <FormAcao
+            acao={novaVigenciaCo2}
+            className="flex flex-col gap-4"
+            rotulo="Criar vigência"
+            rotuloEnviando="Criando…"
+          >
+            <p className="text-sm font-medium">Novo fator</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <label className={rotulo}>
+                Vigente desde
+                <input
+                  type="date"
+                  name="vigente_desde"
+                  required
+                  className={classeCampo}
+                />
+              </label>
+              <label className={rotulo}>
+                kg de CO₂ por kWh
+                <input
+                  name="kg_por_kwh"
+                  required
+                  inputMode="decimal"
+                  defaultValue={
+                    fatoresCo2[0] ? br(fatoresCo2[0].kgPorKwh, 5) : ""
+                  }
+                  className={classeCampo}
+                />
+              </label>
+            </div>
+            <Nota>
+              Vigência que começa no meio do mês vale a partir do mês seguinte.
+              Para o painel mostrar o CO₂ de um ano inteiro, o fator precisa
+              valer desde janeiro.
+            </Nota>
+          </FormAcao>
+        </div>
       </Secao>
 
       <Secao

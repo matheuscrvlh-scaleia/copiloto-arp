@@ -2617,6 +2617,14 @@ export interface SustentabilidadeCadastrosLista {
   valor: string;
 }
 
+export interface SustentabilidadeCo2Fatores {
+  criado_em: Generated<string>;
+  criado_por: Generated<string | null>;
+  id: Generated<string>;
+  kg_por_kwh: Numeric;
+  vigente_desde: string;
+}
+
 export interface SustentabilidadeColetores {
   ativo: Generated<boolean>;
   atualizado_em: Generated<string>;
@@ -3189,6 +3197,7 @@ export interface DB {
   "rh.valores_pj": RhValoresPj;
   "sustentabilidade.acoes": SustentabilidadeAcoes;
   "sustentabilidade.cadastros_lista": SustentabilidadeCadastrosLista;
+  "sustentabilidade.co2_fatores": SustentabilidadeCo2Fatores;
   "sustentabilidade.coletores": SustentabilidadeColetores;
   "sustentabilidade.consolidado_valores": SustentabilidadeConsolidadoValores;
   "sustentabilidade.consolidados": SustentabilidadeConsolidados;

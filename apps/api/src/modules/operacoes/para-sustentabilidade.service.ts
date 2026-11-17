@@ -45,7 +45,8 @@ export async function consumoDeAguaPorMes(
  * Geração solar (kWh) de cada mês pela fonte de Operações
  * (operacoes.parametros.solar_fonte): a fatura da unidade geradora ou o
  * inversor (Growatt, soma dos dias lidos). Com outra fonte, ou sem leitura
- * no mês, o mês não aparece. Sem CO₂ (co2_t null).
+ * no mês, o mês não aparece. O CO₂ evitado é calculado no Painel
+ * (kWh × fator de emissão de sustentabilidade.co2_fatores).
  */
 export async function geracaoSolarPorMes(
   tx: Tx,

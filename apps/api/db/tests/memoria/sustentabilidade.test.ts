@@ -148,6 +148,7 @@ const LEITURA: Record<string, Usuario[]> = {
     "parametrosValores",
   ],
   rcc_precos: ["rccValores", "painelValores", "parametrosValores"],
+  co2_fatores: ["painel", "painelValores", "parametros", "parametrosValores"],
   rcc_notas: ["rcc", "rccValores", "painel", "painelValores"],
   rcc_nota_valores: ["rccValores", "painelValores"],
   programa_indicadores: [
@@ -609,6 +610,10 @@ describe("RLS de gravação", () => {
       [
         "rcc_fatores",
         "insert into sustentabilidade.rcc_fatores (vigente_desde, toneladas_por_cacamba, volume_m3) values ('2026-12-01', 7, 5)",
+      ],
+      [
+        "co2_fatores",
+        "insert into sustentabilidade.co2_fatores (vigente_desde, kg_por_kwh) values ('2026-12-01', 0.04)",
       ],
       [
         "marcos",

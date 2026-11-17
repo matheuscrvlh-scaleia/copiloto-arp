@@ -22,6 +22,7 @@ import {
   esquemaMarcos,
   esquemaPrecosRcc,
   esquemaSetores,
+  esquemaVigenciaCo2,
   esquemaVigenciaRcc,
   GRUPOS,
   type Grupo,
@@ -74,6 +75,7 @@ const ROTULOS_TABELAS: Record<string, string> = {
   vigente_desde: "Vigente desde",
   toneladas_por_cacamba: "Toneladas por caçamba",
   volume_m3: "Volume da caçamba (m³)",
+  kg_por_kwh: "kg de CO₂ por kWh",
   ano: "Ano",
   tipo: "Chamado",
   responsavel: "Responsável",
@@ -262,6 +264,10 @@ export async function telaDeParametros(
               ]),
             ),
             equivalencias: await repo.equivalencias(tx),
+            fatoresCo2: (await repo.fatoresDeCo2(tx)).map((f) => ({
+              vigenteDesde: f.vigente_desde,
+              kgPorKwh: f.kg_por_kwh,
+            })),
           }
         : null,
     };
@@ -651,6 +657,41 @@ export async function novaVigenciaRcc(
     },
   );
   return "Vigência criada. As notas a partir dessa data usam os novos valores.";
+}
+
+// ---------------------------------------------------------------------------
+// Painel: nova vigência do fator de emissão (CO₂ evitado)
+// ---------------------------------------------------------------------------
+
+/**
+ * Novo fator de emissão da rede: sempre uma linha nova, a antiga fica como
+ * estava; cada mês do painel usa o fator vigente nele.
+ */
+export async function novaVigenciaCo2(
+  ctx: Contexto,
+  corpo: CamposDeFormulario,
+): Promise<string> {
+  const campos = camposDoForm(corpo);
+  const fator = validarFormulario(esquemaVigenciaCo2, campos, ROTULOS_TABELAS);
+  exigirNaSessao(ctx);
+  try {
+    await banco.comoUsuario(ctx.usuario.id, (tx) =>
+      repo.inserirFatorDeCo2(tx, { ...fator, criado_por: ctx.usuario.id }),
+    );
+  } catch (e) {
+    if (e instanceof ErroDeConflito)
+      throw new ErroDeConflito(
+        "Já existe um fator de emissão nessa data. Escolha outra data para criar um novo.",
+      );
+    throw e;
+  }
+  logarSustentabilidade(
+    ctx,
+    "sustentabilidade_parametros",
+    "Parâmetros de Sustentabilidade: novo fator de emissão",
+    { grupo: "painel", vigenteDesde: fator.vigente_desde },
+  );
+  return "Fator salvo. O CO₂ evitado dos meses a partir dessa data usa o novo valor.";
 }
 
 // ---------------------------------------------------------------------------

@@ -50,6 +50,12 @@ export const vigenciaDoRcc = z.object({
 });
 export type VigenciaDoRcc = z.infer<typeof vigenciaDoRcc>;
 
+export const vigenciaDeCo2 = z.object({
+  vigenteDesde: z.string(),
+  kgPorKwh: z.number(),
+});
+export type VigenciaDeCo2 = z.infer<typeof vigenciaDeCo2>;
+
 export const marcoDoPainel = z.object({
   indicador: z.string(),
   ano: z.number(),
@@ -93,6 +99,8 @@ export const respostaTelaDeParametros = z.object({
       /** Chave do indicador → meta do ano. */
       metas: z.record(z.string(), z.number()),
       equivalencias: z.array(equivalenciaCadastrada),
+      /** Fatores de emissão, do mais novo para o mais antigo. */
+      fatoresCo2: z.array(vigenciaDeCo2),
     })
     .nullable(),
 });

@@ -54,6 +54,13 @@ export function fatoresDoRcc(tx: Tx) {
     .execute();
 }
 
+export function fatoresDeCo2(tx: Tx) {
+  return tx
+    .selectFrom("sustentabilidade.co2_fatores")
+    .select(["vigente_desde", "kg_por_kwh"])
+    .execute();
+}
+
 export function precosDoRcc(tx: Tx) {
   return tx
     .selectFrom("sustentabilidade.rcc_precos")

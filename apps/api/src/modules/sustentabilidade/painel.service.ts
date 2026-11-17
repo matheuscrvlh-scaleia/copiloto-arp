@@ -20,6 +20,7 @@ import {
   type LancamentoDoPainel,
   type NotaDoRcc,
   type PeriodoApurado,
+  type VigenciaDeCo2,
   type VigenciaDeFator,
   type VigenciaDePreco,
 } from "@arp/shared/sustentabilidade/painel-apuracao";
@@ -195,7 +196,6 @@ export async function dadosDoPainel(
   const geracao: GeracaoDoMes[] = solar.map((s) => ({
     mes: s.mes,
     kwh: s.kwh,
-    co2_t: s.co2_t,
   }));
 
   const indicadores = b.indicadores;
@@ -208,6 +208,7 @@ export async function dadosDoPainel(
       indicadores,
       lancamentos,
       geracao,
+      fatoresCo2: b.fatoresCo2,
       notas: b.notas,
       fatores: b.fatores,
       precos,
@@ -384,6 +385,7 @@ interface LidoDoBanco {
   lancamentos: LancamentoDoPainel[];
   notas: NotaDoRcc[];
   fatores: VigenciaDeFator[];
+  fatoresCo2: VigenciaDeCo2[];
   precos: VigenciaDePreco[];
   participantes: {
     id: string;
@@ -431,6 +433,7 @@ async function lerDoBanco(
   const lista = await repo.indicadoresDoPainel(tx);
   const notas = await repo.notasDoRcc(tx, ate);
   const fatores = await repo.fatoresDoRcc(tx);
+  const fatoresCo2 = await repo.fatoresDeCo2(tx);
   const precos = comValores ? await repo.precosDoRcc(tx) : [];
   const participantes = await repo.participantes(tx);
   const termos = await repo.termos(tx);
@@ -483,6 +486,10 @@ async function lerDoBanco(
     fatores: fatores.map((x) => ({
       vigenteDesde: x.vigente_desde,
       toneladasPorCacamba: x.toneladas_por_cacamba,
+    })),
+    fatoresCo2: fatoresCo2.map((x) => ({
+      vigenteDesde: x.vigente_desde,
+      kgPorKwh: x.kg_por_kwh,
     })),
     precos: precos.map((x) => ({
       vigenteDesde: x.vigente_desde,

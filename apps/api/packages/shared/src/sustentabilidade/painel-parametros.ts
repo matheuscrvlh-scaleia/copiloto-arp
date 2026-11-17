@@ -209,6 +209,12 @@ export const esquemaPrecosRcc = z.object({
   preco_b: decimal(0, 99_999_999.99),
 });
 
+/** Nova vigência do fator de emissão da rede (CO₂ evitado do painel). */
+export const esquemaVigenciaCo2 = z.object({
+  vigente_desde: z.iso.date("informe a data"),
+  kg_por_kwh: decimal(0, 9.99999, { minExclusivo: true, casas: 5 }),
+});
+
 /** Metas de um ano: `meta_<indicador>` (vazio = sem meta naquele ano). */
 export const campoDaMeta = (chave: ChaveDoIndicador) => `meta_${chave}`;
 
@@ -397,6 +403,7 @@ export function abaDaTabela(tabela: string): Grupo | null {
     case "sustentabilidade.marcos":
     case "sustentabilidade.equivalencias":
     case "sustentabilidade.consolidados":
+    case "sustentabilidade.co2_fatores":
     case "core.metas":
       return "painel";
     default:
@@ -415,6 +422,7 @@ export const TABELAS_DO_HISTORICO = [
   { tabela: "sustentabilidade.marcos", valores: false },
   { tabela: "sustentabilidade.equivalencias", valores: false },
   { tabela: "sustentabilidade.consolidados", valores: false },
+  { tabela: "sustentabilidade.co2_fatores", valores: false },
   { tabela: "core.metas", valores: false },
 ] as const;
 
@@ -483,6 +491,10 @@ const ROTULOS_DOS_CAMPOS: Record<string, Record<string, string>> = {
     totais: "Totais",
     ano: "Ano",
   },
+  "sustentabilidade.co2_fatores": {
+    vigente_desde: "Vigente desde",
+    kg_por_kwh: "kg de CO₂ por kWh",
+  },
   "core.metas": {
     meta: "Meta",
     limite_atencao: "Limite de atenção",
@@ -500,6 +512,7 @@ const NOMES_DAS_TABELAS: Record<string, string> = {
   "sustentabilidade.marcos": "Marco inicial",
   "sustentabilidade.equivalencias": "Equivalência",
   "sustentabilidade.consolidados": "Consolidado anual",
+  "sustentabilidade.co2_fatores": "Fator de emissão",
   "core.metas": "Meta",
 };
 
@@ -514,6 +527,7 @@ export function descricaoDoRegistro(tabela: string, l: Linha): string {
       return `${s(l.local)} (${s(l.cor)})`;
     case "sustentabilidade.rcc_fatores":
     case "sustentabilidade.rcc_precos":
+    case "sustentabilidade.co2_fatores":
       return `a partir de ${formatarData(s(l.vigente_desde) || null)}`;
     case "sustentabilidade.marcos":
       return `${MARCOS_DO_PAINEL[s(l.indicador) as keyof typeof MARCOS_DO_PAINEL] ?? s(l.indicador)} ${s(l.ano)}`;

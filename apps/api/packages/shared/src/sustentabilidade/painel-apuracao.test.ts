@@ -152,29 +152,47 @@ describe("energia", () => {
   it("mês sem leitura fica sem dado; total só dos que existem", () => {
     const { energia, co2 } = apurarEnergia(
       [
-        { mes: "2026-01-01", kwh: 8000, co2_t: null },
-        { mes: "2026-03-01", kwh: 9000.5, co2_t: null },
+        { mes: "2026-01-01", kwh: 8000 },
+        { mes: "2026-03-01", kwh: 9000.5 },
       ],
       competencias,
+      [],
     );
     expect(energia.porMes).toEqual([8000, null, 9000.5]);
     expect(energia.total).toBe(17000.5);
     expect(co2).toBeNull();
   });
   it("nenhuma leitura: sem dado, nunca zero", () => {
-    const { energia, co2 } = apurarEnergia([], competencias);
+    const { energia, co2 } = apurarEnergia([], competencias, [
+      { vigenteDesde: "2000-01-01", kgPorKwh: 0.05 },
+    ]);
     expect(energia.total).toBeNull();
     expect(co2).toBeNull();
   });
-  it("com CO₂ informado soma o do período", () => {
+  it("CO₂ = kWh × fator vigente no mês, em toneladas", () => {
     const { co2 } = apurarEnergia(
       [
-        { mes: "2026-01-01", kwh: 1, co2_t: 0.5 },
-        { mes: "2026-02-01", kwh: 1, co2_t: 0.25 },
+        { mes: "2026-01-01", kwh: 1000 },
+        { mes: "2026-02-01", kwh: 2000 },
       ],
       competencias,
+      [
+        { vigenteDesde: "2025-01-01", kgPorKwh: 0.5 },
+        { vigenteDesde: "2026-02-01", kgPorKwh: 0.25 },
+      ],
     );
-    expect(co2).toBe(0.75);
+    expect(co2).toBeCloseTo(1, 9);
+  });
+  it("mês com geração e sem fator vigente: CO₂ sem dado", () => {
+    const { co2 } = apurarEnergia(
+      [
+        { mes: "2026-01-01", kwh: 1000 },
+        { mes: "2026-02-01", kwh: 2000 },
+      ],
+      competencias,
+      [{ vigenteDesde: "2026-02-01", kgPorKwh: 0.25 }],
+    );
+    expect(co2).toBeNull();
   });
 });
 
@@ -221,7 +239,8 @@ describe("apurarPeriodo", () => {
       ateMes: 3,
       indicadores,
       lancamentos,
-      geracao: [{ mes: "2026-02-01", kwh: 100, co2_t: null }],
+      geracao: [{ mes: "2026-02-01", kwh: 100 }],
+      fatoresCo2: [{ vigenteDesde: "2026-01-01", kgPorKwh: 0.1 }],
       notas: [{ competencia: "2026-01-01", cacambasA: 3, cacambasB: 1 }],
       fatores: [{ vigenteDesde: "2000-01-01", toneladasPorCacamba: 8 }],
       precos: null,
@@ -235,6 +254,7 @@ describe("apurarPeriodo", () => {
     expect(p.volume.total).toBe(350);
     expect(p.pessoas.total).toBeNull();
     expect(p.energia.total).toBe(100);
+    expect(p.co2).toBeCloseTo(0.01, 9);
     expect(p.rcc.total.total).toBe(32);
     expect(p.rcc.pctReciclado).toBe(75);
     expect(p.produtores).toEqual({ participacoes: 4, unicos: 2 });

@@ -143,11 +143,11 @@ describe("cartões do painel", () => {
     }
   });
 
-  it("CO₂ sem dado explica que Operações ainda não informa", () => {
+  it("CO₂ sem dado com geração aponta o fator de emissão que falta", () => {
     const m = porChave(entrada());
     expect(m.co2_evitado?.valor).toBe("sem dado em 03/2026");
     expect(m.co2_evitado?.detalhe).toBe(
-      "Operações ainda não informa o CO₂ evitado",
+      "Falta o fator de emissão de algum mês em Parâmetros › Painel",
     );
     const com = porChave(entrada({ atual: periodo(2026, { co2: 1.234 }) }));
     expect(com.co2_evitado?.valor).toBe("1,23 t");

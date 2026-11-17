@@ -43,6 +43,7 @@ export const rotasDosParametros: FastifyPluginAsyncZod = async (app) => {
   );
   app.put("/parametros/metas", gravacao, controller.salvarMetas);
   app.post("/parametros/rcc-vigencias", gravacao, controller.novaVigenciaRcc);
+  app.post("/parametros/co2-vigencias", gravacao, controller.novaVigenciaCo2);
   app.post(
     "/parametros/exemplos/remover",
     { config, schema: { response: { 200: respostaMensagem } } },

@@ -89,7 +89,6 @@ describe("água e solar por mês (para o Sustentabilidade)", () => {
       {
         mes: "2026-01-01",
         kwh: 150.56,
-        co2_t: null,
         ultima_leitura: "2026-01-30",
         exemplo: false,
       },
@@ -110,14 +109,12 @@ describe("geração pelo inversor por mês", () => {
       {
         mes: "2026-10-01",
         kwh: 250.4,
-        co2_t: null,
         ultima_leitura: "2026-10-31",
         exemplo: false,
       },
       {
         mes: "2026-11-01",
         kwh: 601.5,
-        co2_t: null,
         ultima_leitura: "2026-11-02",
         exemplo: false,
       },

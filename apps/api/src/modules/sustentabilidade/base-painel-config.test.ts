@@ -95,6 +95,7 @@ descreverComBanco("sustentabilidade: base, painel e configurações", () => {
         ["PUT", `${SU}/parametros/equivalencias`, {}],
         ["PUT", `${SU}/parametros/metas`, {}],
         ["POST", `${SU}/parametros/rcc-vigencias`, {}],
+        ["POST", `${SU}/parametros/co2-vigencias`, {}],
         ["POST", `${SU}/parametros/exemplos/remover`, undefined],
         ["POST", `${SU}/coletores`, { local: "x", cor: "azul" }],
         ["DELETE", `${SU}/coletores/${id}`, undefined],

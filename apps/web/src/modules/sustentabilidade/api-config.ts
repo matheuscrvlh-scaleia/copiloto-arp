@@ -29,6 +29,7 @@ export type {
   EquivalenciaCadastrada,
   LinhaDeSetor,
   MarcoDoPainel,
+  VigenciaDeCo2,
   VigenciaDoRcc,
 } from "@arp/shared/sustentabilidade/contratos/parametros";
 
@@ -88,6 +89,13 @@ export const salvarMetas = acaoDaApi({
 export const novaVigenciaRcc = acaoDaApi({
   metodo: "POST",
   caminho: "/sustentabilidade/parametros/rcc-vigencias",
+  invalida,
+});
+
+/** POST /sustentabilidade/parametros/co2-vigencias */
+export const novaVigenciaCo2 = acaoDaApi({
+  metodo: "POST",
+  caminho: "/sustentabilidade/parametros/co2-vigencias",
   invalida,
 });
 

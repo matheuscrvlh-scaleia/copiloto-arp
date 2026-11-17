@@ -97,6 +97,14 @@ export function fatoresDoRcc(tx: Tx) {
     .execute();
 }
 
+export function fatoresDeCo2(tx: Tx) {
+  return tx
+    .selectFrom("sustentabilidade.co2_fatores")
+    .select(["vigente_desde", "kg_por_kwh"])
+    .orderBy("vigente_desde", "desc")
+    .execute();
+}
+
 export function precosDoRcc(tx: Tx) {
   return tx
     .selectFrom("sustentabilidade.rcc_precos")
@@ -299,6 +307,13 @@ export async function inserirFatorDoRcc(
   },
 ) {
   await tx.insertInto("sustentabilidade.rcc_fatores").values(linha).execute();
+}
+
+export async function inserirFatorDeCo2(
+  tx: Tx,
+  linha: { vigente_desde: string; kg_por_kwh: number; criado_por: string },
+) {
+  await tx.insertInto("sustentabilidade.co2_fatores").values(linha).execute();
 }
 
 export async function inserirPrecoDoRcc(

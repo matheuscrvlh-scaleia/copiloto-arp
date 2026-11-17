@@ -150,6 +150,7 @@ function Tela() {
               marcos={d.painel.marcos}
               metas={new Map(Object.entries(d.painel.metas))}
               equivalencias={d.painel.equivalencias}
+              fatoresCo2={d.painel.fatoresCo2}
               comValores={d.comValores}
             />
           )}

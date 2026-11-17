@@ -259,7 +259,7 @@ export function montarCartoes(e: EntradaDoPainel): CartaoDoPainel[] {
     ),
   );
 
-  // Energia e CO₂: só leitura de Operações.
+  // Energia: leitura de Operações. CO₂: kWh × fator de emissão vigente.
   const kwhDoMes = e.atual.energia.porMes[f.ateMes - 1] ?? null;
   cartoes.push(
     simples(
@@ -277,12 +277,12 @@ export function montarCartoes(e: EntradaDoPainel): CartaoDoPainel[] {
       e.atual.co2,
       e.anterior.co2,
       "energia",
-      "Módulo Operações · geração solar",
+      "Geração solar × fator de emissão (Parâmetros › Painel)",
       {
         detalhe:
           e.atual.co2 === null && e.atual.energia.total !== null
-            ? "Operações ainda não informa o CO₂ evitado"
-            : "Valor informado por Operações",
+            ? "Falta o fator de emissão de algum mês em Parâmetros › Painel"
+            : undefined,
       },
     ),
   );

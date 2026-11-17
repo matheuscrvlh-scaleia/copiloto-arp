@@ -58,6 +58,12 @@ export async function novaVigenciaRcc(request: Gravacao) {
   };
 }
 
+export async function novaVigenciaCo2(request: Gravacao) {
+  return {
+    mensagem: await service.novaVigenciaCo2(contextoDe(request), request.body),
+  };
+}
+
 export async function removerExemplos(request: FastifyRequest) {
   return { mensagem: await service.removerExemplos(contextoDe(request)) };
 }
