@@ -141,7 +141,7 @@ export function linhasDoDia(
       valor_bruto: p.valorBruto,
       valor_desconto: p.desconto ?? 0,
       valor_liquido: p.valorLiquido,
-      parcial: p.parcial,
+      parcial: p.parcial ?? 0,
       terminal: p.terminal.descricao ?? null,
       tarifa: p.tarifa ?? null,
     })),

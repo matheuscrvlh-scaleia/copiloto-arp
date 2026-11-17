@@ -2,7 +2,8 @@ import { z } from "zod";
 
 // Formato conferido com a API de homologação (demonstracao.parkingplus.com.br)
 // em 19/10/2026 e em 60 dias de pagamentos (476 registros) em 21/10/2026.
-// Valores em reais (há valores como 117.33).
+// Valores em reais (há valores como 117.33). Na produção (17/11/2026) não
+// vêm operador, parcial, rps.id_interno nem rps.data_emissao.
 
 const terminal = z.object({
   codigo: z.number().optional(),
@@ -19,10 +20,10 @@ const formaPagamento = z.object({
 });
 
 const rps = z.object({
-  id_interno: z.number(),
+  id_interno: z.number().optional(),
   numero: z.number(),
   serie: z.string().optional(),
-  data_emissao: z.string(),
+  data_emissao: z.string().optional(),
 });
 
 export const pagamentoSchema = z.object({
@@ -39,8 +40,10 @@ export const pagamentoSchema = z.object({
   valorBruto: z.number(),
   valorLiquido: z.number(),
   desconto: z.number().optional(),
-  operador: z.string(),
-  parcial: z.number(),
+  /** Não vem na produção (fabricaderendasarp); nunca é gravado. */
+  operador: z.string().optional(),
+  /** Não vem na produção: vale 0. */
+  parcial: z.number().optional(),
   nsu: z.string().optional(),
   docTef: z.string().optional(),
   autorizacaotef: z.string().optional(),

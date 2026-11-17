@@ -80,6 +80,38 @@ describe("wps", () => {
     expect(unicos.reduce((s, p) => s + p.valorLiquido, 0)).toBe(328);
   });
 
+  it("aceita o pagamento da produção, sem operador, parcial e id da RPS", () => {
+    const dia = pagamentosDoDiaSchema.parse({
+      quantidade: 1,
+      subdetalhes: {
+        dinheiro: {
+          quantidade: 1,
+          descricao: "dinheiro",
+          detalhes: [
+            {
+              codigo: 9,
+              descricao: "ROTATIVO",
+              data: "2026-11-10 10:00:00",
+              ticket: "1",
+              recibo: "2",
+              valorBruto: 12,
+              valorLiquido: 12,
+              terminal: { codigo: 1, descricao: "CAIXA" },
+              formaPagamento: {
+                codigo: 1,
+                codigoMapeado: 1,
+                descricao: "DINHEIRO",
+                descricaoPagamentoBase: "DINHEIRO",
+              },
+              rps: { numero: 3, serie: "A" },
+            },
+          ],
+        },
+      },
+    });
+    expect(pagamentosUnicos(dia)[0]?.parcial).toBeUndefined();
+  });
+
   it("monta as demais rotas (dia, lançamentos, garagens, totais)", async () => {
     const calls: string[] = [];
     const vazio = fakeFetch({ quantidade: 0, subdetalhes: {} }, calls);
