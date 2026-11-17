@@ -12,7 +12,13 @@ import {
   somarDias,
 } from "@arp/shared/marketing/periodo";
 import { fimDoMes, mesesAFrente } from "@arp/shared/marketing/radar";
-import { CalendarDays, Clock, ExternalLink, Globe } from "lucide-react";
+import {
+  CalendarCheck,
+  CalendarDays,
+  Clock,
+  ExternalLink,
+  Globe,
+} from "lucide-react";
 import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
 import { Colunas } from "@/components/dashboard/graficos/colunas";
 import { Secao } from "@/components/dashboard/tabela";
@@ -35,6 +41,7 @@ import { type PropsAba, plural } from "./radar/comum";
 export const BASE_EVENTOS = "/marketing/eventos";
 const FONTE_SITE = "Site da ARP (agenda de eventos)";
 const CARTOES: Record<string, string> = {
+  hoje: "Hoje",
   semana: "Próximos 7 dias",
   proximos30: "Próximos 30 dias",
   mes: "Neste mês",
@@ -71,13 +78,15 @@ export function AgendaDeEventos({
   const em30 = eventosEntre(futuros, hoje, somarDias(hoje, 29));
   const noMes = eventosEntre(todos, mesAtual, fimDoMes(mesAtual));
   const lista =
-    cartao === "semana"
-      ? em7
-      : cartao === "proximos30"
-        ? em30
-        : cartao === "mes"
-          ? noMes
-          : futuros;
+    cartao === "hoje"
+      ? eventosEntre(futuros, hoje, hoje)
+      : cartao === "semana"
+        ? em7
+        : cartao === "proximos30"
+          ? em30
+          : cartao === "mes"
+            ? noMes
+            : futuros;
   const passados = todos.filter((e) => e.fim < hoje).length;
 
   const lidoEm = `Agenda lida do site em ${formatarDataHora(agenda.lidoEm)}`;
@@ -195,16 +204,32 @@ export function AgendaDeEventos({
         </Fonte>
       </Secao>
 
-      <TrocaVisao visao={visao} busca={p.busca} base={BASE_EVENTOS} />
+      <div className="flex flex-wrap items-center gap-2">
+        <TrocaVisao visao={visao} busca={p.busca} base={BASE_EVENTOS} />
+        <Link
+          href={hrefCom(BASE_EVENTOS, p.busca, {
+            cartao: cartao === "hoje" ? null : "hoje",
+            visao: null,
+          })}
+          scroll={false}
+          aria-current={cartao === "hoje" ? "true" : undefined}
+          className="vidro flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-white/60 aria-[current=true]:bg-neutral-900 aria-[current=true]:text-white"
+        >
+          <CalendarCheck className="size-4" aria-hidden />
+          Hoje
+        </Link>
+      </div>
 
-      {visao === "lista" ? (
+      {visao === "lista" || cartao === "hoje" ? (
         <Secao
           titulo={cartao ? (CARTOES[cartao] ?? "Eventos") : "Próximos eventos"}
           descricao="Do mais próximo ao mais distante, como estão publicados no site."
         >
           {lista.length === 0 ? (
             <p className="text-sm text-neutral-500">
-              Nenhum evento nesse filtro.
+              {cartao === "hoje"
+                ? "Nenhum evento do site acontecendo hoje."
+                : "Nenhum evento nesse filtro."}
             </p>
           ) : (
             <div className="flex flex-col gap-6">

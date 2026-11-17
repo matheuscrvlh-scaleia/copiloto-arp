@@ -40,6 +40,51 @@ export const MESES = [
   "Dezembro",
 ] as const;
 
+/** Entradas de veículos de um dia no estacionamento (WPS). */
+export interface DiaEstacionamento {
+  dia: string;
+  entradas: number;
+}
+
+// O fluxo vem das câmeras (pessoas) ou, sem elas, do estacionamento
+// (veículos que entraram, lidos do WPS uma vez por dia). As contas abaixo
+// valem para as duas: só o mapa dia → entradas muda. O estacionamento não
+// tem hora, então o quadro por hora é só das câmeras.
+export const FONTES_FLUXO = {
+  cameras: {
+    rotulo: "Câmeras de contagem",
+    titulo: "Fluxo de visitantes",
+    unidade: "pessoas",
+  },
+  estacionamento: {
+    rotulo: "Estacionamento (WPS)",
+    titulo: "Entradas no estacionamento",
+    unidade: "veículos",
+  },
+} as const;
+export type FonteFluxo = keyof typeof FONTES_FLUXO;
+
+/**
+ * A fonte pedida no filtro; sem pedido, as câmeras se já contaram alguma vez
+ * e, se não, o estacionamento.
+ */
+export function fonteDoFluxo(
+  dados: { contagens: readonly unknown[] },
+  pedida: string,
+): FonteFluxo {
+  if (pedida === "cameras" || pedida === "estacionamento") return pedida;
+  return dados.contagens.length ? "cameras" : "estacionamento";
+}
+
+/** Entradas por dia da fonte escolhida ("aaaa-mm-dd" → total). */
+export function entradasDaFonte(
+  dados: { contagens: ContagemCamera[]; estacionamento: DiaEstacionamento[] },
+  fonte: FonteFluxo,
+): Map<string, number> {
+  if (fonte === "cameras") return entradasPorDia(dados.contagens);
+  return new Map(dados.estacionamento.map((d) => [d.dia, d.entradas]));
+}
+
 /** Entradas por dia de Brasília ("aaaa-mm-dd" → total), de todo o histórico. */
 export function entradasPorDia(
   contagens: ContagemCamera[],

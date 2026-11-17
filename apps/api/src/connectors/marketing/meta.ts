@@ -1,3 +1,4 @@
+import type { ContaPublica } from "@arp/shared/marketing/benchmark";
 import type {
   InstagramDemografia,
   InstagramPost,
@@ -72,15 +73,15 @@ const descobertaSchema = z.object({
             // Conta que esconde curtidas não manda o campo.
             like_count: num,
             comments_count: num,
+            // Imagem: media_url; vídeo: thumbnail_url (media_url é o vídeo).
+            media_url: z.string().optional(),
+            thumbnail_url: z.string().optional(),
           }),
         ),
       })
       .default({ data: [] }),
   }),
 });
-export type ContaPublica = z.infer<
-  typeof descobertaSchema
->["business_discovery"];
 
 const paginado = <T extends z.ZodType>(item: T) =>
   z.object({
@@ -446,14 +447,25 @@ export function createMetaClient(config: MetaConfig) {
       usuario: string,
       posts = 50,
     ): Promise<ContaPublica> {
-      const campos = `username,name,followers_count,media_count,media.limit(${posts}){id,timestamp,permalink,caption,media_type,like_count,comments_count}`;
-      return parseWith(
+      const campos = `username,name,followers_count,media_count,media.limit(${posts}){id,timestamp,permalink,caption,media_type,like_count,comments_count,media_url,thumbnail_url}`;
+      const { media, ...conta } = parseWith(
         sistema,
         descobertaSchema,
         await ler(instagramId, {
           fields: `business_discovery.username(${usuario}){${campos}}`,
         }),
       ).business_discovery;
+      return {
+        ...conta,
+        media: {
+          data: media.data.map(({ media_url, thumbnail_url, ...p }) => ({
+            ...p,
+            miniatura:
+              thumbnail_url ??
+              (p.media_type === "VIDEO" ? null : (media_url ?? null)),
+          })),
+        },
+      };
     },
   };
 }

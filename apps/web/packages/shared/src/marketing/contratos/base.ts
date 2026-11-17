@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { ContaPublica } from "../benchmark";
 import type { EventoSite } from "../eventos";
-import type { ContagemCamera } from "../publico";
+import type { ContagemCamera, DiaEstacionamento } from "../publico";
 
 // Contrato da base do Marketing: os cadastros de Configurações (iguais para
 // todos do módulo), as metas, o fluxo das câmeras, a agenda do site, o
@@ -182,6 +182,10 @@ export const dadosPublico = z.object({
   cameras: z.array(
     z.object({ deviceid: z.string(), ultimoContato: z.string() }),
   ),
+  /** Entradas de veículos por dia no estacionamento (WPS), todos os tipos. */
+  estacionamento: z.array(
+    z.object({ dia: z.string(), entradas: z.number() }),
+  ) satisfies z.ZodType<DiaEstacionamento[]>,
 });
 export type DadosPublico = z.infer<typeof dadosPublico>;
 /** null: sem a permissão marketing.publico. */
@@ -234,6 +238,7 @@ export const contaPublica: z.ZodType<ContaPublica> = z.object({
         media_type: z.string(),
         like_count: z.number(),
         comments_count: z.number(),
+        miniatura: z.string().nullable(),
       }),
     ),
   }),

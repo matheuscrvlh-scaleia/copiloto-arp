@@ -252,7 +252,13 @@ export const consultaDaAgenda = queryOptions({
 // ---------------------------------------------------------------------------
 
 /** Depois de gravar um cadastro: os cadastros e o histórico. */
-const CADASTROS = [chavesMarketing.cadastros, ["marketing", "historico"]];
+// O Benchmark lê as referências cadastradas: sem ele aqui, a referência nova
+// só aparecia quando a consulta vencia.
+const CADASTROS = [
+  chavesMarketing.cadastros,
+  ["marketing", "historico"],
+  chavesMarketing.benchmark(),
+];
 
 /** Gravação de Configurações (formulário como a tela manda). */
 const gravacao = (

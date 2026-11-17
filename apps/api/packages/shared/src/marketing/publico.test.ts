@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   comparativoAnual,
   diasComEvento,
+  entradasDaFonte,
   entradasPorDia,
+  fonteDoFluxo,
   incrementoEmEventos,
   mediaPorDiaDaSemana,
   mediaPorHora,
@@ -94,5 +96,34 @@ describe("comparativo anual e eventos", () => {
     expect(r.comEvento).toBe(700);
     expect(r.semEvento).toBe(300);
     expect(r.variacao).toBeCloseTo(133.33, 1);
+  });
+});
+
+describe("fonte do fluxo", () => {
+  const dados = {
+    contagens: [c("2026-11-09T13:00:00Z", 5)],
+    estacionamento: [
+      { dia: "2026-11-09", entradas: 320 },
+      { dia: "2026-11-10", entradas: 280 },
+    ],
+  };
+
+  it("sem pedido, usa as câmeras se já contaram; senão, o estacionamento", () => {
+    expect(fonteDoFluxo(dados, "")).toBe("cameras");
+    expect(fonteDoFluxo({ contagens: [] }, "")).toBe("estacionamento");
+    expect(fonteDoFluxo(dados, "estacionamento")).toBe("estacionamento");
+    expect(fonteDoFluxo(dados, "qualquer")).toBe("cameras");
+  });
+
+  it("o estacionamento vira o mesmo mapa dia → entradas das câmeras", () => {
+    const porDia = entradasDaFonte(dados, "estacionamento");
+    expect([...porDia]).toEqual([
+      ["2026-11-09", 320],
+      ["2026-11-10", 280],
+    ]);
+    expect(
+      resumoFluxo(porDia, { de: "2026-11-09", ate: "2026-11-11" }),
+    ).toMatchObject({ total: 600, diasComDado: 2, diasNoPeriodo: 3 });
+    expect(entradasDaFonte(dados, "cameras").get("2026-11-09")).toBe(5);
   });
 });

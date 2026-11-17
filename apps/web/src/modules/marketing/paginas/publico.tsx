@@ -9,7 +9,9 @@ import {
   DIAS_DA_SEMANA,
   diasComEvento,
   diasDoPeriodo,
-  entradasPorDia,
+  entradasDaFonte,
+  FONTES_FLUXO,
+  fonteDoFluxo,
   incrementoEmEventos,
   mediaPorDiaDaSemana,
   mediaPorHora,
@@ -18,7 +20,7 @@ import {
 import { eventosDoCalendario } from "@arp/shared/marketing/radar";
 import { visiveisDa } from "@arp/shared/marketing/visualizacao";
 import { useSuspenseQueries } from "@tanstack/react-query";
-import { CalendarDays, GitCompare } from "lucide-react";
+import { CalendarDays, Car, GitCompare } from "lucide-react";
 import { Suspense } from "react";
 import {
   CartaoCarregando,
@@ -46,14 +48,15 @@ import {
 } from "../api";
 import { type FiltrosLidos, useFiltrosMkt } from "../base";
 
-// /marketing/publico: o fluxo de pessoas contado pelas câmeras.
+// /marketing/publico: o fluxo contado pelas câmeras (pessoas) ou, sem elas,
+// as entradas do estacionamento (veículos, do WPS).
 
 export default function Page() {
   return (
     <>
       <PageHeader
         title="Público e visitação"
-        description="Quantas pessoas entram no Espaço ARP, em que dias e horários, e quanto os eventos movem o fluxo. Contagem das câmeras: só números, nunca imagem."
+        description="Quanto público vem ao Espaço ARP, em que dias e horários, e quanto os eventos movem o fluxo. Pelas câmeras (só números, nunca imagem) ou pelas entradas do estacionamento."
       />
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="marketing.publico">
@@ -81,7 +84,10 @@ function Publico({ f }: { f: FiltrosLidos }) {
   const ve = visiveisDa("publico", params.quadros_ocultos);
   if (!dados) return null;
 
-  const porDia = entradasPorDia(dados.contagens);
+  const fonte = fonteDoFluxo(dados, f.um("fonte"));
+  const F = FONTES_FLUXO[fonte];
+  const cameras = fonte === "cameras";
+  const porDia = entradasDaFonte(dados, fonte);
   const r = resumoFluxo(porDia, periodo);
   const rAnt = resumoFluxo(porDia, anterior);
   const eventos = eventosDoCalendario(
@@ -97,12 +103,17 @@ function Publico({ f }: { f: FiltrosLidos }) {
   const diaSemana = /^[0-6]$/.test(diaPedido) ? Number(diaPedido) : null;
   const ano = Number(periodo.ate.slice(0, 4));
   const anual = comparativoAnual(porDia, ano, diaSemana);
-  const semDado = dados.contagens.length === 0;
-  const desde = dados.contagens[0]?.inicio.slice(0, 10);
+  const semDado = cameras
+    ? dados.contagens.length === 0
+    : dados.estacionamento.length === 0;
+  const desde = cameras
+    ? dados.contagens[0]?.inicio.slice(0, 10)
+    : dados.estacionamento[0]?.dia;
 
   const linhaFiltros = linhaDeFiltros([
     { rotulo: "Período", valor: f.rotulo },
     { rotulo: "Comparação", valor: f.rotuloAnterior },
+    { rotulo: "Fonte", valor: F.rotulo },
   ]);
 
   return (
@@ -124,6 +135,21 @@ function Publico({ f }: { f: FiltrosLidos }) {
             opcoes: COMPARACOES.map((c) => ({ ...c })),
           },
           {
+            chave: "fonte",
+            rotulo: "Fonte do fluxo",
+            todos: "Fonte automática",
+            valor: f.um("fonte"),
+            icone: <Car className="size-4" />,
+            largura: "w-56",
+            opcoes: [
+              { valor: "cameras", rotulo: FONTES_FLUXO.cameras.rotulo },
+              {
+                valor: "estacionamento",
+                rotulo: FONTES_FLUXO.estacionamento.rotulo,
+              },
+            ],
+          },
+          {
             chave: "dia",
             rotulo: "Dia da semana do comparativo anual",
             todos: "Todos os dias",
@@ -141,18 +167,20 @@ function Publico({ f }: { f: FiltrosLidos }) {
       <TopoDaTela
         dadosDe={ctx.dadosDe}
         filtros={linhaFiltros}
-        reais={semDado ? undefined : "câmeras de contagem"}
+        reais={semDado ? undefined : F.rotulo}
         aviso={
-          semDado
-            ? "As câmeras ainda não mandaram contagem. Confira o cartão Câmeras em Administração › Integrações."
-            : undefined
+          !semDado
+            ? undefined
+            : cameras
+              ? "As câmeras ainda não mandaram contagem. Confira o cartão Câmeras em Administração › Integrações, ou escolha o estacionamento no filtro Fonte do fluxo."
+              : "O estacionamento ainda não foi sincronizado. Confira o cartão Estacionamento (WPS) em Administração › Integrações."
         }
       />
 
       {ve("cartoes") && (
         <Cartoes modulo="marketing">
           <CartaoDaTela
-            titulo="Fluxo de visitantes"
+            titulo={F.titulo}
             valor={formatarNumero(r.total)}
             variacao={
               rAnt.diasComDado
@@ -160,8 +188,12 @@ function Publico({ f }: { f: FiltrosLidos }) {
                 : undefined
             }
             detalhe={`${r.diasComDado} de ${r.diasNoPeriodo} dias com contagem`}
-            calculo="Soma das entradas contadas por todas as câmeras no período. Dia sem contagem fica de fora (não conta como zero)."
-            fonte="Câmeras de contagem"
+            calculo={
+              cameras
+                ? "Soma das entradas contadas por todas as câmeras no período. Dia sem contagem fica de fora (não conta como zero)."
+                : "Soma dos veículos que entraram no estacionamento no período, de todos os tipos. Dia sem leitura do WPS fica de fora (não conta como zero)."
+            }
+            fonte={F.rotulo}
           />
           <CartaoDaTela
             titulo="Média por dia"
@@ -176,8 +208,8 @@ function Publico({ f }: { f: FiltrosLidos }) {
                 : undefined
             }
             detalhe={`Dia útil ${fmt(r.mediaDiaUtil)} · Fim de semana ${fmt(r.mediaFimDeSemana)}`}
-            calculo="Entradas ÷ dias com contagem. Dia útil: segunda a sexta; fim de semana: sábado e domingo."
-            fonte="Câmeras de contagem"
+            calculo={`Entradas (${F.unidade}) ÷ dias com contagem. Dia útil: segunda a sexta; fim de semana: sábado e domingo.`}
+            fonte={F.rotulo}
           />
           <CartaoDaTela
             titulo="Incremento em dias de evento"
@@ -188,7 +220,7 @@ function Publico({ f }: { f: FiltrosLidos }) {
             }
             detalhe={`Com evento ${fmt(inc.comEvento)}/dia · Sem evento ${fmt(inc.semEvento)}/dia`}
             calculo="Média de entradas nos dias com evento no calendário do Asana ÷ média nos dias sem evento do mesmo período − 1."
-            fonte="Câmeras e calendário do Asana"
+            fonte={`${F.rotulo} e calendário do Asana`}
           />
           <CartaoDaTela
             titulo="Dia de maior fluxo"
@@ -198,7 +230,7 @@ function Publico({ f }: { f: FiltrosLidos }) {
                 ? `${DIAS_DA_SEMANA[diaDaSemana(r.pico.dia)]}, ${formatarData(r.pico.dia)}${diasEvento.has(r.pico.dia) ? " · com evento" : ""}`
                 : "Sem contagem no período"
             }
-            fonte="Câmeras de contagem"
+            fonte={F.rotulo}
           />
         </Cartoes>
       )}
@@ -207,7 +239,7 @@ function Publico({ f }: { f: FiltrosLidos }) {
         <Secao
           titulo="Fluxo por dia"
           descricao="Entradas de cada dia do período. Dia com evento no calendário aparece destacado."
-          calculo="Soma das entradas de todas as câmeras no dia (horário de Brasília). Fonte: câmeras de contagem."
+          calculo={`Entradas (${F.unidade}) do dia, horário de Brasília. Fonte: ${F.rotulo}.`}
         >
           <Colunas
             descricao="Entradas por dia no período"
@@ -225,13 +257,13 @@ function Publico({ f }: { f: FiltrosLidos }) {
             }))}
           />
           <Fonte>
-            {`Câmeras de contagem${desde ? ` (desde ${formatarData(desde)})` : ""}; eventos do calendário do Asana`}
+            {`${F.rotulo}${desde ? ` (desde ${formatarData(desde)})` : ""}; eventos do calendário do Asana`}
           </Fonte>
         </Secao>
       )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {ve("por_hora") && (
+        {ve("por_hora") && cameras && (
           <Secao
             titulo="Fluxo por hora"
             descricao="Média de entradas em cada hora, nos dias com contagem do período"
@@ -254,7 +286,7 @@ function Publico({ f }: { f: FiltrosLidos }) {
           <Secao
             titulo="Média por dia da semana"
             descricao="Quanto cada dia da semana recebe, em média, no período"
-            calculo="Entradas de cada dia da semana ÷ quantos desses dias tiveram contagem. Fonte: câmeras de contagem."
+            calculo={`Entradas de cada dia da semana ÷ quantos desses dias tiveram contagem. Fonte: ${F.rotulo}.`}
           >
             <Colunas
               rotularTodas
@@ -267,7 +299,7 @@ function Publico({ f }: { f: FiltrosLidos }) {
                 titulo: DIAS_DA_SEMANA[i],
               }))}
             />
-            <Fonte>Câmeras de contagem</Fonte>
+            <Fonte>{F.rotulo}</Fonte>
           </Secao>
         )}
       </div>
@@ -276,7 +308,7 @@ function Publico({ f }: { f: FiltrosLidos }) {
         <Secao
           titulo={`Comparativo anual: ${ano - 1} × ${ano}`}
           descricao={`Média de entradas por dia em cada mês${diaSemana === null ? "" : `, só ${DIAS_DA_SEMANA[diaSemana]?.toLowerCase()}`}. Escolha o dia da semana no filtro.`}
-          calculo="Média das entradas dos dias com contagem de cada mês (do dia da semana escolhido). Mês sem contagem fica sem ponto. Fonte: câmeras de contagem."
+          calculo={`Média das entradas dos dias com contagem de cada mês (do dia da semana escolhido). Mês sem contagem fica sem ponto. Fonte: ${F.rotulo}.`}
         >
           <Linhas
             descricao="Média de entradas por dia, mês a mês, no ano e no anterior"
@@ -301,8 +333,8 @@ function Publico({ f }: { f: FiltrosLidos }) {
             ]}
           />
           <Fonte>
-            Câmeras de contagem. O histórico começa no primeiro envio das
-            câmeras; antes disso o mês fica sem ponto.
+            {F.rotulo}. O histórico começa no primeiro dia com contagem; antes
+            disso o mês fica sem ponto.
           </Fonte>
         </Secao>
       )}

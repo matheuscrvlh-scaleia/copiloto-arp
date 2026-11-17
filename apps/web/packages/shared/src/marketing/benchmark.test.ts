@@ -4,6 +4,7 @@ import {
   linhaBenchmark,
   linkAnunciosGoogle,
   linkAnunciosMeta,
+  postsRecentes,
 } from "./benchmark";
 
 const post = (id: string, dia: string, curtidas: number, comentarios = 0) => ({
@@ -14,6 +15,7 @@ const post = (id: string, dia: string, curtidas: number, comentarios = 0) => ({
   media_type: "IMAGE",
   like_count: curtidas,
   comments_count: comentarios,
+  miniatura: null,
 });
 
 const conta = (
@@ -70,5 +72,16 @@ describe("links das bibliotecas de anúncios", () => {
     );
     expect(linkAnunciosGoogle(null)).toBeNull();
     expect(linkAnunciosGoogle("não é link")).toBeNull();
+  });
+});
+
+describe("postsRecentes", () => {
+  it("devolve os mais recentes primeiro, até o limite", () => {
+    const c = conta([
+      post("a", "2026-11-01", 1, 0),
+      post("c", "2026-11-05", 1, 0),
+      post("b", "2026-11-03", 1, 0),
+    ]);
+    expect(postsRecentes(c, 2).map((p) => p.id)).toEqual(["c", "b"]);
   });
 });

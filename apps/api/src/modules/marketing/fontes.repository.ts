@@ -1,6 +1,8 @@
+import { sql } from "kysely";
 import type { Tx } from "@/infra/banco";
 
-// Consultas do que as sincronizações gravaram (redes, RD) e das câmeras.
+// Consultas do que as sincronizações gravaram (redes, RD, estacionamento) e
+// das câmeras.
 
 /** Quando a última sincronização da Meta gravou a foto das redes. */
 export function ultimaFotoDasRedes(tx: Tx) {
@@ -92,6 +94,20 @@ export function contagensDasCameras(tx: Tx, desde: string) {
     .where("inicio", ">=", desde)
     .orderBy("inicio")
     .orderBy("deviceid")
+    .execute();
+}
+
+/** Entradas de veículos por dia no estacionamento (WPS), somando os tipos. */
+export function entradasDoEstacionamento(tx: Tx, desde: string) {
+  return tx
+    .selectFrom("financeiro.estacionamento_movimento")
+    .select([
+      sql<string>`data::text`.as("dia"),
+      sql<number>`sum(entradas)::int`.as("entradas"),
+    ])
+    .where("data", ">=", desde)
+    .groupBy("data")
+    .orderBy("data")
     .execute();
 }
 

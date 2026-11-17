@@ -1,4 +1,5 @@
 import {
+  formatarData,
   formatarMoeda,
   formatarNumero,
   formatarPct,
@@ -10,6 +11,7 @@ import {
   NIVEIS,
 } from "@arp/shared/marketing/alertas";
 import { linhasDeCampanha, somar } from "@arp/shared/marketing/anuncios";
+import { postsRecentes } from "@arp/shared/marketing/benchmark";
 import {
   type LinhaResumo,
   linhasDoResumo,
@@ -20,9 +22,14 @@ import {
   linhaDeFiltros,
   mesesAte,
   paramsDoPeriodoMkt,
-  semanasAte,
+  somarDias,
 } from "@arp/shared/marketing/periodo";
-import { entradasPorDia, resumoFluxo } from "@arp/shared/marketing/publico";
+import {
+  entradasDaFonte,
+  FONTES_FLUXO,
+  fonteDoFluxo,
+  resumoFluxo,
+} from "@arp/shared/marketing/publico";
 import {
   eventosDoCalendario,
   resumoRadar,
@@ -30,7 +37,12 @@ import {
   sinalizacoesDoMarketing,
   tarefasDoTime,
 } from "@arp/shared/marketing/radar";
-import { linhasPorRede, resumoRedes } from "@arp/shared/marketing/redes";
+import {
+  linhasPorRede,
+  resumoRedes,
+  seguidoresEm,
+  somarRedes,
+} from "@arp/shared/marketing/redes";
 import {
   fracaoDoMes,
   mesAteHoje,
@@ -45,13 +57,16 @@ import {
   totalTrafego,
 } from "@arp/shared/marketing/site";
 import { visiveisDa } from "@arp/shared/marketing/visualizacao";
-import { useSuspenseQueries } from "@tanstack/react-query";
+import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
   Bell,
+  Film,
   GitCompare,
+  Heart,
   Info,
+  MessageCircle,
   Sparkles,
 } from "lucide-react";
 import { Suspense } from "react";
@@ -62,8 +77,6 @@ import {
   TelaCarregando,
 } from "@/components/carregando";
 import { BarraDeFiltros } from "@/components/dashboard/barra-de-filtros";
-import { ColunasEmpilhadas } from "@/components/dashboard/graficos/colunas-empilhadas";
-import { Linhas } from "@/components/dashboard/graficos/linhas";
 import { SeloStatus } from "@/components/dashboard/indicador";
 import { Secao } from "@/components/dashboard/tabela";
 import { TabelaLista } from "@/components/dashboard/tabela-lista";
@@ -87,6 +100,7 @@ import {
   consultaDasRedes,
   consultaDasRegras,
   consultaDoAsana,
+  consultaDoBenchmark,
   consultaDoPublico,
   consultaDoRd,
   consultaDoRdDosAnuncios,
@@ -203,8 +217,11 @@ function Painel({ f }: { f: FiltrosLidos }) {
   });
   const radar = resumoRadar(asana, params, codigos, regras, hoje);
 
-  // As três perguntas: público (câmeras), marca (buscas) e onde agir.
-  const porDia = publico ? entradasPorDia(publico.contagens) : null;
+  // As três perguntas: público (câmeras ou estacionamento), marca (buscas)
+  // e onde agir.
+  const fonteFluxo = publico ? fonteDoFluxo(publico, "") : null;
+  const porDia =
+    publico && fonteFluxo ? entradasDaFonte(publico, fonteFluxo) : null;
   const fluxo = porDia ? resumoFluxo(porDia, periodo) : null;
   const fluxoAnt = porDia ? resumoFluxo(porDia, anterior) : null;
   const marca = buscasDaMarca(site.buscas, periodo, params.termos_marca);
@@ -239,7 +256,16 @@ function Painel({ f }: { f: FiltrosLidos }) {
         .sort((a, b) => b.diasEmAberto - a.diasEmAberto)
     : [];
   const termos = buscasDoPeriodo(site.buscas, periodo, 8);
-  const redesReais = linhasPorRede(redes, periodo, ["instagram", "facebook"]);
+  const META: ("instagram" | "facebook")[] = ["instagram", "facebook"];
+  const redesReais = linhasPorRede(redes, periodo, META);
+  const engajamento = somarRedes(redesReais);
+  const engajamentoAnt = somarRedes(linhasPorRede(redes, anterior, META));
+  // Seguidores de hoje (a última foto diária), não os do fim do período: a
+  // foto atrasada denuncia a sincronização da Meta parada.
+  const ultimaFoto = redes.instagram.dias
+    .filter((d) => d.followers_count !== null)
+    .reduce<string | null>((m, d) => (m && m > d.date ? m : d.date), null);
+  const fotoAtrasada = !!ultimaFoto && ultimaFoto < somarDias(hoje, -1);
 
   const query = new URLSearchParams(paramsDoPeriodoMkt(periodo)).toString();
   const resumo = linhasDoResumo(
@@ -324,25 +350,10 @@ function Painel({ f }: { f: FiltrosLidos }) {
     pode,
   );
 
-  // 12 semanas até a do período, para os gráficos.
-  const semanas = semanasAte(periodo.ate, 12);
-  const pontos = semanas.map((s) => ({
-    chave: s.de,
-    rotulo: s.rotulo,
-    titulo: `Semana de ${s.rotulo} a ${s.ate.slice(8, 10)}/${s.ate.slice(5, 7)}`,
-  }));
-  const leadsSemana = semanas.map((s) => resumoSite(site, rd, s, interesseDe));
-  const cplSemana = semanas.map(
-    (s) =>
-      somar(linhasDeCampanha(anuncios, rdAnuncios.conversoes, s).linhas)
-        .custoPorLead,
-  );
-
   const linhaFiltros = linhaDeFiltros([
     { rotulo: "Período", valor: f.rotulo },
     { rotulo: "Comparação", valor: f.rotuloAnterior },
   ]);
-  const cartaoLeads = pode("marketing.site");
 
   return (
     <div className="flex flex-col gap-6">
@@ -376,7 +387,7 @@ function Painel({ f }: { f: FiltrosLidos }) {
           site.siteReal && "Google Analytics",
           rd.lidoEm && "leads do RD Station",
           asana.lidoEm && "radar do Asana",
-          !!publico?.contagens.length && "câmeras de contagem",
+          !!porDia?.size && !!fonteFluxo && FONTES_FLUXO[fonteFluxo].rotulo,
         )}
         aviso={juntarAvisos(
           anuncios.avisoMeta,
@@ -398,9 +409,55 @@ function Painel({ f }: { f: FiltrosLidos }) {
       />
 
       <Cartoes modulo="marketing">
-        {ve("fluxo") && fluxo && fluxoAnt && (
+        {ve("nota_google") && pode("marketing.reputacao") && (
           <CartaoDaTela
-            titulo="Fluxo de visitantes"
+            titulo="Nota no Google"
+            exemplo="avaliações do Google (o Perfil da Empresa ainda não foi ligado)"
+            valor={rep.notaArp === null ? "—" : formatarNumero(rep.notaArp, 1)}
+            detalhe={
+              rep.totalArp === null
+                ? "Sem o perfil da ARP no Google"
+                : `${formatarNumero(rep.totalArp)} avaliações · ${formatarNumero(rep.novasNoMes)} novas no mês`
+            }
+            status={
+              metaNota && rep.notaArp !== null
+                ? status(rep.notaArp, metaNota)
+                : undefined
+            }
+            meta={
+              metaNota
+                ? `Meta: ${formatarNumero(metaNota.meta, 1)}`
+                : "Defina a meta em Configurações"
+            }
+            calculo="Nota média e total de avaliações do perfil da ARP no Google, como estão hoje (não segue o período)."
+            fonte="Google Perfil da Empresa"
+            href="/marketing/reputacao"
+          />
+        )}
+        {ve("engajamento") && pode("marketing.redes") && (
+          <CartaoDaTela
+            titulo="Taxa de engajamento"
+            valor={
+              engajamento.taxa === null ? "—" : formatarPct(engajamento.taxa)
+            }
+            variacao={
+              engajamento.taxa !== null && engajamentoAnt.taxa !== null
+                ? variacaoContra(
+                    engajamento.taxa,
+                    engajamentoAnt.taxa,
+                    f.rotuloAnterior,
+                  )
+                : undefined
+            }
+            detalhe={`${formatarNumero(engajamento.interacoes)} interações · alcance ${formatarNumero(engajamento.alcanceEVisualizacoes)}`}
+            calculo="Interações (curtidas, comentários, compartilhamentos e salvamentos) ÷ alcance no período. Só o Instagram: o Facebook não entrega interações; YouTube e TikTok entram quando forem ligados."
+            fonte="Instagram (Meta)"
+            href={`/marketing/redes?${query}`}
+          />
+        )}
+        {ve("fluxo") && fluxo && fluxoAnt && fonteFluxo && (
+          <CartaoDaTela
+            titulo={FONTES_FLUXO[fonteFluxo].titulo}
             valor={fluxo.diasComDado ? formatarNumero(fluxo.total) : "—"}
             variacao={
               fluxo.diasComDado && fluxoAnt.diasComDado
@@ -409,11 +466,15 @@ function Painel({ f }: { f: FiltrosLidos }) {
             }
             detalhe={
               fluxo.diasComDado
-                ? `Média ${formatarNumero(Math.round(fluxo.mediaPorDia ?? 0))}/dia em ${fluxo.diasComDado} dias com contagem`
-                : "As câmeras ainda não contaram neste período"
+                ? `Média ${formatarNumero(Math.round(fluxo.mediaPorDia ?? 0))} ${FONTES_FLUXO[fonteFluxo].unidade}/dia em ${fluxo.diasComDado} dias com contagem`
+                : "Ainda sem contagem neste período"
             }
-            calculo="Entradas contadas pelas câmeras no período, somando todas. Dia sem contagem fica de fora."
-            fonte="Câmeras de contagem"
+            calculo={
+              fonteFluxo === "cameras"
+                ? "Entradas contadas pelas câmeras no período, somando todas. Dia sem contagem fica de fora."
+                : "Veículos que entraram no estacionamento no período (WPS), de todos os tipos. Sem as câmeras, é a medida do público. Dia sem leitura fica de fora."
+            }
+            fonte={FONTES_FLUXO[fonteFluxo].rotulo}
             href={`/marketing/publico?${query}`}
           />
         )}
@@ -440,6 +501,9 @@ function Painel({ f }: { f: FiltrosLidos }) {
             href={`/marketing/site?${query}`}
           />
         )}
+      </Cartoes>
+
+      <Cartoes modulo="marketing">
         {ve("eventos") && pode("marketing.radar") && (
           <CartaoDaTela
             titulo="Eventos e ativações"
@@ -473,9 +537,6 @@ function Painel({ f }: { f: FiltrosLidos }) {
             href={`/marketing/anuncios?${query}`}
           />
         )}
-      </Cartoes>
-
-      <Cartoes modulo="marketing">
         {ve("investimento") && pode("marketing.anuncios") && (
           <CartaoDaTela
             titulo="Investimento em anúncios"
@@ -490,53 +551,6 @@ function Painel({ f }: { f: FiltrosLidos }) {
             detalhe={`${campanhas.linhas.length} campanhas com gasto`}
             fonte="Meta Ads, Google Ads e TikTok Ads"
             href={`/marketing/anuncios?${query}`}
-          />
-        )}
-        {ve("leads") && cartaoLeads && (
-          <CartaoDaTela
-            titulo="Leads no RD"
-            exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
-            valor={formatarNumero(sit.leadsUnicos)}
-            variacao={variacaoContra(
-              sit.leadsUnicos,
-              sitAnt.leadsUnicos,
-              f.rotuloAnterior,
-            )}
-            detalhe={`Evento ${formatarNumero(sit.leadsEvento)} · Locação ${formatarNumero(sit.leadsLocacao)}`}
-            calculo="Contatos únicos que converteram em alguma landing page do RD Station no período."
-            fonte="RD Station"
-            href={`/marketing/site?${query}`}
-          />
-        )}
-        {ve("custo_por_lead") && pode("marketing.anuncios") && (
-          <CartaoDaTela
-            titulo="Custo por lead"
-            exemplo="investimento e leads do TikTok Ads (Meta e Google são reais)"
-            valor={formatarMoeda(ads.custoPorLead)}
-            variacao={
-              ads.custoPorLead !== null && adsAnt.custoPorLead !== null
-                ? variacaoContra(
-                    ads.custoPorLead,
-                    adsAnt.custoPorLead,
-                    f.rotuloAnterior,
-                    "menor_melhor",
-                  )
-                : undefined
-            }
-            status={
-              metaCpl && ads.custoPorLead !== null
-                ? status(ads.custoPorLead, metaCpl)
-                : undefined
-            }
-            direcao="menor_melhor"
-            meta={
-              metaCpl
-                ? `Meta: até ${formatarMoeda(metaCpl.meta)}`
-                : "Defina a meta em Configurações"
-            }
-            calculo="Investimento ÷ leads do RD Station vindos das campanhas (traffic_campaign)."
-            fonte="Anúncios e RD Station"
-            href={`/marketing/anuncios?${query}&cartao=acima_meta`}
           />
         )}
       </Cartoes>
@@ -602,36 +616,45 @@ function Painel({ f }: { f: FiltrosLidos }) {
         {ve("redes") && pode("marketing.redes") && (
           <Secao
             titulo="Redes sociais: engajamento"
-            descricao="Seguidores, novos seguidores e interações de cada rede no período"
-            calculo="Interações: curtidas, comentários, compartilhamentos e salvamentos. Taxa: interações ÷ alcance. O Facebook não entrega interações. Fonte: Meta (Instagram e Facebook)."
+            descricao="Seguidores de hoje; novos seguidores e interações de cada rede no período"
+            calculo="Seguidores: a última foto diária gravada pela sincronização da Meta (todo dia de manhã). Interações: curtidas, comentários, compartilhamentos e salvamentos. Taxa: interações ÷ alcance. O Facebook não entrega interações. Fonte: Meta (Instagram e Facebook)."
           >
             <TabelaLista
               semBusca
               caber
               colunas={[
                 { titulo: "Rede" },
-                { titulo: "Seguidores", numero: true },
+                { titulo: "Seguidores hoje", numero: true },
                 { titulo: "Novos", numero: true },
                 { titulo: "Interações", numero: true },
                 { titulo: "Taxa", numero: true },
               ]}
-              linhas={redesReais.map((r) => ({
-                chave: r.rede,
-                busca: r.rotulo,
-                href: `/marketing/redes?${query}`,
-                ordem: [r.rotulo, r.seguidores, r.novos, r.interacoes, r.taxa],
-                celulas: [
-                  r.rotulo,
-                  r.seguidores === null ? "—" : formatarNumero(r.seguidores),
-                  r.novos === null ? "—" : formatarNumero(r.novos),
-                  r.interacoes === null ? "—" : formatarNumero(r.interacoes),
-                  r.taxa === null ? "—" : formatarPct(r.taxa),
-                ],
-              }))}
+              linhas={redesReais.map((r) => {
+                const seguidores = seguidoresEm(redes, r.rede, hoje);
+                return {
+                  chave: r.rede,
+                  busca: r.rotulo,
+                  href: `/marketing/redes?${query}`,
+                  ordem: [r.rotulo, seguidores, r.novos, r.interacoes, r.taxa],
+                  celulas: [
+                    r.rotulo,
+                    seguidores === null ? "—" : formatarNumero(seguidores),
+                    r.novos === null ? "—" : formatarNumero(r.novos),
+                    r.interacoes === null ? "—" : formatarNumero(r.interacoes),
+                    r.taxa === null ? "—" : formatarPct(r.taxa),
+                  ],
+                };
+              })}
             />
+            {fotoAtrasada && ultimaFoto && (
+              <p role="alert" className="text-xs text-amber-800">
+                A última foto dos seguidores é de {formatarData(ultimaFoto)}: a
+                sincronização da Meta não gravou depois disso. Confira em
+                Configurações › Integrações › Meta.
+              </p>
+            )}
             <Fonte>
-              Instagram e Facebook (Meta). YouTube e TikTok entram quando forem
-              ligados.
+              {`Instagram e Facebook (Meta)${ultimaFoto ? `; seguidores da foto de ${formatarData(ultimaFoto)}` : ""}. YouTube e TikTok entram quando forem ligados.`}
             </Fonte>
           </Secao>
         )}
@@ -673,77 +696,11 @@ function Painel({ f }: { f: FiltrosLidos }) {
         </Secao>
       )}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {ve("leads_semana") && cartaoLeads && (
-          <Secao
-            tom="verde"
-            titulo="Leads no RD por semana"
-            calculo="Contatos únicos que converteram no RD Station em cada semana, pelo interesse da landing page (Evento ou Locação, em Configurações › Landing pages). Outros = contatos únicos − Evento − Locação. Últimas 12 semanas. Fonte: RD Station."
-            exemplo={!rd.lidoEm && "o RD Station ainda não foi sincronizado"}
-            descricao="Contatos únicos, pelo tipo da landing page"
-          >
-            <ColunasEmpilhadas
-              pontos={pontos}
-              descricao="Leads no RD por semana e interesse, últimas 12 semanas"
-              series={[
-                {
-                  chave: "evento",
-                  rotulo: "Evento",
-                  cor: 1,
-                  valores: leadsSemana.map((s) => s.leadsEvento),
-                },
-                {
-                  chave: "locacao",
-                  rotulo: "Locação",
-                  cor: 2,
-                  valores: leadsSemana.map((s) => s.leadsLocacao),
-                },
-                {
-                  chave: "outros",
-                  rotulo: "Outros",
-                  cor: "neutro",
-                  valores: leadsSemana.map((s) =>
-                    Math.max(0, s.leadsUnicos - s.leadsEvento - s.leadsLocacao),
-                  ),
-                },
-              ]}
-            />
-            <Fonte>RD Station; tipo da landing page em Configurações</Fonte>
-          </Secao>
-        )}
-        {ve("cpl_semana") && pode("marketing.anuncios") && (
-          <Secao
-            tom="verde"
-            titulo="Custo por lead por semana"
-            calculo="Investimento da semana em anúncios ÷ leads no RD vindos dessas campanhas (traffic_campaign = nome da campanha). Semana sem lead fica sem ponto. Linha tracejada: meta do mês (Configurações › Metas). Fontes: Meta Ads, Google Ads, TikTok Ads e RD Station."
-            exemplo="investimento e leads do TikTok Ads (Meta e Google são reais)"
-            descricao="Investimento ÷ leads do RD, com a linha da meta"
-          >
-            <Linhas
-              pontos={pontos}
-              unidade="moeda"
-              descricao="Custo por lead por semana, últimas 12 semanas"
-              series={[
-                {
-                  chave: "cpl",
-                  rotulo: "Custo por lead",
-                  cor: 1,
-                  valores: cplSemana,
-                },
-              ]}
-              meta={
-                metaCpl
-                  ? {
-                      valor: metaCpl.meta,
-                      texto: `Meta ${formatarMoeda(metaCpl.meta, 0)}`,
-                    }
-                  : undefined
-              }
-            />
-            <Fonte>Anúncios e RD Station; meta em Configurações</Fonte>
-          </Secao>
-        )}
-      </div>
+      {ve("posts_benchmark") && pode("marketing.reputacao") && (
+        <Suspense fallback={<CartaoCarregando altura="h-72" />}>
+          <PostsDoBenchmark />
+        </Suspense>
+      )}
 
       {pode("marketing.reputacao") && metaNovas && (
         <p className="text-xs text-neutral-500">
@@ -818,6 +775,100 @@ function celulas(l: LinhaResumo): React.ReactNode[] {
       ""
     ),
   ];
+}
+
+/** Os posts mais recentes de cada referência do Benchmark, em miniatura. */
+function PostsDoBenchmark() {
+  const { data: dados } = useSuspenseQuery(consultaDoBenchmark);
+  if (!dados) return null;
+  const lidas = dados.referencias.flatMap(({ referencia: r, leitura }) =>
+    leitura?.ok ? [{ id: r.id, nome: r.nome, conta: leitura.conta }] : [],
+  );
+  const semLeitura = dados.referencias.flatMap(({ referencia: r, leitura }) =>
+    leitura && !leitura.ok
+      ? [{ id: r.id, nome: r.nome, usuario: r.instagram, aviso: leitura.aviso }]
+      : [],
+  );
+  return (
+    <Secao
+      titulo="Posts das referências"
+      descricao="Os 6 posts mais recentes de cada perfil do Benchmark. Clique para abrir no Instagram."
+      calculo="Posts públicos das contas cadastradas em Configurações › Benchmark e marca, lidos pela conta da ARP na Meta (business discovery) e relidos a cada hora. Só contas comerciais ou de criador entregam os posts."
+    >
+      {!lidas.length && (
+        <p className="py-6 text-center text-sm text-neutral-500">
+          {dados.referencias.length
+            ? "Nenhuma referência com o Instagram lido."
+            : "Nenhuma referência cadastrada. Inclua em Configurações › Benchmark e marca."}
+        </p>
+      )}
+      <div className="flex flex-col gap-5">
+        {lidas.map((x) => (
+          <div key={x.id} className="flex flex-col gap-2">
+            <p className="text-sm font-semibold">
+              {x.nome}
+              <a
+                href={`https://www.instagram.com/${x.conta.username}/`}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-2 text-xs font-normal text-neutral-500 hover:underline"
+              >
+                @{x.conta.username}
+              </a>
+            </p>
+            <ul className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {postsRecentes(x.conta, 6).map((m) => (
+                <li key={m.id}>
+                  <a
+                    href={m.permalink}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={m.caption || undefined}
+                    className="group relative block aspect-square overflow-hidden rounded-xl bg-neutral-100"
+                  >
+                    {m.miniatura ? (
+                      <img
+                        src={m.miniatura}
+                        alt={m.caption.slice(0, 120)}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        className="absolute inset-0 size-full object-cover transition group-hover:scale-105"
+                      />
+                    ) : (
+                      <Film
+                        className="absolute inset-0 m-auto size-6 text-neutral-300"
+                        aria-hidden
+                      />
+                    )}
+                    <span className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-neutral-900/70 to-transparent px-2 pt-4 pb-1 text-[11px] font-medium text-white">
+                      <span>
+                        {formatarData(m.timestamp.slice(0, 10)).slice(0, 5)}
+                      </span>
+                      <span className="inline-flex items-center gap-0.5">
+                        <Heart className="size-3" aria-hidden />
+                        {formatarNumero(m.like_count)}
+                      </span>
+                      <span className="inline-flex items-center gap-0.5">
+                        <MessageCircle className="size-3" aria-hidden />
+                        {formatarNumero(m.comments_count)}
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      {semLeitura.map((x) => (
+        <p key={x.id} className="text-xs text-amber-800">
+          {x.nome}
+          {x.usuario ? ` (@${x.usuario})` : ""}: {x.aviso}
+        </p>
+      ))}
+      <Fonte>Instagram (business discovery da Meta)</Fonte>
+    </Secao>
+  );
 }
 
 /** Ambiência no topo do Onde agir: as sinalizações abertas, as mais antigas primeiro. */

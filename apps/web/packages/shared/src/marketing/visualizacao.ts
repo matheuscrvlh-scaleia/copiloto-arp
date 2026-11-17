@@ -8,19 +8,18 @@ export const TELAS_VISUALIZACAO = {
   painel: {
     rotulo: "Painel",
     quadros: {
+      nota_google: "Nota no Google",
+      engajamento: "Taxa de engajamento nas redes",
       fluxo: "Fluxo de visitantes",
       buscas_marca: "Buscas pela marca ARP",
       eventos: "Eventos e ativações",
       campanhas: "Campanhas ativas",
       investimento: "Investimento em anúncios",
-      leads: "Leads no RD",
-      custo_por_lead: "Custo por lead",
       onde_agir: "Onde agir",
       buscas_site: "Buscas no Google que levam ao site",
       redes: "Redes sociais: engajamento",
       resumo: "Resumo por frente",
-      leads_semana: "Leads no RD por semana",
-      cpl_semana: "Custo por lead por semana",
+      posts_benchmark: "Posts das referências do Benchmark",
     },
   },
   publico: {

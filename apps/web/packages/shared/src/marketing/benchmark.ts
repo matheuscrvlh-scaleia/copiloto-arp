@@ -14,6 +14,15 @@ export interface PostPublico {
   media_type: string;
   like_count: number;
   comments_count: number;
+  /** Imagem do post (a capa, no vídeo); null quando a Meta não manda. */
+  miniatura: string | null;
+}
+
+/** Os `n` posts mais recentes de cada conta lida, para as miniaturas. */
+export function postsRecentes(conta: ContaPublica, n: number): PostPublico[] {
+  return [...conta.media.data]
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    .slice(0, n);
 }
 
 export interface ContaPublica {
