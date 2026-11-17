@@ -268,6 +268,7 @@ mesmos de antes. Toda execução fica em `integracao.sync_runs` ou em
 | `sustentabilidade.rotinas` | `40 10 * * *` | 07h40 |
 | `marketing.aquecer-manha` | `50 10 * * *` | 07h50 |
 | `comercial.rotinas` | `0 11 * * *` | 08h00 |
+| `ia.limpeza` | `50 6 * * *` | 03h50 |
 | `sync.diario-de-obras` | `*/30 * * * *` | a cada 30 min |
 
 - Rodar uma sincronização na hora, fora do agendador (o que antes era
@@ -293,6 +294,37 @@ Por isso `marketing.aquecer-manha` é marcada com `naSubida`: o agendador a
 roda também quando a API sobe (depois do `listen`, em segundo plano, com a
 mesma trava do horário e sem derrubar a subida se a fonte não responder).
 Com `AGENDADOR=0` nada disso roda.
+
+## IA ARP (assistente do sistema)
+
+Botão no cabeçalho de toda tela (`app/shell/botao-ia.tsx`, quem tem
+`ia.usar`); gestão em Administração › Configurações › IA (`ia.gerenciar`).
+Módulo `modules/ia` nos dois apps; modelo e chave da Claude continuam em
+Administração › Integrações.
+
+- **A IA lê pelas rotas das telas, como quem perguntou.** As fontes de dados
+  são as rotas GET registradas (`app.rotas`, com os schemas Zod): toda rota
+  GET autenticada com `schema.response` entra sozinha no catálogo
+  (`modules/ia/catalogo.ts`), com a permissão dela. Ficam de fora as
+  públicas, as de arquivo (sem schema de resposta), `auth`, `arquivos`, a
+  própria `ia` e as marcadas `config: { ia: false }`; `config.ia: "texto"`
+  descreve melhor uma fonte. Rota nova = fonte nova, sem mexer na IA.
+- A leitura é um `inject` interno (`modules/ia/consulta.ts`) com um acesso
+  novo da **mesma sessão**: passa pela permissão da rota, pela validação, pelo
+  RLS e pelo corte da resposta. Só GET; a IA nunca grava.
+- Laço com ferramentas (`detalhar_fontes`, `consultar`) no service, a Claude
+  pelo conector (`turno()`, streaming). Instruções + catálogo vão no `system`
+  com cache (iguais para todos); nome, permissões e telas da pessoa no início
+  da conversa; data e tela aberta a cada pergunta.
+- Resposta em `text/event-stream` (`POST /api/v1/ia/perguntas`); na tela,
+  `api.fluxo` em `lib/api.ts`. O nginx do `web` repassa `X-Accel-Buffering:
+  no` para o do host não segurar os pedaços.
+- Banco (schema `ia`, migration 0009): `config` (uma linha: ligada, esforço,
+  tetos, guarda, preços por modelo), `limites` (tokens/mês por cargo ou
+  pessoa; pessoa > cargo > padrão), `conversas` e `perguntas` (só o dono lê;
+  nem o gestor), `uso` (uma linha por pergunta, com o cargo do momento; fica
+  depois de a conversa ser apagada). A rotina `ia.limpeza` apaga as
+  conversas além do prazo de guarda.
 
 ## Front
 

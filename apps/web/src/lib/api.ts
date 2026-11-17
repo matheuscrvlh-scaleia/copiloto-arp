@@ -405,6 +405,46 @@ export interface ArquivoBaixado {
   nome: string | null;
 }
 
+/**
+ * Lê uma resposta em text/event-stream: chama `aoEvento` com o JSON de cada
+ * linha `data:` conforme chega. Erro antes de começar (sessão, permissão,
+ * limite) sai como `ErroDaApi`, igual aos outros pedidos.
+ */
+async function fluxo(
+  caminho: string,
+  corpo: unknown,
+  aoEvento: (dado: unknown) => void,
+  opcoes: Omit<OpcoesDoPedido, "esquema"> = {},
+): Promise<void> {
+  const resposta = await buscar("POST", caminho, corpo, opcoes);
+  if (!resposta.body) return;
+  const leitor = resposta.body.pipeThrough(new TextDecoderStream()).getReader();
+  let resto = "";
+  for (;;) {
+    const { value, done } = await leitor.read();
+    if (done) break;
+    resto += value;
+    for (
+      let fim = resto.indexOf("\n\n");
+      fim >= 0;
+      fim = resto.indexOf("\n\n")
+    ) {
+      const bloco = resto.slice(0, fim);
+      resto = resto.slice(fim + 2);
+      for (const linha of bloco.split("\n"))
+        if (linha.startsWith("data: ")) {
+          let dado: unknown;
+          try {
+            dado = JSON.parse(linha.slice(6));
+          } catch {
+            continue;
+          }
+          aoEvento(dado);
+        }
+    }
+  }
+}
+
 export const api = {
   get,
   post,
@@ -412,6 +452,7 @@ export const api = {
   put,
   delete: remover,
   pedir,
+  fluxo,
   /** Baixa um arquivo gerado pela API (planilha, PDF) com a sessão da pessoa. */
   async baixar(
     caminho: string,

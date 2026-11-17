@@ -213,6 +213,11 @@ export const PERMISSOES = {
     "Parâmetros de Sustentabilidade: prazos, fatores, limites e marco inicial, com histórico",
   "sustentabilidade.formularios.excluir":
     "Formulários específicos – excluir pergunta, campo, opção, seção ou formulário sem uso (sem ela, só inativar)",
+
+  "ia.usar":
+    "Usar a IA ARP: perguntar sobre os dados do sistema (ela só lê o que a pessoa já pode ver)",
+  "ia.gerenciar":
+    "Configurar a IA ARP: ligar e desligar, modelo, limites de uso e o painel de consumo",
 } as const;
 
 export type Permissao = keyof typeof PERMISSOES;
@@ -256,4 +261,5 @@ export const MODULOS_DE_PERMISSAO = [
   { prefixo: "sustentabilidade.", titulo: "Sustentabilidade" },
   { prefixo: "calendario.", titulo: "Calendário" },
   { prefixo: "formularios.", titulo: "Relatórios" },
+  { prefixo: "ia.", titulo: "Inteligência artificial" },
 ] as const;

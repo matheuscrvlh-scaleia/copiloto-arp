@@ -14,6 +14,8 @@ import {
 } from "./comercial";
 import { financeiro } from "./financeiro";
 import { gestao } from "./gestao";
+import { ia } from "./ia";
+import { rotinasDaIa } from "./ia/jobs";
 import {
   marketing,
   retornosDoMarketing,
@@ -50,10 +52,11 @@ export const MODULOS: readonly {
   { prefixo: "/censo", plugin: censoPublico },
   { prefixo: "/relatorios", plugin: relatorios },
   { prefixo: "/rh", plugin: rh },
+  { prefixo: "/financeiro", plugin: financeiro },
   { prefixo: "/operacoes", plugin: operacoes },
   { prefixo: "/os", plugin: os },
-  { prefixo: "/financeiro", plugin: financeiro },
   { prefixo: "/sustentabilidade", plugin: sustentabilidade },
+  { prefixo: "/ia", plugin: ia },
 ];
 
 /**
@@ -78,4 +81,5 @@ export const ROTINAS: readonly Rotina[] = [
   ...rotinasDoComercial,
   ...rotinasDeOs,
   ...rotinasDeSustentabilidade,
+  ...rotinasDaIa,
 ];

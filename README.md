@@ -28,8 +28,12 @@ regras.
   rondas, RCC e painel.
 - **Calendário**: agenda da empresa, com quem vê cada item.
 - **Relatórios**: formulários e relatórios com link público.
-- **Administração**: usuários, cargos e permissões, empresa, integrações e
-  histórico.
+- **Administração**: usuários, cargos e permissões, empresa, integrações,
+  histórico e configurações (IA).
+- **IA ARP**: assistente no cabeçalho de toda tela. Responde sobre os dados
+  que a pessoa já pode ver, lendo as mesmas telas com as mesmas permissões;
+  liberada por cargo ou pessoa (`ia.usar`), com limites de tokens, teto de
+  gasto e painel de uso em Administração › Configurações › IA.
 
 ## Stack
 
@@ -178,6 +182,7 @@ Rodam dentro da API, com trava no banco (nunca em dobro). Horários em UTC
 | `sustentabilidade.rotinas` | `40 10 * * *` | 07h40 | entrevistas, termo do Clube e cobrança dos parceiros |
 | `marketing.aquecer-manha` | `50 10 * * *` | 07h50 | relê Meta e Google do dia |
 | `comercial.rotinas` | `0 11 * * *` | 08h00 | rotinas do Comercial |
+| `ia.limpeza` | `50 6 * * *` | 03h50 | apaga conversas da IA além do prazo de guarda |
 | `sync.diario-de-obras` | `*/30 * * * *` | a cada 30 min | Diário de Obras |
 
 Rodar uma sincronização na hora:

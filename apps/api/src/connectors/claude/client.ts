@@ -38,6 +38,24 @@ export interface Pedido {
 
 type Resposta = Anthropic.Beta.BetaMessage;
 
+/** Um passo de conversa com ferramentas (o assistente do sistema). */
+export interface Turno {
+  /** Instruções fixas (com cache: iguais para todo mundo). */
+  instrucoes: string;
+  ferramentas: Anthropic.Beta.BetaTool[];
+  /** A conversa inteira até aqui, no formato da API. */
+  mensagens: Anthropic.Beta.BetaMessageParam[];
+  esforco?: Esforco;
+  maxTokens?: number;
+  /** Cancela o pedido (a pessoa fechou o chat ou parou a resposta). */
+  sinal?: AbortSignal;
+}
+
+/** O que chega durante o passo: pedaços do texto e, no fim, a mensagem. */
+export type PedacoDoTurno =
+  | { tipo: "texto"; texto: string }
+  | { tipo: "fim"; mensagem: Resposta };
+
 function traduzir(erro: unknown): never {
   if (erro instanceof ConnectorError) throw erro;
   if (erro instanceof Anthropic.APIError) {
@@ -125,6 +143,47 @@ export function createClaudeClient(config: ClaudeConfig) {
         .catch(traduzir);
       conferir(r);
       return parseWith(SISTEMA, p.schema, r.parsed_output);
+    },
+
+    /**
+     * Um passo da conversa, em streaming: devolve o texto conforme chega e,
+     * no fim, a mensagem inteira (com `stop_reason`, ferramentas pedidas e o
+     * uso de tokens). Quem chama roda as ferramentas e chama de novo. Recusa
+     * e corte por tamanho não lançam aqui: quem chama decide pelo
+     * `stop_reason` (a resposta parcial ainda é registrada).
+     */
+    async *turno(t: Turno): AsyncGenerator<PedacoDoTurno> {
+      const fluxo = sdk.beta.messages.stream(
+        {
+          model: config.modelo,
+          max_tokens: t.maxTokens ?? 32_000,
+          system: [
+            {
+              type: "text",
+              text: t.instrucoes,
+              cache_control: { type: "ephemeral" },
+            },
+          ],
+          tools: t.ferramentas,
+          messages: t.mensagens,
+          // A conversa cresce a cada passo: guarda até o último bloco.
+          cache_control: { type: "ephemeral" },
+          ...(t.esforco ? { output_config: { effort: t.esforco } } : {}),
+          ...fallback,
+        },
+        { signal: t.sinal },
+      );
+      try {
+        for await (const e of fluxo)
+          if (e.type === "content_block_delta" && e.delta.type === "text_delta")
+            yield { tipo: "texto", texto: e.delta.text };
+        yield { tipo: "fim", mensagem: await fluxo.finalMessage() };
+      } catch (erro) {
+        traduzir(erro);
+      } finally {
+        // Quem consome parou antes do fim: não deixa o pedido aberto.
+        if (!fluxo.ended) fluxo.abort();
+      }
     },
   };
 }

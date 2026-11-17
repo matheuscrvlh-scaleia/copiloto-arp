@@ -2,6 +2,7 @@ import { admin } from "@/modules/admin/rotas";
 import { calendario } from "@/modules/calendario/rotas";
 import { comercial } from "@/modules/comercial/rotas";
 import { financeiro } from "@/modules/financeiro/rotas";
+import { ia } from "@/modules/ia/rotas";
 import { inicio } from "@/modules/inicio/rotas";
 import { marketing } from "@/modules/marketing/rotas";
 import { operacoes } from "@/modules/operacoes/rotas";
@@ -21,6 +22,7 @@ export const MODULOS: Modulo[] = [
   calendario,
   comercial,
   financeiro,
+  ia,
   inicio,
   marketing,
   operacoes,

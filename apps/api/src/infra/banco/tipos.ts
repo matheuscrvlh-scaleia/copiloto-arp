@@ -838,6 +838,72 @@ export interface FormulariosRespostas {
   respostas: Json;
 }
 
+export interface IaConfig {
+  ativa: Generated<boolean>;
+  atualizado_em: Generated<string>;
+  atualizado_por: Generated<string | null>;
+  cotacao_dolar: Generated<Numeric>;
+  dias_de_guarda: Generated<number>;
+  esforco: Generated<string>;
+  id: Generated<boolean>;
+  instrucoes: Generated<string>;
+  limite_padrao_mes: number | null;
+  max_consultas: Generated<number>;
+  orcamento_mes_usd: Numeric | null;
+  precos: Generated<Json>;
+}
+
+export interface IaConversas {
+  atualizada_em: Generated<string>;
+  criada_em: Generated<string>;
+  id: Generated<string>;
+  titulo: string;
+  usuario_id: Generated<string>;
+}
+
+export interface IaLimites {
+  atualizado_em: Generated<string>;
+  atualizado_por: Generated<string | null>;
+  cargo_id: string | null;
+  id: Generated<string>;
+  tokens_mes: number | null;
+  usuario_id: string | null;
+}
+
+export interface IaPerguntas {
+  avaliacao: number | null;
+  conversa_id: string;
+  criada_em: Generated<string>;
+  fontes: Generated<Json>;
+  id: Generated<string>;
+  mensagens: Generated<Json>;
+  pergunta: string;
+  resposta: Generated<string>;
+  status: Generated<string>;
+  usuario_id: Generated<string>;
+}
+
+export interface IaUso {
+  avaliacao: number | null;
+  cargo_id: string | null;
+  consultas: Generated<number>;
+  conversa_id: string | null;
+  criado_em: Generated<string>;
+  custo_usd: Generated<Numeric>;
+  duracao_ms: Generated<number>;
+  id: Generated<string>;
+  modelo: string;
+  modulos: Generated<string[]>;
+  pergunta_id: string | null;
+  status: string;
+  tokens_cache_escrita: Generated<number>;
+  tokens_cache_leitura: Generated<number>;
+  tokens_contados: Generated<number>;
+  tokens_entrada: Generated<number>;
+  tokens_saida: Generated<number>;
+  usuario_id: string | null;
+}
+
 export interface IntegracaoCameraContagens {
   deviceid: string;
   entradas: number;
@@ -3156,10 +3222,20 @@ export interface DB {
   "core.preferencias": CorePreferencias;
   "core.usuario_permissoes": CoreUsuarioPermissoes;
   "core.usuarios": CoreUsuarios;
+  "financeiro.estacionamento_acessos": FinanceiroEstacionamentoAcessos;
+  "financeiro.estacionamento_contratos": FinanceiroEstacionamentoContratos;
+  "financeiro.estacionamento_eventos": FinanceiroEstacionamentoEventos;
+  "financeiro.estacionamento_garagens": FinanceiroEstacionamentoGaragens;
+  "financeiro.estacionamento_mensalidades": FinanceiroEstacionamentoMensalidades;
   "financeiro.estacionamento_movimento": FinanceiroEstacionamentoMovimento;
   "financeiro.estacionamento_pagamentos": FinanceiroEstacionamentoPagamentos;
   "formularios.formularios": FormulariosFormularios;
   "formularios.respostas": FormulariosRespostas;
+  "ia.config": IaConfig;
+  "ia.conversas": IaConversas;
+  "ia.limites": IaLimites;
+  "ia.perguntas": IaPerguntas;
+  "ia.uso": IaUso;
   "integracao.camera_contagens": IntegracaoCameraContagens;
   "integracao.cameras": IntegracaoCameras;
   "integracao.credenciais": IntegracaoCredenciais;
@@ -3222,11 +3298,6 @@ export interface DB {
   "os.categorias": OsCategorias;
   "os.chamados": OsChamados;
   "os.contatos": OsContatos;
-  "financeiro.estacionamento_acessos": FinanceiroEstacionamentoAcessos;
-  "financeiro.estacionamento_contratos": FinanceiroEstacionamentoContratos;
-  "financeiro.estacionamento_eventos": FinanceiroEstacionamentoEventos;
-  "financeiro.estacionamento_garagens": FinanceiroEstacionamentoGaragens;
-  "financeiro.estacionamento_mensalidades": FinanceiroEstacionamentoMensalidades;
   "os.destinatarios": OsDestinatarios;
   "os.disparos": OsDisparos;
   "os.empresas": OsEmpresas;

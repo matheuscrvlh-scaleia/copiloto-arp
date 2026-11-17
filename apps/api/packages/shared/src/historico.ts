@@ -28,6 +28,8 @@ export type Tipo = keyof typeof TIPOS;
 /** Nome na tela de cada tabela que vai para a auditoria. */
 export const TABELAS: Record<string, string> = {
   "core.usuarios": "Usuário",
+  "ia.config": "Configuração da IA",
+  "ia.limites": "Limite de uso da IA",
   "core.usuario_permissoes": "Permissão individual",
   "core.cargos": "Cargo de acesso",
   "core.cargo_permissoes": "Permissão do cargo",
@@ -202,6 +204,8 @@ export const EVENTOS = {
   sustentabilidade_link_desligado: "Desligou o link do parceiro",
   sustentabilidade_ano_fechado: "Fechou o ano no Painel de Sustentabilidade",
   sustentabilidade_ano_reaberto: "Reabriu o ano no Painel de Sustentabilidade",
+  ia_configuracao: "Alterou a configuração da IA",
+  ia_conversas_apagadas: "Apagou conversas da IA pelo prazo de guarda",
 } as const;
 export type Evento = keyof typeof EVENTOS;
 

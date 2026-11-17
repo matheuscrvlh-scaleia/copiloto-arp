@@ -28,6 +28,12 @@ declare module "fastify" {
      * um token próprio no endereço (envio de arquivo por link assinado).
      */
     semCsrf?: boolean;
+    /**
+     * Como a IA ARP enxerga esta leitura (GET). Toda rota GET autenticada
+     * com schema de resposta entra sozinha no catálogo da IA; aqui dá para
+     * descrever melhor o que ela devolve, ou `false` para deixar de fora.
+     */
+    ia?: string | false;
   }
   interface FastifyRequest {
     contexto: Contexto | null;
@@ -43,6 +49,13 @@ export interface RotaRegistrada {
   url: string;
   acesso: "publico" | "autenticado" | undefined;
   permissao: Permissao | undefined;
+  /** Schemas da rota (Zod), para o catálogo da IA. */
+  schemas: {
+    params: unknown;
+    querystring: unknown;
+    resposta: unknown;
+  };
+  ia: string | false | undefined;
 }
 
 /** O que se sabe de qualquer pedido (rota pública inclusive). */
@@ -66,12 +79,22 @@ export const permissao = fp(async (app: FastifyInstance) => {
   app.decorateRequest("contexto", null);
 
   app.addHook("onRoute", (rota) => {
+    const resposta: unknown = rota.schema?.response;
     for (const metodo of [rota.method].flat())
       app.rotas.push({
         metodo,
         url: rota.url,
         acesso: rota.config?.acesso,
         permissao: rota.config?.permissao,
+        schemas: {
+          params: rota.schema?.params,
+          querystring: rota.schema?.querystring,
+          resposta:
+            typeof resposta === "object" && resposta !== null
+              ? Object.entries(resposta).find(([s]) => s === "200")?.[1]
+              : undefined,
+        },
+        ia: rota.config?.ia,
       });
   });
 

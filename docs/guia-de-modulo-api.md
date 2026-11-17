@@ -542,6 +542,14 @@ const analise = await ia.json({ instrucoes, conteudo, schema: analiseSchema });
   registre o conteúdo nem a resposta no log.
 - Recusa da IA e resposta cortada viram `ConnectorError`.
 
+**IA ARP (o assistente do cabeçalho).** Toda rota `GET` autenticada com
+`schema.response` vira, sozinha, uma fonte que a IA pode ler (com a mesma
+permissão e o RLS de quem pergunta). Por isso: declare a resposta com nomes
+de campo claros; use `config: { ia: "o que esta leitura devolve" }` quando o
+caminho e os campos não bastam, e `config: { ia: false }` para deixar de fora
+(leitura cara, sem valor para perguntas, ou que só faz sentido na tela).
+Detalhes em `docs/arquitetura.md` (IA ARP).
+
 ## 10. Rotinas agendadas (`api/cron/*`, `api/sync/*`)
 
 ```ts

@@ -628,6 +628,13 @@ export const navigation: NavSection[] = [
         icone: "historico",
         permissao: "admin.historico",
       },
+      {
+        href: "/admin/configuracoes",
+        label: "Configurações",
+        icone: "configuracoes",
+        // Abas por permissão (modules/ia/paginas/configuracoes/abas.ts).
+        permissao: ["ia.gerenciar"],
+      },
     ],
   },
 ];

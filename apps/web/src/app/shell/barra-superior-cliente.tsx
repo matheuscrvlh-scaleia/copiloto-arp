@@ -2,6 +2,7 @@ import { CalendarDays, CornerDownLeft, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { type NavSection, ondeEstou } from "@/config/navigation";
 import { usePathname, useRouter } from "@/lib/navegacao";
+import { BotaoIa } from "./botao-ia";
 import { BotaoGuia } from "./guia";
 import { ICONES } from "./icones";
 
@@ -71,6 +72,7 @@ export function BarraSuperiorCliente({
       </p>
 
       <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
+        <BotaoIa />
         <BotaoGuia />
         <span className="vidro hidden items-center gap-2 rounded-full py-1.5 pr-4 pl-1.5 text-sm text-neutral-700 lg:flex">
           <span className="grid size-8 place-items-center rounded-full bg-neutral-900 text-white">
