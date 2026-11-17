@@ -47,7 +47,7 @@ const CARTOES: Record<string, string> = {
   mes: "Neste mês",
 };
 const SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const INTEGRACAO = "/marketing/configuracoes/integracoes#mkt_site";
+const INTEGRACAO = "/admin/configuracoes/integracoes#mkt_site";
 
 export function AgendaDeEventos({
   p,

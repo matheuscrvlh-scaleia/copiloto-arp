@@ -10,7 +10,7 @@ import * as repo from "./contagem.repository";
 
 // Recebe o envio automático das câmeras (/api/cameras/contagem). Não há
 // pessoa logada: quem autoriza é o usuário e a senha do cartão "Câmeras" de
-// Administração › Integrações, conferidos antes de qualquer gravação. Só
+// Administração › Configurações › Integrações, conferidos antes de qualquer gravação. Só
 // então a service role grava em integracao.cameras e camera_contagens.
 
 export type Recebimento =

@@ -19,7 +19,7 @@ import { sincronizarRd } from "./rd-station.service";
 import { sincronizarSecullum } from "./secullum.service";
 import { sincronizarWps } from "./wps.service";
 
-// "Sincronizar agora" (Administração › Integrações e as Integrações do
+// "Sincronizar agora" (Administração › Configurações › Integrações e as Integrações do
 // Marketing e do Sustentabilidade). Segue as mesmas travas da rotina agendada: uma de cada vez
 // (integracao.sync_runs) e, no Secullum, o limite de 100 cálculos por hora.
 // As demoradas rodam depois de responder; o resultado fica no histórico. O

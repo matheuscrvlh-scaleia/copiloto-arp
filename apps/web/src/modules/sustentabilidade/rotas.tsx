@@ -54,7 +54,8 @@ export const sustentabilidade: Modulo = {
         {
           caminho: "integracoes",
           titulo: "Integrações de Sustentabilidade",
-          pagina: () => import("./paginas/configuracoes/integracoes"),
+          // Mudou para Administração › Configurações › Integrações.
+          pagina: () => import("@/modules/admin/paginas/para-integracoes"),
         },
       ],
     },

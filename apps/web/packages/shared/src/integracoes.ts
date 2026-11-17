@@ -1,10 +1,11 @@
 import { z } from "zod";
 
-// Integrações configuráveis. As gerais (e as que mais de um módulo usa, como
-// o RD Station) ficam em Administração › Integrações; as só do Marketing
-// (prefixo mkt_), em Marketing › Configurações › Integrações; as só do
-// Sustentabilidade (prefixo sus_), em Sustentabilidade › Configurações ›
-// Integrações.
+// Integrações configuráveis. Todas ficam numa tela só, Administração ›
+// Configurações › Integrações (TELA_DAS_INTEGRACOES), agrupadas por área.
+// `modulo` diz qual permissão abre cada uma: as gerais pedem
+// admin.integracoes; as só do Marketing (prefixo mkt_) aceitam também
+// marketing.parametros; as só da Sustentabilidade (prefixo sus_),
+// sustentabilidade.parametros.
 // Cada uma tem campos comuns (guardados abertos, para mostrar e editar) e um
 // ou mais segredos (senha, token), que o servidor cifra antes de gravar e
 // nunca devolve. Endereço público (o site) não tem segredo.
@@ -28,13 +29,20 @@ export const SISTEMAS = [
 ] as const;
 export type Sistema = (typeof SISTEMAS)[number];
 
-/** Tela onde a integração é configurada. */
+/** Módulo cuja permissão abre a integração (a tela é uma só). */
 export const MODULOS_DE_INTEGRACAO = [
   "admin",
   "marketing",
   "sustentabilidade",
 ] as const;
 export type ModuloDeIntegracao = (typeof MODULOS_DE_INTEGRACAO)[number];
+
+/**
+ * Tela única das integrações (Administração › Configurações › Integrações):
+ * todas ficam nela, agrupadas por área. É também para onde voltam as
+ * autorizações (RD, Google, YouTube, TikTok).
+ */
+export const TELA_DAS_INTEGRACOES = "/admin/configuracoes/integracoes";
 
 export interface Campo {
   nome: string;

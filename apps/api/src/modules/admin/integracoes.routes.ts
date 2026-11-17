@@ -10,7 +10,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import * as controller from "./integracoes.controller";
 
-// Integrações (prefixo /api/v1/admin). Servem a Administração › Integrações
+// Integrações (prefixo /api/v1/admin). Servem a Administração › Configurações › Integrações
 // e Marketing › Configurações › Integrações: por isso a rota só exige
 // sessão, e o service confere a permissão de cada sistema
 // (admin.integracoes; marketing.parametros nas do Marketing).

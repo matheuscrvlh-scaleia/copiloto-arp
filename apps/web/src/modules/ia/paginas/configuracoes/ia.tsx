@@ -154,7 +154,7 @@ function Destaque({ config: d }: { config: RespostaConfig }) {
           <span>
             Falta a chave da Claude.{" "}
             <Link
-              href="/admin/integracoes#claude"
+              href="/admin/configuracoes/integracoes#claude"
               className="underline underline-offset-2"
             >
               Cadastre em Integrações
@@ -878,10 +878,10 @@ function Ajustes({ dados }: { dados: RespostaConfig }) {
         <p className="text-xs text-neutral-500 md:col-span-2">
           Modelo e chave da Anthropic ficam em{" "}
           <Link
-            href="/admin/integracoes#claude"
+            href="/admin/configuracoes/integracoes#claude"
             className="underline underline-offset-2"
           >
-            Administração › Integrações
+            Administração › Configurações › Integrações
           </Link>
           .
         </p>

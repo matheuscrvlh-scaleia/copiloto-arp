@@ -257,7 +257,7 @@ function mensagemDoErro(e: unknown): string {
     if (e.status === 429)
       return "A IA está com muitos pedidos agora. Tente de novo em alguns segundos.";
     if (e.status === 401 || e.status === 403)
-      return "A chave da Claude foi recusada. O administrador precisa conferir em Administração › Integrações.";
+      return "A chave da Claude foi recusada. O administrador precisa conferir em Administração › Configurações › Integrações.";
     if (e.status !== undefined && e.status >= 500)
       return "A IA está indisponível agora. Tente de novo em instantes.";
   }
@@ -314,7 +314,7 @@ export async function perguntar(
   } catch (e) {
     if (e instanceof IntegracaoNaoConfigurada)
       throw new ErroDeNegocio(
-        "A IA ainda não foi configurada (falta a chave da Claude em Administração › Integrações).",
+        "A IA ainda não foi configurada (falta a chave da Claude em Administração › Configurações › Integrações).",
       );
     throw e;
   }

@@ -3,6 +3,7 @@ import {
   AUTORIZACAO_RD,
   AUTORIZACAO_TIKTOK,
   type SistemaGoogle,
+  TELA_DAS_INTEGRACOES,
 } from "@arp/shared/integracoes";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { env } from "@/config/env";
@@ -66,7 +67,7 @@ export async function retornoGoogle(request: Volta, reply: FastifyReply) {
   reply.clearCookie(COOKIE.google, { path: AUTORIZACAO_GOOGLE.retorno });
   return levarPara(
     reply,
-    "/marketing/configuracoes/integracoes",
+    TELA_DAS_INTEGRACOES,
     { google: resultado, sistema },
     sistema,
   );
@@ -80,7 +81,7 @@ export async function retornoRd(request: Volta, reply: FastifyReply) {
     request.query.state ?? "",
   );
   reply.clearCookie(COOKIE.rd, { path: AUTORIZACAO_RD.retorno });
-  return levarPara(reply, "/admin/integracoes", { rd: r }, "mkt_rd_station");
+  return levarPara(reply, TELA_DAS_INTEGRACOES, { rd: r }, "mkt_rd_station");
 }
 
 /** Volta do anunciante no TikTok (URL de retorno cadastrada no app). */
@@ -91,10 +92,5 @@ export async function retornoTikTok(request: Volta, reply: FastifyReply) {
     request.query.state ?? "",
   );
   reply.clearCookie(COOKIE.tiktok, { path: AUTORIZACAO_TIKTOK.retorno });
-  return levarPara(
-    reply,
-    "/marketing/configuracoes/integracoes",
-    { tiktok: r },
-    "mkt_tiktok",
-  );
+  return levarPara(reply, TELA_DAS_INTEGRACOES, { tiktok: r }, "mkt_tiktok");
 }

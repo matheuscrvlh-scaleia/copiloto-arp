@@ -490,7 +490,7 @@ export const GUIAS_MARKETING: Record<string, Guia> = {
   },
 
   "/marketing/configuracoes": {
-    versao: 2,
+    versao: 3,
     passos: [
       abertura(
         "Configurações do Marketing",
@@ -532,10 +532,10 @@ export const GUIAS_MARKETING: Record<string, Guia> = {
         texto: "Quais códigos da ronda são do Marketing e entram no Radar.",
       },
       {
-        alvo: "aba:Integrações",
-        titulo: "Passo 5. Integrações",
+        alvo: "aba:Asana",
+        titulo: "Passo 5. Asana",
         texto:
-          "Liga Meta, Google, TikTok, RD Station e Asana. Fonte não ligada aparece como dado de exemplo nas telas. O módulo só lê: nada é publicado, pausado ou respondido nas ferramentas.",
+          "Nomes dos projetos e das tags que o Radar lê. O acesso a Meta, Google, TikTok, RD Station e Asana fica em Administração › Configurações › Integrações; fonte não ligada aparece como dado de exemplo nas telas.",
       },
       {
         alvo: "aba:Histórico",

@@ -622,7 +622,8 @@ export function QuadroDiario({ d }: { d: PainelDiario }) {
       ) : (
         <Vazio>
           Nenhuma obra do Diário de Obra. A consulta começa quando o token do
-          aplicativo for cadastrado em Administração › Integrações.
+          aplicativo for cadastrado em Administração › Configurações ›
+          Integrações.
         </Vazio>
       )}
       <AbrirTela href={ROTAS.diario} rotulo="Abrir Obras" />

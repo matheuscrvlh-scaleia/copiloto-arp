@@ -332,7 +332,7 @@ export async function sincronizarSecullum(opcoes: OpcoesSecullum = {}) {
         executado_em: hoje.toISOString(),
         competencias: ponto,
         chamadas_calcular: api.chamadasCalcular(),
-        // Aparecem no histórico de Administração › Integrações.
+        // Aparecem no histórico de Administração › Configurações › Integrações.
         avisos,
       },
     };

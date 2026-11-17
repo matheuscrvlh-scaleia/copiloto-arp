@@ -42,7 +42,7 @@ const LEEM_RD = [
 ] as const;
 
 const AVISO_EXEMPLO =
-  "RD Station CRM ainda sem leitura: os números do RD são de exemplo até ele ser conectado em Administração › Integrações.";
+  "RD Station CRM ainda sem leitura: os números do RD são de exemplo até ele ser conectado em Administração › Configurações › Integrações.";
 
 const dadosGravados = rdOportunidade.omit({ contacts: true });
 const contatosGravados = z.array(rdContatoCrm).catch([]);

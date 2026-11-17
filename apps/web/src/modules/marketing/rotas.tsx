@@ -90,11 +90,11 @@ export const marketing: Modulo = {
           titulo: "Visualização do Marketing",
           pagina: () => import("./paginas/configuracoes/visualizacao"),
         },
-        // app/(app)/marketing/configuracoes/integracoes/page.tsx
+        // Mudou para Administração › Configurações › Integrações.
         {
           caminho: "integracoes",
           titulo: "Integrações do Marketing",
-          pagina: () => import("./paginas/configuracoes/integracoes"),
+          pagina: () => import("@/modules/admin/paginas/para-integracoes"),
         },
         // app/(app)/marketing/configuracoes/historico/page.tsx
         {

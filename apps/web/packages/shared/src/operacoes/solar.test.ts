@@ -208,7 +208,7 @@ describe("de onde vêm os números", () => {
     expect(situacaoDaFonte("inversor", false, true).completa).toBe(true);
     const s = situacaoDaFonte("inversor", false, false);
     expect(s.completa).toBe(false);
-    expect(s.texto).toMatch(/Sustentabilidade › Configurações › Integrações/);
+    expect(s.texto).toMatch(/Administração › Configurações › Integrações/);
   });
 });
 

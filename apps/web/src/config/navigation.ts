@@ -617,12 +617,6 @@ export const navigation: NavSection[] = [
         permissao: "admin.empresa",
       },
       {
-        href: "/admin/integracoes",
-        label: "Integrações",
-        icone: "integracoes",
-        permissao: "admin.integracoes",
-      },
-      {
         href: "/admin/historico",
         label: "Histórico de alterações",
         icone: "historico",
@@ -632,8 +626,15 @@ export const navigation: NavSection[] = [
         href: "/admin/configuracoes",
         label: "Configurações",
         icone: "configuracoes",
-        // Abas por permissão (modules/ia/paginas/configuracoes/abas.ts).
-        permissao: ["ia.gerenciar", "ia.conversas"],
+        // Abas por permissão (modules/ia/paginas/configuracoes/abas.ts):
+        // Integrações (todas as do sistema) e IA.
+        permissao: [
+          "admin.integracoes",
+          "marketing.parametros",
+          "sustentabilidade.parametros",
+          "ia.gerenciar",
+          "ia.conversas",
+        ],
       },
     ],
   },

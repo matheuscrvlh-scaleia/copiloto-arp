@@ -222,7 +222,7 @@ export type LimiteDeUso = z.infer<typeof limiteDeUso>;
 
 export const respostaConfig = z.object({
   config: configDaIa,
-  /** Modelo da integração da Claude (Administração › Integrações). */
+  /** Modelo da integração da Claude (Administração › Configurações › Integrações). */
   modelo: z.string().nullable(),
   configurada: z.boolean(),
   limites: z.array(limiteDeUso),

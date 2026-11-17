@@ -77,7 +77,7 @@ export function motivoDoBloqueio(s: {
 }): string | null {
   if (!s.ativa) return "A IA está desligada. Fale com o administrador.";
   if (!s.configurada)
-    return "A IA ainda não foi configurada (falta a chave da Claude em Administração › Integrações).";
+    return "A IA ainda não foi configurada (falta a chave da Claude em Administração › Configurações › Integrações).";
   if (s.limiteMes !== null && s.usadosMes >= s.limiteMes)
     return "Você chegou ao seu limite de uso da IA neste mês. Fale com o administrador se precisar de mais.";
   if (s.orcamentoMesUsd !== null && s.gastoMesUsd >= s.orcamentoMesUsd)

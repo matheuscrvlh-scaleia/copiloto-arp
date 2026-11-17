@@ -29,13 +29,6 @@ const ABAS: (Aba & { permissoes: Permissao[] })[] = [
       "Prazos das entrevistas, clube, limite dos coletores, RCC, grupos do painel, metas e marcos",
     permissoes: ["sustentabilidade.parametros"],
   },
-  {
-    href: `${ROTA_CONFIGURACOES_SU}/integracoes`,
-    rotulo: "Integrações",
-    descricao:
-      "Portal do inversor da usina solar (Growatt): token, teste e leituras",
-    permissoes: ["sustentabilidade.parametros"],
-  },
 ];
 
 /** Todas as permissões que abrem alguma aba (o item do menu). */

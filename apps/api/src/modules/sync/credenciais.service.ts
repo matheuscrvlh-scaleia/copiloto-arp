@@ -42,9 +42,9 @@ import * as repo from "./credenciais.repository";
 // chama é a rotina (sem pessoa) ou um service que já conferiu podeConfigurar.
 
 const TELA_DO_MODULO = {
-  admin: "Administração › Integrações",
+  admin: "Administração › Configurações › Integrações",
   marketing: "Marketing › Configurações › Integrações",
-  sustentabilidade: "Sustentabilidade › Configurações › Integrações",
+  sustentabilidade: "Administração › Configurações › Integrações",
 } as const;
 
 /** Permissão que configura as integrações de cada módulo (além do admin). */
@@ -289,7 +289,7 @@ export async function copilotoRh() {
   );
 }
 
-/** RD Station Marketing com o acesso salvo em Administração › Integrações. */
+/** RD Station Marketing com o acesso salvo em Administração › Configurações › Integrações. */
 export async function rdStation() {
   const def = INTEGRACOES.mkt_rd_station;
   const c = await credencialEmUso("mkt_rd_station");

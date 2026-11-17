@@ -930,7 +930,7 @@ export const GUIAS_OPERACOES: Record<string, Guia> = {
       p(
         "op-parametros-token-diario",
         "Token do Diário de Obra",
-        "Fica em Administração › Integrações, guardado cifrado. Sem ele, as telas do Diário de Obra ficam vazias.",
+        "Fica em Administração › Configurações › Integrações, guardado cifrado. Sem ele, as telas do Diário de Obra ficam vazias.",
       ),
       p(
         "aba:Histórico",

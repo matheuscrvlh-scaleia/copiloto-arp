@@ -20,7 +20,7 @@ const objeto = <T>() =>
 const lista = <T>() => z.custom<T[]>((v) => Array.isArray(v));
 
 export const estadoDoDiario = z.object({
-  /** Há token salvo em Administração › Integrações (e ativo). */
+  /** Há token salvo em Administração › Configurações › Integrações (e ativo). */
   configurado: z.boolean(),
   /** Token salvo, mas a integração foi desativada. */
   desativado: z.boolean(),

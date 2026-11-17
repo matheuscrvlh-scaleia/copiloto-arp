@@ -104,7 +104,7 @@ descreverComBanco("rh parte A (/api/v1/rh)", () => {
       expect(p.quadro.evolucao).toHaveLength(12);
       expect(p.quadro.turnover).toBeNull();
       expect(p.quadro.semTurnover).toBe(
-        "Cadastre o Copiloto RH em Administração › Integrações.",
+        "Cadastre o Copiloto RH em Administração › Configurações › Integrações.",
       );
       // Com rh.quadro, a lista de pessoas vem ao abrir o modal.
       expect(p.quadro.origemAtivos.tabelas).toEqual([]);

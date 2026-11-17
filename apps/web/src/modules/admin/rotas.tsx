@@ -50,7 +50,8 @@ export const admin: Modulo = {
     {
       caminho: "admin/integracoes",
       titulo: "Integrações",
-      pagina: () => import("./paginas/integracoes"),
+      // Mudou para Configurações › Integrações (link salvo continua valendo).
+      pagina: () => import("./paginas/para-integracoes"),
     },
   ],
 };

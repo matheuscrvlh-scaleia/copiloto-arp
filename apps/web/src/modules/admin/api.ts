@@ -256,7 +256,7 @@ export const consultaDosAutores = queryOptions({
 });
 
 // ---------------------------------------------------------------------------
-// Integrações (Administração › Integrações e Marketing › Configurações ›
+// Integrações (Administração › Configurações › Integrações e Marketing › Configurações ›
 // Integrações usam as mesmas chamadas)
 // ---------------------------------------------------------------------------
 

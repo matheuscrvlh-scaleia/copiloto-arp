@@ -249,7 +249,7 @@ descreverComBanco("marketing parte B", () => {
     );
     expect(g.statusCode).toBe(302);
     expect(g.headers.location).toContain(
-      "/marketing/configuracoes/integracoes?google=state",
+      "/admin/configuracoes/integracoes?google=state",
     );
     const t = await anonimo.pedir(
       "GET",
@@ -260,6 +260,8 @@ descreverComBanco("marketing parte B", () => {
       "GET",
       "/api/integracoes/rd-station/retorno?code=x&state=rd.y",
     );
-    expect(rd.headers.location).toContain("/admin/integracoes?rd=state");
+    expect(rd.headers.location).toContain(
+      "/admin/configuracoes/integracoes?rd=state",
+    );
   });
 });

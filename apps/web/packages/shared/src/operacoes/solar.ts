@@ -173,7 +173,7 @@ export function situacaoDaFonte(
         }
       : {
           completa: false,
-          texto: `Geração não informada neste mês: nenhum dia lido do inversor. Confira a integração em Sustentabilidade › Configurações › Integrações. ${faturas}`,
+          texto: `Geração não informada neste mês: nenhum dia lido do inversor. Confira a integração em Administração › Configurações › Integrações. ${faturas}`,
         };
   if (fonte !== "fatura_geradora")
     return {

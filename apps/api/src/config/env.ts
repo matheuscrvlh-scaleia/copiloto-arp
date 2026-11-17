@@ -64,7 +64,7 @@ const esquema = z
     LOGIN_TENTATIVAS: inteiro(10, 1, 1000),
     LOGIN_JANELA_MINUTOS: inteiro(15, 1, 1440),
     // Acesso das integrações quando não há credencial salva na tela
-    // (Administração › Integrações). Opcionais.
+    // (Administração › Configurações › Integrações). Opcionais.
     SECULLUM_USUARIO: z.string().min(1).optional(),
     SECULLUM_SENHA: z.string().min(1).optional(),
     SECULLUM_BANCO_ID: z.string().min(1).optional(),

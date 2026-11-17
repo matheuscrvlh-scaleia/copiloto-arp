@@ -290,7 +290,7 @@ export async function atualizarAgora(ctx: Contexto): Promise<string> {
     throw new ErroDeNegocio(
       erro instanceof Error
         ? `${erro.message}.`
-        : "Configure o Diário de Obra em Administração › Integrações.",
+        : "Configure o Diário de Obra em Administração › Configurações › Integrações.",
     );
   }
   let ultima: Awaited<ReturnType<typeof repo.execucoes>>[number] | undefined;

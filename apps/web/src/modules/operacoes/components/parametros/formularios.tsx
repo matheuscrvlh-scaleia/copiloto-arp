@@ -362,10 +362,11 @@ export function FormularioDoGrupo({
           <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-900/[0.06] bg-white/50 p-3 text-sm">
             <span className="flex-1">
               O token do aplicativo Diário de Obra (Cadastros › Empresa › Gerar
-              token) fica em Administração › Integrações, guardado cifrado.
+              token) fica em Administração › Configurações › Integrações,
+              guardado cifrado.
             </span>
             <Link
-              href="/admin/integracoes#diario_de_obras"
+              href="/admin/configuracoes/integracoes#diario_de_obras"
               data-guia="op-parametros-token-diario"
               className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 transition hover:border-neutral-400"
             >

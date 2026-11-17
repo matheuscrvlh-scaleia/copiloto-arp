@@ -37,7 +37,7 @@ import {
 } from "../api";
 
 // Cartão de uma integração: situação, último teste e o formulário de acesso.
-// Usado em Administração › Integrações e em Marketing › Configurações ›
+// Usado em Administração › Configurações › Integrações e em Marketing › Configurações ›
 // Integrações.
 
 const ICONE: Record<Sistema, LucideIcon> = {

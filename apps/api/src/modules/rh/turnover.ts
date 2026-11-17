@@ -34,7 +34,7 @@ const semAcento = (t: string) =>
 
 function explicar(erro: unknown): string {
   if (erro instanceof IntegracaoNaoConfigurada)
-    return "Cadastre o Copiloto RH em Administração › Integrações.";
+    return "Cadastre o Copiloto RH em Administração › Configurações › Integrações.";
   if (erro instanceof ConnectorError && erro.status === 403)
     return "A credencial do Copiloto RH não tem o escopo reports:read.";
   if (erro instanceof ConnectorError && erro.status === 429)

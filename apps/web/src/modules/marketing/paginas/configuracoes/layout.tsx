@@ -8,7 +8,6 @@ const BASE = "/marketing/configuracoes";
 const ABAS = [
   { href: BASE, rotulo: "Cadastros e regras" },
   { href: `${BASE}/visualizacao`, rotulo: "Visualização" },
-  { href: `${BASE}/integracoes`, rotulo: "Integrações" },
   { href: `${BASE}/historico`, rotulo: "Histórico" },
 ];
 
@@ -17,7 +16,7 @@ export default function Layout() {
     <>
       <PageHeader
         title="Configurações do Marketing"
-        description="Tudo o que as ferramentas não entregam e o Marketing informa: cadastros, metas, regras de alerta e a ligação com cada ferramenta. Cada alteração fica no histórico, com a opção de voltar."
+        description="Tudo o que as ferramentas não entregam e o Marketing informa: cadastros, metas, regras de alerta (os acessos às ferramentas ficam em Administração › Configurações › Integrações). Cada alteração fica no histórico, com a opção de voltar."
       />
       <div className="mb-6">
         <AbasConfiguracoes />

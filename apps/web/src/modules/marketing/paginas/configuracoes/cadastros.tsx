@@ -1,12 +1,15 @@
+import type { Parametros } from "@arp/shared/marketing/contratos/base";
 import {
   avisoSemDados,
   BLOCOS,
   type Bloco,
   classificarLandingPages,
+  conferirAsana,
   landingPagesSemTipo,
+  nomesDoAsana,
 } from "@arp/shared/marketing/parametros";
 import { paginaDaUrl } from "@arp/shared/os/paginacao";
-import { useSuspenseQueries } from "@tanstack/react-query";
+import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { AbasDaTela, hrefCom } from "@/components/dashboard/tela";
 import { Protegido } from "@/components/protegido";
@@ -16,6 +19,7 @@ import {
   consultaDasMetas,
   consultaDasReferencias,
   consultaDasRegras,
+  consultaDoAsana,
   consultaDoHistorico,
   consultaDoRd,
   consultaDosLocatarios,
@@ -24,6 +28,7 @@ import {
 } from "../../api";
 import { useContextoMkt } from "../../base";
 import {
+  BlocoAsana,
   BlocoBenchmark,
   BlocoLandingPages,
   BlocoLocatarios,
@@ -41,7 +46,8 @@ import {
 
 const BASE = "/marketing/configuracoes";
 
-// Asana fica em Integrações e o histórico na subtela dele.
+// O histórico fica na subtela dele. O acesso ao Asana (token) fica em
+// Administração › Configurações › Integrações; aqui, os nomes que o Radar lê.
 const CADASTROS = [
   "locatarios",
   "landing_pages",
@@ -49,6 +55,7 @@ const CADASTROS = [
   "regras",
   "reputacao",
   "ronda",
+  "asana",
   "benchmark",
 ] as const satisfies Bloco[];
 type Cadastro = (typeof CADASTROS)[number];
@@ -147,9 +154,28 @@ function Tela() {
         <BlocoReputacao parametros={p} temas={temasCodigos.temas} />
       )}
       {bloco === "ronda" && <BlocoRonda codigos={temasCodigos.codigos} />}
+      {bloco === "asana" && (
+        <Suspense fallback={<EsqueletoConfiguracoes />}>
+          <AbaAsana parametros={p} />
+        </Suspense>
+      )}
       {bloco === "benchmark" && (
         <BlocoBenchmark referencias={refs} termos={p.termos_marca} />
       )}
     </div>
+  );
+}
+
+/** Nomes do Asana: a lista de projetos e tags vem do Asana só nesta aba. */
+function AbaAsana({ parametros: p }: { parametros: Parametros }) {
+  const { data: asana } = useSuspenseQuery(consultaDoAsana);
+  const nomes = nomesDoAsana(asana);
+  return (
+    <BlocoAsana
+      parametros={p}
+      projetos={nomes.projetos}
+      tags={nomes.tags}
+      faltando={conferirAsana(p, nomes).filter((c) => !c.existe)}
+    />
   );
 }

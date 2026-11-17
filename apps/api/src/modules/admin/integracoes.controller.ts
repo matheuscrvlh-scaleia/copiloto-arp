@@ -6,7 +6,10 @@ import type {
   RespostaIntegracoes,
 } from "@arp/shared/admin/contratos";
 import type { RespostaMensagem } from "@arp/shared/contratos/auth";
-import { AUTORIZACAO_RD_CRM } from "@arp/shared/integracoes";
+import {
+  AUTORIZACAO_RD_CRM,
+  TELA_DAS_INTEGRACOES,
+} from "@arp/shared/integracoes";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { env } from "@/config/env";
 import { contextoDe, origemDe } from "@/http/permissao";
@@ -88,7 +91,7 @@ export async function retornoRdCrm(
     origemDe(request),
   );
   reply.clearCookie(COOKIE_RD_CRM, { path: AUTORIZACAO_RD_CRM.retorno });
-  const destino = new URL("/admin/integracoes", env.SITE_URL);
+  const destino = new URL(TELA_DAS_INTEGRACOES, env.SITE_URL);
   destino.search = new URLSearchParams({ rdcrm: r }).toString();
   destino.hash = "rd_crm";
   return reply.redirect(destino.toString());

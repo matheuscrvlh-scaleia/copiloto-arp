@@ -172,8 +172,8 @@ function Publico({ f }: { f: FiltrosLidos }) {
           !semDado
             ? undefined
             : cameras
-              ? "As câmeras ainda não mandaram contagem. Confira o cartão Câmeras em Administração › Integrações, ou escolha o estacionamento no filtro Fonte do fluxo."
-              : "O estacionamento ainda não foi sincronizado. Confira o cartão Estacionamento (WPS) em Administração › Integrações."
+              ? "As câmeras ainda não mandaram contagem. Confira o cartão Câmeras em Administração › Configurações › Integrações, ou escolha o estacionamento no filtro Fonte do fluxo."
+              : "O estacionamento ainda não foi sincronizado. Confira o cartão Estacionamento (WPS) em Administração › Configurações › Integrações."
         }
       />
 

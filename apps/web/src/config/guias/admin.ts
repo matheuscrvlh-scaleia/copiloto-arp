@@ -37,12 +37,12 @@ export const GUIAS_ADMIN: Record<string, Guia> = {
       ),
     ],
   },
-  "/admin/integracoes": {
+  "/admin/configuracoes/integracoes": {
     versao: 2,
     passos: [
       abertura(
         "Integrações",
-        "O acesso de cada sistema externo (ENET, RD Station, Secullum, Meta…). Senhas e tokens são cifrados no servidor antes de gravar e nunca voltam para a tela.",
+        "Todos os sistemas externos numa tela só, agrupados por área (pessoas, operação, comercial, marketing, IA). Senhas e tokens são cifrados no servidor antes de gravar e nunca voltam para a tela.",
       ),
       secao(
         "<b>Passo 1.</b> Preencha o acesso do sistema. <b>Passo 2.</b> Teste a conexão. <b>Passo 3.</b> Confira a última sincronização. Tela com dado de exemplo é sinal de integração ainda não ligada aqui.",

@@ -12,7 +12,7 @@ import { sincronizarWps } from "./wps.service";
 
 // As antigas rotas /api/sync/* do crontab, nos mesmos horários (UTC). O
 // resultado de cada uma fica em integracao.sync_runs (histórico de
-// Administração › Integrações); a falha também vai para o log.
+// Administração › Configurações › Integrações); a falha também vai para o log.
 
 export const rotinasDeSync: Rotina[] = [
   {

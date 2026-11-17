@@ -32,7 +32,7 @@ import { atualizarDiarioAgora } from "../../acoes-obras";
 /** Tela única das obras (orçamento e execução). */
 export const OBRAS = "/operacoes/obras";
 export const BASE = `${OBRAS}/diario`;
-export const INTEGRACOES = "/admin/integracoes";
+export const INTEGRACOES = "/admin/configuracoes/integracoes#diario_de_obras";
 export const FONTE = "Diário de Obra (aplicativo)";
 
 // ---------------------------------------------------------------------------
@@ -326,7 +326,7 @@ export function AvisosDoDiario({ estado }: { estado: EstadoDiario }) {
             href={INTEGRACOES}
             className="font-medium underline underline-offset-4"
           >
-            Administração › Integrações
+            Administração › Configurações › Integrações
           </Link>
           {estado.desativado ? " (reative para voltar a consultar)." : "."}
           {estado.exemplo &&
@@ -352,7 +352,7 @@ export function AvisosDoDiario({ estado }: { estado: EstadoDiario }) {
             href={INTEGRACOES}
             className="font-medium underline underline-offset-4"
           >
-            Administração › Integrações
+            Administração › Configurações › Integrações
           </Link>
           .
         </p>
@@ -380,7 +380,7 @@ export function SemDados({ estado }: { estado: EstadoDiario }) {
             href={INTEGRACOES}
             className="font-medium text-neutral-900 underline underline-offset-4"
           >
-            Administração › Integrações
+            Administração › Configurações › Integrações
           </Link>
           .
         </p>
