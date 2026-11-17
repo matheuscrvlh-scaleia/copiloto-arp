@@ -203,4 +203,33 @@ describe("de onde vêm os números", () => {
     );
     expect(situacaoDaFonte("fatura_geradora", true, true).completa).toBe(true);
   });
+
+  it("inversor: completa com dia lido no mês; sem leitura aponta a integração", () => {
+    expect(situacaoDaFonte("inversor", false, true).completa).toBe(true);
+    const s = situacaoDaFonte("inversor", false, false);
+    expect(s.completa).toBe(false);
+    expect(s.texto).toMatch(/Sustentabilidade › Configurações › Integrações/);
+  });
+});
+
+describe("geração pelo inversor", () => {
+  const unidades = new Map<string, { papel: Papel }>();
+
+  it("usa a soma lida da Growatt e ignora as faturas", () => {
+    const faturas = [f("1", "2026-09-01", { injetada_kwh: 6400 })];
+    expect(geracaoDoMes(faturas, unidades, "inversor", 9980.5)).toBe(9980.5);
+    expect(geracaoDoMes(faturas, unidades, "inversor")).toBeNull();
+    expect(resumoSolar(faturas, unidades, "inversor", 120).geracao).toBe(120);
+  });
+
+  it("série: cada mês com o seu valor; mês sem leitura fica null", () => {
+    const s = serieSolar(
+      [],
+      ["2026-08-01", "2026-09-01"],
+      unidades,
+      "inversor",
+      new Map([["2026-09-01", 7818.6]]),
+    );
+    expect(s.geracao).toEqual([null, 7818.6]);
+  });
 });

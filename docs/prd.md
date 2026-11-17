@@ -134,8 +134,9 @@ Cada módulo tem permissão própria; dentro dele, as telas de configuração
 - Programas com link do parceiro; coletores e rondas; RCC.
 - Clube SustentArp (participantes e contribuições).
 - Entrevistas com questionário editável, aplicação e respostas.
-- Importações e parâmetros; rotina diária de entrevistas, termo do Clube e
-  cobrança dos parceiros.
+- Importações, parâmetros e integrações (Growatt: geração da usina solar,
+  que alimenta o painel e a Energia solar de Operações); rotina diária de
+  entrevistas, termo do Clube e cobrança dos parceiros.
 
 ### 5.9 Calendário
 - Agenda da empresa, com quem vê cada item; tipos de item.
@@ -176,6 +177,7 @@ Cada módulo tem permissão própria; dentro dele, as telas de configuração
 | Copiloto RH | Dados de RH | Diário, 06h30 |
 | Meta | Anúncios | Diário, 06h45 (e leitura ao abrir a tela) |
 | WPS (estacionamento) | Fluxo e pagamentos | Diário, 07h00 |
+| Growatt (inversor da usina solar) | Geração diária | Diário, 07h10 (configurada em Sustentabilidade › Configurações › Integrações) |
 | Diário de Obras | Obras, relatórios, tarefas | A cada 30 min |
 | Google (Ads, Analytics 4, Search Console, YouTube, Perfil da Empresa) | Marketing | Ao abrir a tela (memória de 1 h) |
 | TikTok, Asana, site da ARP | Marketing | Ao abrir a tela |

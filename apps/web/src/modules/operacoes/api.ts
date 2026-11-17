@@ -15,6 +15,7 @@ import {
   respostaFaturasAte,
   respostaFichaDaCaixa,
   respostaFotosDoQuadro,
+  respostaGeracaoDoInversor,
   respostaMesesComFatura,
   respostaQuadros,
   respostaSalasDaEnergia,
@@ -45,6 +46,8 @@ export const chavesOp = {
   hidrometro: (h: string) => ["operacoes", "agua", "hidrometro", h] as const,
   importacoes: () => ["operacoes", "importacoes"] as const,
   energia: () => ["operacoes", "energia"] as const,
+  geracaoDoInversor: () =>
+    ["operacoes", "energia", "solar", "inversor"] as const,
   quadros: () => ["operacoes", "energia", "quadros"] as const,
   caixas: (quadro: string | null) =>
     ["operacoes", "energia", "caixas", quadro ?? "todos"] as const,
@@ -247,6 +250,16 @@ export const consultaDasUnidades = queryOptions({
   queryFn: ({ signal }) =>
     api.get("/operacoes/energia/unidades", {
       esquema: respostaUnidadesDeEnergia,
+      sinal: signal,
+    }),
+});
+
+/** GET /operacoes/energia/solar/inversor: geração de cada mês lida da Growatt. */
+export const consultaDaGeracaoDoInversor = queryOptions({
+  queryKey: chavesOp.geracaoDoInversor(),
+  queryFn: ({ signal }) =>
+    api.get("/operacoes/energia/solar/inversor", {
+      esquema: respostaGeracaoDoInversor,
       sinal: signal,
     }),
 });

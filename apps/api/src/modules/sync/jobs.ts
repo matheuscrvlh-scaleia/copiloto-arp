@@ -3,6 +3,7 @@ import { log } from "@/infra/log";
 import { sincronizarCopiloto } from "./copiloto-rh.service";
 import { IntegracaoNaoConfigurada } from "./credenciais.service";
 import { sincronizarDiarioSeDevido } from "./diario-de-obras.service";
+import { sincronizarGrowatt } from "./growatt.service";
 import { sincronizarMeta } from "./meta.service";
 import { sincronizarRdCrm } from "./rd-crm.service";
 import { sincronizarRd } from "./rd-station.service";
@@ -54,6 +55,20 @@ export const rotinasDeSync: Rotina[] = [
     cron: "0 10 * * *",
     executar: async () => {
       await sincronizarWps();
+    },
+  },
+  {
+    // Geração da usina solar (07h10 em Brasília): relê os últimos 8 dias.
+    // Sem token configurado, não roda (e não é erro).
+    nome: "sync.growatt",
+    cron: "10 10 * * *",
+    executar: async () => {
+      try {
+        await sincronizarGrowatt();
+      } catch (erro) {
+        if (!(erro instanceof IntegracaoNaoConfigurada)) throw erro;
+        log.info({ rotina: "sync.growatt" }, erro.message);
+      }
     },
   },
   {

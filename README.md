@@ -173,6 +173,7 @@ Rodam dentro da API, com trava no banco (nunca em dobro). Horários em UTC
 | `sync.copiloto-rh` | `30 9 * * *` | 06h30 | Copiloto RH |
 | `sync.meta` | `45 9 * * *` | 06h45 | anúncios |
 | `sync.wps` | `0 10 * * *` | 07h00 | estacionamento |
+| `sync.growatt` | `10 10 * * *` | 07h10 | geração da usina solar (Growatt), últimos 8 dias |
 | `os.rotinas` | `30 10 * * *` | 07h30 | lembretes e prazos dos chamados |
 | `sustentabilidade.rotinas` | `40 10 * * *` | 07h40 | entrevistas, termo do Clube e cobrança dos parceiros |
 | `marketing.aquecer-manha` | `50 10 * * *` | 07h50 | relê Meta e Google do dia |
@@ -184,6 +185,7 @@ Rodar uma sincronização na hora:
 ```
 docker compose exec api node dist/sincronizar.js secullum 2026-09
 docker compose exec api node dist/sincronizar.js wps 2026-09-01 2026-09-30
+docker compose exec api node dist/sincronizar.js growatt 2023-03-16 2026-11-17
 docker compose exec api node dist/sincronizar.js rd-station   # ou rd-crm, copiloto-rh, meta, diario-de-obras
 ```
 

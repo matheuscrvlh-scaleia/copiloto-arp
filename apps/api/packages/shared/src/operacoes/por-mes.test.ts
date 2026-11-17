@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { aguaPorMes, conferirPeriodo, solarPorMes } from "./por-mes";
+import {
+  aguaPorMes,
+  conferirPeriodo,
+  solarDoInversor,
+  solarPorMes,
+} from "./por-mes";
 
 describe("água e solar por mês (para o Sustentabilidade)", () => {
   it("recusa período fora do formato ou invertido", () => {
@@ -91,5 +96,35 @@ describe("água e solar por mês (para o Sustentabilidade)", () => {
     ]);
     expect(solarPorMes(faturas, unidades, "a_confirmar")).toEqual([]);
     expect(solarPorMes(faturas, unidades, "inversor")).toEqual([]);
+  });
+});
+
+describe("geração pelo inversor por mês", () => {
+  it("cada mês com a soma e o último dia lido, em ordem e arredondado", () => {
+    expect(
+      solarDoInversor([
+        { mes: "2026-11-01", kwh: 601.499999, ultimo_dia: "2026-11-02" },
+        { mes: "2026-10-01", kwh: 250.4, ultimo_dia: "2026-10-31" },
+      ]),
+    ).toEqual([
+      {
+        mes: "2026-10-01",
+        kwh: 250.4,
+        co2_t: null,
+        ultima_leitura: "2026-10-31",
+        exemplo: false,
+      },
+      {
+        mes: "2026-11-01",
+        kwh: 601.5,
+        co2_t: null,
+        ultima_leitura: "2026-11-02",
+        exemplo: false,
+      },
+    ]);
+  });
+
+  it("sem dias lidos, nenhum mês (nada de zero inventado)", () => {
+    expect(solarDoInversor([])).toEqual([]);
   });
 });

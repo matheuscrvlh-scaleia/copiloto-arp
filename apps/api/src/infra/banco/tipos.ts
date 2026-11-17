@@ -1426,6 +1426,14 @@ export interface OperacoesSalas {
   sala: string;
 }
 
+export interface OperacoesSolarInversorDias {
+  atualizado_em: Generated<string>;
+  dia: string;
+  energia_kwh: Numeric;
+  sync_run_id: string | null;
+  usina_id: number;
+}
+
 export interface OperacoesTermos {
   amperes: number | null;
   armario: string | null;
@@ -3101,6 +3109,7 @@ export interface DB {
   "operacoes.parametros": OperacoesParametros;
   "operacoes.quadros": OperacoesQuadros;
   "operacoes.salas": OperacoesSalas;
+  "operacoes.solar_inversor_dias": OperacoesSolarInversorDias;
   "operacoes.termos": OperacoesTermos;
   "os.agenda_bloqueios": OsAgendaBloqueios;
   "os.agendamentos": OsAgendamentos;

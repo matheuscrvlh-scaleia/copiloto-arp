@@ -9,8 +9,10 @@ import {
 // Energisa já importadas: compensação (itens "Energia Atv Injetada", com a
 // origem oUC/mUC e o mês de geração), saldo de créditos e o que expira no
 // próximo ciclo. A geração das usinas depende da fonte escolhida em
-// Parâmetros (operacoes.parametros.solar_fonte); só "fatura da unidade
-// geradora" já tem de onde ler (a energia injetada do medidor).
+// Parâmetros (operacoes.parametros.solar_fonte): a "fatura da unidade
+// geradora" lê a energia injetada do medidor; o "portal do inversor" lê a
+// geração de cada dia da Growatt (operacoes.solar_inversor_dias, somada por
+// mês). A "planilha" ainda não está ligada.
 
 export const FONTES_SOLAR = {
   a_confirmar: "a confirmar com a Sustentabilidade",
@@ -27,14 +29,17 @@ export const gera = (papel: Papel | undefined) =>
 
 /**
  * Geração do mês (kWh) ou null quando não há de onde ler: fonte ainda a
- * confirmar, fonte ainda não ligada (inversor, planilha) ou nenhuma fatura de
- * unidade geradora com a energia injetada no mês.
+ * confirmar, fonte ainda não ligada (planilha), nenhuma fatura de unidade
+ * geradora com a energia injetada no mês ou, com o inversor, nenhum dia lido
+ * no mês (`inversorKwh` é a soma dos dias lidos da Growatt).
  */
 export function geracaoDoMes(
   doMes: Pick<FaturaConta, "matricula" | "injetada_kwh">[],
   unidades: Map<string, Pick<UnidadeEnergia, "papel">>,
   fonte: FonteSolar,
+  inversorKwh: number | null = null,
 ): number | null {
+  if (fonte === "inversor") return inversorKwh;
   if (fonte !== "fatura_geradora") return null;
   const lidas = doMes.filter(
     (f) => gera(unidades.get(f.matricula)?.papel) && f.injetada_kwh !== null,
@@ -57,11 +62,12 @@ export function resumoSolar(
   doMes: FaturaConta[],
   unidades: Map<string, Pick<UnidadeEnergia, "papel">>,
   fonte: FonteSolar,
+  inversorKwh: number | null = null,
 ): ResumoSolar {
   const soma = (v: (number | null)[]) =>
     Math.round(v.reduce<number>((s, x) => s + (x ?? 0), 0) * 100) / 100;
   return {
-    geracao: geracaoDoMes(doMes, unidades, fonte),
+    geracao: geracaoDoMes(doMes, unidades, fonte, inversorKwh),
     compensadoKwh: soma(doMes.map((f) => f.compensado_kwh)),
     valorCompensado: somarReais(doMes.map((f) => f.valor_compensado)),
     saldoKwh: soma(doMes.map((f) => f.saldo_kwh)),
@@ -72,16 +78,22 @@ export function resumoSolar(
   };
 }
 
-/** Geração (null sem fonte) e compensação de cada mês. */
+/**
+ * Geração (null sem fonte) e compensação de cada mês. `inversor`: kWh de cada
+ * mês ("aaaa-mm-01") lidos da Growatt, usados quando a fonte é o inversor.
+ */
 export function serieSolar(
   faturas: FaturaConta[],
   meses: string[],
   unidades: Map<string, Pick<UnidadeEnergia, "papel">>,
   fonte: FonteSolar,
+  inversor: ReadonlyMap<string, number> = new Map(),
 ): { geracao: (number | null)[]; compensacao: (number | null)[] } {
   const doMes = (m: string) => faturas.filter((f) => f.referencia === m);
   return {
-    geracao: meses.map((m) => geracaoDoMes(doMes(m), unidades, fonte)),
+    geracao: meses.map((m) =>
+      geracaoDoMes(doMes(m), unidades, fonte, inversor.get(m) ?? null),
+    ),
     compensacao: meses.map((m) => {
       const fs = doMes(m);
       return fs.length
@@ -153,6 +165,16 @@ export function situacaoDaFonte(
       completa: false,
       texto: `Geração das usinas não informada: a fonte (portal do inversor, planilha ou fatura da unidade geradora) está a confirmar com a Sustentabilidade. ${faturas}`,
     };
+  if (fonte === "inversor")
+    return geracaoLida
+      ? {
+          completa: true,
+          texto: `Geração = energia produzida pela usina, lida todo dia do portal do inversor (Growatt) e somada no mês. ${faturas}`,
+        }
+      : {
+          completa: false,
+          texto: `Geração não informada neste mês: nenhum dia lido do inversor. Confira a integração em Sustentabilidade › Configurações › Integrações. ${faturas}`,
+        };
   if (fonte !== "fatura_geradora")
     return {
       completa: false,

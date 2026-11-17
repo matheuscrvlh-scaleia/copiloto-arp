@@ -2,7 +2,9 @@ import { z } from "zod";
 
 // Integrações configuráveis. As gerais (e as que mais de um módulo usa, como
 // o RD Station) ficam em Administração › Integrações; as só do Marketing
-// (prefixo mkt_), em Marketing › Configurações › Integrações.
+// (prefixo mkt_), em Marketing › Configurações › Integrações; as só do
+// Sustentabilidade (prefixo sus_), em Sustentabilidade › Configurações ›
+// Integrações.
 // Cada uma tem campos comuns (guardados abertos, para mostrar e editar) e um
 // ou mais segredos (senha, token), que o servidor cifra antes de gravar e
 // nunca devolve. Endereço público (o site) não tem segredo.
@@ -21,8 +23,17 @@ export const SISTEMAS = [
   "mkt_rd_station",
   "mkt_asana",
   "mkt_site",
+  "sus_growatt",
 ] as const;
 export type Sistema = (typeof SISTEMAS)[number];
+
+/** Tela onde a integração é configurada. */
+export const MODULOS_DE_INTEGRACAO = [
+  "admin",
+  "marketing",
+  "sustentabilidade",
+] as const;
+export type ModuloDeIntegracao = (typeof MODULOS_DE_INTEGRACAO)[number];
 
 export interface Campo {
   nome: string;
@@ -50,7 +61,7 @@ export interface Segredo {
 export interface DefinicaoIntegracao {
   nome: string;
   serve: string;
-  modulo: "admin" | "marketing";
+  modulo: ModuloDeIntegracao;
   campos: Campo[];
   segredos: Segredo[];
   /** Validação dos campos comuns (os segredos são validados à parte). */
@@ -542,6 +553,46 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
     segredos: [],
     parametros: z.object({
       endpoint: z.url({ protocol: /^https$/, error: "use um endereço https" }),
+    }),
+  },
+  sus_growatt: {
+    nome: "Energia solar (Growatt)",
+    serve:
+      "Geração da usina solar, lida do portal do inversor todo dia às 7h10. Alimenta a Energia solar de Operações e o Painel de Sustentabilidade quando a fonte da geração (Operações › Configurações › Parâmetros) é o portal do inversor.",
+    modulo: "sustentabilidade",
+    campos: [
+      {
+        nome: "base_url",
+        rotulo: "Endereço da API",
+        tipo: "url",
+        exemplo: "https://openapi.growatt.com",
+        ajuda:
+          "Servidor da OpenAPI da Growatt da região da conta (no Brasil, openapi.growatt.com)",
+      },
+      {
+        nome: "usina_id",
+        rotulo: "Id da usina",
+        tipo: "number",
+        ajuda:
+          "Número da usina no portal da Growatt. Só esta usina é lida, mesmo que o token veja outras",
+      },
+    ],
+    segredos: [
+      {
+        nome: "segredo",
+        rotulo: "Token da API",
+        ajuda:
+          "Token da OpenAPI da Growatt (fornecido pelo instalador ou pelo suporte da Growatt)",
+      },
+    ],
+    parametros: z.object({
+      base_url: z
+        .url({ protocol: /^https$/, error: "use um endereço https" })
+        .transform((u) => u.replace(/\/+$/, "")),
+      usina_id: z.coerce
+        .number({ error: "só números" })
+        .int("só números")
+        .positive("só números"),
     }),
   },
 };

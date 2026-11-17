@@ -51,6 +51,11 @@ export const sustentabilidade: Modulo = {
           titulo: "Parâmetros de Sustentabilidade",
           pagina: () => import("./paginas/configuracoes/parametros"),
         },
+        {
+          caminho: "integracoes",
+          titulo: "Integrações de Sustentabilidade",
+          pagina: () => import("./paginas/configuracoes/integracoes"),
+        },
       ],
     },
     // Parte B: app/(app)/sustentabilidade/programas, rondas e rcc

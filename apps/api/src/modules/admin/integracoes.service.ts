@@ -61,7 +61,7 @@ const objeto = (v: unknown): Record<string, unknown> =>
     ? Object.fromEntries(Object.entries(v))
     : {};
 
-/** Integrações de um módulo (Administração ou Marketing), com a situação. */
+/** Integrações de um módulo (Administração, Marketing ou Sustentabilidade), com a situação. */
 export async function integracoesNaTela(
   ctx: Contexto,
   { modulo }: ConsultaDasIntegracoes,
@@ -69,7 +69,8 @@ export async function integracoesNaTela(
   // A mesma permissão que abria cada tela; o banco confere de novo.
   const liberado =
     pode(ctx, "admin.integracoes") ||
-    (modulo === "marketing" && pode(ctx, "marketing.parametros"));
+    (modulo === "marketing" && pode(ctx, "marketing.parametros")) ||
+    (modulo === "sustentabilidade" && pode(ctx, "sustentabilidade.parametros"));
   if (!liberado) throw new ErroDePermissao();
 
   const { conf, hist } = await banco.comoUsuario(

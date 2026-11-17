@@ -1,3 +1,4 @@
+import { formatarNumero } from "@arp/shared/formato";
 import { ehSistema } from "@arp/shared/integracoes";
 import type { Contexto } from "@/contexto";
 import { ErroDeNegocio, ErroDePermissao } from "@/erros";
@@ -6,18 +7,20 @@ import { esquecerLeituras } from "@/modules/marketing/memoria";
 import { sincronizarCopiloto } from "./copiloto-rh.service";
 import {
   credencialEmUso,
+  growatt,
   meta,
   podeConfigurar,
   rdStation,
 } from "./credenciais.service";
+import { primeiraLeitura, sincronizarGrowatt } from "./growatt.service";
 import { sincronizarMeta } from "./meta.service";
 import { sincronizarRdCrm } from "./rd-crm.service";
 import { sincronizarRd } from "./rd-station.service";
 import { sincronizarSecullum } from "./secullum.service";
 import { sincronizarWps } from "./wps.service";
 
-// "Sincronizar agora" (Administração › Integrações e Marketing ›
-// Integrações). Segue as mesmas travas da rotina agendada: uma de cada vez
+// "Sincronizar agora" (Administração › Integrações e as Integrações do
+// Marketing e do Sustentabilidade). Segue as mesmas travas da rotina agendada: uma de cada vez
 // (integracao.sync_runs) e, no Secullum, o limite de 100 cálculos por hora.
 // As demoradas rodam depois de responder; o resultado fica no histórico. O
 // registro do pedido (core.logs) é de quem chama.
@@ -81,6 +84,23 @@ export async function sincronizarAgora(
         mensagem:
           "Leitura da Meta iniciada. Leva um ou dois minutos; as Redes passam a mostrar Instagram e Facebook reais.",
       };
+    case "sus_growatt": {
+      await semCredencial(growatt);
+      // A primeira leitura busca o histórico da usina (uma consulta a cada
+      // 8 dias): roda depois de responder. As outras saem em segundos.
+      if (await primeiraLeitura()) {
+        depois("growatt", sincronizarGrowatt);
+        return {
+          mensagem:
+            "Leitura do histórico da usina iniciada. Leva alguns minutos; acompanhe no histórico.",
+        };
+      }
+      const r = await comMensagem(sincronizarGrowatt);
+      const avisos = r.avisos.length ? ` · ${r.avisos.length} avisos` : "";
+      return {
+        mensagem: `${r.dias} dias da usina ${r.usina} (${r.de} a ${r.ate}): ${formatarNumero(r.kwh)} kWh${avisos}.`,
+      };
+    }
     default:
       throw new ErroDeNegocio(
         "A sincronização desta integração ainda não existe.",

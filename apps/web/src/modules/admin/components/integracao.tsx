@@ -21,6 +21,7 @@ import {
   Play,
   Search,
   Send,
+  Sun,
   Users,
 } from "lucide-react";
 import { Suspense, use } from "react";
@@ -52,6 +53,7 @@ const ICONE: Record<Sistema, LucideIcon> = {
   mkt_rd_station: Send,
   mkt_asana: ListChecks,
   mkt_site: Globe,
+  sus_growatt: Sun,
 };
 
 export const COR_SITUACAO = {
@@ -94,6 +96,7 @@ const SINCRONIZA: Sistema[] = [
   "mkt_rd_station",
   "mkt_meta",
   "rd_crm",
+  "sus_growatt",
 ];
 
 /**

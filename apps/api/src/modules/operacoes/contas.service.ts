@@ -4,6 +4,7 @@ import { formatarDataHora, formatarMes } from "@arp/shared/formato";
 import type {
   FaturaDetalhe,
   ItemDaFatura,
+  RespostaGeracaoDoInversor,
 } from "@arp/shared/operacoes/contratos/energia";
 import {
   ErroEnergisa,
@@ -50,6 +51,7 @@ import {
 } from "./apoio";
 import * as repo from "./contas.repository";
 import * as importacoes from "./importacoes.repository";
+import { geracaoDoInversorPorMes } from "./para-sustentabilidade.repository";
 import { sha256 } from "./planilha";
 
 // Contas da área comum (faturas da Energisa), a consulta da energia solar e
@@ -90,6 +92,24 @@ export async function unidades(ctx: Contexto): Promise<UnidadeEnergia[]> {
 export async function meses(ctx: Contexto): Promise<string[]> {
   exigirLeitura(ctx);
   return naSessao(ctx, repo.mesesComFatura);
+}
+
+/** Geração de cada mês lida do inversor (Growatt) e o último dia lido. */
+export async function geracaoDoInversor(
+  ctx: Contexto,
+): Promise<RespostaGeracaoDoInversor> {
+  exigirLeitura(ctx);
+  const linhas = await naSessao(ctx, (tx) => geracaoDoInversorPorMes(tx));
+  return {
+    meses: linhas.map((l) => ({
+      mes: l.mes,
+      kwh: Math.round(l.kwh * 100) / 100,
+    })),
+    ultimoDia: linhas.reduce<string | null>(
+      (u, l) => (u === null || l.ultimo_dia > u ? l.ultimo_dia : u),
+      null,
+    ),
+  };
 }
 
 const MES = /^\d{4}-(0[1-9]|1[0-2])-01$/;

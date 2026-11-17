@@ -4,6 +4,7 @@ import {
   aguaPorMes,
   conferirPeriodo,
   type SolarDoMes,
+  solarDoInversor,
   solarPorMes,
 } from "@arp/shared/operacoes/por-mes";
 import { ehFonteSolar } from "@arp/shared/operacoes/solar";
@@ -41,9 +42,10 @@ export async function consumoDeAguaPorMes(
 }
 
 /**
- * Geração solar (kWh) de cada mês pela fatura da unidade geradora, a única
- * fonte ligada hoje (operacoes.parametros.solar_fonte). Com outra fonte, ou
- * sem fatura da geradora no mês, o mês não aparece. Sem CO₂ (co2_t null).
+ * Geração solar (kWh) de cada mês pela fonte de Operações
+ * (operacoes.parametros.solar_fonte): a fatura da unidade geradora ou o
+ * inversor (Growatt, soma dos dias lidos). Com outra fonte, ou sem leitura
+ * no mês, o mês não aparece. Sem CO₂ (co2_t null).
  */
 export async function geracaoSolarPorMes(
   tx: Tx,
@@ -53,6 +55,10 @@ export async function geracaoSolarPorMes(
   conferirPeriodo(deMes, ateMes);
   const lida = await repo.fonteSolar(tx);
   const fonte = ehFonteSolar(lida) ? lida : "a_confirmar";
+  if (fonte === "inversor")
+    return solarDoInversor(
+      await repo.geracaoDoInversorPorMes(tx, { deMes, ateMes }),
+    );
   if (fonte !== "fatura_geradora") return [];
 
   const unidades = await repo.papeisDasUnidades(tx);

@@ -6,6 +6,7 @@ import {
   respostaCreditosDoMes,
   respostaFatura,
   respostaFaturasAte,
+  respostaGeracaoDoInversor,
   respostaLerFatura,
   respostaMesesComFatura,
   respostaPreviasDeFatura,
@@ -39,6 +40,15 @@ export const rotasDasContas: FastifyPluginAsyncZod = async (app) => {
     "/contas/meses",
     { config: leitura, schema: { response: { 200: respostaMesesComFatura } } },
     controller.meses,
+  );
+
+  app.get(
+    "/solar/inversor",
+    {
+      config: leitura,
+      schema: { response: { 200: respostaGeracaoDoInversor } },
+    },
+    controller.geracaoDoInversor,
   );
 
   app.get(

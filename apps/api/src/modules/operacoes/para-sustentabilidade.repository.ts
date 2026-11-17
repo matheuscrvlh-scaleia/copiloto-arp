@@ -1,3 +1,4 @@
+import { sql } from "kysely";
 import type { Tx } from "@/infra/banco";
 
 // Consultas de água e geração solar mês a mês para o painel do
@@ -65,4 +66,31 @@ export function faturasDaGeracao(tx: Tx, deMes: string, ateMes: string) {
     .where("referencia", "<=", ateMes)
     .orderBy("id")
     .execute();
+}
+
+/**
+ * Geração do inversor (Growatt) somada por mês, com o último dia lido; sem
+ * período, todos os meses. Também é a consulta da tela de Energia solar.
+ */
+export function geracaoDoInversorPorMes(
+  tx: Tx,
+  periodo?: { deMes: string; ateMes: string },
+) {
+  const mes = sql<string>`to_char(date_trunc('month', dia), 'YYYY-MM-01')`;
+  let q = tx
+    .selectFrom("operacoes.solar_inversor_dias")
+    .select([
+      mes.as("mes"),
+      sql<number>`sum(energia_kwh)::float8`.as("kwh"),
+      sql<string>`max(dia)::text`.as("ultimo_dia"),
+    ])
+    .groupBy(sql`date_trunc('month', dia)`)
+    .orderBy(sql`date_trunc('month', dia)`);
+  if (periodo)
+    q = q
+      .where("dia", ">=", periodo.deMes)
+      .where(
+        sql<boolean>`dia < (${periodo.ateMes}::date + interval '1 month')`,
+      );
+  return q.execute();
 }

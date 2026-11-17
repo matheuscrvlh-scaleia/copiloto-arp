@@ -33,6 +33,18 @@ export const respostaUnidadesDeEnergia = z.object({
 /** GET /operacoes/energia/contas/meses: meses com fatura, do mais novo ao mais antigo. */
 export const respostaMesesComFatura = z.object({ meses: z.array(data) });
 
+/**
+ * GET /operacoes/energia/solar/inversor: geração de cada mês ("aaaa-mm-01")
+ * lida do inversor (Growatt), só os meses com algum dia lido, e o último dia.
+ */
+export const respostaGeracaoDoInversor = z.object({
+  meses: z.array(z.object({ mes: data, kwh: z.number() })),
+  ultimoDia: data.nullable(),
+});
+export type RespostaGeracaoDoInversor = z.infer<
+  typeof respostaGeracaoDoInversor
+>;
+
 export const faturaConta = z.object({
   id: z.string(),
   matricula: z.string(),

@@ -14,7 +14,11 @@ import {
 } from "@arp/shared/admin/contratos";
 import { respostaMensagem } from "@arp/shared/contratos/auth";
 import { TIPOS, type Tipo } from "@arp/shared/historico";
-import { INTEGRACOES, type Sistema } from "@arp/shared/integracoes";
+import {
+  INTEGRACOES,
+  type ModuloDeIntegracao,
+  type Sistema,
+} from "@arp/shared/integracoes";
 import { type QueryKey, queryOptions } from "@tanstack/react-query";
 import type { Acao } from "@/components/form-acao";
 import { acaoDaApi, formParaObjeto } from "@/lib/acao";
@@ -37,7 +41,7 @@ export const chavesAdmin = {
   autores: () => ["admin", "historico-autores"] as const,
   /** Todas as telas de integrações (Administração e Marketing). */
   integracoes: () => ["admin", "integracoes"] as const,
-  integracoesDe: (modulo: "admin" | "marketing") =>
+  integracoesDe: (modulo: ModuloDeIntegracao) =>
     ["admin", "integracoes", modulo] as const,
 };
 
@@ -257,7 +261,7 @@ export const consultaDosAutores = queryOptions({
 // ---------------------------------------------------------------------------
 
 /** GET /api/v1/admin/integracoes?modulo= */
-export const consultaDasIntegracoes = (modulo: "admin" | "marketing") =>
+export const consultaDasIntegracoes = (modulo: ModuloDeIntegracao) =>
   queryOptions({
     queryKey: chavesAdmin.integracoesDe(modulo),
     queryFn: ({ signal }) =>

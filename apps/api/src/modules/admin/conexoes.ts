@@ -13,6 +13,7 @@ import {
   ESCOPOS_NECESSARIOS,
 } from "@/connectors/copiloto-rh/client";
 import { createDiarioDeObrasClient } from "@/connectors/diario-de-obras/client";
+import { createGrowattClient } from "@/connectors/growatt/client";
 import { ConnectorError, mensagemSegura } from "@/connectors/http";
 import { createSecullumClient } from "@/connectors/secullum/client";
 import { createWpsClient } from "@/connectors/wps/client";
@@ -22,6 +23,7 @@ import {
   type Credencial,
   configCopiloto,
   configDiario,
+  configGrowatt,
   configSecullum,
   configWps,
   IntegracaoNaoConfigurada,
@@ -145,6 +147,25 @@ const EXTENSOES: Partial<Record<Sistema, ExtensaoDaIntegracao>> = {
     autorizar: iniciarAutorizacaoRdCrm,
   },
   cameras: { testar: (c) => situacaoDasCameras(c) },
+  sus_growatt: {
+    // O token pode ser de um instalador e ver usinas de outros clientes: a
+    // mensagem cita só a usina configurada e, se ela não aparecer, só
+    // quantas o token vê (sem nomes).
+    async testar(c) {
+      const api = createGrowattClient(configGrowatt(c));
+      const usina = await api.detalhes().catch(async (erro: unknown) => {
+        if (!(erro instanceof ConnectorError) || erro.status !== 404)
+          throw erro;
+        const n = await api.quantasUsinas().catch(() => null);
+        throw new Error(
+          `token aceito, mas a usina ${api.usinaId} não aparece para ele${n === null ? "" : ` (ele vê ${formatarNumero(n)} usinas)`}; confira o id no portal da Growatt`,
+        );
+      });
+      const a = await api.agora();
+      const kwh = (v: number | null) => formatarNumero(v ?? 0, 1);
+      return `Conectado à usina “${usina.name}” (${formatarNumero(usina.peak_power ?? 0)} kWp) · agora ${kwh(a.current_power)} kW · hoje ${kwh(a.today_energy)} kWh · total ${formatarNumero(a.total_energy ?? 0)} kWh`;
+    },
+  },
   copiloto_rh: {
     async testar(c) {
       const api = createCopilotoRhClient(configCopiloto(c));

@@ -35,6 +35,7 @@ import { Cartao, PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { useBusca } from "@/lib/navegacao";
 import {
+  consultaDaGeracaoDoInversor,
   consultaDasFaturas,
   consultaDasUnidades,
   consultaDosCreditos,
@@ -117,14 +118,22 @@ function Mes({
   fonte: FonteSolar;
   unidadePedida: string;
 }) {
-  const [{ data: du }, { data: df, dataUpdatedAt }, { data: dc }] =
-    useSuspenseQueries({
-      queries: [
-        consultaDasUnidades,
-        consultaDasFaturas(mes),
-        consultaDosCreditos(mes),
-      ],
-    });
+  const [
+    { data: du },
+    { data: df, dataUpdatedAt },
+    { data: dc },
+    { data: dg },
+  ] = useSuspenseQueries({
+    queries: [
+      consultaDasUnidades,
+      consultaDasFaturas(mes),
+      consultaDosCreditos(mes),
+      consultaDaGeracaoDoInversor,
+    ],
+  });
+  // Geração da usina lida da Growatt (fonte "portal do inversor"): é da
+  // usina inteira, não de uma unidade da Energisa.
+  const inversor = new Map(dg.meses.map((m) => [m.mes, m.kwh]));
   const ctx = useContextoOp(dataUpdatedAt);
   const unidadesLista = du.unidades;
   const unidades = new Map(unidadesLista.map((u) => [u.matricula, u]));
@@ -139,11 +148,11 @@ function Mes({
   const creditos = creditosPorOrigem(
     itens.filter((i) => !unidade || i.matricula === unidade),
   );
-  const resumo = resumoSolar(doMes, unidades, fonte);
+  const resumo = resumoSolar(doMes, unidades, fonte, inversor.get(mes) ?? null);
   const temGeradora = unidadesLista.some((u) => gera(u.papel));
   const situacao = situacaoDaFonte(fonte, temGeradora, resumo.geracao !== null);
   const mesesGrafico = mesesDoGrafico(mes);
-  const serie = serieSolar(historico, mesesGrafico, unidades, fonte);
+  const serie = serieSolar(historico, mesesGrafico, unidades, fonte, inversor);
   const exemplo = doMes.some((f) => f.exemplo) ? EXEMPLO : undefined;
   const nomeUnidade = unidade
     ? nomeDaUnidade(unidade, unidades.get(unidade))

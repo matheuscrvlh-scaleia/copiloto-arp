@@ -263,6 +263,7 @@ mesmos de antes. Toda execução fica em `integracao.sync_runs` ou em
 | `sync.copiloto-rh` | `30 9 * * *` | 06h30 |
 | `sync.meta` | `45 9 * * *` | 06h45 |
 | `sync.wps` | `0 10 * * *` | 07h00 |
+| `sync.growatt` | `10 10 * * *` | 07h10 |
 | `os.rotinas` | `30 10 * * *` | 07h30 |
 | `sustentabilidade.rotinas` | `40 10 * * *` | 07h40 |
 | `marketing.aquecer-manha` | `50 10 * * *` | 07h50 |

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { SENHA_MAXIMO, SENHA_MINIMO } from "../contratos/auth";
 import { cnpjValido, soDigitos, UFS } from "../documentos";
 import { MODULOS, TIPOS } from "../historico";
-import { SISTEMAS } from "../integracoes";
+import { MODULOS_DE_INTEGRACAO, SISTEMAS } from "../integracoes";
 import { ehPermissaoDePrograma } from "../permissions";
 import { ehCodigoConhecido } from "./grupos-permissao";
 
@@ -278,7 +278,7 @@ export const parametrosDoSistema = z.object({ sistema });
 export type ParametrosDoSistema = z.infer<typeof parametrosDoSistema>;
 
 export const consultaDasIntegracoes = z.object({
-  modulo: z.enum(["admin", "marketing"]).default("admin"),
+  modulo: z.enum(MODULOS_DE_INTEGRACAO).default("admin"),
 });
 export type ConsultaDasIntegracoes = z.infer<typeof consultaDasIntegracoes>;
 

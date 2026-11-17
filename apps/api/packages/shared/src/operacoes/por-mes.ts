@@ -5,9 +5,9 @@ import { type FonteSolar, gera, geracaoDoMes } from "./solar";
 
 // Água e geração solar mês a mês, para outros módulos (o painel do
 // Sustentabilidade). As mesmas regras das telas de Operações: leituras
-// vigentes com a correção de vínculo (bloco que vale no mês) e geração só
-// pela fatura da unidade geradora. Mês sem dado não entra na lista (nada de
-// zero inventado).
+// vigentes com a correção de vínculo (bloco que vale no mês) e geração pela
+// fonte escolhida (fatura da unidade geradora ou inversor). Mês sem dado não
+// entra na lista (nada de zero inventado).
 
 const MES = /^\d{4}-(0[1-9]|1[0-2])-01$/;
 
@@ -75,11 +75,14 @@ export function aguaPorMes(
 export interface SolarDoMes {
   /** aaaa-mm-01 */
   mes: string;
-  /** Energia injetada (kWh) lida nas faturas das unidades geradoras. */
+  /**
+   * Geração (kWh): energia injetada lida nas faturas das unidades geradoras
+   * ou, com o inversor, a soma dos dias lidos da Growatt.
+   */
   kwh: number;
   /** Sem fator de emissão cadastrado em Operações: sempre null. */
   co2_t: null;
-  /** Data da leitura mais recente entre as faturas que deram a geração. */
+  /** Leitura mais recente: da fatura ou o último dia lido do inversor. */
   ultima_leitura: string | null;
   exemplo: boolean;
 }
@@ -120,4 +123,29 @@ export function solarPorMes(
       },
     ];
   });
+}
+
+/** Geração de um mês lida do inversor (soma dos dias, feita no banco). */
+export interface MesDoInversor {
+  /** aaaa-mm-01 */
+  mes: string;
+  kwh: number;
+  /** Último dia lido no mês (aaaa-mm-dd). */
+  ultimo_dia: string;
+}
+
+/**
+ * Geração de cada mês pelo inversor, no formato do painel: só os meses com
+ * algum dia lido, em ordem.
+ */
+export function solarDoInversor(meses: MesDoInversor[]): SolarDoMes[] {
+  return [...meses]
+    .sort((a, b) => a.mes.localeCompare(b.mes))
+    .map((m) => ({
+      mes: m.mes,
+      kwh: Math.round(m.kwh * 100) / 100,
+      co2_t: null,
+      ultima_leitura: m.ultimo_dia,
+      exemplo: false,
+    }));
 }

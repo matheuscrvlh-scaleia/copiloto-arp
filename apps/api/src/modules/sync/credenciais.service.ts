@@ -12,6 +12,10 @@ import {
   createDiarioDeObrasClient,
   type DiarioDeObrasConfig,
 } from "@/connectors/diario-de-obras/client";
+import {
+  createGrowattClient,
+  type GrowattConfig,
+} from "@/connectors/growatt/client";
 import { createGoogleClient } from "@/connectors/marketing/google";
 import { createMetaClient } from "@/connectors/marketing/meta";
 import { createRdStationClient } from "@/connectors/marketing/rd-station";
@@ -28,28 +32,42 @@ import { cifrar, decifrar } from "@/infra/cofre";
 import * as repo from "./credenciais.repository";
 
 // Credenciais das integrações. Valem as salvas na tela (Administração ›
-// Integrações ou, as do Marketing, Marketing › Configurações › Integrações);
+// Integrações ou, as do Marketing e do Sustentabilidade, Configurações ›
+// Integrações de cada módulo);
 // sem elas, as variáveis de ambiente (.env). Lidas com a service role: quem
 // chama é a rotina (sem pessoa) ou um service que já conferiu podeConfigurar.
 
+const TELA_DO_MODULO = {
+  admin: "Administração › Integrações",
+  marketing: "Marketing › Configurações › Integrações",
+  sustentabilidade: "Sustentabilidade › Configurações › Integrações",
+} as const;
+
+/** Permissão que configura as integrações de cada módulo (além do admin). */
+const PERMISSAO_DO_MODULO = {
+  marketing: "marketing.parametros",
+  sustentabilidade: "sustentabilidade.parametros",
+} as const;
+
 /**
  * Quem pode configurar: admin.integracoes em todas; marketing.parametros nas
- * do Marketing. O banco confere a mesma regra (core.pode_integracao).
+ * do Marketing; sustentabilidade.parametros nas do Sustentabilidade. O banco
+ * confere a mesma regra (core.pode_integracao).
  */
 export async function podeConfigurar(
   ctx: Contexto,
   sistema: Sistema,
 ): Promise<boolean> {
   if (await podeAgora(ctx, "admin.integracoes")) return true;
-  return (
-    INTEGRACOES[sistema].modulo === "marketing" &&
-    podeAgora(ctx, "marketing.parametros")
-  );
+  const { modulo } = INTEGRACOES[sistema];
+  return modulo !== "admin" && podeAgora(ctx, PERMISSAO_DO_MODULO[modulo]);
 }
 
 async function podeAgora(
   ctx: Contexto,
-  permissao: "admin.integracoes" | "marketing.parametros",
+  permissao:
+    | "admin.integracoes"
+    | (typeof PERMISSAO_DO_MODULO)[keyof typeof PERMISSAO_DO_MODULO],
 ): Promise<boolean> {
   try {
     await exigir(ctx, permissao);
@@ -100,7 +118,7 @@ export async function credencialEmUso(sistema: Sistema): Promise<Credencial> {
   if (!doAmbiente)
     throw new IntegracaoNaoConfigurada(
       sistema,
-      "cadastre o acesso em Administração › Integrações",
+      `cadastre o acesso em ${TELA_DO_MODULO[INTEGRACOES[sistema].modulo]}`,
     );
   return doAmbiente;
 }
@@ -205,6 +223,24 @@ export function configCopiloto({
     usuario: String(p.usuario),
     senha: segredo,
   };
+}
+
+export function configGrowatt({
+  parametros,
+  segredo,
+}: Credencial): GrowattConfig {
+  const p = INTEGRACOES.sus_growatt.parametros.parse(parametros);
+  return {
+    baseUrl: String(p.base_url),
+    token: segredo,
+    usinaId: Number(p.usina_id),
+  };
+}
+
+export async function growatt() {
+  return createGrowattClient(
+    configGrowatt(await credencialEmUso("sus_growatt")),
+  );
 }
 
 export async function secullum() {

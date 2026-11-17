@@ -19,6 +19,10 @@ export async function meses(request: FastifyRequest) {
   return { meses: await service.meses(contextoDe(request)) };
 }
 
+export function geracaoDoInversor(request: FastifyRequest) {
+  return service.geracaoDoInversor(contextoDe(request));
+}
+
 export function faturas(request: FastifyRequest<ComMes>) {
   return service.faturasAte(contextoDe(request), request.query.mes);
 }

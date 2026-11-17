@@ -2,6 +2,7 @@ import { banco } from "@/infra/banco";
 import { eventosPendentes } from "@/infra/eventos";
 import { sincronizarCopiloto } from "@/modules/sync/copiloto-rh.service";
 import { sincronizarDiario } from "@/modules/sync/diario-de-obras.service";
+import { sincronizarGrowatt } from "@/modules/sync/growatt.service";
 import { sincronizarMeta } from "@/modules/sync/meta.service";
 import { sincronizarRdCrm } from "@/modules/sync/rd-crm.service";
 import { sincronizarRd } from "@/modules/sync/rd-station.service";
@@ -15,6 +16,7 @@ import { sincronizarWps } from "@/modules/sync/wps.service";
 // limite do Secullum) e registra em integracao.sync_runs.
 //   node dist/sincronizar.js secullum [2026-09 2026-10 …]   reprocessa meses
 //   node dist/sincronizar.js wps [2026-09-01 [2026-09-30]]   reprocessa dias
+//   node dist/sincronizar.js growatt [2023-03-16 [2026-11-17]]   reprocessa dias
 //   node dist/sincronizar.js rd-station|rd-crm|copiloto-rh|meta|diario-de-obras
 // Em desenvolvimento: npm run sincronizar -- secullum 2026-09
 
@@ -27,6 +29,7 @@ const SINCRONIZACOES: Record<string, (args: string[]) => Promise<unknown>> = {
     }),
   wps: ([de, ate]) =>
     sincronizarWps({ dias: de ? diasDoIntervalo(de, ate ?? de) : undefined }),
+  growatt: ([de, ate]) => sincronizarGrowatt({ de, ate }),
   "rd-station": () => sincronizarRd(),
   "rd-crm": () => sincronizarRdCrm(),
   "copiloto-rh": () => sincronizarCopiloto(),
