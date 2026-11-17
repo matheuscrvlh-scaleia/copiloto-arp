@@ -13,10 +13,8 @@ import {
   resumoDoLancamento,
 } from "@arp/shared/sustentabilidade/lancamento-valores";
 import {
-  hashDoToken,
   inicioDoMesEmBrasilia,
   mesDeBrasilia,
-  novoToken,
   podeCorrigirPeloLink,
   tokenValido,
 } from "@arp/shared/sustentabilidade/programas-link";
@@ -45,6 +43,7 @@ import {
   listasDoPrograma,
   tamanhoOk,
 } from "./lancamentos.service";
+import { hashDoToken, novoToken } from "./parceiro-token";
 import * as repo from "./programas.repository";
 
 // Link do parceiro (spec 4.8). A equipe ("Programas – gerenciar") gera o

@@ -1,28 +1,13 @@
-import { createHash, randomBytes } from "node:crypto";
 import { paraBrasilia } from "../os/tempo";
 
 // Link do parceiro (spec 4.8): o token só existe no endereço que a equipe
-// envia; o banco guarda o sha256 em hexa (`programa_links.token_hash`). A
-// página /parceiro/[token] calcula o hash e procura o link ativo.
+// envia; o banco guarda o sha256 em hexa (`programa_links.token_hash`).
+// Gerar o token e calcular o hash usam o `node:crypto` e ficam na API
+// (modules/sustentabilidade/parceiro-token.ts).
 
-/** 32 bytes aleatórios em base64url (43 caracteres). */
-export function novoToken(): string {
-  return randomBytes(32).toString("base64url");
-}
-
-/** Formato do token gerado aqui; o resto nem chega ao banco. */
+/** Formato do token (32 bytes em base64url); o resto nem chega ao banco. */
 export function tokenValido(token: string): boolean {
   return /^[A-Za-z0-9_-]{43}$/.test(token);
-}
-
-/** sha256 do token em hexa minúsculo (o que fica no banco). */
-export function hashDoToken(token: string): string {
-  return createHash("sha256").update(token, "utf8").digest("hex");
-}
-
-/** O hash guardado é o deste token? */
-export function confereToken(token: string, hash: string): boolean {
-  return tokenValido(token) && hashDoToken(token) === hash.toLowerCase();
 }
 
 /** "aaaa-mm" de um instante, no horário de Brasília. */

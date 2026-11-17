@@ -135,8 +135,9 @@ export async function abasDoArquivo(
     ];
   const { default: ExcelJS } = await import("exceljs");
   const livro = new ExcelJS.Workbook();
-  // atalho: exceljs tipa o load com o Buffer antigo do Node.
-  await livro.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+  // Cópia com buffer próprio: o exceljs lê o ArrayBuffer inteiro (e aqui não
+  // há Buffer: o arquivo também é lido no navegador).
+  await livro.xlsx.load(bytes.slice().buffer);
   return livro.worksheets.map((ws) => {
     // Só as células com valor (aba formatada até a coluna XFD não pesa).
     const linhas: Celula[][] = Array.from({ length: ws.rowCount }, () => []);

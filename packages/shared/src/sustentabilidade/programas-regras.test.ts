@@ -19,10 +19,7 @@ import {
   somaDoGrupoNoMes,
 } from "./programas-indicadores";
 import {
-  confereToken,
-  hashDoToken,
   inicioDoMesEmBrasilia,
-  novoToken,
   podeCorrigirPeloLink,
   tokenValido,
 } from "./programas-link";
@@ -193,21 +190,12 @@ describe("valores e grupos", () => {
 });
 
 describe("token do link do parceiro", () => {
-  it("hash sha256 em hexa (o banco guarda só ele)", () => {
-    expect(hashDoToken("abc")).toBe(
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-    );
-    const t = novoToken();
-    expect(tokenValido(t)).toBe(true);
-    expect(hashDoToken(t)).toMatch(/^[0-9a-f]{64}$/);
-    expect(confereToken(t, hashDoToken(t))).toBe(true);
-    expect(confereToken(t, hashDoToken(novoToken()))).toBe(false);
-  });
-
+  // O hash e a geração do token (node:crypto) são testados na API:
+  // modules/sustentabilidade/parceiro-token.test.ts.
   it("formato inválido nem chega ao banco", () => {
     expect(tokenValido("abc")).toBe(false);
     expect(tokenValido(`${"a".repeat(42)}!`)).toBe(false);
-    expect(confereToken("abc", hashDoToken("abc"))).toBe(false);
+    expect(tokenValido("a".repeat(43))).toBe(true);
   });
 
   it("corrige até o fim do mês em que lançou (Brasília)", () => {

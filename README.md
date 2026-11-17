@@ -24,6 +24,8 @@ regras.
 - **Comercial**: painel, funil, ocupação, vencimentos, relacionamento, Censo,
   contratos e distratos, ficha cadastral, kit, eventos e pesquisa de mercado.
 - **Operações**: água, energia, limpeza e obras, com as importações.
+- **Sustentabilidade**: entrevistas, Clube, programas com link do parceiro,
+  rondas, RCC e painel.
 - **Calendário**: agenda da empresa, com quem vê cada item.
 - **Relatórios**: formulários e relatórios com link público.
 - **Administração**: usuários, cargos e permissões, empresa, integrações e
@@ -164,6 +166,7 @@ Rodam dentro da API, com trava no banco (nunca em dobro). Horários em UTC
 | `sync.meta` | `45 9 * * *` | 06h45 | anúncios |
 | `sync.wps` | `0 10 * * *` | 07h00 | estacionamento |
 | `os.rotinas` | `30 10 * * *` | 07h30 | lembretes e prazos dos chamados |
+| `sustentabilidade.rotinas` | `40 10 * * *` | 07h40 | entrevistas, termo do Clube e cobrança dos parceiros |
 | `marketing.aquecer-manha` | `50 10 * * *` | 07h50 | relê Meta e Google do dia |
 | `comercial.rotinas` | `0 11 * * *` | 08h00 | rotinas do Comercial |
 | `sync.diario-de-obras` | `*/30 * * * *` | a cada 30 min | Diário de Obras |

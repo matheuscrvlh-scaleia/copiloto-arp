@@ -251,6 +251,7 @@ mesmos de antes. Toda execução fica em `integracao.sync_runs` ou em
 | `sync.meta` | `45 9 * * *` | 06h45 |
 | `sync.wps` | `0 10 * * *` | 07h00 |
 | `os.rotinas` | `30 10 * * *` | 07h30 |
+| `sustentabilidade.rotinas` | `40 10 * * *` | 07h40 |
 | `marketing.aquecer-manha` | `50 10 * * *` | 07h50 |
 | `comercial.rotinas` | `0 11 * * *` | 08h00 |
 | `sync.diario-de-obras` | `*/30 * * * *` | a cada 30 min |
