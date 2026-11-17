@@ -26,12 +26,14 @@ import { ChatDasRespostas } from "../components/chat";
 import {
   CartoesDasRespostas,
   HorariosDasRespostas,
-  RitmoDasRespostas,
+  RespostasPorDia,
   TaxaPorPergunta,
+  TotalAcumulado,
 } from "../components/metricas";
 
-// /relatorios/:id: as respostas de um relatório (cartões, chat, ritmo por
-// dia, horários, taxa por pergunta, resumo por pergunta, lista e Excel).
+// /relatorios/:id: as respostas de um relatório (cartões, chat e respostas
+// por dia, acumulado e horários, taxa por pergunta, resumo por pergunta,
+// lista e Excel).
 
 export default function Pagina() {
   return (
@@ -141,7 +143,8 @@ function Respostas() {
           <>
             <CartoesDasRespostas m={m} agora={new Date()} />
 
-            <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+            {/* Pares lado a lado com a mesma altura (o grid estica os dois). */}
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <ChatDasRespostas
                 campos={f.campos}
                 registros={respostas.map((r) => ({
@@ -149,15 +152,15 @@ function Respostas() {
                   respostas: r.respostas,
                 }))}
               />
-              <div className="flex flex-col gap-4">
-                <RitmoDasRespostas m={m} />
-              </div>
+              <RespostasPorDia m={m} />
             </div>
 
-            <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <TotalAcumulado m={m} />
               <HorariosDasRespostas m={m} />
-              <TaxaPorPergunta m={m} campos={f.campos} />
             </div>
+
+            <TaxaPorPergunta m={m} campos={f.campos} />
 
             <div className="flex flex-col gap-3">
               <h2 className="px-1 text-base font-semibold">

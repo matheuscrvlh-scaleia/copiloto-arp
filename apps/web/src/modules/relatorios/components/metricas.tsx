@@ -104,7 +104,7 @@ export function CartoesDasRespostas({
   );
 }
 
-export function RitmoDasRespostas({ m }: { m: MetricasDasRespostas }) {
+export function RespostasPorDia({ m }: { m: MetricasDasRespostas }) {
   const dias = m.porDia.length;
   const noPeriodo = m.porDia.reduce((s, d) => s + d.n, 0);
   const pico = m.porDia.reduce((a, d) => (d.n > a.n ? d : a), {
@@ -119,6 +119,21 @@ export function RitmoDasRespostas({ m }: { m: MetricasDasRespostas }) {
     texto: plural(d.n, "resposta", "respostas"),
     destaque: d.dia === pico.dia && pico.n > 0,
   }));
+  return (
+    <Secao
+      titulo="Respostas por dia"
+      descricao={`${plural(noPeriodo, "resposta", "respostas")} nos últimos ${dias} dias${pico.n ? ` · pico em ${ddmm(pico.dia)}, com ${formatarNumero(pico.n)}` : ""}.`}
+    >
+      <Colunas
+        itens={porDia}
+        descricao={`Respostas por dia nos últimos ${dias} dias`}
+      />
+    </Secao>
+  );
+}
+
+export function TotalAcumulado({ m }: { m: MetricasDasRespostas }) {
+  const dias = m.porDia.length;
   const acumulado: ItemGrafico[] = m.porDia.map((d, k) => ({
     chave: d.dia,
     rotulo: rotuloDoDia(k, dias, d.dia),
@@ -127,26 +142,15 @@ export function RitmoDasRespostas({ m }: { m: MetricasDasRespostas }) {
     texto: plural(d.acumulado, "resposta", "respostas"),
   }));
   return (
-    <>
-      <Secao
-        titulo="Respostas por dia"
-        descricao={`${plural(noPeriodo, "resposta", "respostas")} nos últimos ${dias} dias${pico.n ? ` · pico em ${ddmm(pico.dia)}, com ${formatarNumero(pico.n)}` : ""}.`}
-      >
-        <Colunas
-          itens={porDia}
-          descricao={`Respostas por dia nos últimos ${dias} dias`}
-        />
-      </Secao>
-      <Secao
-        titulo="Total acumulado"
-        descricao={`De ${formatarNumero(m.porDia[0]?.acumulado ?? 0)} para ${formatarNumero(m.total)} nos últimos ${dias} dias.`}
-      >
-        <AreaLinha
-          itens={acumulado}
-          descricao={`Total acumulado de respostas nos últimos ${dias} dias`}
-        />
-      </Secao>
-    </>
+    <Secao
+      titulo="Total acumulado"
+      descricao={`De ${formatarNumero(m.porDia[0]?.acumulado ?? 0)} para ${formatarNumero(m.total)} nos últimos ${dias} dias.`}
+    >
+      <AreaLinha
+        itens={acumulado}
+        descricao={`Total acumulado de respostas nos últimos ${dias} dias`}
+      />
+    </Secao>
   );
 }
 
