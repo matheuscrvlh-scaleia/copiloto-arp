@@ -87,6 +87,8 @@ export const chamadoInteiro = z.object({
   avaliado_em: instante.nullable(),
   acao_rotulo: z.string().nullable(),
   acao_url: z.string().nullable(),
+  /** Módulo que criou o chamado (origem 'modulo'). */
+  origem_modulo: z.string().nullable(),
   criado_em: instante,
   atualizado_em: instante,
 });

@@ -1,9 +1,7 @@
+import { temTodasAsPermissoes } from "@arp/shared/admin/grupos-permissao";
 import { formatarNumero } from "@arp/shared/formato";
-import {
-  MODULOS_DE_PERMISSAO as MODULOS,
-  PERMISSOES,
-} from "@arp/shared/permissions";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { MODULOS_DE_PERMISSAO as MODULOS } from "@arp/shared/permissions";
+import { useSuspenseQueries } from "@tanstack/react-query";
 import { Pencil, Plus, Power, Trash2, Users } from "lucide-react";
 import { Suspense } from "react";
 import { Carregando, PageHeader } from "@/components/page-header";
@@ -12,7 +10,12 @@ import { Link } from "@/lib/navegacao";
 import { AcaoRapida } from "@/modules/admin/components/acao-rapida";
 import { Abas, BotaoLink, Situacao } from "@/modules/admin/components/ui";
 import { ABAS_USUARIOS } from "../abas";
-import { alternarCargo, apagarCargo, consultaDosCargos } from "../api";
+import {
+  alternarCargo,
+  apagarCargo,
+  consultaDasPermissoesDePrograma,
+  consultaDosCargos,
+} from "../api";
 import { confirmarExclusao, confirmarInativacao } from "../components/textos";
 
 const apagar = apagarCargo();
@@ -43,7 +46,9 @@ export default function Page() {
 }
 
 function Lista() {
-  const { data: lista } = useSuspenseQuery(consultaDosCargos);
+  const [{ data: lista }, { data: programas }] = useSuspenseQueries({
+    queries: [consultaDosCargos, consultaDasPermissoesDePrograma],
+  });
   if (lista.length === 0) {
     return (
       <p className="vidro rounded-[1.75rem] p-6 text-sm text-neutral-500">
@@ -54,9 +59,9 @@ function Lista() {
   return (
     <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
       {lista.map((c) => {
-        // O cargo ativo com acesso a tudo ganha o cartão escuro de destaque.
-        const tudo =
-          c.ativo && c.permissoes.length === Object.keys(PERMISSOES).length;
+        // O cargo ativo com acesso a tudo (fixas e programas que existem)
+        // ganha o cartão escuro de destaque.
+        const tudo = c.ativo && temTodasAsPermissoes(c.permissoes, programas);
         const apagado = tudo
           ? "text-[rgb(255_255_255/0.60)]"
           : "text-neutral-500";

@@ -1,3 +1,4 @@
+import { ehCaminhoInterno } from "@arp/shared/os/chamado";
 import { numeroDo } from "@arp/shared/os/numeros";
 import { calcularPrazo } from "@arp/shared/os/prazo";
 import { rotaDo } from "@arp/shared/os/rotas";
@@ -20,7 +21,8 @@ import * as repo from "./chamados.repository";
 import { tentar } from "./tentar";
 
 // Criação de chamado ou OS pelo sistema (service role): portal do lojista,
-// modelos de entrada e saída, planos preventivos e lembretes recorrentes.
+// modelos de entrada e saída, planos preventivos, lembretes recorrentes e
+// outros módulos (origem 'modulo', ver ./sistema.service.ts).
 // Quem chama já conferiu o acesso (token do link, rotina) e abriu o escopo
 // `comoServico`. A categoria dá os padrões (tipo, responsável, prioridade,
 // prazo, confirmação, checklist), e quem chama pode sobrescrever. Só tipo
@@ -69,6 +71,26 @@ export interface NovoChamadoSistema {
   }[];
   /** Texto da notificação no lugar do padrão ("Preventiva criada."). */
   aviso?: { tipo: string; texto: string };
+  /**
+   * Botão "Executar" do detalhe: caminho interno da tela onde o trabalho é
+   * feito ("/sustentabilidade/entrevistas/..."), começando com "/".
+   */
+  acaoUrl?: string | null;
+  /**
+   * O que o módulo salva, com artigo ("a entrevista", "a ronda da semana"):
+   * entra em "Este chamado fecha sozinho ao salvar <acaoRotulo> no módulo".
+   */
+  acaoRotulo?: string | null;
+  /**
+   * Só o módulo conclui (./sistema.service.ts); a pessoa não conclui pelo
+   * Chamados (o banco também recusa). Exige acaoUrl e não aceita vários
+   * destinos.
+   */
+  conclusaoExterna?: boolean;
+  /** Módulo que criou ("sustentabilidade"), com origem 'modulo'. */
+  origemModulo?: string | null;
+  /** Referência no módulo ("entrevista:<contrato_id>"), para achar o chamado. */
+  origemRef?: string | null;
 }
 
 export interface ChamadoCriado extends Alvo {
@@ -89,6 +111,13 @@ export async function criarChamadoSistema(
   n: NovoChamadoSistema,
   agora = new Date(),
 ): Promise<ChamadoCriado | null> {
+  if (n.acaoUrl && !ehCaminhoInterno(n.acaoUrl))
+    throw new Error(`acaoUrl precisa ser um caminho interno: ${n.acaoUrl}`);
+  if (n.conclusaoExterna && !n.acaoUrl)
+    throw new Error("Conclusão externa precisa de acaoUrl (botão Executar).");
+  // O último destino concluiria o chamado pelo banco, sem passar pelo módulo.
+  if (n.conclusaoExterna && n.destinatarios?.length)
+    throw new Error("Conclusão externa não aceita vários destinos.");
   const categoria = n.categoriaId
     ? ((await base.categoria(tx, n.categoriaId)) ?? null)
     : null;
@@ -137,6 +166,11 @@ export async function criarChamadoSistema(
     campos: JSON.stringify(n.campos ?? {}),
     checklist: JSON.stringify(checklist),
     etiquetas: n.etiquetas ?? [],
+    acao_url: n.acaoUrl ?? null,
+    acao_rotulo: n.acaoRotulo?.trim() || null,
+    conclusao_externa: n.conclusaoExterna ?? false,
+    origem_modulo: n.origemModulo ?? null,
+    origem_ref: n.origemRef ?? null,
   };
   const COLUNAS = ["id", "numero", "tipo", "responsavel_id"] as const;
   const gravado = await tentar(tx, () =>

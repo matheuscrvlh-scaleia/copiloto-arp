@@ -4,7 +4,12 @@ import type {
   PrazosDaSessao,
   RespostaEu,
 } from "@arp/shared/contratos/auth";
-import { PERMISSOES, type Permissao } from "@arp/shared/permissions";
+import {
+  ehPermissaoDePrograma,
+  PERMISSOES,
+  type Permissao,
+  type PermissaoDePrograma,
+} from "@arp/shared/permissions";
 import {
   DURACAO_MAXIMA_MS,
   INATIVIDADE_MS,
@@ -68,7 +73,8 @@ function prazos(
   };
 }
 
-const ehPermissao = (p: string): p is Permissao => p in PERMISSOES;
+const ehPermissao = (p: string): p is Permissao | PermissaoDePrograma =>
+  p in PERMISSOES || ehPermissaoDePrograma(p);
 
 function vencida(s: repo.SessaoComUsuario, agora: number): boolean {
   return sessaoVencida(
@@ -273,6 +279,15 @@ export async function renovar(
       { usuario: r.usuarioId, sessao: r.sessaoId, ip: origem.ip },
       "token de renovação reusado: sessão encerrada",
     );
+    // Também no Histórico (Administração): pode ser cópia do cookie.
+    registrarDepois({
+      modulo: "acesso",
+      evento: "sessao_reusada",
+      descricao:
+        "Sessão encerrada: um token de renovação já usado foi apresentado de novo",
+      usuarioId: r.usuarioId,
+      detalhes: { sessao: r.sessaoId, ip: origem.ip },
+    });
     throw new ErroNaoAutenticado();
   }
   if (r.tipo === "expirou") throw new ErroNaoAutenticado(EXPIROU);

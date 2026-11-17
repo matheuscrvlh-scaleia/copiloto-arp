@@ -157,6 +157,30 @@ export function cargos(tx: Tx) {
     .execute();
 }
 
+/** As "Programa – lançar" de core.permissoes (o RLS deixa todo logado ler). */
+export function permissoesDePrograma(tx: Tx, prefixo: string) {
+  return tx
+    .selectFrom("core.permissoes")
+    .select(["codigo", "descricao"])
+    .where("codigo", "like", `${prefixo}%`)
+    .orderBy("descricao")
+    .execute();
+}
+
+/** Dos códigos pedidos, os que existem em core.permissoes. */
+export async function permissoesExistentes(
+  tx: Tx,
+  codigos: string[],
+): Promise<string[]> {
+  if (codigos.length === 0) return [];
+  const r = await tx
+    .selectFrom("core.permissoes")
+    .select("codigo")
+    .where("codigo", "in", codigos)
+    .execute();
+  return r.map((p) => p.codigo);
+}
+
 export function permissoesDosCargos(tx: Tx) {
   return tx
     .selectFrom("core.cargo_permissoes")

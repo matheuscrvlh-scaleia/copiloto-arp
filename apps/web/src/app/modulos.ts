@@ -8,6 +8,7 @@ import { operacoes } from "@/modules/operacoes/rotas";
 import { os } from "@/modules/os/rotas";
 import { relatorios } from "@/modules/relatorios/rotas";
 import { rh } from "@/modules/rh/rotas";
+import { sustentabilidade } from "@/modules/sustentabilidade/rotas";
 import type { Modulo } from "./rota";
 
 /**
@@ -26,4 +27,5 @@ export const MODULOS: Modulo[] = [
   os,
   relatorios,
   rh,
+  sustentabilidade,
 ];

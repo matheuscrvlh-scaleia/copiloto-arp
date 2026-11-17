@@ -77,6 +77,7 @@ descreverComBanco("administração (/api/v1/admin)", () => {
       ["DELETE", `/usuarios/${id}/permissoes`],
       ["DELETE", `/usuarios/${id}`],
       ["GET", "/cargos"],
+      ["GET", "/permissoes-de-programa"],
       ["POST", "/cargos", { nome: "Cargo" }],
       ["PATCH", `/cargos/${id}`, { nome: "Cargo" }],
       ["PATCH", `/cargos/${id}/situacao`, { ativo: false }],
@@ -152,6 +153,36 @@ descreverComBanco("administração (/api/v1/admin)", () => {
       permissoes: ["nao.existe"],
     });
     expect(desconhecida.statusCode).toBe(400);
+
+    // "Programa – lançar": o código passa pelo formato, mas o programa
+    // precisa existir no banco; nada do cargo muda quando não existe.
+    const semPrograma = await admin.pedir("PATCH", caminho, {
+      nome,
+      permissoes: [
+        "rh.quadro",
+        "sustentabilidade.programa.00000000-0000-4000-8000-000000000000",
+      ],
+      programas_vistas: [],
+    });
+    expect(semPrograma.statusCode).toBe(422);
+    expect(semPrograma.json().erro.mensagem).toBe(
+      "Há um programa que não existe mais. Recarregue a página e tente de novo.",
+    );
+    expect((await ler())?.permissoes.sort()).toEqual([
+      "rh.jornada",
+      "rh.quadro",
+    ]);
+
+    const programas = await admin.pedir(
+      "GET",
+      `${ADMIN}/permissoes-de-programa`,
+    );
+    expect(programas.statusCode).toBe(200);
+    const lista: { codigo: string; descricao: string }[] =
+      programas.json().programas;
+    expect(Array.isArray(lista)).toBe(true);
+    for (const p of lista)
+      expect(p.codigo.startsWith("sustentabilidade.programa.")).toBe(true);
 
     const inativou = await admin.pedir("PATCH", `${caminho}/situacao`, {
       ativo: "false",

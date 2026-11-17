@@ -1,5 +1,5 @@
+import { rotuloDaPermissao } from "@arp/shared/admin/grupos-permissao";
 import { formatarData, formatarDataHora } from "@arp/shared/formato";
-import { PERMISSOES } from "@arp/shared/permissions";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { Power, Trash2 } from "lucide-react";
 import { Suspense, useMemo } from "react";
@@ -22,6 +22,7 @@ import { Avatar, Secao, Situacao } from "@/modules/admin/components/ui";
 import {
   alternarUsuario,
   cargosParaEscolha,
+  consultaDasPermissoesDePrograma,
   consultaDosCargos,
   consultaDoUsuario,
   excluirUsuario,
@@ -56,9 +57,14 @@ function Edicao() {
   const id = useParametro("id");
   const busca = useParametrosDeBusca();
   // Pessoa que não existe: a API responde 404 e a tela mostra "não encontrada".
-  const [{ data: u }, { data: todosCargos }] = useSuspenseQueries({
-    queries: [consultaDoUsuario(id), consultaDosCargos],
-  });
+  const [{ data: u }, { data: todosCargos }, { data: programas }] =
+    useSuspenseQueries({
+      queries: [
+        consultaDoUsuario(id),
+        consultaDosCargos,
+        consultaDasPermissoesDePrograma,
+      ],
+    });
   const eu = useSessao().usuario;
   const navegar = useNavegar();
   const excluir = useMemo(
@@ -189,7 +195,7 @@ function Edicao() {
                 key={p}
                 className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-xs text-amber-950"
               >
-                {PERMISSOES[p]}
+                {rotuloDaPermissao(p, programas)}
               </li>
             ))}
           </ul>

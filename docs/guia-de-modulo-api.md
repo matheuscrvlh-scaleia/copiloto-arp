@@ -134,7 +134,9 @@ Lance; o plugin de erros responde `{ erro: { codigo, mensagem, campos? } }`.
 - `return { erro: "texto" }` de uma Server Action vira
   `throw new ErroDeNegocio("texto")`, com **o mesmo texto**.
 - `primeiroErro(zodError)` deixa de existir: a validação da rota já devolve
-  400 com `campos` (campo → mensagem do schema).
+  400 com `campos` (campo → mensagem do schema). A `mensagem` é a do primeiro
+  campo (`campo: mensagem`), e o texto padrão do Zod sai em português
+  (`config/zod.ts`).
 - `erroDoBanco(error)` deixa de ser chamado: o escopo do banco já traduz
   (23505 → conflito "Já existe outro registro com esse valor."; 23514 →
   "Valor fora do permitido."; 42501 → sem permissão; `raise exception` do

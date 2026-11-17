@@ -59,6 +59,7 @@ export const origem = z.enum([
   "recorrencia",
   "vistoria",
   "importacao",
+  "modulo",
 ]) satisfies z.ZodType<Origem>;
 export const motivoAguardando = z.enum([
   "lojista",

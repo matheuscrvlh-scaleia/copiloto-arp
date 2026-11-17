@@ -93,6 +93,12 @@ export const lojaDoPortal = z.object({
   fim: z.string().nullable(),
   telefone: z.string().nullable(),
   tem_vaga: z.boolean().nullable(),
+  tipo_loja: z.string().nullable(),
+  ramo: z.string().nullable(),
+  ativacao: z.string().nullable(),
+  rescisao: z.string().nullable(),
+  piso: z.string().nullable(),
+  rua: z.string().nullable(),
   enet_id: z.string().nullable(),
 });
 export type LojaDoPortal = z.infer<typeof lojaDoPortal>;
@@ -150,10 +156,28 @@ export const entradaLoja = z
       (v) => (v === "sim" ? true : v === "nao" ? false : null),
       z.boolean().nullable(),
     ),
+    // Usados pelo Sustentabilidade (entrevista na ativação, dispensa por
+    // tipo de loja, cancelamento na rescisão). Todos opcionais.
+    tipo_loja: opcional,
+    ramo: opcional,
+    ativacao: z.preprocess(
+      (v) => (v === "" || v == null ? null : v),
+      z.iso.date("Ativação: data inválida").nullable(),
+    ),
+    rescisao: z.preprocess(
+      (v) => (v === "" || v == null ? null : v),
+      z.iso.date("Rescisão: data inválida").nullable(),
+    ),
+    piso: opcional,
+    rua: opcional,
   })
   .refine((l) => !l.inicio || !l.fim || l.inicio <= l.fim, {
     message: "Fim: o fim vem antes do início",
     path: ["fim"],
+  })
+  .refine((l) => !l.ativacao || !l.rescisao || l.ativacao <= l.rescisao, {
+    message: "Rescisão: a rescisão vem antes da ativação",
+    path: ["rescisao"],
   });
 export type EntradaLoja = z.infer<typeof entradaLoja>;
 

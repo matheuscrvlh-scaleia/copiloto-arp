@@ -6,10 +6,15 @@ import type { Rota } from "@/app/rota";
 import { navigation } from "@/config/navigation";
 import { GUIAS, guiaDa, TRILHAS, trilhasDa } from "./index";
 
-/** Texto de todos os .tsx/.ts de src (menos testes). */
+/**
+ * Texto de todos os .tsx/.ts (menos testes) das telas e de onde saem os
+ * títulos que elas mostram: as regras de packages/shared e os módulos da API
+ * (no sistema antigo, tudo isso ficava na mesma pasta src).
+ */
 function fontes(): string[] {
   const textos: string[] = [];
   const raiz = join(__dirname, "..", "..");
+  const repo = join(raiz, "..", "..", "..");
   const percorrer = (dir: string) => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       const caminho = join(dir, e.name);
@@ -19,6 +24,8 @@ function fontes(): string[] {
     }
   };
   percorrer(raiz);
+  percorrer(join(repo, "packages", "shared", "src"));
+  percorrer(join(repo, "apps", "api", "src", "modules"));
   return textos;
 }
 
@@ -76,16 +83,6 @@ function alvosNoCodigo(): Set<string> {
   return achados;
 }
 
-/**
- * As telas dos módulos ainda estão sendo portadas do sistema antigo: os
- * testes que conferem os guias contra o código das telas (pontos
- * `data-guia`, títulos de blocos, rotas das trilhas) só passam com todas
- * no lugar. Quando o último módulo entrar, troque para true e apague a
- * condição.
- */
-const TELAS_PORTADAS = false;
-const comAsTelas = it.skipIf(!TELAS_PORTADAS);
-
 /** Todos os endereços registrados em app/modulos.ts ("/os/ordens/:id"). */
 function rotasRegistradas(): Set<string> {
   const achadas = new Set<string>();
@@ -107,7 +104,7 @@ describe("guias das telas", () => {
     expect(telas.filter((href) => !GUIAS[href])).toEqual([]);
   });
 
-  comAsTelas("todo guia aponta para pontos que existem nos componentes", () => {
+  it("todo guia aponta para pontos que existem nos componentes", () => {
     const existentes = alvosNoCodigo();
     const usados = Object.values(GUIAS).flatMap((g) =>
       g.passos.flatMap((p) => (p.alvo ? [p.alvo.split(":")[0] ?? ""] : [])),
@@ -116,7 +113,7 @@ describe("guias das telas", () => {
     expect(existentes.has("guia")).toBe(true);
   });
 
-  comAsTelas("bloco, cartão ou aba citado pelo título existe na tela", () => {
+  it("bloco, cartão ou aba citado pelo título existe na tela", () => {
     const textos = fontes();
     const faltando = Object.entries(GUIAS).flatMap(([href, g]) =>
       g.passos.flatMap((p) => {
@@ -153,14 +150,14 @@ describe("trilhas (processo de ponta a ponta)", () => {
     for (const t of TRILHAS) expect(t.passos[0]?.rota, t.id).toBeDefined();
   });
 
-  comAsTelas("toda rota é uma tela que existe", () => {
+  it("toda rota é uma tela que existe", () => {
     const telas = rotasRegistradas();
     for (const t of TRILHAS)
       for (const p of t.passos)
         if (p.rota) expect(telas.has(p.rota), p.rota).toBe(true);
   });
 
-  comAsTelas("todo ponto citado existe nos componentes", () => {
+  it("todo ponto citado existe nos componentes", () => {
     const existentes = alvosNoCodigo();
     const textos = fontes();
     const faltando = TRILHAS.flatMap((t) =>

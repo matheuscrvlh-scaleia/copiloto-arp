@@ -29,7 +29,7 @@ type ChamadoDaTela = DetalheChamado["ch"];
 
 /** Origem que a tela conhece (as chaves de ORIGENS). */
 export function origemDaTela(o: OsOrigemChamado): ChamadoDaTela["origem"] {
-  return o === "modulo" ? "sistema" : o;
+  return o;
 }
 
 const objeto = (v: JsonValue): Record<string, unknown> =>
@@ -91,6 +91,7 @@ function paraTela(ch: Chamado): ChamadoDaTela {
     avaliado_em: ch.avaliado_em,
     acao_rotulo: ch.acao_rotulo,
     acao_url: ch.acao_url,
+    origem_modulo: ch.origem_modulo,
     criado_em: ch.criado_em,
     atualizado_em: ch.atualizado_em,
   };

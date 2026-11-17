@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ORDEM_PRIORIDADE, STATUS_ABERTOS, statusNoPortal } from "./rotulos";
+import {
+  ORDEM_PRIORIDADE,
+  rotuloDaOrigem,
+  STATUS_ABERTOS,
+  statusNoPortal,
+} from "./rotulos";
 
 describe("rótulos", () => {
   it("o lojista só vê 'Aguardando você' quando depende dele", () => {
@@ -21,5 +26,17 @@ describe("rótulos", () => {
   it("urgente pesa mais", () => {
     expect(ORDEM_PRIORIDADE.urgente).toBeGreaterThan(ORDEM_PRIORIDADE.alta);
     expect(ORDEM_PRIORIDADE.media).toBeGreaterThan(ORDEM_PRIORIDADE.baixa);
+  });
+});
+
+describe("origem do chamado", () => {
+  it("chamado de outro módulo mostra o módulo", () => {
+    expect(rotuloDaOrigem("modulo", "sustentabilidade")).toBe(
+      "Sustentabilidade",
+    );
+    expect(rotuloDaOrigem("modulo", null)).toBe("Outro módulo");
+    expect(rotuloDaOrigem("portal", "sustentabilidade")).toBe(
+      "Portal do lojista",
+    );
   });
 });

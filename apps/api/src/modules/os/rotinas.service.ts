@@ -385,6 +385,13 @@ async function recorrenciasDe(
               feito: false,
             })),
             etiquetas: ultima.etiquetas,
+            // Chamado de outro módulo: a ocorrência nova também tem o
+            // Executar e só conclui pelo módulo.
+            acaoUrl: ultima.acao_url,
+            acaoRotulo: ultima.acao_rotulo,
+            conclusaoExterna: ultima.conclusao_externa,
+            origemModulo: ultima.origem_modulo,
+            origemRef: ultima.origem_ref,
             destinatarios: destinosDe(ultima.id).map((d) => ({
               setorId: d.setor_id,
               usuarioId: d.usuario_id,

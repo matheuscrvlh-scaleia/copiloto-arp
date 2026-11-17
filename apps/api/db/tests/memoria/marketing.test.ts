@@ -1,0 +1,512 @@
+// Módulo Marketing (20261029200000_marketing): permissões, RLS da marca e
+// dos parâmetros, versões da marca com "voltar", conferências do cadastro e
+// histórico em core.auditoria.
+import { beforeAll, describe, expect, it } from "vitest";
+import { abrirBanco, type BancoDeTeste } from "../apoio";
+
+const U = {
+  editor: "00000000-0000-0000-0000-0000000000a1",
+  leitor: "00000000-0000-0000-0000-0000000000a2",
+  parametros: "00000000-0000-0000-0000-0000000000a3",
+  painel: "00000000-0000-0000-0000-0000000000a4",
+  fora: "00000000-0000-0000-0000-0000000000a5",
+  site: "00000000-0000-0000-0000-0000000000a6",
+};
+
+const PERMISSOES: Record<keyof typeof U, string[]> = {
+  editor: ["marketing.marca", "marketing.marca.editar"],
+  leitor: ["marketing.marca"],
+  parametros: ["marketing.parametros"],
+  painel: ["marketing.painel"],
+  fora: ["rh.painel"],
+  site: ["marketing.site"],
+};
+
+let db: BancoDeTeste;
+
+async function valor<T = unknown>(sql: string): Promise<T> {
+  const { rows } = await db.query<Record<string, T>>(sql);
+  return Object.values(rows[0] ?? {})[0] as T;
+}
+
+async function erro(sql: string): Promise<string | null> {
+  try {
+    await db.query(sql);
+    return null;
+  } catch (e) {
+    return (e as Error).message;
+  }
+}
+
+async function como<T>(usuario: string, fn: () => Promise<T>): Promise<T> {
+  return db.comoUsuario(usuario, fn);
+}
+
+beforeAll(async () => {
+  db = await abrirBanco();
+  for (const [nome, id] of Object.entries(U)) {
+    await db.query(
+      "insert into auth.users (id, email, encrypted_password) values ($1, $2, '')",
+      [id, `${nome}@arp.test`],
+    );
+    for (const p of PERMISSOES[nome as keyof typeof U]) {
+      await db.query(
+        "insert into core.usuario_permissoes (usuario_id, permissao) values ($1, $2)",
+        [id, p],
+      );
+    }
+  }
+}, 60_000);
+
+describe("permissões e ponto de partida", () => {
+  it("cadastra as 13 permissões (com Eventos e Público das câmeras) e dá todas ao Administrador", async () => {
+    expect(
+      await valor<number>(
+        "select count(*)::int from core.permissoes where codigo like 'marketing.%'",
+      ),
+    ).toBe(13);
+    expect(
+      await valor<number>(
+        `select count(*)::int from core.cargo_permissoes cp
+         join core.cargos c on c.id = cp.cargo_id
+         where c.nome = 'Administrador' and cp.permissao like 'marketing.%'`,
+      ),
+    ).toBe(13);
+  });
+
+  it("deixa os parâmetros preenchidos com os valores iniciais da 4.12", async () => {
+    const p = (
+      await db.query<{
+        estrelas_reclamacao: number[];
+        reclamacoes_alerta: number;
+      }>(
+        "select estrelas_reclamacao, reclamacoes_alerta from marketing.parametros",
+      )
+    ).rows[0];
+    expect(p).toEqual({
+      estrelas_reclamacao: [1, 2],
+      reclamacoes_alerta: 3,
+    });
+    expect(
+      await valor<number>("select count(*)::int from marketing.regras_alerta"),
+    ).toBe(8);
+    expect(
+      await valor<string>(
+        "select area from marketing.ronda_codigos where codigo = 'S'",
+      ),
+    ).toBe("marketing");
+    expect(
+      await valor<number>("select count(*)::int from marketing.locatarios"),
+    ).toBe(20);
+  });
+});
+
+describe("marca", () => {
+  it("só quem tem a permissão lê a base", async () => {
+    expect(
+      await como(U.leitor, () =>
+        valor<number>("select count(*)::int from marketing.marca_blocos"),
+      ),
+    ).toBeGreaterThan(10);
+    expect(
+      await como(U.fora, () =>
+        valor<number>("select count(*)::int from marketing.marca_blocos"),
+      ),
+    ).toBe(0);
+  });
+
+  it("sem Marca › Editar, a alteração não pega", async () => {
+    const n = await como(U.leitor, async () => {
+      const r = await db.query(
+        `update marketing.marca_blocos set conteudo = '{"texto": "x"}' where chave = 'tagline'`,
+      );
+      return r.affectedRows;
+    });
+    expect(n).toBe(0);
+  });
+
+  it("cada alteração vira versão, com quem, antes e depois; voltar restaura o original", async () => {
+    const original = await valor<{ itens: { titulo: string }[] }>(
+      "select conteudo from marketing.marca_blocos where chave = 'tons'",
+    );
+    const novo = JSON.stringify({
+      itens: [
+        ...original.itens.slice(0, 4),
+        { titulo: "Humorada", texto: "Leve, sem piada pronta." },
+      ],
+    });
+    await como(U.editor, () =>
+      db.query(
+        `update marketing.marca_blocos set conteudo = '${novo}' where chave = 'tons'`,
+      ),
+    );
+    const versao = (
+      await db.query<{ id: number; versao: number; por: string }>(
+        "select id, versao, por from marketing.marca_versoes where bloco = 'tons' order by versao desc limit 1",
+      )
+    ).rows[0];
+    expect(versao?.versao).toBe(2);
+    expect(versao?.por).toBe(U.editor);
+
+    // Sem permissão de editar, voltar não passa.
+    expect(
+      await como(U.leitor, () =>
+        erro(`select marketing.desfazer_versao(${versao?.id})`),
+      ),
+    ).toMatch(/sem permissão/);
+
+    await como(U.editor, () =>
+      db.query(`select marketing.desfazer_versao(${versao?.id})`),
+    );
+    expect(
+      await valor(
+        "select conteudo from marketing.marca_blocos where chave = 'tons'",
+      ),
+    ).toEqual(original);
+    const desfeita = (
+      await db.query<{ versao: number; desfaz: number }>(
+        "select versao, desfaz from marketing.marca_versoes where bloco = 'tons' order by versao desc limit 1",
+      )
+    ).rows[0];
+    expect(desfeita).toEqual({ versao: 3, desfaz: versao?.id });
+  });
+
+  it("gravar o mesmo conteúdo não cria versão", async () => {
+    const antes = await valor<number>(
+      "select count(*)::int from marketing.marca_versoes where bloco = 'tagline'",
+    );
+    await como(U.editor, () =>
+      db.query(
+        "update marketing.marca_blocos set conteudo = conteudo where chave = 'tagline'",
+      ),
+    );
+    expect(
+      await valor<number>(
+        "select count(*)::int from marketing.marca_versoes where bloco = 'tagline'",
+      ),
+    ).toBe(antes);
+  });
+
+  it("não aceita lista sem itens nem texto sem texto", async () => {
+    expect(
+      await erro(
+        `update marketing.marca_blocos set conteudo = '{"texto": 1}' where chave = 'tagline'`,
+      ),
+    ).toMatch(/check/);
+  });
+});
+
+describe("parâmetros", () => {
+  it("quem usa o módulo lê; só Parâmetros grava", async () => {
+    expect(
+      await como(U.painel, () =>
+        valor<number>("select count(*)::int from marketing.locatarios"),
+      ),
+    ).toBe(20);
+    expect(
+      await como(U.fora, () =>
+        valor<number>("select count(*)::int from marketing.locatarios"),
+      ),
+    ).toBe(0);
+    expect(
+      await como(U.painel, () =>
+        erro(
+          "insert into marketing.locatarios (nome, categoria) values ('Nova', 'Serviços')",
+        ),
+      ),
+    ).toMatch(/row-level security/);
+    const n = await como(U.painel, async () => {
+      const r = await db.query(
+        "update marketing.parametros set reclamacoes_alerta = 5",
+      );
+      return r.affectedRows;
+    });
+    expect(n).toBe(0);
+  });
+
+  it("locatário repetido não salva (sem diferença de maiúscula e espaço)", async () => {
+    expect(
+      await como(U.parametros, () =>
+        erro(
+          "insert into marketing.locatarios (nome, categoria) values (' bistrô tear ', 'Gastronomia')",
+        ),
+      ),
+    ).toMatch(/duplicate key|unique/);
+  });
+
+  it("código da ronda repetido não salva", async () => {
+    expect(
+      await como(U.parametros, () =>
+        erro(
+          "insert into marketing.ronda_codigos (codigo, descricao, area) values ('S', 'Outra', 'operacoes')",
+        ),
+      ),
+    ).toMatch(/duplicate key|unique/);
+  });
+
+  it("meta repetida para o mesmo indicador e mês não salva; outro módulo não edita", async () => {
+    expect(
+      await como(U.parametros, () =>
+        erro(
+          `insert into core.metas (indicador, direcao, meta, vigente_desde)
+           values ('marketing.leads_mes', 'maior_melhor', 300, '2026-01-01')`,
+        ),
+      ),
+    ).toMatch(/duplicate key|unique/);
+    expect(
+      await como(U.parametros, () =>
+        erro(
+          `insert into core.metas (indicador, direcao, meta, vigente_desde)
+           values ('rh.turnover', 'menor_melhor', 3, '2026-11-01')`,
+        ),
+      ),
+    ).toMatch(/row-level security/);
+  });
+
+  it("limite de Alerta precisa ficar acima do de Atenção", async () => {
+    expect(
+      await erro("update marketing.parametros set reclamacoes_alerta = 1"),
+    ).toMatch(/check/);
+  });
+
+  it("cada alteração cai no histórico, que só Parâmetros vê", async () => {
+    await como(U.parametros, () =>
+      db.query("update marketing.parametros set reclamacoes_alerta = 5"),
+    );
+    const linha = await como(
+      U.parametros,
+      async () =>
+        (
+          await db.query<{
+            antes: { reclamacoes_alerta: number };
+            usuario_id: string;
+          }>(
+            `select antes, usuario_id from core.auditoria
+           where tabela = 'marketing.parametros' and acao = 'update'
+           order by em desc limit 1`,
+          )
+        ).rows[0],
+    );
+    expect(linha?.antes.reclamacoes_alerta).toBe(3);
+    expect(linha?.usuario_id).toBe(U.parametros);
+    expect(
+      await como(U.painel, () =>
+        valor<number>(
+          "select count(*)::int from core.auditoria where tabela like 'marketing.%'",
+        ),
+      ),
+    ).toBe(0);
+  });
+});
+
+describe("acessos das ferramentas (20261029230000, 20261029235000 e 20261030120000)", () => {
+  const salvar = (sistema: string) =>
+    `select core.salvar_integracao('${sistema}', '{"ad_account_id": "1"}', 'v1.cifrado', true)`;
+
+  it("Parâmetros configura só as do Marketing; outro módulo, nenhuma", async () => {
+    await como(U.parametros, async () => {
+      expect(await erro(salvar("mkt_meta"))).toBeNull();
+      expect(
+        await erro(
+          "select core.registrar_teste_integracao('mkt_meta', true, 'ok')",
+        ),
+      ).toBeNull();
+      expect(await erro(salvar("secullum"))).toMatch(/sem permissão/);
+      // O RD Station saiu do Marketing para a Administração (20261104170000).
+      expect(await erro(salvar("mkt_rd_station"))).toMatch(/sem permissão/);
+      expect(await erro(salvar("rd_crm"))).toMatch(/sem permissão/);
+      expect(
+        await valor<string>(
+          "select string_agg(sistema, ',') from core.integracoes_configuradas()",
+        ),
+      ).toBe("mkt_meta");
+    });
+    await como(U.fora, async () => {
+      expect(await erro(salvar("mkt_asana"))).toMatch(/sem permissão/);
+      expect(
+        await valor<number>(
+          "select count(*)::int from core.integracoes_configuradas()",
+        ),
+      ).toBe(0);
+      expect(await erro("select core.remover_integracao('mkt_meta')")).toMatch(
+        /sem permissão/,
+      );
+    });
+  });
+
+  it("só aceita as ferramentas conhecidas e remove com auditoria", async () => {
+    await como(U.parametros, async () => {
+      expect(await erro(salvar("mkt_outra"))).toMatch(
+        /credenciais_sistema_check/,
+      );
+      // Os 9 nomes antigos viraram 5 (20261029235000); o YouTube voltou a
+      // ter acesso próprio, por estar em outra conta Google (20261103120000).
+      expect(await erro(salvar("mkt_ga4"))).toMatch(
+        /credenciais_sistema_check/,
+      );
+      expect(await erro(salvar("mkt_youtube"))).toBeNull();
+      await db.query("select core.remover_integracao('mkt_youtube')");
+      // A agenda do site (20261030120000): só o endereço.
+      expect(
+        await erro(
+          `select core.salvar_integracao('mkt_site', '{"endpoint": "https://x.com.br/wp-json/wp/v2/evento"}', 'v1.cifrado', true)`,
+        ),
+      ).toBeNull();
+      await db.query("select core.remover_integracao('mkt_site')");
+      await db.query(
+        `select core.registrar_teste_integracao('mkt_meta', false, repeat('x', 3000))`,
+      );
+      expect(
+        await valor<number>(
+          "select length(teste_mensagem) from core.integracoes_configuradas()",
+        ),
+      ).toBe(2000);
+      await db.query("select core.remover_integracao('mkt_meta')");
+    });
+    expect(
+      await valor<number>("select count(*)::int from integracao.credenciais"),
+    ).toBe(0);
+    expect(
+      await valor<number>(
+        `select count(*)::int from core.auditoria
+         where tabela = 'integracao.credenciais' and registro_id = 'mkt_meta'`,
+      ),
+    ).toBe(2);
+  });
+});
+
+describe("RD Station com dados reais (20261030140000)", () => {
+  beforeAll(async () => {
+    await db.exec(`
+      insert into marketing.rd_contatos (uuid, nome, email) values ('c1', 'Ana', 'ana@x.test');
+      insert into marketing.rd_conversoes (id, contato_uuid, identificador, convertido_em)
+        values ('c1|eventos|2026-10-28', 'c1', 'eventos', '2026-10-28T10:00:00-03:00');
+      insert into marketing.rd_landing_pages_dia (identificador, dia, visitas, conversoes)
+        values ('eventos', '2026-10-28', 7, 1);
+    `);
+  });
+  const contar = (t: string) =>
+    valor<number>(`select count(*)::int from marketing.${t}`);
+
+  it("contato (dado pessoal) só para quem vê Site e leads; números para o módulo", async () => {
+    await como(U.site, async () => {
+      expect(await contar("rd_contatos")).toBe(1);
+      expect(await contar("rd_conversoes")).toBe(1);
+    });
+    await como(U.painel, async () => {
+      expect(await contar("rd_contatos")).toBe(0);
+      expect(await contar("rd_conversoes")).toBe(1);
+      expect(await contar("rd_landing_pages_dia")).toBe(1);
+    });
+    await como(U.fora, async () => {
+      expect(await contar("rd_conversoes")).toBe(0);
+      expect(await contar("rd_landing_pages_dia")).toBe(0);
+    });
+  });
+
+  it("só o servidor grava; apagar o contato leva as conversões", async () => {
+    await como(U.site, async () => {
+      expect(
+        await erro("insert into marketing.rd_contatos (uuid) values ('c2')"),
+      ).toMatch(/permission denied/);
+    });
+    await db.query("delete from marketing.rd_contatos where uuid = 'c1'");
+    expect(await contar("rd_conversoes")).toBe(0);
+  });
+});
+
+describe("Instagram e Facebook com dados reais (20261030160000)", () => {
+  beforeAll(async () => {
+    await db.exec(`
+      insert into marketing.redes_dia (rede, dia, seguidores) values ('instagram', '2026-10-30', 61212);
+      insert into marketing.redes_dia (rede, dia, alcance) values ('instagram', '2026-10-29', 14872);
+    `);
+  });
+  const contar = () =>
+    valor<number>("select count(*)::int from marketing.redes_dia");
+
+  it("lê quem tem o módulo; só o servidor grava", async () => {
+    await como(U.painel, async () => {
+      expect(await contar()).toBe(2);
+      expect(
+        await erro(
+          "insert into marketing.redes_dia (rede, dia) values ('facebook', '2026-10-30')",
+        ),
+      ).toMatch(/permission denied/);
+    });
+    await como(U.fora, async () => expect(await contar()).toBe(0));
+  });
+
+  it("só Instagram e Facebook, sem número negativo", async () => {
+    expect(
+      await erro(
+        "insert into marketing.redes_dia (rede, dia) values ('tiktok', '2026-10-30')",
+      ),
+    ).toMatch(/check/);
+    expect(
+      await erro(
+        "insert into marketing.redes_dia (rede, dia, seguidores) values ('facebook', '2026-10-30', -1)",
+      ),
+    ).toMatch(/check/);
+  });
+});
+
+describe("ajustes V1 (20261111220000)", () => {
+  it("benchmark: quem usa o módulo lê; só Parâmetros grava; outro módulo não vê", async () => {
+    await como(U.parametros, async () => {
+      expect(
+        await erro(
+          "insert into marketing.benchmark (nome, cidade, instagram) values ('Outro Espaço', 'Rio', 'outro.espaco')",
+        ),
+      ).toBeNull();
+    });
+    await como(U.painel, async () => {
+      expect(
+        await valor<number>("select count(*)::int from marketing.benchmark"),
+      ).toBe(1);
+      expect(
+        await erro("insert into marketing.benchmark (nome) values ('Mais um')"),
+      ).toMatch(/row-level security/);
+    });
+    await como(U.fora, async () =>
+      expect(
+        await valor<number>("select count(*)::int from marketing.benchmark"),
+      ).toBe(0),
+    );
+  });
+
+  it("benchmark: Instagram só com o usuário, nome repetido não salva", async () => {
+    expect(
+      await erro(
+        "insert into marketing.benchmark (nome, instagram) values ('X', '@com espaco')",
+      ),
+    ).toMatch(/check/);
+    expect(
+      await erro(
+        "insert into marketing.benchmark (nome) values ('outro espaço ')",
+      ),
+    ).toMatch(/duplicate|unique/);
+  });
+
+  it("visualização e termos da marca começam no padrão; referência da marca é falsa", async () => {
+    expect(
+      await valor<string[]>("select quadros_ocultos from marketing.parametros"),
+    ).toEqual([]);
+    expect(
+      await valor<string[]>("select termos_marca from marketing.parametros"),
+    ).toEqual(["arp"]);
+    expect(
+      await valor<boolean>(
+        "select column_default from information_schema.columns where table_schema = 'marketing' and table_name = 'marca_arquivos' and column_name = 'referencia'",
+      ),
+    ).toBe("false");
+  });
+
+  it("quem vê o Painel ganhou Público e visitação", async () => {
+    expect(
+      await valor<number>(
+        "select count(*)::int from core.permissoes where codigo = 'marketing.publico'",
+      ),
+    ).toBe(1);
+  });
+});

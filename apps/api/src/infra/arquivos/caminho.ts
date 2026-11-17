@@ -8,6 +8,7 @@ export const BUCKETS = [
   "importacoes",
   "formularios",
   "operacoes",
+  "sustentabilidade",
 ] as const;
 
 export type Bucket = (typeof BUCKETS)[number];

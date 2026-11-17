@@ -11,6 +11,19 @@ const params = z.object({ token: z.string().min(1).max(4096) });
 /** Uma tela com fotos abre dezenas de arquivos de uma vez. */
 const LIMITE = { max: 600, timeWindow: "1 minute" } as const;
 
+/**
+ * Leitura no endereço do sistema antigo (/api/arquivos/:token, EXTERNOS em
+ * modules/index.ts): laudos e documentos já enviados por WhatsApp e e-mail
+ * apontam para lá e valem por dias. O token e a chave são os mesmos.
+ */
+export const arquivosNoEnderecoAntigo: FastifyPluginAsyncZod = async (app) => {
+  app.get(
+    "/:token",
+    { config: { acesso: "publico", rateLimit: LIMITE }, schema: { params } },
+    controller.ler,
+  );
+};
+
 export const arquivos: FastifyPluginAsyncZod = async (app) => {
   // Só neste plugin: o corpo do PUT não é lido nem convertido, chega ao
   // controller como fluxo, seja qual for o Content-Type. O tamanho é

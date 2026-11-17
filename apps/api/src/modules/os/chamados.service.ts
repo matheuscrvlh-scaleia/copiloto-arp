@@ -3,6 +3,7 @@ import {
   checklistInicial,
   extrairMencoes,
   lerChecklist,
+  motivoDaConclusaoExterna,
   motivoParaNaoConcluir,
   type ValorCampo,
 } from "@arp/shared/os/chamado";
@@ -127,6 +128,9 @@ export async function manterAcesso(
  * motivo volta para a tela.
  */
 export async function motivoDoBloqueio(ch: Chamado): Promise<string | null> {
+  // Chamado de outro módulo: conclui pelo módulo (botão Executar).
+  const externa = motivoDaConclusaoExterna(ch);
+  if (externa) return externa;
   const checklist = motivoParaNaoConcluir({
     checklist: lerChecklist(ch.checklist),
   });

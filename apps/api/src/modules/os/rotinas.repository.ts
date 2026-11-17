@@ -177,6 +177,11 @@ export function ocorrenciasComRepetir(
       "serie_data",
       "prazo",
       "criado_em",
+      "acao_url",
+      "acao_rotulo",
+      "conclusao_externa",
+      "origem_modulo",
+      "origem_ref",
     ])
     .where("recorrencia", "is not", null);
   if (recorte)

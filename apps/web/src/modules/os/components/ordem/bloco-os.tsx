@@ -22,6 +22,7 @@ import {
   Package,
   Timer,
 } from "lucide-react";
+import { Assinatura } from "@/components/assinatura";
 import { classeCampo } from "@/components/estilos";
 import { FormAcao } from "@/components/form-acao";
 import type { Opcao } from "@/components/selecao";
@@ -32,7 +33,6 @@ import {
   consultaDoBloco,
   salvarResultado,
 } from "@/modules/os/api-ordens";
-import { Assinatura } from "./assinatura";
 import { Cronometro } from "./cronometro";
 import { FormCustoTerceirizado, FormRateio, QuadroCustos } from "./custos";
 import { aviso, quadro, rotulo, titulo } from "./estilos";

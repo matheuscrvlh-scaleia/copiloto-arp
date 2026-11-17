@@ -5,6 +5,7 @@ import { banco } from "@/infra/banco";
 import { eventosPendentes } from "@/infra/eventos";
 import { log } from "@/infra/log";
 import { ROTINAS } from "@/modules";
+import { avisosPendentes } from "@/modules/os/base.service";
 
 // Sobe o processo: HTTP + rotinas agendadas. As migrations NÃO rodam aqui
 // (comando à parte: migrar.ts).
@@ -14,8 +15,12 @@ await app.listen({ host: env.HOST, port: env.PORT });
 const agendador =
   env.AGENDADOR && ROTINAS.length ? iniciarAgendador(ROTINAS) : null;
 
-/** Quanto o desligamento espera as requisições em andamento. */
-const PRAZO_PARA_DESLIGAR_MS = 10_000;
+/**
+ * Quanto o desligamento espera o que está em andamento (requisições, rotinas
+ * agendadas, avisos e registros). Menor que o `stop_grace_period` da api no
+ * docker-compose.yml (15 s): passado o prazo de lá, o Docker mata o processo.
+ */
+const PRAZO_PARA_DESLIGAR_MS = 12_000;
 
 let desligando = false;
 async function desligar(sinal: string): Promise<void> {
@@ -31,6 +36,10 @@ async function desligar(sinal: string): Promise<void> {
     agendador?.parar();
     // Para de aceitar conexões e espera as requisições em andamento.
     await app.close();
+    // Rotina que já começou termina (ou é cortada pelo prazo: a trava dela
+    // cai com a conexão) e os avisos dos chamados saem; os dois registram
+    // eventos, que são esperados por último.
+    await Promise.all([agendador?.emAndamento(), avisosPendentes()]);
     await eventosPendentes();
     await banco.encerrar();
     process.exit(0);

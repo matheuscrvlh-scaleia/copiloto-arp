@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { Rotina } from "@/infra/agendador";
 import { admin, retornoDoRdCrm } from "./admin";
-import { arquivos } from "./arquivos";
+import { arquivos, arquivosNoEnderecoAntigo } from "./arquivos";
 import { auth } from "./auth";
 import { calendario } from "./calendario";
 import { cameras } from "./cameras";
@@ -23,6 +23,9 @@ import { os } from "./os";
 import { rotinasDeOs } from "./os/jobs";
 import { relatorios } from "./relatorios";
 import { rh } from "./rh";
+import { saudeNoEnderecoAntigo } from "./saude";
+import { sustentabilidade } from "./sustentabilidade";
+import { rotinasDeSustentabilidade } from "./sustentabilidade/jobs";
 import { rotinasDeSync } from "./sync/jobs";
 
 // Lista dos módulos da API. Para ligar um módulo novo: importe o plugin dele
@@ -48,11 +51,13 @@ export const MODULOS: readonly {
   { prefixo: "/rh", plugin: rh },
   { prefixo: "/operacoes", plugin: operacoes },
   { prefixo: "/os", plugin: os },
+  { prefixo: "/sustentabilidade", plugin: sustentabilidade },
 ];
 
 /**
  * Endereços fora de /api/v1, chamados por terceiros e que não podem mudar
- * (volta de OAuth, câmeras). `prefixo` é o caminho inteiro.
+ * (volta de OAuth, câmeras, links de arquivo já enviados, saúde). `prefixo`
+ * é o caminho inteiro.
  */
 export const EXTERNOS: readonly {
   prefixo: string;
@@ -61,6 +66,8 @@ export const EXTERNOS: readonly {
   { prefixo: "/api/integracoes/rd-crm", plugin: retornoDoRdCrm },
   { prefixo: "/api/cameras", plugin: cameras },
   { prefixo: "/api/integracoes", plugin: retornosDoMarketing },
+  { prefixo: "/api/arquivos", plugin: arquivosNoEnderecoAntigo },
+  { prefixo: "/api/saude", plugin: saudeNoEnderecoAntigo },
 ];
 
 export const ROTINAS: readonly Rotina[] = [
@@ -68,4 +75,5 @@ export const ROTINAS: readonly Rotina[] = [
   ...rotinasDoMarketing,
   ...rotinasDoComercial,
   ...rotinasDeOs,
+  ...rotinasDeSustentabilidade,
 ];

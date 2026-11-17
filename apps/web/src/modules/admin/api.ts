@@ -8,6 +8,7 @@ import {
   respostaHistorico,
   respostaIntegracaoSalva,
   respostaIntegracoes,
+  respostaPermissoesDePrograma,
   respostaUsuario,
   respostaUsuarios,
 } from "@arp/shared/admin/contratos";
@@ -29,6 +30,7 @@ export const chavesAdmin = {
   usuarios: () => ["admin", "usuarios"] as const,
   usuario: (id: string) => ["admin", "usuario", id] as const,
   cargos: () => ["admin", "cargos"] as const,
+  permissoesDePrograma: () => ["admin", "permissoes-de-programa"] as const,
   empresa: () => ["admin", "empresa"] as const,
   historico: (filtros: ConsultaDoHistorico) =>
     ["admin", "historico", filtros] as const,
@@ -69,6 +71,17 @@ export const consultaDosCargos = queryOptions({
   queryFn: ({ signal }) =>
     api.get("/admin/cargos", { esquema: respostaCargos, sinal: signal }),
   select: (r) => r.cargos,
+});
+
+/** GET /api/v1/admin/permissoes-de-programa ("Programa – lançar") */
+export const consultaDasPermissoesDePrograma = queryOptions({
+  queryKey: chavesAdmin.permissoesDePrograma(),
+  queryFn: ({ signal }) =>
+    api.get("/admin/permissoes-de-programa", {
+      esquema: respostaPermissoesDePrograma,
+      sinal: signal,
+    }),
+  select: (r) => r.programas,
 });
 
 /** Só o que a escolha de cargo mostra. */
@@ -151,7 +164,8 @@ export const criarCargo = (aoCriar: () => void) =>
   acaoDaApi({
     metodo: "POST",
     caminho: "/admin/cargos",
-    corpo: (form) => formParaObjeto(form, { listas: ["permissoes"] }),
+    corpo: (form) =>
+      formParaObjeto(form, { listas: ["permissoes", "programas_vistas"] }),
     invalida: ACESSO,
     aoGravar: aoCriar,
   });
@@ -160,7 +174,8 @@ export const criarCargo = (aoCriar: () => void) =>
 export const salvarCargo = acaoDaApi({
   metodo: "PATCH",
   caminho: (form) => `/admin/cargos/${id(form)}`,
-  corpo: (form) => formParaObjeto(form, { listas: ["permissoes"] }),
+  corpo: (form) =>
+    formParaObjeto(form, { listas: ["permissoes", "programas_vistas"] }),
   invalida: ACESSO,
 });
 

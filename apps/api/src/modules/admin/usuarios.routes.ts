@@ -7,6 +7,7 @@ import {
   parametrosDoId,
   respostaCargos,
   respostaCriado,
+  respostaPermissoesDePrograma,
   respostaUsuario,
   respostaUsuarios,
 } from "@arp/shared/admin/contratos";
@@ -92,6 +93,11 @@ export const rotasDeUsuarios: FastifyPluginAsyncZod = async (app) => {
     "/cargos",
     { config, schema: { response: { 200: respostaCargos } } },
     controller.listarCargos,
+  );
+  app.get(
+    "/permissoes-de-programa",
+    { config, schema: { response: { 200: respostaPermissoesDePrograma } } },
+    controller.listarPermissoesDePrograma,
   );
   app.post(
     "/cargos",

@@ -8,17 +8,19 @@ import {
   useTransition,
 } from "react";
 import { classeCampo } from "@/components/estilos";
-import { botao, rotulo } from "./estilos";
-import type { EstadoOS } from "./tipos";
+import type { EstadoAcao } from "@/components/form-acao";
+import { botao, rotulo } from "@/modules/os/components/ordem/estilos";
 
 // Assinatura na tela (dedo no celular, mouse no computador): a da ARP no
-// detalhe da OS e a do terceirizado pelo link. Vira um PNG transparente
-// que sai sobre a linha de assinatura no PDF da OS. `acao` recebe o PNG
-// em "assinatura", o nome, o documento (se pedido) e os `campos`.
+// detalhe da OS, a do terceirizado pelo link e as do Sustentabilidade
+// (entrevista, termo do clube). Vira um PNG transparente que sai sobre a
+// linha de assinatura no PDF. `acao` (a ação de quem usa) recebe o PNG em
+// "assinatura", o nome, o documento (se pedido) e os `campos`; o estado
+// devolvido é o de sempre ({ ok?, erro? }) ou uma extensão dele.
 
 const ALTURA = 160;
 
-export function Assinatura({
+export function Assinatura<E extends EstadoAcao>({
   acao,
   campos,
   podeEditar,
@@ -28,7 +30,7 @@ export function Assinatura({
   bloqueio = null,
   rotuloSalvar = "Salvar assinatura",
 }: {
-  acao: (estado: EstadoOS, form: FormData) => Promise<EstadoOS>;
+  acao: (estado: E, form: FormData) => Promise<E>;
   campos: Record<string, string>;
   podeEditar: boolean;
   atual: { url: string | null; nome: string | null; em: string | null } | null;
@@ -39,8 +41,10 @@ export function Assinatura({
   bloqueio?: string | null;
   rotuloSalvar?: string;
 }) {
-  const [estado, assinar, salvando] = useActionState<EstadoOS, FormData>(
-    acao,
+  // A tela só lê ok/erro: o estado próprio de quem chama (E) passa inteiro
+  // pela ação, mas aqui é tratado como o comum.
+  const [estado, assinar, salvando] = useActionState<EstadoAcao, FormData>(
+    acao as unknown as (e: EstadoAcao, f: FormData) => Promise<EstadoAcao>,
     {},
   );
   const [preparando, iniciar] = useTransition();

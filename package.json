@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev:api": "npm run dev -w @arp/api",
     "dev:web": "npm run dev -w @arp/web",

@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { mensagemPadraoDoZod } from "@/config/zod";
 import {
   ErroDaApi,
   ErroDeConflito,
@@ -36,8 +37,8 @@ export function traduzir(e: unknown, m: Mensagens, onde: string): never {
   throw new ErroDeNegocio(m.falha);
 }
 
-/** A mensagem do schema; a padrão do Zod (em inglês) vira `padrao`. */
+/** A mensagem do schema; a padrão do Zod vira `padrao`. */
 export function primeiroErro(e: z.ZodError, padrao: string): string {
   const m = e.issues[0]?.message;
-  return m && !/^(Invalid|Too|Expected)/.test(m) ? m : padrao;
+  return m && !mensagemPadraoDoZod(m) ? m : padrao;
 }

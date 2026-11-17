@@ -9,13 +9,16 @@ import { Ban, Check, FileQuestion } from "lucide-react";
 import { TOM } from "@/components/estilos";
 import { tonsDaTela } from "@/components/tons";
 import { AmostraCor } from "./amostra-cor";
+import "@fontsource/poppins/latin-400.css";
+import "@fontsource/poppins/latin-600.css";
+import "@fontsource/poppins/latin-700.css";
 
 // Desenho do conteúdo de cada bloco da marca, pelo jeito que ele é lido:
 // propósito e tagline em letra grande, atributos e palavras em "chips",
 // tons e personas em cartões, jornada em etapas, cores em amostras.
 
-// Amostra da tipografia da marca. atalho: sem a Poppins do next/font (o
-// Vite não tem); aparece se estiver instalada, senão cai na sans do sistema.
+// Só esta tela carrega a Poppins (amostra da tipografia da marca): os
+// arquivos da fonte vão no pedaço da página e são servidos pelo próprio site.
 const poppins = { className: "font-[Poppins,sans-serif]" };
 
 /** Aviso de bloco ainda não transcrito. */

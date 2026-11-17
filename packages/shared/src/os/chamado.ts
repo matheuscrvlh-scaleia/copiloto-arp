@@ -362,3 +362,29 @@ export function mensagemDoChamado(
 export function emAberto(status: StatusChamado): boolean {
   return STATUS_ABERTOS.includes(status);
 }
+
+// ---------------------------------------------------------------------------
+// Chamado criado por outro módulo ("Executar" e conclusão externa)
+// ---------------------------------------------------------------------------
+
+/**
+ * Caminho interno do sistema ("/sustentabilidade/..."): começa com uma "/"
+ * só (nada de "//site" nem "https:"), sem espaço nem barra invertida. A
+ * mesma regra do check de os.chamados.acao_url.
+ */
+export function ehCaminhoInterno(url: string): boolean {
+  return url.length <= 500 && /^\/([^/\\\s]\S*)?$/.test(url);
+}
+
+/**
+ * Por que a pessoa não conclui: o chamado fecha sozinho quando o módulo de
+ * origem grava o trabalho (o banco também recusa).
+ */
+export function motivoDaConclusaoExterna(ch: {
+  conclusao_externa: boolean;
+  acao_rotulo: string | null;
+}): string | null {
+  if (!ch.conclusao_externa) return null;
+  const oQue = ch.acao_rotulo?.trim() || "o trabalho";
+  return `Este chamado fecha sozinho ao salvar ${oQue} no módulo. Use o botão Executar.`;
+}

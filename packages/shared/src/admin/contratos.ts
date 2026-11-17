@@ -3,7 +3,8 @@ import { SENHA_MAXIMO, SENHA_MINIMO } from "../contratos/auth";
 import { cnpjValido, soDigitos, UFS } from "../documentos";
 import { MODULOS, TIPOS } from "../historico";
 import { SISTEMAS } from "../integracoes";
-import { PERMISSOES, type Permissao } from "../permissions";
+import { ehPermissaoDePrograma } from "../permissions";
+import { ehCodigoConhecido } from "./grupos-permissao";
 
 // Contrato da Administração (/api/v1/admin/*), usado pela API e pela tela.
 // As mensagens de validação já levam o nome do campo ("Nome: informe o
@@ -22,6 +23,7 @@ import { PERMISSOES, type Permissao } from "../permissions";
 //   PATCH  /admin/cargos/:id                  EntradaCargo → RespostaMensagem
 //   PATCH  /admin/cargos/:id/situacao         EntradaSituacao → RespostaMensagem
 //   DELETE /admin/cargos/:id                  → RespostaMensagem
+//   GET    /admin/permissoes-de-programa      → RespostaPermissoesDePrograma
 //   GET    /admin/empresa                     → RespostaEmpresa
 //   PATCH  /admin/empresa                     EntradaEmpresa → RespostaMensagem
 //   GET    /admin/historico                   ConsultaDoHistorico → RespostaHistorico
@@ -32,7 +34,9 @@ import { PERMISSOES, type Permissao } from "../permissions";
 //   POST   /admin/integracoes/:sistema/sincronizacao → RespostaMensagem
 //   DELETE /admin/integracoes/:sistema        → RespostaMensagem
 
-const ehPermissao = (p: string): p is Permissao => p in PERMISSOES;
+// Fixa do catálogo ou "Programa – lançar" (sustentabilidade.programa.<id>;
+// a existência desta é conferida no banco ao salvar o cargo).
+const ehPermissao = ehCodigoConhecido;
 const permissao = z.string().refine(ehPermissao);
 
 /** Texto de formulário: "" e ausente viram null. */
@@ -65,6 +69,19 @@ export type Cargo = z.infer<typeof cargo>;
 
 export const respostaCargos = z.object({ cargos: z.array(cargo) });
 export type RespostaCargos = z.infer<typeof respostaCargos>;
+
+/** As permissões "Programa – lançar" que existem (uma por programa). */
+export const respostaPermissoesDePrograma = z.object({
+  programas: z.array(
+    z.object({
+      codigo: z.string().refine(ehPermissaoDePrograma),
+      descricao: z.string(),
+    }),
+  ),
+});
+export type RespostaPermissoesDePrograma = z.infer<
+  typeof respostaPermissoesDePrograma
+>;
 
 export const usuarioAdmin = z.object({
   id: z.uuid(),
@@ -137,6 +154,15 @@ export const entradaCargo = z.object({
   permissoes: z.preprocess(
     (v) => (v === undefined ? [] : Array.isArray(v) ? v : [v]),
     z.array(z.string().refine(ehPermissao, "permissoes: desconhecida")),
+  ),
+  /** As de programa que a tela mostrou: só estas podem ser revogadas. */
+  programas_vistas: z.preprocess(
+    (v) => (v === undefined ? [] : Array.isArray(v) ? v : [v]),
+    z.array(
+      z
+        .string()
+        .refine(ehPermissaoDePrograma, "programas_vistas: desconhecida"),
+    ),
   ),
 });
 export type EntradaCargo = z.infer<typeof entradaCargo>;

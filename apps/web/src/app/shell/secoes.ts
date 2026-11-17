@@ -9,7 +9,11 @@ import { useSessao } from "@/lib/sessao";
 export function useSecoes(): NavSection[] {
   const { usuario } = useSessao();
   return useMemo(
-    () => navigationFor((p) => usuario.permissoes.includes(p)),
-    [usuario.permissoes],
+    () =>
+      navigationFor(
+        (p) => usuario.permissoes.includes(p),
+        usuario.programas.length > 0,
+      ),
+    [usuario.permissoes, usuario.programas],
   );
 }

@@ -11,7 +11,9 @@ export default defineConfig({
     globalSetup: ["src/testes/banco-disponivel.ts"],
     // Os testes de integração dividem o mesmo banco e os mesmos usuários.
     fileParallelism: false,
-    testTimeout: 20_000,
-    hookTimeout: 30_000,
+    // Pelo túnel da homologação cada pedido leva perto de 1 s nos horários
+    // ruins, e há teste com mais de 15 pedidos em sequência.
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
   },
 });

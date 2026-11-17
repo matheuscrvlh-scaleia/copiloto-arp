@@ -38,20 +38,29 @@ export async function rodar(rotina: Rotina): Promise<void> {
 
 export function iniciarAgendador(rotinas: readonly Rotina[]): {
   parar: () => void;
+  /** Espera as rotinas que já começaram (desligamento do processo). */
+  emAndamento: () => Promise<void>;
 } {
   const nomes = new Set(rotinas.map((r) => r.nome));
   if (nomes.size !== rotinas.length)
     throw new Error("Há rotinas agendadas com o mesmo nome.");
+  const rodando = new Set<Promise<void>>();
   const agendadas = rotinas.map(
     (r) =>
-      new Cron(r.cron, { name: r.nome, timezone: "UTC", protect: true }, () =>
-        rodar(r),
-      ),
+      new Cron(r.cron, { name: r.nome, timezone: "UTC", protect: true }, () => {
+        const p = rodar(r).finally(() => rodando.delete(p));
+        rodando.add(p);
+        return p;
+      }),
   );
   log.info({ rotinas: [...nomes] }, "agendador ligado");
   return {
     parar: () => {
       for (const a of agendadas) a.stop();
+    },
+    // `rodar` nunca rejeita: registra a falha no log e segue.
+    emAndamento: async () => {
+      await Promise.all(rodando);
     },
   };
 }

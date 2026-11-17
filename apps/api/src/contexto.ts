@@ -1,4 +1,4 @@
-import type { Permissao } from "@arp/shared/permissions";
+import type { Permissao, PermissaoDePrograma } from "@arp/shared/permissions";
 import { sql } from "kysely";
 import { ErroDePermissao } from "./erros";
 import { banco } from "./infra/banco";
@@ -17,8 +17,12 @@ export interface Origem {
 
 export interface Contexto extends Origem {
   usuario: { id: string; nome: string; email: string };
-  /** Lidas do banco nesta requisição (mesma regra de core.minhas_permissoes). */
-  permissoes: ReadonlySet<Permissao>;
+  /**
+   * Lidas do banco nesta requisição (mesma regra de core.minhas_permissoes).
+   * Inclui as "Programa – lançar" (sustentabilidade.programa.<id>), que ficam
+   * fora do catálogo fixo.
+   */
+  permissoes: ReadonlySet<Permissao | PermissaoDePrograma>;
   senhaProvisoria: boolean;
   sessao: {
     id: string;
@@ -29,7 +33,10 @@ export interface Contexto extends Origem {
 }
 
 /** Permissão lida no começo desta requisição. Para decidir o que mostrar. */
-export function pode(ctx: Contexto, permissao: Permissao): boolean {
+export function pode(
+  ctx: Contexto,
+  permissao: Permissao | PermissaoDePrograma,
+): boolean {
   return ctx.permissoes.has(permissao);
 }
 
@@ -40,7 +47,7 @@ export function pode(ctx: Contexto, permissao: Permissao): boolean {
  */
 export async function exigir(
   ctx: Contexto,
-  permissao: Permissao,
+  permissao: Permissao | PermissaoDePrograma,
 ): Promise<void> {
   const ok = await banco.comoUsuario(ctx.usuario.id, async (tx) => {
     const r = await sql<{
@@ -54,7 +61,7 @@ export async function exigir(
 /** Como `exigir`, mas basta uma das permissões (telas abertas por duas). */
 export async function exigirAlguma(
   ctx: Contexto,
-  permissoes: readonly Permissao[],
+  permissoes: readonly (Permissao | PermissaoDePrograma)[],
 ): Promise<void> {
   const ok = await banco.comoUsuario(ctx.usuario.id, async (tx) => {
     const r = await sql<{

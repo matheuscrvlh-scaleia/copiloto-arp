@@ -7,6 +7,7 @@ import type {
   ParametrosDoId,
   RespostaCargos,
   RespostaCriado,
+  RespostaPermissoesDePrograma,
   RespostaUsuario,
   RespostaUsuarios,
 } from "@arp/shared/admin/contratos";
@@ -93,6 +94,14 @@ export async function listarCargos(
   request: FastifyRequest,
 ): Promise<RespostaCargos> {
   return { cargos: await service.cargos(contextoDe(request)) };
+}
+
+export async function listarPermissoesDePrograma(
+  request: FastifyRequest,
+): Promise<RespostaPermissoesDePrograma> {
+  return {
+    programas: await service.permissoesDePrograma(contextoDe(request)),
+  };
 }
 
 export async function criarCargo(

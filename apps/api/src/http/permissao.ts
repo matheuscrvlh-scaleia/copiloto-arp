@@ -13,7 +13,7 @@ import { COOKIE_ACESSO } from "./sessao";
 // Toda rota declara, em `config`, quem pode chamar:
 //   { acesso: "publico" }          sem sessão (o service confere o que for)
 //   { acesso: "autenticado" }      qualquer pessoa logada
-//   { permissao: "os.chamados.ver" } logada e com esta permissão
+//   { permissao: "os.acessar" }    logada e com esta permissão
 // Rota sem declaração é negada (e o teste rotas.test.ts falha). A permissão
 // fina (dono do registro, etapa, valor) continua no service e no RLS.
 

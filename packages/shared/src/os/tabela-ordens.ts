@@ -1,10 +1,6 @@
 import { formatarDataHora } from "../formato";
 import type { CelulaExportar, ColunaExportar } from "./exportar";
-import type {
-  Execucao,
-  MotivoAguardando,
-  StatusChamado,
-} from "./rotulos";
+import type { Execucao, MotivoAguardando, StatusChamado } from "./rotulos";
 import { STATUS } from "./rotulos";
 
 // Linha da lista de OS como a tela e o arquivo exportado mostram. Fica fora

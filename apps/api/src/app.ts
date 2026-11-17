@@ -11,6 +11,7 @@ import {
 } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { env } from "@/config/env";
+import "@/config/zod";
 import { ErroDaApi } from "@/erros";
 import { erros } from "@/http/erros";
 import { permissao } from "@/http/permissao";

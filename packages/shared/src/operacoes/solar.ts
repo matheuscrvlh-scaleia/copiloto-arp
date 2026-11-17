@@ -31,7 +31,7 @@ export const gera = (papel: Papel | undefined) =>
  * unidade geradora com a energia injetada no mês.
  */
 export function geracaoDoMes(
-  doMes: FaturaConta[],
+  doMes: Pick<FaturaConta, "matricula" | "injetada_kwh">[],
   unidades: Map<string, Pick<UnidadeEnergia, "papel">>,
   fonte: FonteSolar,
 ): number | null {

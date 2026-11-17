@@ -52,6 +52,7 @@ export const MODULOS_COM_FILTROS = [
   "marketing",
   "comercial",
   "operacoes",
+  "sustentabilidade",
 ] as const;
 export type ModuloComFiltros = (typeof MODULOS_COM_FILTROS)[number];
 

@@ -6,6 +6,7 @@
 // atalho: nomes das colunas tirados dos campos de 4.16, com variações;
 // conferir com o arquivo real antes da importação de verdade.
 
+import { formatarData, formatarNumero } from "../formato";
 import {
   type Aba,
   abaPorNome,
@@ -15,7 +16,6 @@ import {
   normalizarCabecalho,
   type ResultadoLeitura,
 } from "./importacao";
-import { formatarData, formatarNumero } from "../formato";
 
 export type { Celula };
 

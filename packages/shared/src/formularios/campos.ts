@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  documentoValido,
-  formatarDocumento,
-  soDigitos,
-} from "../documentos";
+import { documentoValido, formatarDocumento, soDigitos } from "../documentos";
 import { formatarData, formatarNumero, lerValorBr } from "../formato";
 
 // Formulários personalizados: os tipos de pergunta, a validação do que o

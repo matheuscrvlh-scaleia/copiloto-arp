@@ -22,6 +22,12 @@ export interface DadosLoja {
   fim: string | null;
   telefone: string | null;
   tem_vaga: boolean | null;
+  tipo_loja: string | null;
+  ramo: string | null;
+  ativacao: string | null;
+  rescisao: string | null;
+  piso: string | null;
+  rua: string | null;
 }
 
 function Campo({
@@ -114,6 +120,26 @@ export function FormLoja({
                 />
               </Campo>
             </div>
+            <Campo id="piso" rotulo="Piso">
+              <input
+                id="piso"
+                name="piso"
+                maxLength={40}
+                defaultValue={v?.piso ?? ""}
+                className={classeCampo}
+              />
+            </Campo>
+            <div className="sm:col-span-2">
+              <Campo id="rua" rotulo="Rua">
+                <input
+                  id="rua"
+                  name="rua"
+                  maxLength={120}
+                  defaultValue={v?.rua ?? ""}
+                  className={classeCampo}
+                />
+              </Campo>
+            </div>
           </div>
         </Secao>
         <Secao
@@ -177,6 +203,42 @@ export function FormLoja({
                 name="fim"
                 type="date"
                 defaultValue={v?.fim ?? ""}
+                className={classeCampo}
+              />
+            </Campo>
+            <Campo id="tipo_loja" rotulo="Tipo de loja">
+              <input
+                id="tipo_loja"
+                name="tipo_loja"
+                maxLength={80}
+                defaultValue={v?.tipo_loja ?? ""}
+                className={classeCampo}
+              />
+            </Campo>
+            <Campo id="ramo" rotulo="Ramo">
+              <input
+                id="ramo"
+                name="ramo"
+                maxLength={80}
+                defaultValue={v?.ramo ?? ""}
+                className={classeCampo}
+              />
+            </Campo>
+            <Campo id="ativacao" rotulo="Ativação">
+              <input
+                id="ativacao"
+                name="ativacao"
+                type="date"
+                defaultValue={v?.ativacao ?? ""}
+                className={classeCampo}
+              />
+            </Campo>
+            <Campo id="rescisao" rotulo="Rescisão">
+              <input
+                id="rescisao"
+                name="rescisao"
+                type="date"
+                defaultValue={v?.rescisao ?? ""}
                 className={classeCampo}
               />
             </Campo>

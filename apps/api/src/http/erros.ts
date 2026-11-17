@@ -50,9 +50,20 @@ export const erros = fp(async (app: FastifyInstance) => {
         const campo = v.instancePath.replace(/^\//, "").replaceAll("/", ".");
         campos[campo] ??= v.message ?? "inválido";
       }
+      // Como o `primeiroErro` do sistema antigo: "campo: mensagem" do
+      // primeiro campo (o texto padrão do Zod sai em português: config/zod).
+      const [campo, mensagem] = Object.entries(campos)[0] ?? [];
       return reply
         .code(400)
-        .send(corpo("validacao", "Confira os campos informados.", campos));
+        .send(
+          corpo(
+            "validacao",
+            mensagem
+              ? `${campo || "Campo"}: ${mensagem}`
+              : "Confira os campos informados.",
+            campos,
+          ),
+        );
     }
 
     const status = statusDe(erro);

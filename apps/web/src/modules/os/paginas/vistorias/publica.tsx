@@ -3,6 +3,7 @@ import { dataHoraBr } from "@arp/shared/os/relatorios";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Check, FileText, Link2Off, PenLine } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
+import { Assinatura } from "@/components/assinatura";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { useParametro } from "@/lib/navegacao";
 import {
@@ -10,7 +11,6 @@ import {
   consultaDaVistoriaPublica,
   hrefDoLaudoPublico,
 } from "@/modules/os/api-vistorias";
-import { Assinatura } from "@/modules/os/components/ordem/assinatura";
 
 // /vistoria/:token: a vistoria para o locatário, sem login. Ele confere o
 // laudo (ambientes, fotos, observações e o termo), marca que concorda e

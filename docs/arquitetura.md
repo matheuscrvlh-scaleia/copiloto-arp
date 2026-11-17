@@ -36,6 +36,7 @@ apps/
     src/
       server.ts           sobe o processo (HTTP + rotinas agendadas)
       migrar.ts           comando das migrations (processo à parte)
+      sincronizar.ts      comando que roda uma sincronização na hora
       app.ts              monta o Fastify (plugins + módulos)
       contexto.ts         quem fez o pedido; `pode` e `exigir`
       erros.ts            erros que o service lança
@@ -44,8 +45,10 @@ apps/
                           senhas, páginas, log
       http/               plugins: erros, segurança, sessão, permissão
       connectors/         sistemas externos (só leitura, sem Fastify)
-      modules/index.ts    lista dos módulos e das rotinas agendadas
+      modules/index.ts    lista dos módulos (MODULOS), dos endereços fora
+                          de /api/v1 (EXTERNOS) e das rotinas (ROTINAS)
       modules/<modulo>/   ver "Camadas"
+    scripts/fumaca.ts     chama todas as rotas GET e mostra status e tempo
   web/                    React 19 + Vite + TypeScript + Tailwind 4
     .env                  (só VITE_*; nada secreto)
     Dockerfile, nginx.conf
@@ -60,7 +63,8 @@ packages/
 ```
 
 `packages/shared` não importa nada de Node, de React nem do banco. É o
-único código que os dois lados compartilham.
+único código que os dois lados compartilham. Só os testes dele usam Node
+(`tsconfig.testes.json`; o `tsconfig.json` do pacote não tem os tipos de Node).
 
 ## Camadas da API (MVC)
 
@@ -90,6 +94,13 @@ Convenções:
 - Rotas em `/api/v1/<modulo>/<recurso>`, substantivos no plural, em
   português, kebab-case. `GET` lê, `POST` cria ou executa, `PATCH` altera,
   `DELETE` remove.
+- Endereço chamado por terceiro e que não pode mudar (volta de OAuth em
+  `/api/integracoes/*`, contagem das câmeras em `/api/cameras`) fica fora de
+  `/api/v1`: o plugin entra em `EXTERNOS` (`modules/index.ts`) com o caminho
+  inteiro. Vale a mesma regra de declarar o acesso.
+- Módulo grande divide o recurso em mais de um service
+  (`<recurso>-acoes.service.ts`) e guarda o que é comum em `base.*` ou
+  `apoio.ts`; a dependência continua só descendo.
 - Toda entrada (params, query, body) tem schema Zod na rota. O schema e o
   tipo da resposta moram em `packages/shared/src/<modulo>/contratos.ts`
   quando a tela também usa.
@@ -107,6 +118,11 @@ Convenções:
 200      { mensagem: "Salvo." }               gravação sem dado de volta
 4xx/5xx  { erro: { codigo, mensagem, campos? } }
 ```
+
+Erro de validação da rota: `campos` leva campo → mensagem, e `mensagem`
+é a do primeiro campo, como `campo: mensagem`. As mensagens padrão do Zod
+saem em português (`config/zod.ts`, carregado uma vez pelo `app.ts`);
+quem valida no service e quer o rótulo da tela monta `Rótulo: mensagem`.
 
 `mensagem` de erro é para a pessoa ler (português, sem detalhe técnico).
 `codigo` é estável (`validacao`, `nao_autenticado`, `sem_permissao`,
@@ -180,8 +196,22 @@ segurança dos dados tem duas camadas: a permissão da rota e o RLS.
   token.
 - Senha provisória: enquanto estiver marcada, a API só aceita trocar a
   senha e sair.
+- Reuso de token de renovação fica no log do processo e em `core.logs`
+  (evento `sessao_reusada`, em Administração › Histórico).
 - Links públicos (portal, ordem, ficha, censo, responder, vistoria) não
   usam a sessão: valem pelo token do link, conferido no service.
+- Portal do lojista: tem sessão própria, sem relação com a dos usuários.
+  Cookie `__Secure-arp_portal` (`arp_portal` em http), `SameSite=Lax` (o
+  lojista chega por link do WhatsApp), só no caminho
+  `/api/v1/os/portal-publico`; o valor é `<token>.<HMAC>` com chave
+  derivada de `JWT_CHAVE`, e o banco guarda só o SHA-256 do token
+  (`modules/os/portal-cookie.ts`). O plugin de permissão nunca lê esse cookie.
+- Autorização OAuth das integrações (Google, YouTube, RD Station, RD
+  Station CRM, TikTok): a volta vem de outro site, sem os cookies da sessão
+  (`SameSite=Strict`). O `state` (e o verificador do PKCE, no Google) vai
+  num cookie `SameSite=Lax`, `HttpOnly`, de poucos minutos, só no caminho do
+  retorno, junto com quem começou (cifrado com a chave do cofre e preso ao
+  `state`); na volta a permissão dessa pessoa é conferida de novo no banco.
 
 ## Segurança
 
@@ -205,9 +235,45 @@ segurança dos dados tem duas camadas: a permissão da rota e o RLS.
 O agendador roda dentro da API (`infra/agendador`), com trava no banco
 (`pg_try_advisory_lock`) para nunca rodar em dobro: se a mesma rotina ainda
 está rodando (aqui ou em outra instância), a nova execução é pulada. Cada
-módulo declara as suas em `jobs.ts` e as lista em `modules/index.ts`.
-Horários em UTC, os mesmos de antes. Toda execução fica em
-`integracao.sync_runs` ou em `core.logs`. `AGENDADOR=0` desliga.
+módulo declara as suas em `modules/<modulo>/jobs.ts` (uma lista de
+`Rotina`: nome, cron, `executar`) e `modules/index.ts` as junta em
+`ROTINAS`, que o `server.ts` entrega ao agendador. Horários em UTC, os
+mesmos de antes. Toda execução fica em `integracao.sync_runs` ou em
+`core.logs`. `AGENDADOR=0` desliga.
+
+| Rotina | Cron (UTC) | Brasília |
+|---|---|---|
+| `marketing.aquecer-madrugada` | `10 3 * * *` | 00h10 |
+| `sync.secullum` | `0 9 * * *` | 06h00 |
+| `sync.rd-station` | `15 9 * * *` | 06h15 |
+| `sync.rd-crm` | `20 9 * * *` | 06h20 |
+| `sync.copiloto-rh` | `30 9 * * *` | 06h30 |
+| `sync.meta` | `45 9 * * *` | 06h45 |
+| `sync.wps` | `0 10 * * *` | 07h00 |
+| `os.rotinas` | `30 10 * * *` | 07h30 |
+| `marketing.aquecer-manha` | `50 10 * * *` | 07h50 |
+| `comercial.rotinas` | `0 11 * * *` | 08h00 |
+| `sync.diario-de-obras` | `*/30 * * * *` | a cada 30 min |
+
+- Rodar uma sincronização na hora, fora do agendador (o que antes era
+  chamar `/api/sync/*`): `node dist/sincronizar.js <nome> [argumentos]` no
+  contêiner da API (`npm run sincronizar -w @arp/api -- <nome>` em
+  desenvolvimento). Segue as mesmas travas e registra em
+  `integracao.sync_runs`. Os nomes e argumentos estão em `src/sincronizar.ts`.
+- Desligamento (SIGTERM): o agendador para de disparar, a API fecha as
+  conexões e espera o que já começou (rotinas, avisos dos chamados,
+  registros de eventos) por até 12 s; o `stop_grace_period` do compose é
+  15 s. Rotina cortada solta a trava com a conexão e roda no próximo horário.
+
+### Leituras ao vivo do Marketing
+
+Meta, Google, Asana, a agenda do site e o benchmark são lidos da ferramenta
+na hora em que a tela abre e guardados na **memória do processo**
+(`modules/marketing/memoria.ts`, o `use cache` do sistema antigo): uma hora
+quando deu certo, segundos quando falhou. Quem salva, testa ou sincroniza a
+integração chama `esquecerLeituras(tag)`. As rotinas `marketing.aquecer-*`
+refazem as leituras do dia antes de o time chegar. A memória é por
+processo: reiniciar a API esvazia, e duas instâncias não a dividem.
 
 ## Front
 
@@ -236,6 +302,9 @@ Horários em UTC, os mesmos de antes. Toda execução fica em
   permissão tem teste. O RLS tem teste em `apps/api/db/tests`. Os testes de
   integração da API usam o banco de homologação (`apps/api/.env` e
   `.env.teste`) e são pulados, com aviso, se ele não estiver acessível.
+- Conferência de fumaça: `apps/api/scripts/fumaca.ts` entra com um usuário e
+  chama todas as rotas `GET` sem parâmetro (menos as que chamam sistema
+  externo), mostrando só rota, status e tempo. Qualquer 5xx é defeito.
 - Nada de valor de negócio fixo no código (metas, encargos, faixas): é
   parâmetro no banco.
 - Nunca dados reais de clientes, funcionários ou credenciais no repo.

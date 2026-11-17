@@ -4,7 +4,12 @@ import {
   respostaEu,
   respostaMensagem,
 } from "@arp/shared/contratos/auth";
-import { PERMISSOES, type Permissao } from "@arp/shared/permissions";
+import {
+  ehPermissaoDePrograma,
+  PERMISSOES,
+  type Permissao,
+  type PermissaoDePrograma,
+} from "@arp/shared/permissions";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { createContext, type ReactNode, use, useMemo } from "react";
 import { Outlet, useLocation } from "react-router";
@@ -25,6 +30,9 @@ export interface Usuario {
   nome: string;
   email: string;
   permissoes: Permissao[];
+  /** "Programa – lançar" (Sustentabilidade): uma permissão por programa,
+   * fora do catálogo fixo (sustentabilidade.programa.<id>). */
+  programas: PermissaoDePrograma[];
 }
 
 export interface Sessao {
@@ -33,7 +41,12 @@ export interface Sessao {
   senhaProvisoria: boolean;
   prazos: PrazosDaSessao;
   /** A pessoa tem a permissão (ou alguma delas, numa lista)? */
-  pode(permissao: Permissao | readonly Permissao[]): boolean;
+  pode(
+    permissao:
+      | Permissao
+      | PermissaoDePrograma
+      | readonly (Permissao | PermissaoDePrograma)[],
+  ): boolean;
 }
 
 const ehPermissao = (p: string): p is Permissao => p in PERMISSOES;
@@ -41,9 +54,10 @@ const ehPermissao = (p: string): p is Permissao => p in PERMISSOES;
 /** Resposta da API → sessão da tela (só as permissões que o sistema conhece). */
 export function montarSessao(eu: RespostaEu): Sessao {
   const permissoes = eu.usuario.permissoes.filter(ehPermissao);
-  const tem = new Set<Permissao>(permissoes);
+  const programas = eu.usuario.permissoes.filter(ehPermissaoDePrograma);
+  const tem = new Set<string>([...permissoes, ...programas]);
   return {
-    usuario: { ...eu.usuario, permissoes },
+    usuario: { ...eu.usuario, permissoes, programas },
     senhaProvisoria: eu.senha_provisoria,
     prazos: eu.sessao,
     pode: (permissao) =>
@@ -144,7 +158,10 @@ export function useSessaoOpcional(): Sessao | null {
  * antigo. Só esconde o que não pode ser usado: a API confere de novo.
  */
 export function usePermissao(
-  permissao: Permissao | readonly Permissao[],
+  permissao:
+    | Permissao
+    | PermissaoDePrograma
+    | readonly (Permissao | PermissaoDePrograma)[],
 ): boolean {
   return useSessao().pode(permissao);
 }

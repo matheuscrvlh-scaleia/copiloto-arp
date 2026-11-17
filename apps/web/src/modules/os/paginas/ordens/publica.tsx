@@ -16,6 +16,7 @@ import {
   Phone,
 } from "lucide-react";
 import { Suspense, useEffect } from "react";
+import { Assinatura } from "@/components/assinatura";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { useParametro } from "@/lib/navegacao";
 import {
@@ -28,7 +29,6 @@ import {
   type Etapa,
   Relatorio,
 } from "@/modules/os/components/ordem/acoes-do-link";
-import { Assinatura } from "@/modules/os/components/ordem/assinatura";
 
 // OS para o terceirizado, sem login: ele vê a OS dele (número, local,
 // descrição, fotos, visita e o contato da ARP — nunca custos internos nem

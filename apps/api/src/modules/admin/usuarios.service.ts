@@ -6,7 +6,17 @@ import type {
   EntradaUsuario,
   UsuarioAdmin,
 } from "@arp/shared/admin/contratos";
-import { PERMISSOES, type Permissao } from "@arp/shared/permissions";
+import {
+  type CodigoPermissao,
+  ehCodigoConhecido,
+  type ProgramaPermissao,
+  planoDePermissoes,
+  programasInexistentes,
+} from "@arp/shared/admin/grupos-permissao";
+import {
+  ehPermissaoDePrograma,
+  PREFIXO_PERMISSAO_PROGRAMA,
+} from "@arp/shared/permissions";
 import { type Contexto, exigir } from "@/contexto";
 import { ErroDeConflito, ErroDeNegocio, ErroNaoEncontrado } from "@/erros";
 import { banco } from "@/infra/banco";
@@ -24,18 +34,37 @@ import * as repo from "./usuarios.repository";
 // permissão direto no banco (exigir). O acesso do usuário vem do cargo; as
 // permissões individuais antigas só podem ser removidas.
 
-const ehPermissao = (p: string): p is Permissao => p in PERMISSOES;
+// Fixa do catálogo ou "Programa – lançar" (sustentabilidade.programa.<id>).
+const ehPermissao = ehCodigoConhecido;
 
 function agrupar<T extends { permissao: string }>(
   linhas: T[],
   chave: (l: T) => string,
-): Map<string, Permissao[]> {
-  const mapa = new Map<string, Permissao[]>();
+): Map<string, CodigoPermissao[]> {
+  const mapa = new Map<string, CodigoPermissao[]>();
   for (const l of linhas) {
     if (!ehPermissao(l.permissao)) continue;
     mapa.set(chave(l), [...(mapa.get(chave(l)) ?? []), l.permissao]);
   }
   return mapa;
+}
+
+/**
+ * As permissões "Programa – lançar" que existem (uma por programa, criada
+ * pelo banco), com a descrição de core.permissoes. O RLS deixa todo usuário
+ * logado ler o catálogo.
+ */
+export async function permissoesDePrograma(
+  ctx: Contexto,
+): Promise<ProgramaPermissao[]> {
+  const linhas = await banco.comoUsuario(ctx.usuario.id, (tx) =>
+    repo.permissoesDePrograma(tx, PREFIXO_PERMISSAO_PROGRAMA),
+  );
+  return linhas.flatMap((p) =>
+    ehPermissaoDePrograma(p.codigo)
+      ? [{ codigo: p.codigo, descricao: p.descricao }]
+      : [],
+  );
 }
 
 export async function cargos(ctx: Contexto): Promise<Cargo[]> {
@@ -252,22 +281,27 @@ export async function salvarCargo(
   c: EntradaCargo,
 ): Promise<string> {
   return banco.comoUsuario(ctx.usuario.id, async (tx) => {
+    // O que a tela manda não prova que o programa existe: confere no banco.
+    const doPrograma = c.permissoes.filter(ehPermissaoDePrograma);
+    const faltam = programasInexistentes(
+      doPrograma,
+      await repo.permissoesExistentes(tx, doPrograma),
+    );
+    if (faltam.length)
+      throw new ErroDeNegocio(
+        "Há um programa que não existe mais. Recarregue a página e tente de novo.",
+      );
     const dados = { nome: c.nome, descricao: c.descricao };
     const cargoId = id ?? (await repo.criarCargo(tx, dados));
     if (id) await repo.atualizarCargo(tx, id, dados);
 
-    const tem = new Set(await repo.permissoesDoCargo(tx, cargoId));
-    const querer = new Set<string>(c.permissoes);
-    await repo.concederAoCargo(
-      tx,
-      cargoId,
-      [...querer].filter((p) => !tem.has(p)),
+    const { conceder, revogar } = planoDePermissoes(
+      await repo.permissoesDoCargo(tx, cargoId),
+      c.permissoes,
+      c.programas_vistas,
     );
-    await repo.revogarDoCargo(
-      tx,
-      cargoId,
-      [...tem].filter((p) => !querer.has(p)),
-    );
+    await repo.concederAoCargo(tx, cargoId, conceder);
+    await repo.revogarDoCargo(tx, cargoId, revogar);
     return cargoId;
   });
 }

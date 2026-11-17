@@ -1,8 +1,8 @@
+import { formatarNumero } from "../formato";
 import { fimDoMesDe, somarMeses } from "./datas";
 import type { FontesEnet } from "./fontes";
 import { fotoDaOcupacao } from "./ocupacao";
 import { valorPorM2 } from "./painel";
-import { formatarNumero } from "../formato";
 
 // Pesquisa de mercado (spec 4.16): faixa de tamanho, o resumo por bairro
 // (como a aba Resumo) e o valor por m² da ARP para comparar. Só locação.

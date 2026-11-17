@@ -118,6 +118,33 @@ describe("/api/v1/arquivos/:token", () => {
     expect(fora.statusCode).toBe(416);
   });
 
+  it("link já enviado pelo sistema antigo (/api/arquivos/:token) continua abrindo", async () => {
+    const caminho = `${pasta}/laudo-antigo.pdf`;
+    const bytes = Buffer.from("%PDF-1.7 laudo enviado antes da troca");
+    await gravarArquivo("os", caminho, bytes, "application/pdf");
+    const novo = caminhoDe(
+      await linkDeLeitura("os", caminho, { segundos: 60 }),
+    );
+    expect(novo.startsWith("/api/v1/arquivos/")).toBe(true);
+    const antigo = novo.replace("/api/v1/arquivos/", "/api/arquivos/");
+
+    const r = await app.inject({ method: "GET", url: antigo });
+    expect(r.statusCode).toBe(200);
+    expect(r.rawPayload).toEqual(bytes);
+    expect(r.headers["content-type"]).toBe("application/pdf");
+    expect(r.headers["content-disposition"]).toBe("inline");
+
+    // Token inválido: a mesma recusa do endereço novo.
+    const ruim = await app.inject({ method: "GET", url: `${antigo}x` });
+    const ruimNovo = await app.inject({ method: "GET", url: `${novo}x` });
+    expect(ruim.statusCode).toBe(ruimNovo.statusCode);
+    expect(ruim.statusCode).toBeGreaterThanOrEqual(400);
+
+    // O endereço antigo só lê: o envio (PUT) continua só em /api/v1.
+    const envio = await app.inject({ method: "PUT", url: antigo });
+    expect(envio.statusCode).toBe(404);
+  });
+
   it("o que poderia rodar script sempre baixa, isolado", async () => {
     const caminho = `${pasta}/desenho.svg`;
     await gravarArquivo(

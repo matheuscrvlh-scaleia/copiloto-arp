@@ -15,7 +15,7 @@ import {
 } from "@arp/shared/os/rotas";
 import {
   MOTIVOS_AGUARDANDO,
-  ORIGENS,
+  rotuloDaOrigem,
   STATUS,
   TIPOS,
 } from "@arp/shared/os/rotulos";
@@ -27,6 +27,7 @@ import {
   CirclePause,
   Lightbulb,
   Mail,
+  Play,
   RotateCcw,
   Star,
   XCircle,
@@ -109,6 +110,8 @@ export function DetalheChamado({
   const comGestao =
     emAberto &&
     (podeGestao.responsavel || podeGestao.prazo || podeGestao.setor);
+  // Chamado de outro módulo: o trabalho é feito (e conclui) na tela de lá.
+  const executar = emAberto && d.pode.editar ? ch.acao_url : null;
   const formulario = comGestao ? dados : null;
   const nome = (u: string | null) => (u ? (d.nomes[u] ?? "—") : null);
   const ehOS = ch.tipo === "os";
@@ -231,12 +234,24 @@ export function DetalheChamado({
               `Fila de ${d.setor?.nome ?? "setor"}`)}
         </span>
       </p>
-      {(d.acoes.length > 0 || comGestao || podeLer) && (
+      {(d.acoes.length > 0 || comGestao || podeLer || executar) && (
         <div
           data-guia="chamado-acoes"
           className="flex flex-wrap items-start gap-2"
         >
           {podeLer && <BotaoLido id={ch.id} />}
+          {executar && (
+            <Link
+              href={executar}
+              title={
+                ch.acao_rotulo ? `Abrir ${ch.acao_rotulo} no módulo` : undefined
+              }
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800"
+            >
+              <Play className="size-4" aria-hidden />
+              Executar
+            </Link>
+          )}
           <AcoesDoChamado
             id={ch.id}
             acoes={d.acoes}
@@ -444,7 +459,7 @@ function quemPediu(d: Detalhe): string {
   if (ch.origem === "portal")
     return `Portal – ${d.loja?.nome ?? ch.solicitante_nome ?? "lojista"}`;
   const nome = ch.aberto_por ? d.nomes[ch.aberto_por] : null;
-  return `Aberto por ${nome ?? ch.solicitante_nome ?? ORIGENS[ch.origem]}`;
+  return `Aberto por ${nome ?? ch.solicitante_nome ?? rotuloDaOrigem(ch.origem, ch.origem_modulo)}`;
 }
 
 /** Aviso: os destinos (setores e pessoas) ou, sem eles, o responsável ou o setor. */
@@ -629,7 +644,9 @@ function Informacoes({
         <Linha rotulo="Repete">{descreverRecorrencia(recorrencia)}</Linha>
       )}
       {ch.origem !== "sistema" && (
-        <Linha rotulo="Origem">{ORIGENS[ch.origem]}</Linha>
+        <Linha rotulo="Origem">
+          {rotuloDaOrigem(ch.origem, ch.origem_modulo)}
+        </Linha>
       )}
       {d.loja && (
         <Linha rotulo="Loja">

@@ -2,6 +2,7 @@ import { TRILHA_CALENDARIO } from "./calendario";
 import type { PassoTrilha, Trilha } from "./tipos";
 import { TRILHAS_MODULOS } from "./trilhas-modulos";
 import { TRILHAS_OPERACOES } from "./trilhas-operacoes";
+import { TRILHAS_SUSTENTABILIDADE } from "./trilhas-sustentabilidade";
 
 // Trilhas: o processo de ponta a ponta, atravessando telas. O guia vai
 // sozinho para a tela de cada passo, espera a pessoa abrir o formulário ou
@@ -214,6 +215,7 @@ export const TRILHAS: Trilha[] = [
   },
   ...TRILHAS_MODULOS,
   ...TRILHAS_OPERACOES,
+  ...TRILHAS_SUSTENTABILIDADE,
   TRILHA_CALENDARIO,
 ];
 

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { FontesEnet } from "./fontes";
 import {
   acompanhamentoPorBloco,
   blocoDoLocal,
@@ -20,6 +19,7 @@ import {
   VAZIO,
   validarQuestionario,
 } from "./censo";
+import type { FontesEnet } from "./fontes";
 
 const EXP = [
   "Manter meu espaço",

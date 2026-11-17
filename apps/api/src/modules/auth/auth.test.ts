@@ -274,7 +274,8 @@ descreverComBanco("acesso (/api/v1/auth)", () => {
     expect(junto.cookies.map((c) => c.name)).toEqual([COOKIE_ACESSO]);
 
     // Passada a folga, o token antigo é reuso: a sessão inteira cai.
-    await envelhecer(sessaoDe(n), { renovada_em: "1 minute" });
+    const sessao = sessaoDe(n);
+    await envelhecer(sessao, { renovada_em: "1 minute" });
     const ladrao = new Navegador(app);
     ladrao.definirCookie(COOKIE_RENOVACAO, antigo, AUTH);
     expect((await ladrao.pedir("POST", `${AUTH}/renovar`)).statusCode).toBe(
@@ -283,6 +284,20 @@ descreverComBanco("acesso (/api/v1/auth)", () => {
     expect((await n.pedir("GET", `${AUTH}/eu`)).statusCode).toBe(401);
     expect((await n.pedir("POST", `${AUTH}/renovar`)).statusCode).toBe(401);
     expect(n.cookie(COOKIE_RENOVACAO)).toBeUndefined();
+
+    // O reuso fica no Histórico (core.logs), uma vez, sem o token.
+    await eventosPendentes();
+    const registros = await banco.comoServico((tx) =>
+      tx
+        .selectFrom("core.logs")
+        .select(["modulo", "detalhes"])
+        .where("evento", "=", "sessao_reusada")
+        .where(sql<boolean>`detalhes->>'sessao' = ${sessao}`)
+        .execute(),
+    );
+    expect(registros).toHaveLength(1);
+    expect(registros[0]?.modulo).toBe("acesso");
+    expect(JSON.stringify(registros[0]?.detalhes)).not.toContain(antigo);
   });
 
   it("renovar sem token, ou com token inventado, não vale", async () => {

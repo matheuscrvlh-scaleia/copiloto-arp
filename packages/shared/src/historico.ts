@@ -13,6 +13,7 @@ export const MODULOS = {
   os: "Tickets",
   comercial: "Comercial",
   operacoes: "Operações",
+  sustentabilidade: "Sustentabilidade",
   integracoes: "Integrações",
 } as const;
 export type Modulo = keyof typeof MODULOS;
@@ -100,6 +101,38 @@ export const TABELAS: Record<string, string> = {
   "operacoes.limpeza_meses": "Mês do rateio da limpeza",
   "operacoes.obra_realizado": "Realizado de obra",
   "os.ativo_saidas": "Saída de ativo",
+  "sustentabilidade.parametros": "Parâmetros de Sustentabilidade",
+  "sustentabilidade.parametros_valores": "Custos padrão do tour",
+  "sustentabilidade.setor_validades": "Validade da entrevista por setor",
+  "sustentabilidade.contratos": "Contrato (dispensa ou ativação corrigida)",
+  "sustentabilidade.formularios": "Formulário de Sustentabilidade",
+  "sustentabilidade.formulario_versoes": "Versão publicada de formulário",
+  "sustentabilidade.entrevistas": "Entrevista de resíduos",
+  "sustentabilidade.participantes": "Participante do Clube",
+  "sustentabilidade.participante_contatos": "Contato de participante do Clube",
+  "sustentabilidade.participante_valores": "Valor combinado do Clube",
+  "sustentabilidade.termos": "Termo do Clube",
+  "sustentabilidade.contribuicoes": "Contribuição do Clube",
+  "sustentabilidade.contribuicao_valores": "Valor de contribuição do Clube",
+  "sustentabilidade.acoes": "Ação do Clube",
+  "sustentabilidade.coletores": "Coletor",
+  "sustentabilidade.rondas": "Ronda dos coletores",
+  "sustentabilidade.ronda_itens": "Coletor na ronda",
+  "sustentabilidade.rcc_fatores": "Fator do RCC",
+  "sustentabilidade.rcc_precos": "Preço da caçamba",
+  "sustentabilidade.rcc_notas": "Nota do RCC",
+  "sustentabilidade.rcc_nota_valores": "Valor da nota do RCC",
+  "sustentabilidade.programas": "Programa",
+  "sustentabilidade.programa_contatos": "Contato do parceiro",
+  "sustentabilidade.programa_indicadores": "Indicador de programa",
+  "sustentabilidade.programa_links": "Link do parceiro",
+  "sustentabilidade.lancamentos": "Lançamento de programa",
+  "sustentabilidade.lancamento_valores": "Valores em reais de lançamento",
+  "sustentabilidade.importacoes": "Importação de Sustentabilidade",
+  "sustentabilidade.marcos": "Marco inicial",
+  "sustentabilidade.equivalencias": "Equivalência do painel",
+  "sustentabilidade.consolidados": "Consolidado anual",
+  "sustentabilidade.consolidado_valores": "Consolidado anual em reais",
 };
 
 const ACOES_ALTERACAO: Record<string, string> = {
@@ -119,6 +152,7 @@ export const EVENTOS = {
   login: "Entrou",
   login_falhou: "Errou o login",
   logout: "Saiu",
+  sessao_reusada: "Sessão encerrada por suspeita de cópia",
   senha_definida: "Definiu a própria senha",
   usuario_criado: "Criou usuário",
   senha_trocada: "Trocou a senha de usuário",
@@ -157,6 +191,17 @@ export const EVENTOS = {
   operacoes_diario_atualizado: "Pediu a atualização do Diário de Obra",
   os_ativo_saida: "Registrou a saída de um ativo",
   os_ativo_saida_desfeita: "Desfez a saída de um ativo",
+  sustentabilidade_importacao_confirmada:
+    "Confirmou importação de Sustentabilidade",
+  sustentabilidade_importacao_desfeita: "Desfez importação de Sustentabilidade",
+  sustentabilidade_parametros: "Alterou os parâmetros de Sustentabilidade",
+  sustentabilidade_exemplos_removidos:
+    "Removeu os dados de exemplo de Sustentabilidade",
+  sustentabilidade_formulario_publicado: "Publicou versão de formulário",
+  sustentabilidade_link_gerado: "Gerou o link do parceiro",
+  sustentabilidade_link_desligado: "Desligou o link do parceiro",
+  sustentabilidade_ano_fechado: "Fechou o ano no Painel de Sustentabilidade",
+  sustentabilidade_ano_reaberto: "Reabriu o ano no Painel de Sustentabilidade",
 } as const;
 export type Evento = keyof typeof EVENTOS;
 

@@ -93,9 +93,9 @@ export async function avisosDo(ctx: Contexto): Promise<Aviso[]> {
   return avisos;
 }
 
-// Sininho: as notificações do Tickets e os lembretes do Comercial (ambos em
-// os.notificacoes).
-const MODULOS_DO_SINO = ["os.", "comercial."];
+// Sininho: as notificações do Tickets, os lembretes do Comercial e os do
+// Sustentabilidade (todos em os.notificacoes).
+const MODULOS_DO_SINO = ["os.", "comercial.", "sustentabilidade."];
 
 /** Não lidas mais recentes de quem está logado (vazio sem Tickets nem Comercial). */
 export async function minhasNotificacoes(
