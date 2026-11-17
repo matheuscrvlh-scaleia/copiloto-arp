@@ -51,14 +51,15 @@ export async function sincronizarAgora(
         mensagem: `${r.colaboradores} colaboradores do Copiloto (${r.ativos} ativos, ${r.desligados} desligados)${r.novos ? ` · ${r.novos} novos` : ""}${r.dependentes !== null ? ` · ${r.dependentes} dependentes` : ""}${avisos}.`,
       };
     }
-    case "wps": {
-      // A semana do estacionamento sai em segundos: roda na hora.
-      const r = await comMensagem(sincronizarWps);
-      const avisos = r.avisos.length ? ` · ${r.avisos.length} avisos` : "";
+    case "wps":
+      // A WPS leva até minutos por dia lido (pagamentos com detalhe ~90 s):
+      // roda em segundo plano; o resultado aparece no histórico.
+      await semCredencial(() => credencialEmUso("wps"));
+      depois("wps", sincronizarWps);
       return {
-        mensagem: `${r.dias} dias do estacionamento ${r.estacionamento}: ${r.pagamentos} pagamentos, ${r.entradas} entradas, ${r.saidas} saídas e ${r.eventos} ocorrências${r.contratos !== null ? ` · ${r.contratos} contratos` : ""}${r.mensalidades !== null ? ` · ${r.mensalidades} mensalidades` : ""}${avisos}.`,
+        mensagem:
+          "Sincronização do estacionamento iniciada. Leva alguns minutos; acompanhe no histórico.",
       };
-    }
     case "mkt_rd_station":
       // A primeira leitura passa de um minuto; se o prazo acabar, a próxima
       // continua de onde parou.

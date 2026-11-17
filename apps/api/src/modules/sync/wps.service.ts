@@ -30,6 +30,9 @@ import {
 import * as repo from "./wps.repository";
 
 const SISTEMA = "wps";
+
+/** Entradas/saídas que não vieram (o movimento do dia é preservado). */
+const SEM_MOVIMENTO = { quantidade: 0, subdetalhes: {} };
 const LEITURAS = Object.keys(LEITURAS_DO_DIA) as LeituraDoDia[];
 
 export interface OpcoesWps {
@@ -79,14 +82,17 @@ export async function sincronizarWps(opcoes: OpcoesWps = {}) {
       avisos.push(`${onde}: não lido (${mensagemSegura(erro).slice(0, 200)})`);
 
     // 1. Chamadas externas, todas fora do escopo do banco.
+    // Só os pagamentos são obrigatórios: na produção a rota de entradas da
+    // WPS chega a não responder, e isso não pode segurar a receita do dia.
     const base = await emParalelo(dias, 3, async (dia) => {
       const data = dataLocal(dia);
-      const [pagamentos, entradas, saidas] = await Promise.all([
+      const [pagamentos, entradas, saidas] = await Promise.allSettled([
         api.pagamentos(data),
         api.entradas(data),
         api.saidas(data),
       ]);
-      return { dia, pagamentos, entradas, saidas };
+      if (pagamentos.status === "rejected") throw pagamentos.reason;
+      return { dia, pagamentos: pagamentos.value, entradas, saidas };
     });
 
     const tarefas = dias.flatMap((dia) =>
@@ -115,6 +121,7 @@ export async function sincronizarWps(opcoes: OpcoesWps = {}) {
 
     // 2. Pagamentos, movimento e acessos por hora.
     const lidos: DiaEstacionamento[] = [];
+    const semMovimento = new Set<string>();
     const acessos: { data: string; linhas: LinhaAcesso[] }[] = [];
     const brutos = [];
     for (const [i, r] of base.entries()) {
@@ -122,9 +129,24 @@ export async function sincronizarWps(opcoes: OpcoesWps = {}) {
         falhou(dias[i] ?? "?", r.reason);
         continue;
       }
-      const { dia, pagamentos, entradas, saidas } = r.value;
-      lidos.push(linhasDoDia(dia, pagamentos, entradas, saidas));
-      const porHora = acessosDoDia(entradas, saidas);
+      const { dia, pagamentos } = r.value;
+      const { entradas, saidas } = r.value;
+      if (entradas.status === "rejected" || saidas.status === "rejected") {
+        // Movimento e acessos do dia ficam como estavam (só a receita troca).
+        if (entradas.status === "rejected")
+          falhou(`${dia} entradas`, entradas.reason);
+        if (saidas.status === "rejected")
+          falhou(`${dia} saídas`, saidas.reason);
+        lidos.push(linhasDoDia(dia, pagamentos, SEM_MOVIMENTO, SEM_MOVIMENTO));
+        semMovimento.add(dia);
+        brutos.push({
+          chave: `${id}:${dia}`,
+          payload: { pagamento: pagamentosSemPlaca(pagamentos) },
+        });
+        continue;
+      }
+      lidos.push(linhasDoDia(dia, pagamentos, entradas.value, saidas.value));
+      const porHora = acessosDoDia(entradas.value, saidas.value);
       acessos.push({ data: dia, linhas: porHora.linhas });
       if (porHora.semDetalhe > 0) {
         avisos.push(
@@ -135,8 +157,8 @@ export async function sincronizarWps(opcoes: OpcoesWps = {}) {
         chave: `${id}:${dia}`,
         payload: {
           pagamento: pagamentosSemPlaca(pagamentos),
-          entrada: acessosSemLista(entradas),
-          saida: acessosSemLista(saidas),
+          entrada: acessosSemLista(entradas.value),
+          saida: acessosSemLista(saidas.value),
         },
       });
     }
@@ -217,7 +239,19 @@ export async function sincronizarWps(opcoes: OpcoesWps = {}) {
     // 5. Grava tudo numa transação só.
     const diasGravados = new Set(gravar.map((d) => d.data));
     await banco.comoServico(async (tx) => {
-      await repo.gravarEstacionamento(tx, id, gravar, runId);
+      // Dia sem entradas/saídas: regrava o movimento que já estava no banco
+      // (a função troca pagamentos e movimento do dia juntos).
+      const guardado = await repo.movimentoGravado(tx, id, [...semMovimento]);
+      await repo.gravarEstacionamento(
+        tx,
+        id,
+        gravar.map((d) =>
+          semMovimento.has(d.data)
+            ? { ...d, movimento: guardado.get(d.data) ?? [] }
+            : d,
+        ),
+        runId,
+      );
       await repo.gravarAcessos(
         tx,
         id,

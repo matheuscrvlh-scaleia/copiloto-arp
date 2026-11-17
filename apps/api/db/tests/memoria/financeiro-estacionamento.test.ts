@@ -16,6 +16,7 @@ import {
 import { beforeAll, describe, expect, it } from "vitest";
 import type { DB } from "@/infra/banco/tipos";
 import * as repo from "@/modules/financeiro/estacionamento.repository";
+import { movimentoGravado } from "@/modules/sync/wps.repository";
 import { abrirBanco, type BancoDeTeste } from "../apoio";
 
 const U = {
@@ -353,5 +354,24 @@ describe("consultas da tela", () => {
 
   it("quem não tem a permissão não vê garagem nenhuma", async () => {
     expect(await comoUsuario(U.fora, repo.garagemAtual)).toBeUndefined();
+  });
+});
+
+describe("sincronização", () => {
+  it("lê o movimento já gravado, para o dia sem entradas/saídas ficar igual", async () => {
+    const m = await db.comoServico(() =>
+      kysely
+        .transaction()
+        .execute((tx) =>
+          movimentoGravado(tx, 43, ["2026-11-03", "2026-11-09"]),
+        ),
+    );
+    expect([...m.keys()]).toEqual(["2026-11-03"]);
+    expect(m.get("2026-11-03")).toEqual(
+      expect.arrayContaining([
+        { tipo_veiculo: "carro", entradas: 10, saidas: 9 },
+        { tipo_veiculo: "moto", entradas: 1, saidas: 1 },
+      ]),
+    );
   });
 });

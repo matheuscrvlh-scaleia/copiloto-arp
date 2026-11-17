@@ -117,9 +117,20 @@ const EXTENSOES: Partial<Record<Sistema, ExtensaoDaIntegracao>> = {
   },
   wps: {
     async testar(c) {
+      // A lista de garagens responde na hora; as leituras do dia podem levar
+      // minutos na WPS e prenderiam o botão.
       const config = configWps(c);
-      const r = await createWpsClient(config).entradas(new Date());
-      return `Conectado ao estacionamento ${config.estacionamentoId} · ${formatarNumero(r.quantidade)} entradas hoje`;
+      const garagens = await createWpsClient(config).garagens();
+      const g = garagens.find((x) => x.id === config.estacionamentoId);
+      if (!g) {
+        const ids = garagens
+          .map((x) => `${x.id} (${x.descricao ?? "sem nome"})`)
+          .join(", ");
+        throw new Error(
+          `login aceito, mas o estacionamento ${config.estacionamentoId} não está liberado para este usuário. Disponíveis: ${ids || "nenhum"}`,
+        );
+      }
+      return `Conectado ao estacionamento ${g.id}${g.descricao ? ` (${g.descricao})` : ""}`;
     },
   },
   diario_de_obras: {

@@ -8,7 +8,7 @@ import type {
   LinhaGaragem,
   LinhaMensalidade,
 } from "./wps.detalhes";
-import type { DiaEstacionamento } from "./wps.regras";
+import type { DiaEstacionamento, LinhaMovimento } from "./wps.regras";
 
 /** Linhas por insert (bem abaixo do limite de parâmetros do Postgres). */
 const LOTE = 1000;
@@ -33,6 +33,30 @@ export function gravarEstacionamento(
       p_sync_run_id => ${runId}::uuid
     )
   `.execute(tx);
+}
+
+/** Movimento já gravado dos dias, por dia (para regravar igual). */
+export async function movimentoGravado(
+  tx: Tx,
+  estacionamentoId: number,
+  dias: string[],
+): Promise<Map<string, LinhaMovimento[]>> {
+  const porDia = new Map<string, LinhaMovimento[]>();
+  if (dias.length === 0) return porDia;
+  const linhas = await tx
+    .selectFrom("financeiro.estacionamento_movimento")
+    .select([
+      sql<string>`data::text`.as("data"),
+      "tipo_veiculo",
+      "entradas",
+      "saidas",
+    ])
+    .where("estacionamento_id", "=", estacionamentoId)
+    .where("data", "in", dias)
+    .execute();
+  for (const { data, ...m } of linhas)
+    porDia.set(data, [...(porDia.get(data) ?? []), m]);
+  return porDia;
 }
 
 /** Troca os acessos por hora dos dias lidos. */

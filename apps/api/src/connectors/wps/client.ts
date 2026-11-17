@@ -26,8 +26,15 @@ import {
 
 const SISTEMA = "wps";
 
-/** Entradas, saídas e clientes com detalhe podem ter milhares de registros. */
-const TEMPO_DAS_LISTAS_MS = 120_000;
+/**
+ * Prazos medidos na produção (17/11/2026): pagamentos com detalhe de um dia
+ * 90 s, saídas com detalhe 190 s; as demais leituras do dia ~2 s; entradas
+ * e validações às vezes não respondem. Leitura pesada: 5 min e sem repetir
+ * (repetir só dobra a espera, e a próxima execução relê a semana). Leitura
+ * leve: 1 min e uma repetição.
+ */
+const TEMPO_PESADO_MS = 300_000;
+const TEMPO_LEVE_MS = 60_000;
 
 export interface WpsConfig {
   /** Ex.: https://demonstracao.parkingplus.com.br (homologação). */
@@ -115,7 +122,14 @@ export function createWpsClient(config: WpsConfig) {
   const comDetalhe: RequestOptions = {
     ...opts,
     query: { detalhe: "true" },
-    timeoutMs: TEMPO_DAS_LISTAS_MS,
+    timeoutMs: TEMPO_PESADO_MS,
+    retries: 0,
+  };
+  const leve: RequestOptions = {
+    ...opts,
+    query: { detalhe: "true" },
+    timeoutMs: TEMPO_LEVE_MS,
+    retries: 1,
   };
 
   const acessos = async (data: Date, rota: string): Promise<AcessosDoDia> =>
@@ -132,10 +146,7 @@ export function createWpsClient(config: WpsConfig) {
       const json = await requestJson(
         SISTEMA,
         `${base}/${dia(data)}/pagamento`,
-        {
-          ...opts,
-          query: { detalhe: "true" },
-        },
+        comDetalhe,
       );
       return parseWith(SISTEMA, pagamentosDoDiaSchema, json);
     },
@@ -153,7 +164,7 @@ export function createWpsClient(config: WpsConfig) {
       const json = await requestJson(
         SISTEMA,
         `${base}/${dia(data)}/${rota}`,
-        comDetalhe,
+        leve,
       );
       return parseWith(SISTEMA, schema, json);
     },
@@ -192,7 +203,7 @@ export function createWpsClient(config: WpsConfig) {
     },
 
     async setores() {
-      const json = await requestJson(SISTEMA, `${base}/setores/`, comDetalhe);
+      const json = await requestJson(SISTEMA, `${base}/setores/`, leve);
       return parseWith(SISTEMA, setoresSchema, json);
     },
   };
