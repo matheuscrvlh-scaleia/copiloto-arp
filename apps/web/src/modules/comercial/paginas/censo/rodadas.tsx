@@ -23,6 +23,12 @@ import { Secao } from "@/components/dashboard/tabela";
 import { classeCampo } from "@/components/estilos";
 import { BotaoExportar } from "@/components/exportar";
 import { FormAcao } from "@/components/form-acao";
+import {
+  BOTAO_SECUNDARIO,
+  FormNaJanela,
+  Janela,
+  useJanela,
+} from "@/components/janela";
 import type { Detalhe } from "@/components/modal-detalhe";
 import { ProvedorDetalhe } from "@/components/modal-detalhe";
 import { Link } from "@/lib/navegacao";
@@ -318,52 +324,7 @@ export function Rodadas({
               <h2 className="text-lg font-semibold">{rodada.nome}</h2>
               {podeAlterar && (
                 <>
-                  <details className="group">
-                    <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400">
-                      <PenLine className="size-4" aria-hidden />
-                      Editar rodada
-                    </summary>
-                    <FormAcao
-                      acao={editarRodada}
-                      rotulo="Salvar alteração"
-                      rotuloEnviando="Salvando…"
-                      className="vidro mt-2 flex max-w-md flex-col gap-3 rounded-[1.75rem] p-4"
-                    >
-                      <input type="hidden" name="rodada" value={rodada.id} />
-                      <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-                        Nome
-                        <input
-                          name="nome"
-                          required
-                          maxLength={80}
-                          defaultValue={rodada.nome}
-                          className={classeCampo}
-                        />
-                      </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-                          Início
-                          <input
-                            name="inicio"
-                            type="date"
-                            required
-                            defaultValue={rodada.inicio}
-                            className={classeCampo}
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-                          Fim
-                          <input
-                            name="fim"
-                            type="date"
-                            required
-                            defaultValue={rodada.fim}
-                            className={classeCampo}
-                          />
-                        </label>
-                      </div>
-                    </FormAcao>
-                  </details>
+                  <EditarRodada rodada={rodada} />
                   <FormAcao
                     acao={excluirRodada}
                     rotulo="Excluir rodada"
@@ -636,5 +597,71 @@ export function Rodadas({
         )}
       </div>
     </ProvedorDetalhe>
+  );
+}
+
+// Editar a rodada (nome e período, ex.: prorrogar) num modal. Só monta
+// aberto, então os campos sempre vêm da rodada escolhida.
+function EditarRodada({
+  rodada,
+}: {
+  rodada: { id: string; nome: string; inicio: string; fim: string };
+}) {
+  const janela = useJanela();
+  return (
+    <>
+      <button type="button" onClick={janela.abrir} className={BOTAO_SECUNDARIO}>
+        <PenLine className="size-4" aria-hidden />
+        Editar rodada
+      </button>
+      <Janela
+        aberta={janela.aberta}
+        aoFechar={janela.fechar}
+        titulo="Editar rodada"
+        descricao="Corrija o nome ou mude o período (ex.: prorrogar o fim). Os links das empresas continuam os mesmos."
+        largura="sm"
+      >
+        <FormNaJanela
+          acao={editarRodada}
+          aoConcluir={janela.fechar}
+          rotulo="Salvar alteração"
+          rotuloEnviando="Salvando…"
+        >
+          <input type="hidden" name="rodada" value={rodada.id} />
+          <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
+            Nome
+            <input
+              name="nome"
+              required
+              maxLength={80}
+              defaultValue={rodada.nome}
+              className={classeCampo}
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
+              Início
+              <input
+                name="inicio"
+                type="date"
+                required
+                defaultValue={rodada.inicio}
+                className={classeCampo}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
+              Fim
+              <input
+                name="fim"
+                type="date"
+                required
+                defaultValue={rodada.fim}
+                className={classeCampo}
+              />
+            </label>
+          </div>
+        </FormNaJanela>
+      </Janela>
+    </>
   );
 }
