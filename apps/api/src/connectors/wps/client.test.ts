@@ -79,4 +79,29 @@ describe("wps", () => {
     expect(unicos.map((p) => p.codigo).sort()).toEqual([41337, 41338, 41339]);
     expect(unicos.reduce((s, p) => s + p.valorLiquido, 0)).toBe(328);
   });
+
+  it("monta as demais rotas (dia, lançamentos, garagens, totais)", async () => {
+    const calls: string[] = [];
+    const vazio = fakeFetch({ quantidade: 0, subdetalhes: {} }, calls);
+    const client = createWpsClient({ ...config, fetch: vazio });
+    const dia = new Date(2026, 10, 3);
+    await client.entradas(dia);
+    await client.doDia("desconto", dia);
+    await client.doDia("selo_gerado", dia);
+    await client.lancamentos(new Date(2025, 10, 1), new Date(2027, 1, 28));
+    await client.totalDeClientes("MENSALISTA");
+    await createWpsClient({
+      ...config,
+      fetch: fakeFetch([], calls),
+    }).garagens();
+    const raiz = "https://wps.test/servicos/operacional/estacionamento";
+    expect(calls).toEqual([
+      `${raiz}/1/20261103/entrada?detalhe=true`,
+      `${raiz}/1/20261103/desconto?detalhe=true`,
+      `${raiz}/1/20261103/selo/geracao/?detalhe=true`,
+      `${raiz}/1/20251101/lancamentos?detalhe=true&dataFim=20270228`,
+      `${raiz}/1/clientes/?tipo=MENSALISTA`,
+      `${raiz}/garagens/`,
+    ]);
+  });
 });

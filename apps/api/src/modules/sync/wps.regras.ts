@@ -11,8 +11,23 @@ import type {
  * (ainda em andamento).
  */
 export const DIAS_RELIDOS = 7;
-/** Maior intervalo num reprocesso manual (3 chamadas à API por dia). */
+/** Maior intervalo num reprocesso manual (15 chamadas à API por dia). */
 export const LIMITE_DIAS = 93;
+
+/**
+ * Mensalidades relidas a cada execução, pelo vencimento: do primeiro dia de
+ * 12 meses atrás ao último dia de daqui a 3 meses (a WPS lista as futuras).
+ */
+export function janelaDasMensalidades(hoje: Date): { de: Date; ate: Date } {
+  return {
+    de: new Date(hoje.getFullYear(), hoje.getMonth() - 12, 1),
+    ate: new Date(hoje.getFullYear(), hoje.getMonth() + 4, 0),
+  };
+}
+
+/** Data local como "aaaa-mm-dd". */
+export const isoDoDia = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 const iso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

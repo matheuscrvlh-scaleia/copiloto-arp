@@ -1,7 +1,8 @@
 import type { Modulo } from "@/app/rota";
 
-// Financeiro: as telas ainda são marcadores (aguardam o ENET), como no
-// sistema antigo. Cada página confere a própria permissão.
+// Financeiro: as telas do ENET ainda são marcadores (aguardam a API), como no
+// sistema antigo; cada uma confere a própria permissão. O Estacionamento já
+// tem dados (WPS).
 
 export const financeiro: Modulo = {
   nome: "financeiro",
@@ -20,6 +21,12 @@ export const financeiro: Modulo = {
       caminho: "financeiro/faturamento",
       titulo: "Faturamento e recebimentos",
       pagina: () => import("./paginas/faturamento"),
+    },
+    {
+      caminho: "financeiro/estacionamento",
+      titulo: "Estacionamento",
+      permissao: "financeiro.estacionamento",
+      pagina: () => import("./paginas/estacionamento"),
     },
     {
       caminho: "financeiro/fluxo-de-caixa",

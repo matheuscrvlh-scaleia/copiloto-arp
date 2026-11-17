@@ -16,6 +16,7 @@ export type Icone =
   | "faturamento"
   | "contas"
   | "fluxo"
+  | "estacionamento"
   | "orcamento"
   | "performance"
   | "importacao"
@@ -218,6 +219,12 @@ export const navigation: NavSection[] = [
         label: "Contas a pagar",
         icone: "contas",
         permissao: "financeiro.contas_a_pagar",
+      },
+      {
+        href: "/financeiro/estacionamento",
+        label: "Estacionamento",
+        icone: "estacionamento",
+        permissao: "financeiro.estacionamento",
       },
       {
         href: "/financeiro/fluxo-de-caixa",

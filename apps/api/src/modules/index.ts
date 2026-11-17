@@ -12,6 +12,7 @@ import {
   fichaPublica,
   rotinasDoComercial,
 } from "./comercial";
+import { financeiro } from "./financeiro";
 import { gestao } from "./gestao";
 import {
   marketing,
@@ -51,6 +52,7 @@ export const MODULOS: readonly {
   { prefixo: "/rh", plugin: rh },
   { prefixo: "/operacoes", plugin: operacoes },
   { prefixo: "/os", plugin: os },
+  { prefixo: "/financeiro", plugin: financeiro },
   { prefixo: "/sustentabilidade", plugin: sustentabilidade },
 ];
 

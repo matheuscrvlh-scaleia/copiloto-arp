@@ -1,4 +1,4 @@
-import { abertura, menuDoModulo } from "./comum";
+import { abas, abertura, cartoes, filtros, fonte, menuDoModulo } from "./comum";
 import type { Guia, Passo } from "./tipos";
 
 // O Financeiro ainda aguarda o ENET: cada tela diz o que vai mostrar e do que
@@ -45,6 +45,33 @@ export const GUIAS_FINANCEIRO: Record<string, Guia> = {
     "Contas a pagar",
     "as notas a vencer, para a conferência da manhã, e os títulos pagos.",
   ),
+  "/financeiro/estacionamento": {
+    versao: 1,
+    passos: [
+      abertura(
+        "Estacionamento",
+        "Tudo o que a WPS (Parking Plus) registra no estacionamento: quanto entrou de dinheiro, quantos carros passaram e a que horas, quanto foi dado de desconto, como está o valet e quem está com a mensalidade atrasada. Os dados chegam sozinhos todo dia às 07h00.",
+      ),
+      filtros(
+        "Escolha o período. Os cartões comparam com o período anterior do mesmo tamanho.",
+      ),
+      fonte(
+        "Até que dia há dados e de qual garagem. O dia de hoje entra na leitura de amanhã.",
+      ),
+      cartoes(
+        "Receita, entradas de veículos, descontos concedidos e mensalidades em atraso. O <b>i</b> do título explica o cálculo.",
+      ),
+      abas(
+        "<b>Receita</b>: por dia, forma de pagamento, tipo de cliente e tarifa. <b>Fluxo de veículos</b>: entradas e saídas, pico por hora, serviço e valet. <b>Benefícios</b>: descontos, validações, selos e abonos. <b>Mensalistas</b>: previsto, recebido e parcelas em atraso. <b>Ocorrências</b>: cancelamentos, cancela aberta à mão, troco e limpeza de pátio.",
+      ),
+      {
+        alvo: "secao:Receita por dia",
+        titulo: "O dia a dia",
+        texto:
+          "Passe o mouse em cada coluna para ver o valor e quantos pagamentos houve no dia.",
+      },
+    ],
+  },
   "/financeiro/fluxo-de-caixa": tela(
     "Fluxo de caixa",
     "entradas de contratos e saídas do contas a pagar: realizado até hoje e previsto a partir de amanhã.",

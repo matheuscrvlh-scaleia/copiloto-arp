@@ -128,7 +128,8 @@ export const INTEGRACOES: Record<Sistema, DefinicaoIntegracao> = {
   wps: {
     nome: "Estacionamento (WPS)",
     modulo: "admin",
-    serve: "Receita do estacionamento (pagamentos, entradas e saídas).",
+    serve:
+      "Financeiro › Estacionamento: pagamentos, entradas e saídas por hora, descontos, validações, selos, abonos, manobras, ocorrências, contratos e mensalidades.",
     campos: [
       {
         nome: "base_url",

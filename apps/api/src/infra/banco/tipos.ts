@@ -697,6 +697,87 @@ export interface CoreUsuarios {
   nome: string;
 }
 
+export interface FinanceiroEstacionamentoAcessos {
+  atualizado_em: Generated<string>;
+  cancelados: Generated<number>;
+  data: string;
+  estacionamento_id: number;
+  hora: number;
+  quantidade: number;
+  sentido: string;
+  servico: Generated<string>;
+  sync_run_id: string | null;
+  tipo_cliente: string;
+  tipo_veiculo: string;
+}
+
+export interface FinanceiroEstacionamentoContratos {
+  atualizado_em: Generated<string>;
+  cliente: string | null;
+  contrato: number;
+  criado_em: string | null;
+  estacionamento_id: number;
+  grupo_acesso: string | null;
+  id: Generated<number>;
+  plano: string | null;
+  situacao: string;
+  sync_run_id: string | null;
+  tipo: string;
+  usuarios: Generated<number>;
+  vagas: Generated<number>;
+  valor_mensalidade: Generated<Numeric>;
+  veiculos: Generated<number>;
+}
+
+export interface FinanceiroEstacionamentoEventos {
+  atualizado_em: Generated<string>;
+  categoria: string | null;
+  dados: Generated<Json>;
+  data: string;
+  detalhe: string | null;
+  estacionamento_id: number;
+  id: Generated<number>;
+  ocorrido_em: string | null;
+  quantidade: Generated<number>;
+  setor: string | null;
+  situacao: string | null;
+  sync_run_id: string | null;
+  ticket: string | null;
+  tipo: string;
+  valor: Numeric | null;
+}
+
+export interface FinanceiroEstacionamentoGaragens {
+  atualizado_em: Generated<string>;
+  cidade: string | null;
+  clientes_credenciados: number | null;
+  clientes_mensalistas: number | null;
+  descricao: string | null;
+  estacionamento_id: number;
+  setores: Generated<Json>;
+  sync_run_id: string | null;
+  uf: string | null;
+  vagas: number | null;
+  vagas_mensalistas: number | null;
+}
+
+export interface FinanceiroEstacionamentoMensalidades {
+  atualizado_em: Generated<string>;
+  contrato: number;
+  contrato_fim: string | null;
+  contrato_inicio: string | null;
+  estacionamento_id: number;
+  forma_pagamento: string | null;
+  id: Generated<number>;
+  pago_em: string | null;
+  status: string;
+  status_contrato: string | null;
+  sync_run_id: string | null;
+  valor: Numeric;
+  valor_pago: Generated<Numeric>;
+  vencimento: string;
+}
+
 export interface FinanceiroEstacionamentoMovimento {
   atualizado_em: Generated<string>;
   data: string;
@@ -3141,6 +3222,11 @@ export interface DB {
   "os.categorias": OsCategorias;
   "os.chamados": OsChamados;
   "os.contatos": OsContatos;
+  "financeiro.estacionamento_acessos": FinanceiroEstacionamentoAcessos;
+  "financeiro.estacionamento_contratos": FinanceiroEstacionamentoContratos;
+  "financeiro.estacionamento_eventos": FinanceiroEstacionamentoEventos;
+  "financeiro.estacionamento_garagens": FinanceiroEstacionamentoGaragens;
+  "financeiro.estacionamento_mensalidades": FinanceiroEstacionamentoMensalidades;
   "os.destinatarios": OsDestinatarios;
   "os.disparos": OsDisparos;
   "os.empresas": OsEmpresas;

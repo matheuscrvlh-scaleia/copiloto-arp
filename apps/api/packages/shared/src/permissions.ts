@@ -37,6 +37,8 @@ export const PERMISSOES = {
   "financeiro.importacao_parametros":
     "Importar o relatório do ENET e editar dívida, metas e faixas da régua",
   "financeiro.exportar": "Exportar Excel e PDF das telas liberadas",
+  "financeiro.estacionamento":
+    "Ver o estacionamento: receita, fluxo, benefícios e mensalistas (WPS)",
 
   "os.acessar":
     "Abrir chamados e ver Minha caixa, Abertos por mim, Quadro e Calendário do que é seu",

@@ -56,7 +56,7 @@ export async function sincronizarAgora(
       const r = await comMensagem(sincronizarWps);
       const avisos = r.avisos.length ? ` · ${r.avisos.length} avisos` : "";
       return {
-        mensagem: `${r.dias} dias do estacionamento ${r.estacionamento}: ${r.pagamentos} pagamentos, ${r.entradas} entradas e ${r.saidas} saídas${avisos}.`,
+        mensagem: `${r.dias} dias do estacionamento ${r.estacionamento}: ${r.pagamentos} pagamentos, ${r.entradas} entradas, ${r.saidas} saídas e ${r.eventos} ocorrências${r.contratos !== null ? ` · ${r.contratos} contratos` : ""}${r.mensalidades !== null ? ` · ${r.mensalidades} mensalidades` : ""}${avisos}.`,
       };
     }
     case "mkt_rd_station":
