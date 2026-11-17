@@ -164,6 +164,7 @@ function Lista({
           <GerarLink
             lucs={lucs}
             validadeDias={validade}
+            texto={d.textoConvite}
             lucInicial={lucInicial || undefined}
             abrirAoCarregar={!!lucInicial}
           />

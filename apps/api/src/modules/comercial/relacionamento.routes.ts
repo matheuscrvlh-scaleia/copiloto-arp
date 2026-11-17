@@ -72,6 +72,15 @@ export const rotasDoRelacionamento: FastifyPluginAsyncZod = async (app) => {
   );
 
   app.post(
+    `${BASE}/sac/sincronizar`,
+    {
+      config: { permissao: "comercial.relacionamento.registrar" },
+      schema: { response: { 200: respostaMensagem } },
+    },
+    controller.sac,
+  );
+
+  app.post(
     `${BASE}/contatos`,
     {
       config: { permissao: "comercial.relacionamento.registrar" },

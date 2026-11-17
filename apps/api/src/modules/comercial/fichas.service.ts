@@ -168,18 +168,20 @@ export async function lista(
   exigirFichas(ctx);
   const c = contextoCom(ctx);
   const gerar = c.pode("comercial.formulario.link");
-  const [fichas, validade] = await Promise.all([
+  const [fichas, params] = await Promise.all([
     banco.comoUsuario(ctx.usuario.id, (tx) =>
       repo.lista(tx, consulta.desde ?? null, consulta.tipo ?? null),
     ),
-    gerar ? parametros(ctx).then((p) => p.ficha_validade_dias) : 0,
+    parametros(ctx),
   ]);
+  const validade = gerar ? params.ficha_validade_dias : 0;
   return {
     hoje: c.hoje,
     dadosDe: c.dadosDe,
     fichas: fichas.map(daLista),
     lucs: gerar ? opcoesDeLuc(dadosEnet(c.hoje).lucs) : null,
     validadeDias: validade,
+    textoConvite: params.formulario_texto_convite,
   };
 }
 
@@ -290,9 +292,11 @@ export async function detalhe(
       )
     : new Map<string, string>();
   if (ver) void registrarAcesso(ctx, id, "abriu");
+  const { formulario_texto_convite } = await parametros(ctx);
   return {
     hoje: c.hoje,
     dadosDe: c.dadosDe,
+    textoConvite: formulario_texto_convite,
     ficha: {
       ...daLista(d.f),
       link: token ? linkDaFicha(token) : null,

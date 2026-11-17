@@ -1,10 +1,32 @@
 import { z } from "zod";
-import { decimal, inteiro, marcado, texto, textoOpcional } from "./campo";
+import {
+  decimal,
+  inteiro,
+  marcado,
+  texto,
+  textoLivre,
+  textoOpcional,
+} from "./campo";
 import type { CampoParametro } from "./quadro";
 
 // Bloco "contratos" de Comercial › Configurações › Parâmetros.
 
 export const INDICES = { IGPM: "IGP-M", IPCA: "IPCA" } as const;
+
+/** Como a locadora assina o contrato (contratos maiores: duas pessoas). */
+export const REPRESENTACOES = {
+  procurador: "Procurador(a)",
+  diretor: "Diretor(a) sem designação específica",
+  diretor_executivo: "Diretor(a) Executivo(a)",
+  contrato_social: "Na forma de seu Contrato Social",
+} as const;
+export type Representacao = keyof typeof REPRESENTACOES;
+
+/** CNPJ digitado: vazio ou 14 dígitos (com ou sem pontuação). */
+const cnpjOpcional = z.preprocess(
+  (v) => (typeof v === "string" ? v.replace(/\D/g, "") : ""),
+  z.union([z.literal(""), z.string().length(14, "CNPJ com 14 dígitos")]),
+);
 
 /** Campos que cada garantia exige na Revisão do contrato (4.11). */
 export const CAMPOS_GARANTIA = {
@@ -74,6 +96,12 @@ export function obrigatoriosDoForm(
 
 export const ESQUEMA_CONTRATOS = z.object({
   empreendimento_nome: texto(120),
+  locadora_razao_social: textoLivre(200),
+  locadora_cnpj: cnpjOpcional,
+  locadora_representacao: z.enum(
+    Object.keys(REPRESENTACOES) as [Representacao, ...Representacao[]],
+    { message: "escolha a forma de representação" },
+  ),
   endereco_cep: z
     .string()
     .trim()
@@ -109,6 +137,15 @@ export const ESQUEMA_CONTRATOS = z.object({
 
 export const CAMPOS_CONTRATOS: Record<string, CampoParametro> = {
   empreendimento_nome: { rotulo: "Nome do empreendimento", bloco: "contratos" },
+  locadora_razao_social: {
+    rotulo: "Razão social da locadora",
+    bloco: "contratos",
+  },
+  locadora_cnpj: { rotulo: "CNPJ da locadora", bloco: "contratos" },
+  locadora_representacao: {
+    rotulo: "Forma de representação",
+    bloco: "contratos",
+  },
   endereco_cep: { rotulo: "CEP", bloco: "contratos" },
   endereco_logradouro: { rotulo: "Logradouro", bloco: "contratos" },
   endereco_numero: { rotulo: "Número", bloco: "contratos" },

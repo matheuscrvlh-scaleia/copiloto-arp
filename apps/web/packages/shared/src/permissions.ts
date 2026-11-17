@@ -103,6 +103,8 @@ export const PERMISSOES = {
     "Abrir rodada do Censo, gerar o link do questionário, lançar resposta em nome da empresa e encerrar rodada",
   "comercial.censo.importar":
     "Importar o histórico do Censo e desfazer importações",
+  "comercial.censo.aprovar":
+    "Censo – editar ou excluir rodada que já tem respostas (liderança)",
   "comercial.painel.ver": "Abrir o Painel de indicadores comerciais",
   "comercial.painel.metas": "Cadastrar e alterar as metas do painel",
   "comercial.contratos.ver": "Ver contratos, distratos e rascunhos",

@@ -236,6 +236,8 @@ export interface ComercialCensoTemas {
 }
 
 export interface ComercialContatos {
+  asana_gid: string | null;
+  asana_url: string | null;
   atualizado_em: Generated<string>;
   bloco: string | null;
   canal: string;
@@ -248,6 +250,7 @@ export interface ComercialContatos {
   locatario_enet_id: string | null;
   locatario_nome: string;
   luc: string | null;
+  nps: number | null;
   precisa_outro_setor: Generated<boolean>;
   registrado_em: Generated<string>;
   registrado_por: Generated<string | null>;
@@ -405,6 +408,7 @@ export interface ComercialKitDocumentos {
   categoria: string;
   criado_em: Generated<string>;
   id: Generated<string>;
+  lucs: Generated<string[]>;
   nome: string;
   ordem: Generated<number>;
   todo_contrato: Generated<boolean>;
@@ -485,11 +489,16 @@ export interface ComercialParametros {
   ficha_boas_vindas: Generated<string>;
   ficha_termo_lgpd: Generated<string>;
   ficha_validade_dias: Generated<number>;
+  formulario_texto_convite: Generated<string>;
+  funil_midia: Generated<string>;
   funil_padrao: Generated<string>;
   id: Generated<boolean>;
   indice_padrao: Generated<string>;
   kit_aviso_dias: Generated<number>;
   lembrete_aniversario_dias: Generated<number>;
+  locadora_cnpj: Generated<string>;
+  locadora_razao_social: Generated<string>;
+  locadora_representacao: Generated<string>;
   multa_alugueis: Generated<Numeric>;
   nc004_versao: Generated<string>;
   obras_projetos_dias: Generated<number>;
@@ -498,6 +507,8 @@ export interface ComercialParametros {
   obrigatorios_garantia: Generated<Json>;
   pesquisa_faixas_m2: Generated<ArrayType<Numeric>>;
   reajuste_previsto_dias: Generated<number>;
+  relacionamento_asana_projeto: Generated<string>;
+  relacionamento_canal_visita: Generated<string>;
   transferencia_dias: Generated<number>;
   vaga_promocional_padrao: Generated<number>;
   vencimento_faixa1_dias: Generated<number>;

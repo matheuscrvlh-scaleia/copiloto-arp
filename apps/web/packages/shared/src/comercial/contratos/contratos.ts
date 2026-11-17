@@ -75,6 +75,9 @@ export type RespostaListaContratos = z.infer<typeof respostaListaContratos>;
 
 export const parametrosContrato = z.object({
   empreendimento_nome: z.string(),
+  locadora_razao_social: z.string(),
+  locadora_cnpj: z.string(),
+  locadora_representacao: z.string(),
   endereco_cep: z.string(),
   endereco_logradouro: z.string(),
   endereco_numero: z.string(),
@@ -126,6 +129,7 @@ export const documentoDoKitContrato = z.object({
   ativo: z.boolean(),
   todo_contrato: z.boolean(),
   blocos: z.array(z.string()),
+  lucs: z.array(z.string()),
   ordem: z.number(),
   versaoId: z.string().nullable(),
   versao: z.string().nullable(),
@@ -262,6 +266,8 @@ export const respostaGravacao = z.object({
   atualizadoEm: z.string(),
   status,
   versao: z.number(),
+  /** A ficha ligada não existe mais (expirou ou foi excluída): o vínculo saiu. */
+  fichaSolta: z.boolean().optional(),
 });
 export type RespostaGravacao = z.infer<typeof respostaGravacao>;
 

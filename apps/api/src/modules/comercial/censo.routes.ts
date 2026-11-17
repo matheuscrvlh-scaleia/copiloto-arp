@@ -111,6 +111,21 @@ export const rotasDoCenso: FastifyPluginAsyncZod = async (app) => {
   );
 
   app.post(
+    `${BASE}/rodadas/:id/editar`,
+    {
+      config: APLICAR,
+      schema: { params: paramsRodada, body: formulario, ...ok },
+    },
+    controller.editarRodada,
+  );
+
+  app.post(
+    `${BASE}/rodadas/:id/excluir`,
+    { config: APLICAR, schema: { params: paramsRodada, ...ok } },
+    controller.excluirRodada,
+  );
+
+  app.post(
     `${BASE}/convites/:id/enviado`,
     { config: APLICAR, schema: { params: paramsRodada, ...ok } },
     controller.conviteEnviado,

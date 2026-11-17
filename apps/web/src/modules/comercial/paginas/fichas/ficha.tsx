@@ -106,7 +106,7 @@ function Ficha({
   contrato: boolean;
 }) {
   const { data: d } = useSuspenseQuery(consultaFicha(id));
-  const { ficha } = d;
+  const { ficha, textoConvite } = d;
   const situacao = ficha.situacao;
   const aberta = situacao === "em_preenchimento";
   const vencida =
@@ -206,6 +206,7 @@ function Ficha({
               {ficha.link && !ficha.cancelada_em && !vencida && (
                 <LinkParaEnviar
                   link={ficha.link}
+                  texto={textoConvite}
                   validoAte={
                     ficha.expira_em ? diaDe(ficha.expira_em) : undefined
                   }

@@ -15,6 +15,8 @@ import type { Detalhe } from "@/components/modal-detalhe";
 // linha já chega sem eles do servidor).
 
 const SEM_INTERACAO = "Sem interação";
+/** Página da negociação no RD Station CRM (o id é o mesmo da API). */
+const RD_CRM_NEGOCIACAO = "https://crm.rdstation.com/app/deals/";
 const vazio = (v: string | null | undefined) => v || "—";
 
 const COR_ESTADO: Record<Estado, string> = {
@@ -214,9 +216,13 @@ export function detalheDaOportunidade(
       {
         rotulo: "Somente leitura",
         valor:
-          "Para mover o card, mudar a etapa ou criar oportunidade, use o RD Station.",
+          "Para mover o card, mudar a etapa ou criar oportunidade, use o RD Station. O histórico de conversas (inclusive o que vem do RD Conversas) fica na oportunidade no RD CRM.",
       },
     ],
+    link: {
+      href: `${RD_CRM_NEGOCIACAO}${encodeURIComponent(o.id)}`,
+      rotulo: "Ver no RD CRM",
+    },
     tabelas: [
       {
         titulo: "Oportunidade",

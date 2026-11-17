@@ -6,10 +6,12 @@ import {
   respostaPainel,
   respostaTabelasDoMes,
 } from "@arp/shared/gestao/contratos";
+import { respostaSemana } from "@arp/shared/gestao/semana";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { contextoDe } from "@/http/permissao";
 import * as service from "./gestao.service";
+import { minhaSemana } from "./semana.service";
 
 // Dashboard da Gestão (prefixo /api/v1/gestao). É a primeira tela de toda
 // pessoa logada: a rota só exige sessão e o service decide o que cada um vê
@@ -18,6 +20,13 @@ import * as service from "./gestao.service";
 const config = { acesso: "autenticado" } as const;
 
 export const rotasDaGestao: FastifyPluginAsyncZod = async (app) => {
+  // "Minha semana": os desafios da semana de quem está logado.
+  app.get(
+    "/semana",
+    { config, schema: { response: { 200: respostaSemana } } },
+    (request: FastifyRequest) => minhaSemana(contextoDe(request)),
+  );
+
   app.get(
     "/painel",
     {

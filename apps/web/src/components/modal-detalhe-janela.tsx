@@ -327,10 +327,10 @@ export function ModalDetalhe({
                 {visivel.resumo.map((r) => (
                   <div
                     key={r.rotulo}
-                    className="rounded-2xl bg-neutral-900/[0.04] px-4 py-3"
+                    className="min-w-0 rounded-2xl bg-neutral-900/[0.04] px-4 py-3"
                   >
                     <dt className="text-[11px] text-neutral-500">{r.rotulo}</dt>
-                    <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+                    <dd className="mt-0.5 text-lg leading-snug font-semibold tabular-nums [overflow-wrap:anywhere]">
                       {r.valor}
                     </dd>
                   </div>
@@ -391,6 +391,10 @@ export function ModalDetalhe({
             <footer className="flex justify-end border-t border-neutral-900/[0.06] px-6 py-4 md:px-8">
               <Link
                 href={visivel.link.href}
+                {...(/^https?:\/\//.test(visivel.link.href) && {
+                  target: "_blank",
+                  rel: "noreferrer",
+                })}
                 className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800"
               >
                 {visivel.link.rotulo}

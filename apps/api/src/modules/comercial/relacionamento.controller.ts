@@ -11,8 +11,13 @@ import type {
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { contextoDe } from "@/http/permissao";
 import * as service from "./relacionamento.service";
+import { sincronizarSac } from "./sac.service";
 
 type ComId = { Params: { id: string } };
+
+export async function sac(request: FastifyRequest): Promise<RespostaMensagem> {
+  return { mensagem: await sincronizarSac(contextoDe(request)) };
+}
 
 export function config(
   request: FastifyRequest,

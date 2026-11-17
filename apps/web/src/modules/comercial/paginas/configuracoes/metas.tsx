@@ -93,6 +93,7 @@ function Tela() {
           ano={ano}
           meses={MESES_CURTOS}
           linhas={linhas}
+          metas={metas}
         />
       </Secao>
       <Nota>

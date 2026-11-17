@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { inteiro } from "./campo";
+import { inteiro, texto } from "./campo";
 import type { CampoParametro } from "./quadro";
 
 // Bloco "vencimentos" de Comercial › Configurações › Parâmetros.
@@ -10,6 +10,8 @@ export const ESQUEMA_VENCIMENTOS = z
     vencimento_faixa2_dias: inteiro(1, 3650),
     lembrete_aniversario_dias: inteiro(0, 60),
     reajuste_previsto_dias: inteiro(1, 365),
+    relacionamento_canal_visita: texto(80, "escolha o canal das visitas"),
+    relacionamento_asana_projeto: texto(200, "informe o projeto do Asana"),
   })
   .refine((p) => p.vencimento_faixa2_dias > p.vencimento_faixa1_dias, {
     path: ["vencimento_faixa2_dias"],
@@ -31,6 +33,14 @@ export const CAMPOS_VENCIMENTOS: Record<string, CampoParametro> = {
   },
   reajuste_previsto_dias: {
     rotulo: "Reajuste previsto nos próximos (dias)",
+    bloco: "vencimentos",
+  },
+  relacionamento_canal_visita: {
+    rotulo: "Canal que conta como visita",
+    bloco: "vencimentos",
+  },
+  relacionamento_asana_projeto: {
+    rotulo: "Projeto do SAC no Asana",
     bloco: "vencimentos",
   },
 };

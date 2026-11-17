@@ -11,8 +11,13 @@ export const fonteDePara = z.object({
 
 export const ESQUEMA_FUNIL = z.object({
   funil_padrao: texto(120, "escolha o funil padrão"),
+  funil_midia: texto(120, "escolha o funil de mídia"),
 });
 
 export const CAMPOS_FUNIL: Record<string, CampoParametro> = {
   funil_padrao: { rotulo: "Funil padrão", bloco: "funil" },
+  funil_midia: {
+    rotulo: "Funil de mídia (leads de mídia no Painel)",
+    bloco: "funil",
+  },
 };

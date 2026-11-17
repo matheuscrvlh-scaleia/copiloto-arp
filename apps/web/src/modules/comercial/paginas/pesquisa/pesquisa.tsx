@@ -1,14 +1,21 @@
+import { diasEntre } from "@arp/shared/comercial/datas";
 import { linhaDeFiltros } from "@arp/shared/comercial/formato";
 import {
   dentroDoPeriodo,
   faixaDeTamanho,
   faixasDeTamanho,
+  indicadoresDaPesquisa,
   type LinhaResumo,
   PERIODO_12_MESES,
   resumoPorBairro,
   rotuloDoPeriodo,
 } from "@arp/shared/comercial/pesquisa";
-import { formatarData, formatarMes, formatarNumero } from "@arp/shared/formato";
+import {
+  formatarData,
+  formatarMes,
+  formatarMoeda,
+  formatarNumero,
+} from "@arp/shared/formato";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { CalendarDays, Ruler, Store } from "lucide-react";
 import { Suspense } from "react";
@@ -23,6 +30,8 @@ import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { Link } from "@/lib/navegacao";
 import {
+  CartaoDaTela,
+  CartoesComercial,
   EXEMPLO,
   FiltrosComercial,
   TabelaLista,
@@ -108,6 +117,15 @@ function Pesquisa({ f }: { f: FiltrosCom }) {
   const resumo = resumoPorBairro(lista);
   const exemplo = lista.some((i) => i.exemplo);
   const datas = lista.map((i) => i.data_pesquisa).sort();
+  const ind = indicadoresDaPesquisa(lista);
+  // Última pesquisa de toda a base (não só do filtro): lembra a periodicidade.
+  const ultima =
+    imoveis
+      .map((i) => i.data_pesquisa)
+      .sort()
+      .at(-1) ?? null;
+  const diasDesde = ultima ? diasEntre(ultima, ctx.hoje) : null;
+  const reais = (v: number | null) => (v === null ? "—" : formatarMoeda(v, 2));
 
   const linhaFiltros = linhaDeFiltros([
     { rotulo: "Tipo", valor: tipo || "Todos" },
@@ -220,6 +238,40 @@ function Pesquisa({ f }: { f: FiltrosCom }) {
           </div>
         }
       />
+
+      <CartoesComercial>
+        <CartaoDaTela
+          titulo="Última pesquisa"
+          valor={ultima ? formatarData(ultima) : "—"}
+          detalhe={
+            diasDesde === null
+              ? "Nenhum imóvel cadastrado ainda"
+              : diasDesde === 0
+                ? "Hoje · a rotina é mensal"
+                : `Há ${formatarNumero(diasDesde)} ${diasDesde === 1 ? "dia" : "dias"} · a rotina é mensal`
+          }
+          fonte="Data do imóvel mais recente da base"
+        />
+        <CartaoDaTela
+          titulo="Preço do m² na cidade"
+          valor={reais(ind.m2Mediana)}
+          detalhe={`Mediana de ${formatarNumero(ind.quantidade)} imóveis · média ponderada ${reais(ind.m2Ponderado)}`}
+          calculo="Mediana do aluguel por m² dos imóveis no filtro (não se deixa puxar por valores desproporcionais). A média ponderada é a soma dos aluguéis ÷ a soma das áreas."
+          fonte="Imóveis pesquisados no filtro"
+        />
+        <CartaoDaTela
+          titulo="Tamanho médio × custo total médio"
+          valor={`${ind.areaMedia === null ? "—" : `${formatarNumero(ind.areaMedia, 0)} m²`} · ${ind.custoTotalMedio === null ? "—" : formatarMoeda(ind.custoTotalMedio, 0)}`}
+          detalhe="Custo total = aluguel + condomínio + IPTU"
+          fonte="Imóveis pesquisados no filtro"
+        />
+        <CartaoDaTela
+          titulo="Condomínio e IPTU médios"
+          valor={`${reais(ind.condominioMedio)} · ${reais(ind.iptuMedio)}`}
+          detalhe="Condomínio · IPTU (só os imóveis que informam)"
+          fonte="Imóveis pesquisados no filtro"
+        />
+      </CartoesComercial>
 
       <Secao
         titulo="Resumo por bairro"

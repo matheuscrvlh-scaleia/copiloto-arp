@@ -122,6 +122,13 @@ export const registrarContato: Acao = acaoDaApi({
   invalida,
 });
 
+/** POST /api/v1/comercial/relacionamento/sac/sincronizar */
+export const sincronizarSac: Acao = acaoDaApi({
+  metodo: "POST",
+  caminho: `${BASE}/sac/sincronizar`,
+  invalida,
+});
+
 /** PATCH /api/v1/comercial/relacionamento/contatos/:id (o id vem no formulário). */
 export const editarContato: Acao = acaoDaApi({
   metodo: "PATCH",

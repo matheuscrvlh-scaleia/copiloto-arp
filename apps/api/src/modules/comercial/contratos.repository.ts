@@ -116,6 +116,7 @@ export function documentosDoKit(tx: Tx) {
       "d.categoria",
       "d.ordem",
       "d.blocos",
+      "d.lucs",
       "d.todo_contrato",
       "d.ativo",
       "v.id as versao_id",

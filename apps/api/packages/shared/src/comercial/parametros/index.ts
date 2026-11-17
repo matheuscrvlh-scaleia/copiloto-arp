@@ -12,6 +12,8 @@ export {
   type Garantia,
   INDICES,
   obrigatoriosDoForm,
+  REPRESENTACOES,
+  type Representacao,
 } from "./contratos";
 export {
   conferirFaixasEvento,

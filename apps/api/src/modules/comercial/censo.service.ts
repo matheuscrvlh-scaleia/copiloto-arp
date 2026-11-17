@@ -46,6 +46,7 @@ import {
   contextoCom,
   listas,
   nomesDeUsuarios,
+  parametros,
   podeAgora,
   tiposLuc,
   valoresDaLista,
@@ -115,14 +116,16 @@ function respostaLida(
 export async function tela(ctx: Contexto): Promise<RespostaCenso> {
   exigirVer(ctx);
   const c = contextoCom(ctx);
-  const [rodadas, todas] = await Promise.all([
+  const [rodadas, todas, params] = await Promise.all([
     comoUsuario(ctx, repo.rodadas),
     listas(ctx),
+    parametros(ctx),
   ]);
   return {
     hoje: c.hoje,
     dadosDe: c.dadosDe,
     rodadas,
+    textoConvite: params.formulario_texto_convite,
     blocos: valoresDaLista(todas, "censo_bloco"),
     segmentos: valoresDaLista(todas, "censo_segmento"),
     expectativas: valoresDaLista(todas, "censo_expectativa"),
@@ -674,6 +677,62 @@ export async function encerrarRodada(ctx: Contexto, id: string) {
   }
   if (!r.length) throw new ErroDePermissao(SEM_PERMISSAO);
   return `Rodada ${r[0]?.nome} encerrada. Os links deixam de aceitar respostas.`;
+}
+
+const SO_LIDERANCA =
+  "Esta rodada já tem respostas: alterar ou excluir agora precisa da liderança do setor (permissão “Censo – editar ou excluir rodada que já tem respostas”).";
+
+/**
+ * Confere se dá para mexer na rodada: sem respostas, quem aplica o Censo
+ * pode; com respostas, só a liderança (comercial.censo.aprovar).
+ */
+async function rodadaAlteravel(ctx: Contexto, id: string) {
+  const r = await comoUsuario(ctx, (tx) => repo.rodadaParaAlterar(tx, id));
+  if (!r) throw new ErroDeNegocio("Rodada não encontrada.");
+  if (r.respostas > 0 && !pode(ctx, "comercial.censo.aprovar"))
+    throw new ErroDePermissao(SO_LIDERANCA);
+  return r;
+}
+
+/** Corrige nome e datas (ex.: prorrogar o fim) da rodada. */
+export async function editarRodada(
+  ctx: Contexto,
+  id: string,
+  form: Formulario,
+): Promise<string> {
+  const d = novaRodada.safeParse({
+    nome: umValor(form.nome),
+    inicio: umValor(form.inicio),
+    fim: umValor(form.fim),
+  });
+  if (!d.success)
+    throw new ErroDeValidacao(
+      d.error.issues[0]?.message ?? "Confira os campos.",
+    );
+  await rodadaAlteravel(ctx, id);
+  let r: { id: string }[];
+  try {
+    r = await comoUsuario(ctx, (tx) => repo.alterarRodada(tx, id, d.data));
+  } catch (e) {
+    if (e instanceof ErroDaApi && e.codigo === "conflito")
+      throw new ErroDeNegocio("Já existe uma rodada com esse nome.");
+    falhou(e, "alterar a rodada");
+  }
+  if (!r.length) throw new ErroDePermissao(SEM_PERMISSAO);
+  return `Rodada ${d.data.nome} alterada.`;
+}
+
+/** Exclui a rodada lançada por engano, com os convites e as respostas. */
+export async function excluirRodada(ctx: Contexto, id: string) {
+  const atual = await rodadaAlteravel(ctx, id);
+  let r: { nome: string }[];
+  try {
+    r = await comoUsuario(ctx, (tx) => repo.excluirRodada(tx, id));
+  } catch (e) {
+    falhou(e, "excluir a rodada");
+  }
+  if (!r.length) throw new ErroDePermissao(SO_LIDERANCA);
+  return `Rodada ${atual.nome} excluída${atual.respostas ? ` com ${atual.respostas} resposta(s)` : ""}.`;
 }
 
 /** Marca que o link foi copiado para enviar (quadro: "Enviado, sem resposta"). */

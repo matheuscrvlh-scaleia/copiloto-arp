@@ -20,7 +20,7 @@ import type {
   FichaParaContrato,
   LucParaContrato,
 } from "@arp/shared/comercial/contratos/contratos";
-import { blocoDoLuc, codigoDoBloco } from "@arp/shared/comercial/kit";
+import { blocoDoLuc, itensDoKit } from "@arp/shared/comercial/kit";
 import { formatarDataHora } from "@arp/shared/formato";
 import { ArrowLeft, ArrowRight, Check, Save } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -56,6 +56,7 @@ export interface DocumentoDoKitContrato {
   ativo: boolean;
   todo_contrato: boolean;
   blocos: string[];
+  lucs: string[];
   ordem: number;
   versaoId: string | null;
   versao: string | null;
@@ -177,21 +178,17 @@ export function Assistente({
 
   const kitDoContrato = useMemo(() => {
     const doEnet = new Map(lucs.map((l) => [l.numero, l]));
-    const blocos = d.imovel.lucs
-      .map((n) => doEnet.get(n))
-      .map((l) =>
-        l ? blocoDoLuc({ local: l.local, tipo_loja: l.tipo }) : null,
-      )
-      .filter((b): b is string => Boolean(b))
-      .map(codigoDoBloco);
-    return kit
-      .filter(
-        (k) =>
-          k.ativo &&
-          (k.todo_contrato ||
-            k.blocos.some((b) => blocos.includes(codigoDoBloco(b)))),
-      )
-      .sort((a, b) => a.ordem - b.ordem);
+    const vistos = new Map<string, DocumentoDoKitContrato>();
+    for (const n of d.imovel.lucs) {
+      const l = doEnet.get(n);
+      const bloco = l
+        ? blocoDoLuc({ local: l.local, tipo_loja: l.tipo })
+        : null;
+      for (const k of itensDoKit(kit, bloco, n)) vistos.set(k.documentoId, k);
+    }
+    if (!d.imovel.lucs.length)
+      for (const k of itensDoKit(kit, null)) vistos.set(k.documentoId, k);
+    return [...vistos.values()].sort((a, b) => a.ordem - b.ordem);
   }, [d.imovel.lucs, kit, lucs]);
 
   const itens = checklist(d, {
@@ -232,6 +229,13 @@ export function Assistente({
       return false;
     }
     setSujo(false);
+    if (r.fichaSolta) {
+      setD((x) => ({ ...x, partes: { ...x.partes, ficha_id: null } }));
+      notificar(
+        "info",
+        "A ficha ligada a este contrato não existe mais. Os dados copiados ficaram; escolha outra ficha na etapa Partes se precisar.",
+      );
+    }
     setMeta((m) => ({
       ...m,
       id: r.id ?? m.id,

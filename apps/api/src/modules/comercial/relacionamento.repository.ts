@@ -1,3 +1,4 @@
+import type { ContatoDoSac } from "@arp/shared/comercial/sac-asana";
 import { sql } from "kysely";
 import type { Tx } from "@/infra/banco";
 
@@ -17,6 +18,8 @@ const COLUNAS = [
   "canal",
   "descricao",
   "precisa_outro_setor",
+  "nps",
+  "asana_url",
   "registrado_por",
   "registrado_em",
   "exemplo",
@@ -63,6 +66,7 @@ export interface LinhaContato {
   canal: string;
   descricao: string;
   precisa_outro_setor: boolean;
+  nps: number | null;
 }
 
 export function incluirContato(tx: Tx, linha: LinhaContato) {
@@ -125,5 +129,32 @@ export function lucsDosContratosDasFichas(tx: Tx, ids: string[]) {
     .where("tipo", "=", "contrato")
     .where("ficha_id", "in", ids)
     .orderBy("id")
+    .execute();
+}
+
+/**
+ * Registros do SAC (Asana): inclui os novos e atualiza os já lidos, pela
+ * tarefa. Só a rotina grava (service role); sem "registrado por".
+ */
+export function gravarContatosDoSac(tx: Tx, linhas: ContatoDoSac[]) {
+  return tx
+    .insertInto("comercial.contatos")
+    .values(linhas)
+    .onConflict((oc) =>
+      oc
+        .column("asana_gid")
+        .where("asana_gid", "is not", null)
+        .doUpdateSet((eb) => ({
+          asana_url: eb.ref("excluded.asana_url"),
+          data: eb.ref("excluded.data"),
+          locatario_nome: eb.ref("excluded.locatario_nome"),
+          luc: eb.ref("excluded.luc"),
+          bloco: eb.ref("excluded.bloco"),
+          tipo: eb.ref("excluded.tipo"),
+          canal: eb.ref("excluded.canal"),
+          descricao: eb.ref("excluded.descricao"),
+          precisa_outro_setor: eb.ref("excluded.precisa_outro_setor"),
+        })),
+    )
     .execute();
 }

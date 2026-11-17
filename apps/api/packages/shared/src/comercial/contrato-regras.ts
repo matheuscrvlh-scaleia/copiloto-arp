@@ -22,6 +22,10 @@ import { somarDias, somarMeses } from "./datas";
 /** Campos de comercial.parametros que o assistente usa. */
 export interface ParametrosContrato {
   empreendimento_nome: string;
+  /** Quem assina como locadora (Configurações › Contratos). */
+  locadora_razao_social: string;
+  locadora_cnpj: string;
+  locadora_representacao: string;
   endereco_cep: string;
   endereco_logradouro: string;
   endereco_numero: string;

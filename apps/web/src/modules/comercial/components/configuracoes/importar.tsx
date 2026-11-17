@@ -1,3 +1,4 @@
+import { gabaritoDeImportacao } from "@arp/shared/comercial/gabaritos";
 import {
   type AcaoConfirmacao,
   type AcaoPrevia,
@@ -13,11 +14,13 @@ import {
   type TipoImportacao,
 } from "@arp/shared/comercial/importacao";
 import { formatarDataHora, formatarNumero } from "@arp/shared/formato";
+import { Download } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 import { SeloStatus } from "@/components/dashboard/indicador";
 import { Tabela } from "@/components/dashboard/tabela";
 import { useNotificarEstado } from "@/components/notificacoes";
 import { Selecao } from "@/components/selecao";
+import { baixarGabarito } from "@/lib/gabarito";
 import { Link } from "@/lib/navegacao";
 
 // Importação do histórico (4.13): escolher o tipo e o arquivo → prévia
@@ -62,6 +65,20 @@ export function ImportarHistorico({ tipos }: { tipos: TipoNaTela[] }) {
           }))}
         />
       </label>
+      {tipo && (
+        <p className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+          <button
+            type="button"
+            onClick={() => void baixarGabarito(gabaritoDeImportacao(tipo))}
+            className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 transition hover:border-neutral-400"
+          >
+            <Download className="size-4" aria-hidden />
+            Baixar gabarito
+          </button>
+          Planilha vazia com o cabeçalho que esta importação lê: monte o arquivo
+          por ela e a importação não tropeça no formato.
+        </p>
+      )}
       {atual?.acoes ? (
         <Rodada
           key={`${atual.tipo}-${rodada}`}

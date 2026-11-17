@@ -1,7 +1,8 @@
 import type { Lista, Parametros } from "@arp/shared/comercial/contratos/base";
 import { Secao } from "@/components/dashboard/tabela";
-import { Campo, FormBloco, grade } from "../campos";
-import { ListasDoBloco } from "./comum";
+import { Selecao } from "@/components/selecao";
+import { Campo, FormBloco, grade, rotulo } from "../campos";
+import { ativosDa, ListasDoBloco, opcoes } from "./comum";
 
 export function BlocoVencimentos({
   parametros: p,
@@ -10,11 +11,17 @@ export function BlocoVencimentos({
   parametros: Parametros;
   listas: Lista[];
 }) {
+  const canais = [
+    ...new Set([
+      p.relacionamento_canal_visita,
+      ...ativosDa(listas, "canal_contato"),
+    ]),
+  ];
   return (
     <>
       <Secao
         titulo="Faixas e lembretes"
-        descricao="Vencimentos em até a faixa 1, entre a faixa 1 e a 2, e acima da 2 (a faixa 2 precisa ser maior). O lembrete de aniversário aparece no sistema X dias antes."
+        descricao="Vencimentos em até a faixa 1, entre a faixa 1 e a 2, e acima da 2 (a faixa 2 precisa ser maior). O lembrete de aniversário aparece no sistema X dias antes. As visitas do Painel são os contatos registrados no canal escolhido."
       >
         <FormBloco bloco="vencimentos" className={grade}>
           <Campo
@@ -36,6 +43,22 @@ export function BlocoVencimentos({
             nome="reajuste_previsto_dias"
             valor={p.reajuste_previsto_dias}
             numero
+          />
+          <label className={rotulo}>
+            Canal que conta como visita
+            <Selecao
+              name="relacionamento_canal_visita"
+              obrigatorio
+              valorInicial={p.relacionamento_canal_visita}
+              opcoes={opcoes(canais)}
+            />
+          </label>
+          <Campo
+            nome="relacionamento_asana_projeto"
+            valor={p.relacionamento_asana_projeto}
+            maxLength={200}
+            classe="sm:col-span-2"
+            dica="Nome do projeto de onde o Relacionamento puxa os registros do SAC (integração do Asana em Marketing)."
           />
         </FormBloco>
       </Secao>

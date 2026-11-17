@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { diasEntre, fimDoMesDe } from "./datas";
-import type { EnetContaReceber, EnetContrato, EnetLuc } from "./fontes";
+import {
+  ativoEm,
+  type EnetContaReceber,
+  type EnetContrato,
+  type EnetLuc,
+} from "./fontes";
 import { fotoDaOcupacao } from "./ocupacao";
 
 // Painel de indicadores comerciais (spec 4.10): a aba "Painel de Indicadores
@@ -69,6 +74,15 @@ export const INDICADORES_PAINEL = {
     calculo:
       "Oportunidades com data de criação no mês, no funil padrão dos parâmetros (RD CRM).",
   },
+  leads_midia: {
+    nome: "Leads de mídia",
+    formato: "numero",
+    direcao: "maior_melhor",
+    acumulo: "soma",
+    meta: true,
+    calculo:
+      "Oportunidades com data de criação no mês, no funil de mídia dos parâmetros (RD CRM).",
+  },
   ocupacao: {
     nome: "% Ocupação",
     formato: "pct",
@@ -96,6 +110,15 @@ export const INDICADORES_PAINEL = {
     calculo:
       "Contratos rescindidos (em reais) ÷ faturamento do mês. Menor é melhor. Acumulado: média dos meses.",
   },
+  saidas: {
+    nome: "Saídas",
+    formato: "numero",
+    direcao: "menor_melhor",
+    acumulo: "soma",
+    meta: true,
+    calculo:
+      "Contratos com data de rescisão no mês (ENET), em quantidade. Menor é melhor.",
+  },
   receita_midia: {
     nome: "Receita com mídia",
     formato: "moeda",
@@ -121,7 +144,34 @@ export const INDICADORES_PAINEL = {
     acumulo: "ultimo",
     meta: true,
     calculo:
-      "Locatários com contrato ativo no fim do mês (ENET). Acumulado: o último mês.",
+      "Locatários com contrato ativo no fim do mês (ENET), contados sem repetição. Acumulado: o último mês.",
+  },
+  contratos_ativos: {
+    nome: "Quantidade de contratos",
+    formato: "numero",
+    direcao: "maior_melhor",
+    acumulo: "ultimo",
+    meta: true,
+    calculo:
+      "Contratos cadastrados no ENET ativos no fim do mês (iniciados e não rescindidos nem vencidos). Acumulado: o último mês.",
+  },
+  visitas: {
+    nome: "Visitas",
+    formato: "numero",
+    direcao: "maior_melhor",
+    acumulo: "soma",
+    meta: true,
+    calculo:
+      "Contatos do Relacionamento registrados no mês pelo canal que conta como visita (parâmetros de Vencimentos e relacionamento).",
+  },
+  nps: {
+    nome: "NPS",
+    formato: "numero",
+    direcao: "maior_melhor",
+    acumulo: "media",
+    meta: true,
+    calculo:
+      "% de notas 9 e 10 menos % de notas de 0 a 6, nas notas dadas nos contatos do Relacionamento do mês (de −100 a 100). Acumulado: todas as notas do ano.",
   },
   carencia: {
     nome: "Faturamento em carência",
@@ -210,6 +260,14 @@ export const aumentoDeReceita = (
 
 export const churn = (rescindidos: number | null, faturamento: number | null) =>
   pct(rescindidos, faturamento);
+
+/** NPS: % de promotores (9 e 10) menos % de detratores (0 a 6); null sem nota. */
+export function nps(notas: number[]): number | null {
+  if (!notas.length) return null;
+  const promotores = notas.filter((n) => n >= 9).length;
+  const detratores = notas.filter((n) => n <= 6).length;
+  return Math.round(((promotores - detratores) / notas.length) * 100);
+}
 
 export const valorPorM2 = (
   faturamento: number | null,
@@ -318,6 +376,10 @@ export interface EntradaPainel {
   tiposEventos: ReadonlySet<string>;
   /** Data de criação ("aaaa-mm-dd") de cada oportunidade do funil padrão. */
   leads: string[];
+  /** Data de criação de cada oportunidade do funil de mídia. */
+  leadsMidia: string[];
+  /** Contatos do Relacionamento: data, se foi visita e a nota (0 a 10). */
+  contatos: { data: string; visita: boolean; nps: number | null }[];
   fotos: FotoGuardada[];
   carencias: CarenciaContrato[];
   /** Dados de exemplo: sem foto, a ocupação é calculada pelos contratos. */
@@ -364,6 +426,12 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
   };
   const porMes = <T>(f: (i: number, mes: string) => T): (T | null)[] =>
     comp.map((c, i) => (temReal(i) ? f(i, c) : null));
+  const mesmoMes = (dia: string, mes: string) =>
+    dia.slice(0, 7) === mes.slice(0, 7);
+  const doMes = (dias: string[], mes: string) =>
+    dias.filter((d) => mesmoMes(d, mes));
+  const notasDe = (cs: { nps: number | null }[]) =>
+    cs.flatMap((c) => (c.nps === null ? [] : [c.nps]));
 
   const somaContas = (mes: string, tipos?: ReadonlySet<string>) =>
     arred(
@@ -420,19 +488,34 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
     aumento_receita: porMes((i) =>
       aumentoDeReceita(fechados[i] ?? null, rescindidos[i] ?? null),
     ),
-    leads: porMes(
-      (_, m) => e.leads.filter((d) => d.slice(0, 7) === m.slice(0, 7)).length,
-    ),
+    leads: porMes((_, m) => doMes(e.leads, m).length),
+    leads_midia: porMes((_, m) => doMes(e.leadsMidia, m).length),
     ocupacao: porMes((i) =>
       pct(ocupacao[i]?.ablLocada ?? null, ocupacao[i]?.ablTotal ?? null),
     ),
     valor_m2: porMes((i) => valorPorM2(faturamento[i] ?? null, ablLocada(i))),
     churn: porMes((i) => churn(rescindidos[i] ?? null, faturamento[i] ?? null)),
+    saidas: porMes(
+      (_, m) =>
+        e.contratos.filter(
+          (c) => c.data_rescisao?.slice(0, 7) === m.slice(0, 7),
+        ).length,
+    ),
     receita_midia: porMes((_, m) => somaContas(m, e.tiposMidia)),
     receita_eventos: porMes((_, m) => somaContas(m, e.tiposEventos)),
     clientes: porMes(
       (i, m) =>
         fotos.get(m)?.clientes_ativos ?? noDia[i]?.clientes_ativos ?? null,
+    ),
+    contratos_ativos: porMes(
+      (i) => e.contratos.filter((c) => ativoEm(c, fimOuHoje(i))).length,
+    ),
+    visitas: porMes(
+      (_, m) =>
+        e.contatos.filter((c) => c.visita && mesmoMes(c.data, m)).length,
+    ),
+    nps: porMes((_, m) =>
+      nps(notasDe(e.contatos.filter((c) => mesmoMes(c.data, m)))),
     ),
     // Nenhum contrato com carência no sistema: vazio (não zero).
     carencia: e.carencias.length
@@ -454,7 +537,17 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
       ate === 0 || (r[i] !== null && i < ate) ? p : null,
     );
     const accPlan = acumular(ate === 0 ? plan : planDosMeses, def.acumulo);
-    const accReal = acumular(r, def.acumulo);
+    // NPS do ano: todas as notas juntas (média de NPS mensais distorce).
+    const accReal =
+      indicador === "nps"
+        ? nps(
+            notasDe(
+              e.contatos.filter((c) =>
+                comp.some((m, i) => i < ate && mesmoMes(c.data, m)),
+              ),
+            ),
+          )
+        : acumular(r, def.acumulo);
     return {
       indicador,
       plan,
@@ -519,12 +612,14 @@ export function mudancasDeMetas(
   return { gravar, apagar };
 }
 
-/** Faixa aceita na meta de cada formato (aumento de receita pode ser negativo). */
+/** Faixa aceita na meta de cada formato (aumento de receita e NPS podem ser negativos). */
 export function metaValida(i: IndicadorPainel, v: number): string | null {
   if (!Number.isFinite(v)) return "número inválido";
   const def: DefIndicador = INDICADORES_PAINEL[i];
   if (def.formato === "pct" && (v < 0 || v > 100)) return "use de 0 a 100 (%)";
-  if (i !== "aumento_receita" && v < 0) return "não pode ser negativo";
+  if (i === "nps" && (v < -100 || v > 100)) return "use de −100 a 100";
+  if (i !== "aumento_receita" && i !== "nps" && v < 0)
+    return "não pode ser negativo";
   if (def.formato === "numero" && !Number.isInteger(v))
     return "use um número inteiro";
   return null;

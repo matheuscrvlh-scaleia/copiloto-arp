@@ -1,5 +1,5 @@
 import { textoDoChamado } from "@arp/shared/comercial/relacionamento";
-import { ArrowUpRight, Plus } from "lucide-react";
+import { ArrowUpRight, CircleCheck, Plus } from "lucide-react";
 import { useState } from "react";
 import { classeCampo } from "@/components/estilos";
 import { type Acao, FormAcao } from "@/components/form-acao";
@@ -9,9 +9,9 @@ import { useRouter } from "@/lib/navegacao";
 
 // Formulário "Registrar contato" (spec 4.7): locatário com busca por nome ou
 // LUC (contratos ativos do ENET), data (padrão hoje), tipo e canal das
-// listas dos parâmetros, descrição e "Precisa de outro setor?", que oferece
-// abrir um chamado no Tickets com o texto do registro. Quem e quando o
-// sistema grava sozinho.
+// listas dos parâmetros, descrição, nota de 0 a 10 (NPS, opcional) e
+// "Precisa de outro setor?": depois de salvar, oferece abrir um chamado no
+// Tickets com o texto do registro. Quem e quando o sistema grava sozinho.
 
 export interface OpcaoLocatarioForm {
   contrato: string;
@@ -31,6 +31,7 @@ export interface ContatoEditavel {
   canal: string;
   descricao: string;
   outroSetor: boolean;
+  nps: number | null;
 }
 
 const rotulo = "flex flex-col gap-1 text-xs font-medium text-neutral-600";
@@ -67,6 +68,8 @@ export function FormContato({
   const [canal, setCanal] = useState(c?.canal ?? "");
   const [outro, setOutro] = useState(c?.outroSetor ? "sim" : "nao");
   const [descricao, setDescricao] = useState(c?.descricao ?? "");
+  /** Registro salvo que pede outro setor: o texto do chamado a abrir. */
+  const [salvo, setSalvo] = useState<Record<string, string> | null>(null);
 
   const opcoes = locatarios.map((l) => ({
     valor: l.contrato,
@@ -91,13 +94,46 @@ export function FormContato({
         })
       : null;
 
+  if (salvo)
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="flex items-center gap-2 text-sm font-medium text-green-700">
+          <CircleCheck className="size-5" aria-hidden />
+          Registro salvo.
+        </p>
+        <p className="text-sm text-neutral-600">
+          Este contato precisa de outro setor. Quer abrir o chamado no Tickets
+          agora, com o texto do registro?
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={`/os/novo?${new URLSearchParams(salvo)}`}
+            target="_blank"
+            rel="noopener"
+            onClick={() => aoConcluir?.()}
+            className="inline-flex items-center gap-1.5 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800"
+          >
+            Abrir chamado
+            <ArrowUpRight className="size-4" aria-hidden />
+          </a>
+          <button
+            type="button"
+            onClick={() => aoConcluir?.()}
+            className="inline-flex items-center rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400"
+          >
+            Agora não
+          </button>
+        </div>
+      </div>
+    );
+
   return (
     <FormAcao
       acao={acao}
       rotulo={c ? "Salvar" : "Salvar registro"}
       rotuloEnviando="Salvando…"
       className="flex flex-col gap-3"
-      aoConcluir={aoConcluir}
+      aoConcluir={() => (chamado ? setSalvo(chamado) : aoConcluir?.())}
     >
       {c && <input type="hidden" name="id" value={c.id} />}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -156,6 +192,23 @@ export function FormContato({
             ]}
           />
         </label>
+        <label className={rotulo}>
+          Nota de 0 a 10 (NPS)
+          <Selecao
+            name="nps"
+            valorInicial={
+              c?.nps === null || c?.nps === undefined ? "" : String(c.nps)
+            }
+            placeholder="Sem nota"
+            opcoes={[
+              { valor: "", rotulo: "Sem nota" },
+              ...Array.from({ length: 11 }, (_, n) => ({
+                valor: String(10 - n),
+                rotulo: String(10 - n),
+              })),
+            ]}
+          />
+        </label>
         <label className={`${rotulo} sm:col-span-2`}>
           Descrição
           <textarea
@@ -171,20 +224,9 @@ export function FormContato({
       </div>
       {outro === "sim" && (
         <p className="rounded-2xl bg-neutral-900/[0.04] px-4 py-3 text-xs text-neutral-600">
-          Abra um chamado no Tickets para o setor que vai cuidar disso.{" "}
-          {chamado ? (
-            <a
-              href={`/os/novo?${new URLSearchParams(chamado)}`}
-              target="_blank"
-              rel="noopener"
-              className="inline-flex items-center gap-1 font-medium text-neutral-900 underline-offset-4 hover:underline"
-            >
-              Abrir chamado com este texto
-              <ArrowUpRight className="size-3.5" aria-hidden />
-            </a>
-          ) : (
-            "Peça a quem tem acesso ao Tickets."
-          )}
+          {chamado
+            ? "Ao salvar, o sistema oferece abrir o chamado no Tickets com o texto deste registro."
+            : "Salve o registro e peça a quem tem acesso ao Tickets para abrir o chamado."}
         </p>
       )}
     </FormAcao>

@@ -70,6 +70,8 @@ export const respostaFichas = momento.extend({
   /** Só para quem gera link (comercial.formulario.link). */
   lucs: z.array(opcaoLuc).nullable(),
   validadeDias: z.number(),
+  /** Texto do convite pelo WhatsApp (parâmetro formulario_texto_convite). */
+  textoConvite: z.string(),
 });
 export type RespostaFichas = z.infer<typeof respostaFichas>;
 
@@ -90,6 +92,8 @@ export const paramsDocumentoFicha = z.object({
 });
 
 export const detalheDaFicha = z.object({
+  /** Texto do convite pelo WhatsApp (parâmetro formulario_texto_convite). */
+  textoConvite: z.string(),
   ficha: fichaDaLista.extend({
     /** Endereço do link: só com comercial.formulario.link e em preenchimento. */
     link: z.string().nullable(),

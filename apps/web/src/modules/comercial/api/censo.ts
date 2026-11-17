@@ -173,6 +173,21 @@ export const encerrarRodada: Acao = acaoDaApi({
   invalida,
 });
 
+/** POST /api/v1/comercial/censo/rodadas/:id/editar (nome e datas). */
+export const editarRodada: Acao = acaoDaApi({
+  metodo: "POST",
+  caminho: (form) => `${daRodada(form)}/editar`,
+  invalida,
+});
+
+/** POST /api/v1/comercial/censo/rodadas/:id/excluir */
+export const excluirRodada: Acao = acaoDaApi({
+  metodo: "POST",
+  caminho: (form) => `${daRodada(form)}/excluir`,
+  corpo: () => undefined,
+  invalida,
+});
+
 /** Marca que o link foi copiado (quadro: "Enviado, sem resposta"). */
 export async function marcarConviteEnviado(id: string): Promise<void> {
   try {

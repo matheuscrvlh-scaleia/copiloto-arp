@@ -41,7 +41,9 @@ import {
   abrirRodada,
   consultaRodadaCenso,
   consultaRodadasCenso,
+  editarRodada,
   encerrarRodada,
+  excluirRodada,
   gerarConvites,
 } from "../../api/censo";
 import type { FiltrosCom } from "../../base";
@@ -157,6 +159,17 @@ export function Rodadas({
         : true,
   );
   const aberta = rodada ? situacaoDoLink(rodada, ctx.hoje) === "aberta" : false;
+  // Editar (ex.: prorrogar) ou excluir a rodada lançada errada: sem
+  // respostas, quem aplica; com respostas, só a liderança.
+  const respostasDaRodada = rodada
+    ? (contagem.get(rodada.id)?.respostas ?? 0)
+    : 0;
+  const lideranca = ctx.pode("comercial.censo.aprovar");
+  const podeAlterar =
+    !!rodada &&
+    !rodada.importacao_id &&
+    ctx.pode("comercial.censo.aplicar") &&
+    (respostasDaRodada === 0 || lideranca);
   const exportar = ctx.pode("comercial.exportar");
   const linhaFiltros = rodada
     ? linhaDeFiltros([
@@ -303,6 +316,74 @@ export function Rodadas({
           <>
             <div className="flex flex-wrap items-center gap-3">
               <h2 className="text-lg font-semibold">{rodada.nome}</h2>
+              {podeAlterar && (
+                <>
+                  <details className="group">
+                    <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400">
+                      <PenLine className="size-4" aria-hidden />
+                      Editar rodada
+                    </summary>
+                    <FormAcao
+                      acao={editarRodada}
+                      rotulo="Salvar alteração"
+                      rotuloEnviando="Salvando…"
+                      className="vidro mt-2 flex max-w-md flex-col gap-3 rounded-[1.75rem] p-4"
+                    >
+                      <input type="hidden" name="rodada" value={rodada.id} />
+                      <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
+                        Nome
+                        <input
+                          name="nome"
+                          required
+                          maxLength={80}
+                          defaultValue={rodada.nome}
+                          className={classeCampo}
+                        />
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
+                          Início
+                          <input
+                            name="inicio"
+                            type="date"
+                            required
+                            defaultValue={rodada.inicio}
+                            className={classeCampo}
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
+                          Fim
+                          <input
+                            name="fim"
+                            type="date"
+                            required
+                            defaultValue={rodada.fim}
+                            className={classeCampo}
+                          />
+                        </label>
+                      </div>
+                    </FormAcao>
+                  </details>
+                  <FormAcao
+                    acao={excluirRodada}
+                    rotulo="Excluir rodada"
+                    rotuloEnviando="Excluindo…"
+                    variante="perigo"
+                    confirmar={`Excluir a rodada ${rodada.nome}? Os convites${respostasDaRodada ? ` e as ${respostasDaRodada} respostas` : ""} saem junto e não tem volta.`}
+                  >
+                    <input type="hidden" name="rodada" value={rodada.id} />
+                  </FormAcao>
+                </>
+              )}
+              {rodada &&
+                respostasDaRodada > 0 &&
+                !lideranca &&
+                ctx.pode("comercial.censo.aplicar") && (
+                  <p className="text-xs text-neutral-500">
+                    Já tem respostas: editar ou excluir esta rodada fica com a
+                    liderança do setor.
+                  </p>
+                )}
               {aberta && (
                 <>
                   <FormAcao
@@ -463,6 +544,7 @@ export function Rodadas({
                                       convite={c.id}
                                       token={c.token}
                                       rodada={rodada.nome}
+                                      texto={tela.textoConvite}
                                     />
                                     <Link
                                       href={`${BASE}/presencial/${c.id}`}

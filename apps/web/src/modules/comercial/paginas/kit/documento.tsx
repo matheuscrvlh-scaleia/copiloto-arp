@@ -161,6 +161,7 @@ function Documento({ id }: { id: string }) {
                     nome: d.nome,
                     categoria: d.categoria,
                     blocos: d.blocos,
+                    lucs: d.lucs,
                     todo_contrato: d.todo_contrato,
                     ativo: d.ativo,
                     versaoId: atual?.id ?? null,

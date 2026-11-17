@@ -4,6 +4,7 @@ import {
   respostaPainel,
   respostaTabelasDoMes,
 } from "@arp/shared/gestao/contratos";
+import { respostaSemana } from "@arp/shared/gestao/semana";
 import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Busca } from "@/modules/shell/api";
@@ -35,6 +36,13 @@ export const consultaDoPainel = (f: ConsultaDoPainel) =>
       }),
     select: (r) => r.pessoas,
   });
+
+/** GET /api/v1/gestao/semana ("Minha semana" de quem está logado). */
+export const consultaDaSemana = queryOptions({
+  queryKey: ["gestao", "semana"] as const,
+  queryFn: ({ signal }) =>
+    api.get("/gestao/semana", { esquema: respostaSemana, sinal: signal }),
+});
 
 /** GET /api/v1/gestao/meses/:competencia/tabelas */
 export async function tabelasDoMes(

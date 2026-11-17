@@ -104,6 +104,7 @@ export async function configDoRelacionamento(
       )
       .map((l) => l.valor),
     lembreteDias: p.lembrete_aniversario_dias,
+    canalVisita: p.relacionamento_canal_visita,
   };
 }
 
@@ -305,6 +306,7 @@ async function montar(
     canal: d.canal,
     descricao: d.descricao,
     precisa_outro_setor: d.outro_setor === "sim",
+    nps: d.nps,
   };
 }
 

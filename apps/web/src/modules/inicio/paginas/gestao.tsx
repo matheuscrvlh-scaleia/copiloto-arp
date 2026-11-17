@@ -9,10 +9,11 @@ import {
   isoLocal,
 } from "@arp/shared/formato";
 import type { PessoasDoPainel } from "@arp/shared/gestao/contratos";
+import { GRUPOS_SEMANA } from "@arp/shared/gestao/semana";
 import { rotuloStatus, type Status } from "@arp/shared/indicadores";
 import { ateNoMaximo, lerPeriodo } from "@arp/shared/periodo";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Landmark } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, Landmark } from "lucide-react";
 import { Suspense, useDeferredValue, useMemo } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
 import { FiltroPeriodo } from "@/components/dashboard/filtro-periodo";
@@ -25,7 +26,12 @@ import { AbreDetalhe, ProvedorDetalhe } from "@/components/modal-detalhe";
 import { Link, useBusca } from "@/lib/navegacao";
 import { type Usuario, useSessao } from "@/lib/sessao";
 import { consultaDaEmpresa } from "@/modules/admin/api";
-import { consultaDoPainel, filtrosDaBusca, tabelasDoMes } from "../api";
+import {
+  consultaDaSemana,
+  consultaDoPainel,
+  filtrosDaBusca,
+  tabelasDoMes,
+} from "../api";
 
 const COR_STATUS: Record<Status, string> = {
   ok: "#0ca30c",
@@ -48,6 +54,9 @@ export default function Gestao() {
             <Saudacao />
           </Suspense>
         </Boasvindas>
+        <Suspense fallback={<CartaoCarregando altura="h-40" />}>
+          <MinhaSemana />
+        </Suspense>
         <Suspense fallback={<EsqueletoPessoas />}>
           <Dashboard />
         </Suspense>
@@ -95,6 +104,74 @@ function Saudacao() {
             : "Seu acesso ainda não foi liberado. Fale com o administrador."}
       </p>
     </>
+  );
+}
+
+/**
+ * "Minha semana": a página inicial de cada pessoa, com os principais
+ * desafios da semana nos módulos que ela acessa (agenda, Tickets, Comercial).
+ */
+function MinhaSemana() {
+  const { data: s } = useSuspenseQuery(consultaDaSemana);
+  const atrasados = s.desafios.filter((d) => d.atrasado).length;
+  return (
+    <section
+      data-guia="minha-semana"
+      data-guia-titulo="Minha semana"
+      className="vidro flex flex-col gap-4 rounded-[2rem] p-6"
+    >
+      <header className="flex flex-wrap items-center gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-900 text-white">
+          <CalendarCheck className="size-4" aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold tracking-tight">Minha semana</h2>
+          <p className="text-xs text-neutral-500">
+            {formatarData(s.de)} a {formatarData(s.ate)} ·{" "}
+            {s.desafios.length
+              ? `${formatarNumero(s.desafios.length)} ${s.desafios.length === 1 ? "item" : "itens"}${atrasados ? `, ${formatarNumero(atrasados)} atrasado${atrasados === 1 ? "" : "s"}` : ""}`
+              : "nada pendente com você nesta semana"}
+          </p>
+        </div>
+      </header>
+      {s.desafios.length > 0 && (
+        <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          {s.desafios.slice(0, 12).map((d) => (
+            <li key={`${d.href}|${d.titulo}`}>
+              <Link
+                href={d.href}
+                className="flex h-full items-start gap-3 rounded-2xl bg-white/60 px-4 py-3 transition hover:bg-white"
+              >
+                <span
+                  className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${d.atrasado ? "bg-red-500/10 text-red-800" : "bg-neutral-900/[0.06] text-neutral-700"}`}
+                >
+                  {d.atrasado ? "Atrasado" : GRUPOS_SEMANA[d.grupo]}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">
+                    {d.titulo}
+                  </span>
+                  <span className="block text-xs text-neutral-500">
+                    {d.atrasado ? `${GRUPOS_SEMANA[d.grupo]} · ` : ""}
+                    {d.detalhe}
+                  </span>
+                </span>
+                <ArrowUpRight
+                  className="mt-0.5 size-4 shrink-0 text-neutral-400"
+                  aria-hidden
+                />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {s.desafios.length > 12 && (
+        <p className="text-xs text-neutral-500">
+          E mais {formatarNumero(s.desafios.length - 12)} — os atrasados e os
+          mais próximos vêm primeiro.
+        </p>
+      )}
+    </section>
   );
 }
 

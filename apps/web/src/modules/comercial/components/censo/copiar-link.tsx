@@ -1,3 +1,4 @@
+import { mensagemDoConvite } from "@arp/shared/comercial/convite";
 import { Copy, MessageCircle } from "lucide-react";
 import { notificar } from "@/components/notificacoes";
 import { marcarConviteEnviado } from "@/modules/comercial/api/censo";
@@ -12,10 +13,13 @@ export function CopiarLink({
   convite,
   token,
   rodada,
+  texto,
 }: {
   convite: string;
   token: string;
   rodada: string;
+  /** Modelo do convite (parâmetro); {formulario} vira o nome da rodada. */
+  texto: string;
 }) {
   const link = () => `${window.location.origin}/censo/${token}`;
 
@@ -31,7 +35,7 @@ export function CopiarLink({
 
   function whatsapp() {
     window.open(
-      `https://wa.me/?text=${encodeURIComponent(`${rodada}: ${link()}`)}`,
+      `https://wa.me/?text=${encodeURIComponent(mensagemDoConvite(texto, rodada, link()))}`,
       "_blank",
       "noopener,noreferrer",
     );

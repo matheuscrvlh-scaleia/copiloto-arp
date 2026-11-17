@@ -185,12 +185,14 @@ export async function pdfDoLuc(
   const unidade = dadosEnet(hoje).lucs.find((l) => l.numero === luc);
   if (!unidade) throw new ErroNaoEncontrado("LUC não encontrado.");
   const docs = await documentosDoKit(ctx);
-  const itens = itensDoKit(docs, blocoDoLuc(unidade)).map((d) => ({
-    nome: d.nome,
-    versaoId: d.atual?.id ?? null,
-    versao: d.atual?.versao ?? null,
-    validade: d.atual?.validade ?? null,
-  }));
+  const itens = itensDoKit(docs, blocoDoLuc(unidade), unidade.numero).map(
+    (d) => ({
+      nome: d.nome,
+      versaoId: d.atual?.id ?? null,
+      versao: d.atual?.versao ?? null,
+      validade: d.atual?.validade ?? null,
+    }),
+  );
   return {
     bytes: await pdfDoKit(ctx, {
       titulo: `Kit de entrega — LUC ${unidade.numero} (${unidade.local})`,
@@ -331,6 +333,7 @@ const metaDocumento = z.object({
   nome: z.string().trim().min(1, "Informe o nome.").max(200),
   categoria: z.string().trim().min(1).max(80),
   blocos: z.array(z.string().trim().min(1).max(30)).max(40),
+  lucs: z.array(z.string().trim().min(1).max(30)).max(200).default([]),
   todoContrato: z.boolean(),
 });
 
@@ -380,6 +383,7 @@ export async function novoDocumento(
         nome: d.nome,
         categoria: d.categoria,
         blocos: d.blocos,
+        lucs: d.lucs,
         todo_contrato: d.todoContrato,
         ordem: (ultimo?.ordem ?? 0) + 1,
       });
@@ -537,6 +541,7 @@ export async function editarDocumento(
         nome: um("nome"),
         categoria: um("categoria"),
         blocos: lista(form.blocos),
+        lucs: lista(form.lucs),
         todoContrato: um("todo_contrato") === "sim",
       },
       ativo: um("ativo") !== "nao",
@@ -552,6 +557,7 @@ export async function editarDocumento(
         nome: d.nome,
         categoria: d.categoria,
         blocos: d.blocos,
+        lucs: d.lucs,
         todo_contrato: d.todoContrato,
         ativo,
       });

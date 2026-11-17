@@ -322,6 +322,44 @@ export function encerrarRodada(tx: Tx, id: string, usuario: string) {
     .execute();
 }
 
+/** Situação da rodada e quantas respostas ela já tem. */
+export async function rodadaParaAlterar(tx: Tx, id: string) {
+  const r = await tx
+    .selectFrom("comercial.censo_rodadas")
+    .select(["nome", "situacao"])
+    .where("id", "=", id)
+    .executeTakeFirst();
+  if (!r) return null;
+  const { n } = await tx
+    .selectFrom("comercial.censo_respostas")
+    .select((eb) => eb.fn.countAll<string>().as("n"))
+    .where("rodada_id", "=", id)
+    .executeTakeFirstOrThrow();
+  return { ...r, respostas: Number(n) };
+}
+
+export function alterarRodada(
+  tx: Tx,
+  id: string,
+  d: { nome: string; inicio: string; fim: string },
+) {
+  return tx
+    .updateTable("comercial.censo_rodadas")
+    .set(d)
+    .where("id", "=", id)
+    .returning("id")
+    .execute();
+}
+
+/** O RLS só deixa excluir com respostas a quem tem comercial.censo.aprovar. */
+export function excluirRodada(tx: Tx, id: string) {
+  return tx
+    .deleteFrom("comercial.censo_rodadas")
+    .where("id", "=", id)
+    .returning("nome")
+    .execute();
+}
+
 export function marcarEnviado(tx: Tx, id: string) {
   return tx
     .updateTable("comercial.censo_convites")

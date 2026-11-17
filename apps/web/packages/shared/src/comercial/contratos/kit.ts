@@ -35,6 +35,8 @@ export const documentoDoKit = z.object({
   categoria: z.string(),
   ordem: z.number(),
   blocos: z.array(z.string()),
+  /** LUCs atendidos pelo mapa (vazio = todo o bloco). */
+  lucs: z.array(z.string()),
   todo_contrato: z.boolean(),
   ativo: z.boolean(),
   atual: versaoDoKit.nullable(),
@@ -84,6 +86,7 @@ export const entradaNovoDocumentoKit = z.object({
     nome: z.string(),
     categoria: z.string(),
     blocos: z.array(z.string()).max(40),
+    lucs: z.array(z.string()).max(200).default([]),
     todoContrato: z.boolean(),
   }),
   versao: metaVersaoKit,

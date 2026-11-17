@@ -14,6 +14,7 @@ import { momento } from "./base";
 //   POST   /api/v1/comercial/relacionamento/contatos        EntradaContato → { mensagem }
 //   PATCH  /api/v1/comercial/relacionamento/contatos/:id    EntradaContato → { mensagem }
 //   DELETE /api/v1/comercial/relacionamento/contatos/:id    → { mensagem }
+//   POST   /api/v1/comercial/relacionamento/sac/sincronizar → { mensagem }
 
 export const respostaConfigRelacionamento = momento.extend({
   tipos: z.array(z.string()),
@@ -21,6 +22,8 @@ export const respostaConfigRelacionamento = momento.extend({
   /** Tipos que também vão para Feedbacks (marcados na lista). */
   feedbacks: z.array(z.string()),
   lembreteDias: z.number(),
+  /** Canal que conta como visita (parâmetros). */
+  canalVisita: z.string(),
 });
 export type RespostaConfigRelacionamento = z.infer<
   typeof respostaConfigRelacionamento
@@ -84,6 +87,10 @@ export const contatoLido = z.object({
   canal: z.string(),
   descricao: z.string(),
   precisa_outro_setor: z.boolean(),
+  /** Nota de 0 a 10 (NPS), quando dada. */
+  nps: z.number().nullable(),
+  /** Veio do SAC no Asana: o link da tarefa (só leitura aqui). */
+  asana_url: z.string().nullable(),
   registrado_por: z.string().nullable(),
   registrado_em: z.string(),
   exemplo: z.boolean(),
@@ -136,6 +143,16 @@ export const entradaContato = z.object({
   outro_setor: z.preprocess(
     (v) => v || undefined,
     z.enum(["sim", "nao"]).default("nao"),
+  ),
+  /** Nota de 0 a 10 (NPS); vazio = sem nota. */
+  nps: z.preprocess(
+    (v) => (v === "" || v === undefined || v === null ? null : Number(v)),
+    z
+      .number()
+      .int("Nota de 0 a 10.")
+      .min(0, "Nota de 0 a 10.")
+      .max(10, "Nota de 0 a 10.")
+      .nullable(),
   ),
 });
 export type EntradaContato = z.infer<typeof entradaContato>;

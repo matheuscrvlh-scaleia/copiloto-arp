@@ -12,6 +12,7 @@ const DOCUMENTO = [
   "categoria",
   "ordem",
   "blocos",
+  "lucs",
   "todo_contrato",
   "ativo",
 ] as const;

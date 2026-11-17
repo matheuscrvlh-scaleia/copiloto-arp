@@ -41,6 +41,8 @@ describe("validarBloco", () => {
       vencimento_faixa2_dias: "90",
       lembrete_aniversario_dias: "3",
       reajuste_previsto_dias: "60",
+      relacionamento_canal_visita: "Presencial",
+      relacionamento_asana_projeto: "SAC",
     };
     expect(validarBloco("vencimentos", base).ok).toBe(true);
     expect(
@@ -66,6 +68,9 @@ describe("validarBloco", () => {
   it("contratos: aceita vírgula, formata o CEP e recusa caução zero", () => {
     const form = {
       empreendimento_nome: "ARP",
+      locadora_razao_social: "",
+      locadora_cnpj: "12.345.678/0001-90",
+      locadora_representacao: "contrato_social",
       endereco_cep: "28613001",
       endereco_logradouro: "Av. Exemplo",
       endereco_numero: "80",

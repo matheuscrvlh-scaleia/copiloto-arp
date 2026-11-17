@@ -91,6 +91,20 @@ export function encerrarRodada(request: FastifyRequest<ComId>) {
   );
 }
 
+export function editarRodada(
+  request: FastifyRequest<ComId & { Body: ComForm["Body"] }>,
+) {
+  return mensagem(
+    service.editarRodada(contextoDe(request), request.params.id, request.body),
+  );
+}
+
+export function excluirRodada(request: FastifyRequest<ComId>) {
+  return mensagem(
+    service.excluirRodada(contextoDe(request), request.params.id),
+  );
+}
+
 export function conviteEnviado(request: FastifyRequest<ComId>) {
   return mensagem(
     service.marcarConviteEnviado(contextoDe(request), request.params.id),

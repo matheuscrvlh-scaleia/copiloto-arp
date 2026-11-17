@@ -3,6 +3,7 @@ import {
   CAMPOS_GARANTIA,
   GARANTIAS,
   INDICES,
+  REPRESENTACOES,
 } from "@arp/shared/comercial/parametros/index";
 import { Nota, Secao } from "@/components/dashboard/tabela";
 import { Selecao } from "@/components/selecao";
@@ -23,7 +24,7 @@ export function BlocoContratos({ parametros: p }: { parametros: Parametros }) {
     >
       <FormBloco bloco="contratos" className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
-          <h3 className={subtitulo}>Empreendimento</h3>
+          <h3 className={subtitulo}>Empreendimento e locadora</h3>
           <div className={grade}>
             <Campo
               nome="empreendimento_nome"
@@ -31,6 +32,36 @@ export function BlocoContratos({ parametros: p }: { parametros: Parametros }) {
               maxLength={120}
               classe="sm:col-span-2"
             />
+            <Campo
+              nome="locadora_razao_social"
+              valor={p.locadora_razao_social}
+              maxLength={200}
+              classe="sm:col-span-2"
+              obrigatorio={false}
+              dica="A empresa que assina como locadora (diferente do nome do empreendimento)."
+            />
+            <Campo
+              nome="locadora_cnpj"
+              valor={p.locadora_cnpj}
+              maxLength={18}
+              obrigatorio={false}
+            />
+            <label className={rotulo}>
+              Forma de representação
+              <Selecao
+                name="locadora_representacao"
+                obrigatorio
+                valorInicial={p.locadora_representacao}
+                opcoes={Object.entries(REPRESENTACOES).map(([valor, r]) => ({
+                  valor,
+                  rotulo: r,
+                }))}
+              />
+              <span className="font-normal text-neutral-400">
+                “Na forma de seu Contrato Social” cobre os contratos maiores,
+                assinados por duas pessoas.
+              </span>
+            </label>
             <Campo nome="endereco_cep" valor={p.endereco_cep} maxLength={9} />
             <Campo nome="endereco_uf" valor={p.endereco_uf} maxLength={2} />
             <Campo

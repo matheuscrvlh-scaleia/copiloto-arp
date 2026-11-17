@@ -4,6 +4,7 @@ import {
   dentroDoPeriodo,
   faixaDeTamanho,
   faixasDeTamanho,
+  indicadoresDaPesquisa,
   resumoPorBairro,
   valorM2DoPainel,
 } from "./pesquisa";
@@ -148,5 +149,39 @@ describe("valor por m² da ARP (Painel)", () => {
       ablLocada: 100,
       valor: 35,
     });
+  });
+});
+
+describe("indicadores da cidade", () => {
+  const i = (
+    area_m2: number,
+    aluguel: number,
+    condominio: number | null = null,
+    iptu: number | null = null,
+  ) => ({
+    bairro: "Centro",
+    area_m2,
+    aluguel,
+    condominio,
+    iptu,
+  });
+
+  it("mediana não se deixa puxar pelo valor desproporcional", () => {
+    const r = indicadoresDaPesquisa([i(100, 1000), i(100, 1200), i(10, 10000)]);
+    expect(r.m2Mediana).toBe(12);
+    // ponderada: 12.200 ÷ 210 m²
+    expect(r.m2Ponderado).toBeCloseTo(58.1, 1);
+  });
+
+  it("médias de tamanho, custo total, condomínio e IPTU informados", () => {
+    const r = indicadoresDaPesquisa([i(50, 1000, 200, 50), i(150, 3000)]);
+    expect(r.areaMedia).toBe(100);
+    expect(r.custoTotalMedio).toBe(2125);
+    expect(r.condominioMedio).toBe(200);
+    expect(r.iptuMedio).toBe(50);
+  });
+
+  it("sem imóveis, tudo vazio", () => {
+    expect(indicadoresDaPesquisa([]).m2Mediana).toBeNull();
   });
 });

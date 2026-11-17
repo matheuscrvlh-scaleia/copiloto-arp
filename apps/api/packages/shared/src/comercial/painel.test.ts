@@ -14,6 +14,7 @@ import {
   metaValida,
   montarPainel,
   mudancasDeMetas,
+  nps,
   valorPorM2,
 } from "./painel";
 
@@ -109,6 +110,13 @@ const entrada: EntradaPainel = {
   tiposOcupacao: new Set(["Loja Comercial"]),
   tiposMidia: new Set(["Área Publicitária"]),
   tiposEventos: new Set(["Eventos"]),
+  leadsMidia: ["2025-01-10", "2025-02-03"],
+  contatos: [
+    { data: "2025-01-05", visita: true, nps: 10 },
+    { data: "2025-01-20", visita: false, nps: 6 },
+    { data: "2025-02-11", visita: true, nps: 9 },
+    { data: "2025-02-12", visita: true, nps: null },
+  ],
   leads: [
     ...Array.from(
       { length: 31 },
@@ -156,6 +164,21 @@ describe("painel igual à planilha (teste 8)", () => {
   it("leads jan = 31, pela data de criação", () => {
     expect(de("leads").real[0]).toBe(31);
     expect(de("leads").real[1]).toBe(1);
+  });
+
+  it("leads de mídia, saídas e contratos ativos por mês", () => {
+    expect(de("leads_midia").real.slice(0, 2)).toEqual([1, 1]);
+    expect(de("leads_midia").acumulado.real).toBe(2);
+    expect(de("saidas").real[0]).toBe(1);
+    expect(de("contratos_ativos").real[0]).toBeGreaterThan(0);
+  });
+
+  it("visitas pelo canal e NPS do mês e do ano com todas as notas", () => {
+    expect(de("visitas").real.slice(0, 2)).toEqual([1, 2]);
+    // jan: 10 (promotor) e 6 (detrator) → 0; fev: só 9 → 100.
+    expect(de("nps").real.slice(0, 2)).toEqual([0, 100]);
+    // ano: 2 promotores e 1 detrator em 3 notas → 33.
+    expect(de("nps").acumulado.real).toBe(33);
   });
 
   it("aumento de receita jan = 9.912,38 (11.781,00 − 1.868,62)", () => {
@@ -321,5 +344,13 @@ describe("regras soltas", () => {
     expect(metaValida("faturamento", -1)).not.toBeNull();
     expect(metaValida("leads", 30.5)).not.toBeNull();
     expect(metaValida("leads", Number.NaN)).not.toBeNull();
+    expect(metaValida("nps", -20)).toBeNull();
+    expect(metaValida("nps", 101)).not.toBeNull();
+  });
+
+  it("NPS: promotores menos detratores; sem nota, vazio", () => {
+    expect(nps([])).toBeNull();
+    expect(nps([10, 9, 8, 7])).toBe(50);
+    expect(nps([0, 6, 9])).toBe(-33);
   });
 });

@@ -27,6 +27,9 @@ import { areaPorExtenso, reaisPorExtenso } from "./extenso";
 
 const PARAMETROS: ParametrosContrato = {
   empreendimento_nome: "ARP",
+  locadora_razao_social: "",
+  locadora_cnpj: "",
+  locadora_representacao: "contrato_social",
   endereco_cep: "28613-001",
   endereco_logradouro: "Av. Conselheiro Julius Arp",
   endereco_numero: "80",

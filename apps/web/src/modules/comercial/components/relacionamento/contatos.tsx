@@ -45,9 +45,11 @@ export function SeloTipo({
 const quem = (c: ContatoLido, nomes: Map<string, string>) =>
   c.registrado_por
     ? (nomes.get(c.registrado_por) ?? "—")
-    : c.exemplo
-      ? "Exemplo"
-      : "—";
+    : c.asana_url
+      ? "SAC (Asana)"
+      : c.exemplo
+        ? "Exemplo"
+        : "—";
 
 export function ListaDeContatos({
   contatos,

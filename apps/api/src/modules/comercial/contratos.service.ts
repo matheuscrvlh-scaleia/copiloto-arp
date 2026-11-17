@@ -158,6 +158,9 @@ function registrar(
 export function parametrosDoContrato(p: Parametros): ParametrosContrato {
   return {
     empreendimento_nome: p.empreendimento_nome,
+    locadora_razao_social: p.locadora_razao_social,
+    locadora_cnpj: p.locadora_cnpj,
+    locadora_representacao: p.locadora_representacao,
     endereco_cep: p.endereco_cep,
     endereco_logradouro: p.endereco_logradouro,
     endereco_numero: p.endereco_numero,
@@ -368,6 +371,7 @@ export async function apoio(ctx: Contexto): Promise<RespostaApoioContrato> {
         ativo: d.ativo,
         todo_contrato: d.todo_contrato,
         blocos: d.blocos,
+        lucs: d.lucs,
         ordem: d.ordem,
         versaoId: d.versao_id,
         versao: d.versao,
@@ -391,18 +395,15 @@ async function versoesDoKit(
   hoje: string,
 ): Promise<string[]> {
   const enet = dadosEnet(hoje);
-  const blocos = [
-    ...new Set(
-      lucs.map((n) => {
-        const l = enet.lucs.find((x) => x.numero === n);
-        return l ? blocoDoLuc(l) : null;
-      }),
-    ),
-  ];
+  // Cada LUC com o bloco dele (o mapa pode atender só alguns LUCs do bloco).
+  const unidades = lucs.map((n) => {
+    const l = enet.lucs.find((x) => x.numero === n);
+    return { luc: n, bloco: l ? blocoDoLuc(l) : null };
+  });
   const docs = await documentosDoKit(ctx);
   const versoes = new Map<string, string>();
-  for (const b of blocos.length ? blocos : [null])
-    for (const d of itensDoKit(docs, b))
+  for (const u of unidades.length ? unidades : [{ luc: null, bloco: null }])
+    for (const d of itensDoKit(docs, u.bloco, u.luc))
       if (d.versao_id) versoes.set(d.id, d.versao_id);
   return [...versoes.values()];
 }
@@ -630,12 +631,18 @@ export async function salvarContrato(
       );
   }
   // A ficha escolhida tem que já ter sido recebida e ser visível (o gatilho a marca como usada).
+  // Se ela não existe mais (expirou ou foi excluída), o rascunho perde só o
+  // vínculo: os dados já copiados ficam e a gravação não trava o assistente.
   const fichaId = dados.partes.ficha_id;
+  let fichaSolta = false;
   if (fichaId && fichaId !== fichaAtual) {
     const ficha = await banco.comoUsuario(ctx.usuario.id, (tx) =>
       repo.situacaoDaFicha(tx, fichaId),
     );
-    if (ficha?.situacao !== "recebida" && ficha?.situacao !== "usada")
+    if (!ficha) {
+      fichaSolta = true;
+      dados = { ...dados, partes: { ...dados.partes, ficha_id: null } };
+    } else if (ficha.situacao !== "recebida" && ficha.situacao !== "usada")
       throw new ErroDeNegocio(
         "A ficha escolhida não foi encontrada ou ainda não foi recebida. Escolha outra na etapa Partes.",
       );
@@ -677,7 +684,7 @@ export async function salvarContrato(
       : new ErroDePermissao(SEM_PERMISSAO);
 
   registrar("contrato_salvo", ctx, { contrato: r.id, etapa, status });
-  return respostaDe(
+  const resposta = respostaDe(
     statusAtual === "pronto" && status === "rascunho"
       ? "Rascunho salvo. Faltou algum obrigatório: o contrato voltou a rascunho."
       : statusAtual === "gerado"
@@ -685,6 +692,7 @@ export async function salvarContrato(
         : "Rascunho salvo.",
     r,
   );
+  return fichaSolta ? { ...resposta, fichaSolta } : resposta;
 }
 
 /** Marcar "Pronto para gerar" (V1; Word e PDF a partir da V2). */

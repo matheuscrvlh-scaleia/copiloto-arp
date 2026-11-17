@@ -1,4 +1,5 @@
 import { linhaDeFiltros } from "@arp/shared/comercial/formato";
+import { nps } from "@arp/shared/comercial/painel";
 import {
   type Aniversario,
   PERIODOS_CONTATO,
@@ -26,6 +27,7 @@ import {
 } from "@/components/carregando";
 import { Nota, Secao } from "@/components/dashboard/tabela";
 import { BotaoExportar } from "@/components/exportar";
+import { FormAcao } from "@/components/form-acao";
 import { type Detalhe, ProvedorDetalhe } from "@/components/modal-detalhe";
 import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
@@ -52,6 +54,7 @@ import {
   consultaContatosSe,
   consultaLocatariosSe,
   registrarContato,
+  sincronizarSac,
 } from "../api/relacionamento";
 import { type FiltrosCom, useFiltrosCom } from "../base";
 
@@ -156,6 +159,10 @@ function Relacionamento({ f }: { f: FiltrosCom }) {
   if (daAba) {
     const contatos = daAba.contatos;
     const nomes = new Map(daAba.nomes.map((n) => [n.id, n.nome]));
+    const notas = contatos.flatMap((c) => (c.nps === null ? [] : [c.nps]));
+    const notaNps = nps(notas);
+    const visitas = contatos.filter((c) => c.canal === config.canalVisita);
+    const doSac = contatos.filter((c) => c.asana_url).length;
     const linha = linhaDeFiltros([
       { rotulo: "Período", valor: PERIODOS_CONTATO[periodo].rotulo },
       { rotulo: "Tipo", valor: tipo || "Todos" },
@@ -212,11 +219,48 @@ function Relacionamento({ f }: { f: FiltrosCom }) {
                   linhas={exportarContatos(contatos, nomes)}
                 />
               )}
+              {registra && (
+                <FormAcao
+                  acao={sincronizarSac}
+                  rotulo="Atualizar do SAC (Asana)"
+                  rotuloEnviando="Lendo o Asana…"
+                  variante="secundario"
+                />
+              )}
               {botaoRegistrar}
             </div>
           }
         />
         {abas}
+        <CartoesComercial>
+          <CartaoDaTela
+            titulo="Contatos no período"
+            valor={formatarNumero(contatos.length)}
+            detalhe={
+              doSac
+                ? `${formatarNumero(doSac)} vindos do SAC (Asana)`
+                : "Registros feitos no sistema"
+            }
+            fonte="Relacionamento"
+          />
+          <CartaoDaTela
+            titulo="Visitas"
+            valor={formatarNumero(visitas.length)}
+            detalhe={`Contatos pelo canal ${config.canalVisita}`}
+            fonte="Relacionamento (canal nos parâmetros)"
+          />
+          <CartaoDaTela
+            titulo="NPS"
+            valor={notaNps === null ? "—" : formatarNumero(notaNps)}
+            detalhe={
+              notas.length
+                ? `${formatarNumero(notas.length)} nota(s) de 0 a 10 no período`
+                : "Nenhuma nota no período: dê a nota ao registrar o contato"
+            }
+            calculo="% de notas 9 e 10 menos % de notas de 0 a 6 (de −100 a 100)."
+            fonte="Relacionamento"
+          />
+        </CartoesComercial>
         <Secao
           titulo="Contatos registrados"
           descricao="Substitui as abas Feedbacks e Base de atendimento da planilha. Feedback, reclamação e sugestão também aparecem nos Feedbacks do Censo."
@@ -228,7 +272,9 @@ function Relacionamento({ f }: { f: FiltrosCom }) {
           />
           <Fonte>
             Registros feitos no sistema (quem registrou e quando são gravados
-            sozinhos). Locatário, contrato e LUC vêm do ENET.
+            sozinhos; locatário, contrato e LUC vêm do ENET) e os do SAC no
+            Asana (projeto nos parâmetros; só leitura aqui, com o link da
+            tarefa).
           </Fonte>
         </Secao>
       </div>

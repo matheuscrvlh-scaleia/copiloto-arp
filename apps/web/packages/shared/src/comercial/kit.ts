@@ -56,8 +56,15 @@ export interface DocumentoDoKit {
   todo_contrato: boolean;
   /** Só mapas de fachada: blocos atendidos. */
   blocos: string[];
+  /**
+   * Só mapas de fachada: LUCs atendidos. Vazio = todo o bloco; preenchido,
+   * só esses LUCs (ex.: a Rua das Borboletas não serve a todo o bloco 11).
+   */
+  lucs: string[];
   ordem: number;
 }
+
+const codigoDoLuc = (l: string) => l.trim().toUpperCase();
 
 /** O documento atende o bloco (mapa com o bloco na lista). */
 export function atendeBloco(d: DocumentoDoKit, bloco: string | null): boolean {
@@ -66,13 +73,31 @@ export function atendeBloco(d: DocumentoDoKit, bloco: string | null): boolean {
   return d.blocos.some((b) => codigoDoBloco(b) === alvo);
 }
 
-/** O que vai no contrato do bloco: "vai em todo contrato" + mapas do bloco. */
+/**
+ * O mapa atende o LUC: com LUCs na lista, só eles; sem, todo o bloco. Sem
+ * LUC escolhido (só o bloco), vale a regra do bloco.
+ */
+export function atendeLuc(
+  d: DocumentoDoKit,
+  bloco: string | null,
+  luc: string | null,
+): boolean {
+  if (d.lucs.length && luc)
+    return d.lucs.some((l) => codigoDoLuc(l) === codigoDoLuc(luc));
+  return atendeBloco(d, bloco);
+}
+
+/**
+ * O que vai no contrato do LUC: "vai em todo contrato" + mapas do bloco
+ * (ou só dos LUCs listados no mapa).
+ */
 export function itensDoKit<T extends DocumentoDoKit>(
   documentos: T[],
   bloco: string | null,
+  luc: string | null = null,
 ): T[] {
   return documentos
-    .filter((d) => d.ativo && (d.todo_contrato || atendeBloco(d, bloco)))
+    .filter((d) => d.ativo && (d.todo_contrato || atendeLuc(d, bloco, luc)))
     .sort((a, b) => a.ordem - b.ordem);
 }
 

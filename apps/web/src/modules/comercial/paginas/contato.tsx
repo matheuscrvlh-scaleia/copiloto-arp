@@ -99,13 +99,16 @@ function Contato({ id }: { id: string }) {
                 rotulo: "Precisa de outro setor?",
                 valor: c.precisa_outro_setor ? "Sim" : "Não",
               },
+              { rotulo: "Nota (NPS)", valor: c.nps ?? "—" },
               {
                 rotulo: "Registrado por",
                 valor: c.registrado_por
                   ? (nomes.get(c.registrado_por) ?? "—")
-                  : c.exemplo
-                    ? "Exemplo"
-                    : "—",
+                  : c.asana_url
+                    ? "SAC (Asana)"
+                    : c.exemplo
+                      ? "Exemplo"
+                      : "—",
               },
               {
                 rotulo: "Registrado em",
@@ -116,11 +119,14 @@ function Contato({ id }: { id: string }) {
           <p className="mt-4 whitespace-pre-line rounded-2xl bg-neutral-900/[0.04] px-4 py-3 text-sm">
             {c.descricao}
           </p>
-          {chamado && (
-            <div className="mt-4">
-              <Atalho href={`/os/novo?${new URLSearchParams(chamado)}`}>
-                Abrir chamado no Tickets
-              </Atalho>
+          {(chamado || c.asana_url) && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {chamado && (
+                <Atalho href={`/os/novo?${new URLSearchParams(chamado)}`}>
+                  Abrir chamado no Tickets
+                </Atalho>
+              )}
+              {c.asana_url && <Atalho href={c.asana_url}>Ver no Asana</Atalho>}
             </div>
           )}
         </Secao>
@@ -146,6 +152,7 @@ function Contato({ id }: { id: string }) {
                 canal: c.canal,
                 descricao: c.descricao,
                 outroSetor: c.precisa_outro_setor,
+                nps: c.nps,
               }}
             />
             <FormAcao

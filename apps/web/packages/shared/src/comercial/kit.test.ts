@@ -13,7 +13,8 @@ const doc = (
   nome: string,
   todo_contrato = false,
   blocos: string[] = [],
-) => ({ ordem, nome, todo_contrato, blocos, ativo: true });
+  lucs: string[] = [],
+) => ({ ordem, nome, todo_contrato, blocos, lucs, ativo: true });
 
 const KIT = [
   doc(1, "Regimento", true),
@@ -112,5 +113,32 @@ describe("validade", () => {
       "IPTU: vencido. Suba a versão nova antes de entregar.",
       "Fachada 5: sem arquivo ainda — suba o PDF. Até lá, fica fora do kit e aparece na capa como faltando.",
     ]);
+  });
+});
+
+describe("mapa de fachada só para alguns LUCs do bloco", () => {
+  const kit = [
+    doc(1, "Regimento", true),
+    doc(15, "Rua das Borboletas", false, ["11"], ["11_101", "11_102"]),
+    doc(16, "Rua do Relógio", false, ["11"]),
+  ];
+  const doLuc = (luc: string | null) =>
+    itensDoKit(kit, "11", luc).map((d) => d.nome);
+
+  it("LUC fora da lista não leva o mapa; o mapa sem lista vale o bloco", () => {
+    expect(doLuc("11_113")).toEqual(["Regimento", "Rua do Relógio"]);
+  });
+
+  it("LUC da lista leva o mapa (com ou sem caixa alta)", () => {
+    expect(doLuc("11_101")).toEqual([
+      "Regimento",
+      "Rua das Borboletas",
+      "Rua do Relógio",
+    ]);
+    expect(itensDoKit(kit, "11", "11_102").length).toBe(3);
+  });
+
+  it("sem LUC escolhido, vale a regra do bloco", () => {
+    expect(doLuc(null)).toHaveLength(3);
   });
 });

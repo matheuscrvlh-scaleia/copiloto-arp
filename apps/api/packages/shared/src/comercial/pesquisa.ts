@@ -90,6 +90,51 @@ export function resumoPorBairro(imoveis: ImovelDoResumo[]): LinhaResumo[] {
 }
 
 // ---------------------------------------------------------------------------
+// Indicadores da cidade (cartões no topo da Pesquisa)
+// ---------------------------------------------------------------------------
+
+export interface IndicadoresPesquisa {
+  quantidade: number;
+  /** Mediana do aluguel por m²: não se deixa puxar por valor desproporcional. */
+  m2Mediana: number | null;
+  /** Soma dos aluguéis ÷ soma das áreas (pesa o imóvel pelo tamanho). */
+  m2Ponderado: number | null;
+  areaMedia: number | null;
+  custoTotalMedio: number | null;
+  condominioMedio: number | null;
+  iptuMedio: number | null;
+}
+
+function mediana(v: number[]): number | null {
+  if (!v.length) return null;
+  const o = [...v].sort((a, b) => a - b);
+  const meio = Math.floor(o.length / 2);
+  return o.length % 2
+    ? (o[meio] as number)
+    : ((o[meio - 1] as number) + (o[meio] as number)) / 2;
+}
+
+export function indicadoresDaPesquisa(
+  imoveis: ImovelDoResumo[],
+): IndicadoresPesquisa {
+  const comArea = imoveis.filter((i) => i.area_m2 > 0);
+  const area = comArea.reduce((t, i) => t + i.area_m2, 0);
+  const informados = (f: (i: ImovelDoResumo) => number | null) =>
+    media(imoveis.map(f).filter((v): v is number => v !== null));
+  return {
+    quantidade: imoveis.length,
+    m2Mediana: mediana(comArea.map((i) => i.aluguel / i.area_m2)),
+    m2Ponderado: area
+      ? comArea.reduce((t, i) => t + i.aluguel, 0) / area
+      : null,
+    areaMedia: media(imoveis.map((i) => i.area_m2)),
+    custoTotalMedio: media(imoveis.map(custo)),
+    condominioMedio: informados((i) => i.condominio),
+    iptuMedio: informados((i) => i.iptu),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Período (filtro): todos, últimos 12 meses ou um ano
 // ---------------------------------------------------------------------------
 

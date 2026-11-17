@@ -88,7 +88,7 @@ describe("permissões e ponto de partida", () => {
     const { rows } = await db.query<{ codigo: string; descricao: string }>(
       "select codigo, descricao from core.permissoes where codigo like 'comercial.%' order by codigo collate \"C\"",
     );
-    expect(doCatalogo).toHaveLength(25);
+    expect(doCatalogo).toHaveLength(26);
     expect(rows.map((r) => [r.codigo, r.descricao])).toEqual(
       [...doCatalogo].sort(([a], [b]) => (a < b ? -1 : 1)),
     );
@@ -98,7 +98,7 @@ describe("permissões e ponto de partida", () => {
          join core.cargos c on c.id = cp.cargo_id
          where c.nome = 'Administrador' and cp.permissao like 'comercial.%'`,
       ),
-    ).toBe(25);
+    ).toBe(26);
   });
 
   it("deixa os parâmetros com os valores padrão do spec", async () => {

@@ -32,6 +32,25 @@ import * as repo from "./painel.repository";
 // comercial.valores.ver, as linhas em reais nem saem da API.
 
 /**
+ * Visitas e notas do Relacionamento. A tabela de contatos pede
+ * comercial.relacionamento.ver; o painel só conta, então lê pela service role
+ * depois de conferir comercial.painel.ver, e só data, canal e nota.
+ */
+async function contatosDoPainel(
+  ctx: Contexto,
+  ano: number,
+  canalVisita: string,
+) {
+  await exigir(ctx, "comercial.painel.ver");
+  const linhas = await banco.comoServico((tx) => repo.contatosDoAno(tx, ano));
+  return linhas.map((c) => ({
+    data: c.data,
+    visita: c.canal === canalVisita,
+    nps: c.nps,
+  }));
+}
+
+/**
  * Carências dos contratos feitos no assistente. A tabela de contratos pede
  * comercial.contratos.ver; o painel só precisa da soma, então lê pela
  * service role depois de conferir comercial.painel.ver no banco, e só o
@@ -70,6 +89,15 @@ export async function dadosDoPainel(
     repo.fotosDoAno(tx, ano),
   );
   const comCarencia = comValores ? await carencias(ctx) : [];
+  const contatos = await contatosDoPainel(
+    ctx,
+    ano,
+    params.relacionamento_canal_visita,
+  );
+  const criacoes = (funil: string) =>
+    rd.oportunidades
+      .filter((o) => o.deal_pipeline.name === funil)
+      .map((o) => paraBrasilia(new Date(o.created_at)).data);
   const doAno = (m: string) => m.startsWith(`${ano}-`);
   const tiposCom = (f: (t: (typeof tipos)[number]) => boolean) =>
     new Set(tipos.filter(f).map((t) => t.tipo));
@@ -82,9 +110,9 @@ export async function dadosDoPainel(
     tiposOcupacao: tiposCom((t) => t.conta_ocupacao),
     tiposMidia: tiposCom((t) => t.receita === "midia"),
     tiposEventos: tiposCom((t) => t.receita === "eventos"),
-    leads: rd.oportunidades
-      .filter((o) => o.deal_pipeline.name === params.funil_padrao)
-      .map((o) => paraBrasilia(new Date(o.created_at)).data),
+    leads: criacoes(params.funil_padrao),
+    leadsMidia: criacoes(params.funil_midia),
+    contatos,
     fotos,
     carencias: comCarencia,
     exemplo: enet.exemplo,

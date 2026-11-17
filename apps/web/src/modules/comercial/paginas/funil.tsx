@@ -113,12 +113,14 @@ function Funil({ f }: { f: FiltrosCom }) {
   const mesUrl = Number(f.um("mes"));
   const mes =
     Number.isInteger(mesUrl) && mesUrl >= 1 && mesUrl <= 12 ? mesUrl : null;
-  const funilUrl = f.um("funil");
+  const lp = f.um("lp") || null;
+  // Landing page escolhida sem funil escolhido: olha todos os funis (os leads
+  // de Eventos e de Mídia caem em funis próprios, não no padrão).
+  const funilUrl = f.um("funil") || (lp ? TODOS_FUNIS : "");
   const funil = funilUrl === TODOS_FUNIS ? null : funilUrl || d.funilPadrao;
   const campanha = f.um("campanha") || null;
   const fonte = f.um("fonte") || null;
   const responsavel = f.um("resp") || null;
-  const lp = f.um("lp") || null;
   const estado = ESTADO_DA_URL[f.um("estado")] ?? null;
 
   const todas = d.oportunidades;

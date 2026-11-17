@@ -115,6 +115,7 @@ export interface RespostaContrato {
   atualizadoEm?: string;
   status?: StatusContrato;
   versao?: number;
+  fichaSolta?: boolean;
 }
 
 /** O `refresh()` de antes: as telas de contratos buscam de novo. */
@@ -135,6 +136,7 @@ async function gravar(
       atualizadoEm: r.atualizadoEm,
       status: r.status,
       versao: r.versao,
+      fichaSolta: r.fichaSolta,
     };
   } catch (e) {
     return { erro: mensagemDoErro(e) };

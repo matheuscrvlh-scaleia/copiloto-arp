@@ -135,12 +135,14 @@ function CamposDoDocumento({
   nome = "",
   categoria = "",
   blocos = [],
+  lucs = [],
   todoContrato = false,
 }: {
   categorias: string[];
   nome?: string;
   categoria?: string;
   blocos?: string[];
+  lucs?: string[];
   todoContrato?: boolean;
 }) {
   return (
@@ -187,6 +189,20 @@ function CamposDoDocumento({
           className={classeCampo}
         />
       </label>
+      <label className={rotulo}>
+        Só estes LUCs (opcional)
+        <input
+          name="lucs"
+          maxLength={2000}
+          defaultValue={lucs.join(", ")}
+          placeholder="Ex.: 11_101, 11_102"
+          className={classeCampo}
+        />
+        <span className="font-normal text-neutral-400">
+          Vazio: o mapa vai para todo LUC dos blocos acima. Preenchido: só para
+          estes LUCs (a fachada que eles realmente usam).
+        </span>
+      </label>
     </>
   );
 }
@@ -208,6 +224,7 @@ export function SubirDocumento({ categorias }: { categorias: string[] }) {
         nome: String(form.get("nome") ?? ""),
         categoria: String(form.get("categoria") ?? ""),
         blocos: listaDeBlocos(form.get("blocos")),
+        lucs: listaDeBlocos(form.get("lucs")),
         todoContrato: form.get("todo_contrato") === "sim",
       },
       versao,
@@ -228,7 +245,7 @@ export function SubirDocumento({ categorias }: { categorias: string[] }) {
       rotulo="Subir documento"
       icone={<FilePlus2 className="size-4" aria-hidden />}
       titulo="Subir documento"
-      descricao="Entra no kit como a versão atual. Mapas de fachada: diga os blocos atendidos."
+      descricao="Entra no kit como a versão atual. Mapas de fachada: diga os blocos atendidos e, se a fachada não serve a todo o bloco, os LUCs."
       enviar="Salvar"
       enviando="Enviando…"
       variante="primario"
@@ -293,6 +310,7 @@ export function EditarDocumento({
     nome: string;
     categoria: string;
     blocos: string[];
+    lucs: string[];
     todo_contrato: boolean;
     ativo: boolean;
     versaoId: string | null;
@@ -315,6 +333,7 @@ export function EditarDocumento({
         nome={documento.nome}
         categoria={documento.categoria}
         blocos={documento.blocos}
+        lucs={documento.lucs}
         todoContrato={documento.todo_contrato}
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -351,6 +370,7 @@ export interface DocumentoParaKit {
   ativo: boolean;
   todo_contrato: boolean;
   blocos: string[];
+  lucs: string[];
   ordem: number;
   versao: string | null;
   validade: string | null;
@@ -372,8 +392,8 @@ export function BaixarKitDoLuc({
   const [luc, setLuc] = useState(lucs[0]?.numero ?? "");
   const escolhido = lucs.find((l) => l.numero === luc);
   const itens = useMemo(
-    () => itensDoKit(documentos, escolhido?.bloco ?? null),
-    [documentos, escolhido],
+    () => itensDoKit(documentos, escolhido?.bloco ?? null, luc || null),
+    [documentos, escolhido, luc],
   );
   const avisos = avisosDoKit(
     itens.map((i) => ({

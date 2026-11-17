@@ -14,6 +14,8 @@ import { momento } from "./base";
 //   POST /api/v1/comercial/censo/rodadas                   Formulario → { mensagem }
 //   POST /api/v1/comercial/censo/rodadas/:id/convites      → { mensagem }
 //   POST /api/v1/comercial/censo/rodadas/:id/encerrar      → { mensagem }
+//   POST /api/v1/comercial/censo/rodadas/:id/editar        Formulario → { mensagem }
+//   POST /api/v1/comercial/censo/rodadas/:id/excluir       → { mensagem }
 //   POST /api/v1/comercial/censo/convites/:id/enviado      → { mensagem }
 //   POST /api/v1/comercial/censo/respostas                 Formulario (modo presencial|demonstracao) → { mensagem }
 //   POST /api/v1/comercial/censo/sugestoes/mover           Formulario → { mensagem }
@@ -45,6 +47,8 @@ export const respostaCenso = momento.extend({
   blocos: z.array(z.string()),
   segmentos: z.array(z.string()),
   expectativas: z.array(z.string()),
+  /** Texto do convite pelo WhatsApp ({formulario} = nome da rodada). */
+  textoConvite: z.string(),
 });
 export type RespostaCenso = z.infer<typeof respostaCenso>;
 

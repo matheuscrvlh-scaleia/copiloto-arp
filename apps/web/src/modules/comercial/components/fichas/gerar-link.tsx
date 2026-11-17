@@ -1,3 +1,4 @@
+import { mensagemDoConvite } from "@arp/shared/comercial/convite";
 import {
   LUC_NAO_SEI,
   ROTULO_TIPO_CURTO,
@@ -23,12 +24,18 @@ export const BOTAO_SECUNDARIO =
   "inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:border-neutral-400 disabled:opacity-60";
 
 /** Endereço com copiar e WhatsApp (mensagem pronta). */
+/** Nome do formulário no texto do convite ({formulario}). */
+const NOME_DO_FORMULARIO = "Ficha cadastral";
+
 export function LinkParaEnviar({
   link,
   validoAte,
+  texto,
 }: {
   link: string;
   validoAte?: string;
+  /** Modelo do convite pelo WhatsApp (parâmetro formulario_texto_convite). */
+  texto: string;
 }) {
   const [copiado, setCopiado] = useState(false);
   const id = useId();
@@ -41,7 +48,11 @@ export function LinkParaEnviar({
       window.prompt("Copie o link da ficha:", link);
     }
   }
-  const mensagem = `Olá! Para seguir com a locação no Espaço ARP, preencha a ficha cadastral por este link${validoAte ? ` (vale até ${validoAte})` : ""}: ${link}`;
+  const mensagem = mensagemDoConvite(
+    validoAte ? `${texto}\n(O link vale até ${validoAte}.)` : texto,
+    NOME_DO_FORMULARIO,
+    link,
+  );
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={id} className="text-xs font-medium text-neutral-600">
@@ -80,11 +91,14 @@ export function LinkParaEnviar({
 export function GerarLink({
   lucs,
   validadeDias,
+  texto,
   lucInicial,
   abrirAoCarregar = false,
 }: {
   lucs: { valor: string; rotulo: string }[];
   validadeDias: number;
+  /** Modelo do convite pelo WhatsApp (parâmetro). */
+  texto: string;
   lucInicial?: string;
   abrirAoCarregar?: boolean;
 }) {
@@ -174,7 +188,11 @@ export function GerarLink({
           </header>
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-3">
             {gerado?.link ? (
-              <LinkParaEnviar link={gerado.link} validoAte={gerado.validoAte} />
+              <LinkParaEnviar
+                link={gerado.link}
+                validoAte={gerado.validoAte}
+                texto={texto}
+              />
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">

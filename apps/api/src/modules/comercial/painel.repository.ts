@@ -13,6 +13,17 @@ export function fotosDoAno(tx: Tx, ano: number) {
     .execute();
 }
 
+/** Data, canal e nota dos contatos do ano (nada do locatário nem da conversa). */
+export function contatosDoAno(tx: Tx, ano: number) {
+  return tx
+    .selectFrom("comercial.contatos")
+    .select(["data", "canal", "nps"])
+    .where("data", ">=", `${ano}-01-01`)
+    .where("data", "<=", `${ano}-12-31`)
+    .orderBy("data")
+    .execute();
+}
+
 /** Aluguel e condições dos contratos feitos no assistente (nada do locatário). */
 export function carencias(tx: Tx) {
   return tx

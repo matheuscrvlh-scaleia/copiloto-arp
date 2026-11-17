@@ -246,9 +246,20 @@ async function carregarDados(pg: PGlite): Promise<void> {
   await pg.exec("reset session_replication_role");
 }
 
+/** Última migration da base (o retrato da produção antiga). */
+const BASE = "0001_base.sql";
+
 async function montar(): Promise<PGlite> {
   const pg = await PGlite.create({ extensions: EXTENSOES });
+  // Como no servidor: a base, os dados que ela já tinha e, por cima, as
+  // migrations novas (que podem mexer nesses dados, ex.: dar ao
+  // Administrador uma permissão nova).
+  let carregou = false;
   for (const m of arquivosDasMigrations()) {
+    if (!carregou && m.nome > BASE) {
+      await carregarDados(pg);
+      carregou = true;
+    }
     try {
       await pg.exec(m.sql);
     } catch (e) {
@@ -256,7 +267,7 @@ async function montar(): Promise<PGlite> {
     }
     await pg.exec("reset all");
   }
-  await carregarDados(pg);
+  if (!carregou) await carregarDados(pg);
   await pg.exec(`
     create role arp_api login noinherit;
     grant anon, authenticated, service_role to arp_api;

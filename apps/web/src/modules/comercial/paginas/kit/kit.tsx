@@ -185,6 +185,7 @@ function Kit({ f }: { f: FiltrosCom }) {
                 ativo: d.ativo,
                 todo_contrato: d.todo_contrato,
                 blocos: d.blocos,
+                lucs: d.lucs,
                 ordem: d.ordem,
                 versao: d.atual?.versao ?? null,
                 validade: d.atual?.validade ?? null,

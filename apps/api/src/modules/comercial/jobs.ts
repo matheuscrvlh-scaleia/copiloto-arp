@@ -15,6 +15,7 @@ import { dadosEnet } from "./fontes";
 import { limparPreviasAbandonadas } from "./importacoes.service";
 import * as repo from "./jobs.repository";
 import { lerFichasComSocios } from "./relacionamento.service";
+import { rotinaDoSac } from "./sac.service";
 
 // Rotina diária do Comercial (a antiga /api/cron/comercial, no mesmo
 // horário UTC), só dentro do sistema (nada vai para o locatário):
@@ -249,5 +250,11 @@ export const rotinasDoComercial: Rotina[] = [
     executar: async () => {
       await rodarRotinasComercial(new Date());
     },
+  },
+  {
+    // Registros do SAC no Asana → contatos do Relacionamento.
+    nome: "comercial.sac",
+    cron: "30 10 * * *",
+    executar: rotinaDoSac,
   },
 ];

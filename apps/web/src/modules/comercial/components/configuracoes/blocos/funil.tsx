@@ -35,15 +35,16 @@ export function BlocoFunil({
   const comDePara = new Set(fontes.map((f) => f.fonte_rd));
   const semDePara = fontesDoRd.filter((f) => !comDePara.has(f));
   const funis = [...new Set([p.funil_padrao, ...funisDoRd])];
+  const funisMidia = [...new Set([p.funil_midia, ...funisDoRd])];
   return (
     <>
       <Secao
-        titulo="Funil padrão"
-        descricao="Funil do RD que o Funil comercial e o Painel abrem por padrão."
+        titulo="Funis do RD"
+        descricao="Funil padrão: o que o Funil comercial e o Painel abrem por padrão (leads do Comercial). Funil de mídia: os leads de mídia do quadro de clientes do Painel."
       >
         <FormBloco
           bloco="funil"
-          className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,24rem)_auto]"
+          className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,24rem)_minmax(0,24rem)_auto]"
         >
           <label className={rotulo}>
             Funil padrão
@@ -52,6 +53,15 @@ export function BlocoFunil({
               obrigatorio
               valorInicial={p.funil_padrao}
               opcoes={opcoes(funis)}
+            />
+          </label>
+          <label className={rotulo}>
+            Funil de mídia
+            <Selecao
+              name="funil_midia"
+              obrigatorio
+              valorInicial={p.funil_midia}
+              opcoes={opcoes(funisMidia)}
             />
           </label>
         </FormBloco>
