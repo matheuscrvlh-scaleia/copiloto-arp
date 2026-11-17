@@ -1,5 +1,6 @@
 import type { TelaDoMenu } from "@arp/shared/ia/contratos";
 import type { Contexto } from "@/contexto";
+import { INSTRUCOES_DE_MARKETING } from "./marketing";
 
 // O que a IA ARP sabe antes de cada resposta.
 // - Instruções fixas + catálogo de fontes: iguais para todo mundo, vão no
@@ -31,7 +32,7 @@ export function montarInstrucoes(catalogo: string, daEmpresa: string): string {
   const empresa = daEmpresa.trim()
     ? `\n\n# Orientações da empresa\n${daEmpresa.trim()}`
     : "";
-  return `${FIXAS}${empresa}\n\n# Catálogo de fontes\nCada linha: caminho ?parâmetros → campos da resposta [permissão exigida].\n\n${catalogo}`;
+  return `${FIXAS}\n\n${INSTRUCOES_DE_MARKETING}${empresa}\n\n# Catálogo de fontes\nCada linha: caminho ?parâmetros → campos da resposta [permissão exigida].\n\n${catalogo}`;
 }
 
 const DATA = new Intl.DateTimeFormat("pt-BR", {

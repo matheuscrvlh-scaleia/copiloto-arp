@@ -42,6 +42,11 @@ import {
   perguntar,
 } from "../api";
 import { Markdown } from "./markdown";
+import {
+  ehTelaDeMarketing,
+  SUGESTOES_DE_MARKETING,
+  type Sugestao,
+} from "./sugestoes-marketing";
 
 // Painel da IA ARP: abre ao lado da tela (a pessoa continua vendo o que
 // estava vendo), guarda a conversa enquanto a página não recarrega e
@@ -130,13 +135,23 @@ export default function Assistente({
       ),
     [secoes],
   );
-  const sugestoes = useMemo(
+  const sugestoes = useMemo<readonly Sugestao[]>(
     () =>
-      SUGESTOES.filter(
-        (s) => s.permissao === null || sessao.pode(s.permissao),
-      ).slice(0, 4),
-    [sessao],
+      ehTelaDeMarketing(caminho)
+        ? SUGESTOES_DE_MARKETING
+        : SUGESTOES.filter(
+            (s) => s.permissao === null || sessao.pode(s.permissao),
+          )
+            .slice(0, 4)
+            .map((s) => ({ texto: s.texto, completar: false })),
+    [sessao, caminho],
   );
+
+  function escolher(s: Sugestao) {
+    if (!s.completar) return void enviar(s.texto);
+    setTexto(s.texto);
+    campo.current?.focus();
+  }
 
   useEffect(() => {
     if (aberto) campo.current?.focus();
@@ -355,8 +370,9 @@ export default function Assistente({
           ) : mensagens.length === 0 ? (
             <Inicio
               nome={primeiroNome(sessao.usuario.nome)}
-              sugestoes={sugestoes.map((s) => s.texto)}
-              aoEscolher={(t) => void enviar(t)}
+              sugestoes={sugestoes}
+              aoEscolher={escolher}
+              marketing={ehTelaDeMarketing(caminho)}
               bloqueio={bloqueio}
             />
           ) : (
@@ -453,10 +469,12 @@ function Inicio({
   sugestoes,
   aoEscolher,
   bloqueio,
+  marketing,
 }: {
+  marketing: boolean;
   nome: string;
-  sugestoes: string[];
-  aoEscolher: (t: string) => void;
+  sugestoes: readonly Sugestao[];
+  aoEscolher: (s: Sugestao) => void;
   bloqueio: string | null;
 }) {
   return (
@@ -466,8 +484,9 @@ function Inicio({
           Olá{nome ? `, ${nome}` : ""}.
         </p>
         <p className="mt-1 text-sm text-neutral-500">
-          Pergunte sobre qualquer dado do sistema que você já pode ver:
-          indicadores, listas, comparações e onde encontrar cada coisa.
+          {marketing
+            ? "Peça ideias, textos, revisão ou um calendário de conteúdo: a IA usa a marca, o público e a agenda cadastrados no Marketing. E pergunte sobre os números também."
+            : "Pergunte sobre qualquer dado do sistema que você já pode ver: indicadores, listas, comparações e onde encontrar cada coisa."}
         </p>
       </div>
       {bloqueio ? (
@@ -480,13 +499,13 @@ function Inicio({
       ) : (
         <ul className="flex flex-col gap-2">
           {sugestoes.map((s) => (
-            <li key={s}>
+            <li key={s.texto}>
               <button
                 type="button"
                 onClick={() => aoEscolher(s)}
                 className="w-full rounded-2xl border border-neutral-200 bg-white/50 px-4 py-3 text-left text-sm text-neutral-700 transition hover:border-neutral-300 hover:bg-white"
               >
-                {s}
+                {s.completar ? `${s.texto.trim()} …` : s.texto}
               </button>
             </li>
           ))}
