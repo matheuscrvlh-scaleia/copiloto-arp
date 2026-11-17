@@ -108,7 +108,16 @@ export interface EntradaDoPainel {
   anterior: PeriodoApurado;
   /** Volume reciclado desde o início (null sem marco nem dado) e o último ano de marco. */
   desdeOInicio: { valor: number | null; marcoAteAno: number | null };
-  agua: { m3: number | null; anterior: number | null; incompleta: boolean };
+  /**
+   * Água do último mês com leitura até o filtro (`mes`, aaaa-mm-01; é o mês
+   * do filtro quando não há leitura nenhuma) e o mesmo mês do ano anterior.
+   */
+  agua: {
+    mes: string;
+    m3: number | null;
+    anterior: number | null;
+    incompleta: boolean;
+  };
   /** Null sem nenhum participante cadastrado. */
   clube: ClubeApurado | null;
   entrevistas: EntrevistasApuradas;
@@ -287,30 +296,38 @@ export function montarCartoes(e: EntradaDoPainel): CartaoDoPainel[] {
     ),
   );
 
-  // Água do mês e variação sobre o mesmo mês do ano anterior (sempre).
+  // Água do último mês com leitura e variação sobre o mesmo mês do ano
+  // anterior (sempre).
+  const compAgua = e.agua.mes;
+  const anoAgua = Number(compAgua.slice(0, 4));
+  const mesAgua = Number(compAgua.slice(5, 7));
   const va = variacao(e.agua.m3, e.agua.anterior);
   cartoes.push({
     chave: "consumo_agua",
-    titulo: `Consumo de água – ${mes}`,
-    valor: valorComUnidade(e.agua.m3, comp, 0, "m³"),
+    titulo: `Consumo de água – ${MESES_CURTOS[mesAgua - 1]}/${anoAgua}`,
+    valor: valorComUnidade(e.agua.m3, compAgua, 0, "m³"),
     semDado: e.agua.m3 === null,
     detalhe:
       e.agua.m3 !== null && e.agua.anterior !== null
-        ? `${mesmoMesDoAnoAnterior(comp).slice(0, 4)}: ${num(e.agua.anterior, 0)} m³`
+        ? `${anoAgua - 1}: ${num(e.agua.anterior, 0)} m³`
         : undefined,
     variacao:
       va === null
         ? undefined
         : {
-            texto: `${va > 0 ? "+" : ""}${num(va, 1)}% sobre ${formatarMesNumerico(mesmoMesDoAnoAnterior(comp))}`,
+            texto: `${va > 0 ? "+" : ""}${num(va, 1)}% sobre ${formatarMesNumerico(mesmoMesDoAnoAnterior(compAgua))}`,
             sentido: sentidoDaVariacao(va, "menor_melhor"),
           },
     aviso:
-      e.agua.incompleta && e.agua.m3 !== null
-        ? "Mês incompleto em Operações: o consumo pode estar abaixo do real."
-        : undefined,
+      e.agua.m3 === null
+        ? undefined
+        : compAgua !== comp
+          ? `${mes} ainda sem leitura em Operações: mostrando o último mês importado.`
+          : e.agua.incompleta
+            ? "Mês incompleto em Operações: o consumo pode estar abaixo do real."
+            : undefined,
     ...m("consumo_agua", e.agua.m3),
-    href: hrefDeOrigem("agua", f),
+    href: hrefDeOrigem("agua", { ...f, ano: anoAgua, ateMes: mesAgua }),
     fonte: "Módulo Operações · água",
   });
 
@@ -625,7 +642,7 @@ export function montarComparacao(e: EntradaDoPainel): LinhaDeComparacao[] {
       "consumo_agua",
       e.agua.m3,
       e.agua.anterior,
-      `Consumo de água – ${MESES_CURTOS[f.ateMes - 1]}`,
+      `Consumo de água – ${MESES_CURTOS[Number(e.agua.mes.slice(5, 7)) - 1]}`,
     ),
     linha("rcc_total", rcc.total.total, antes.total.total),
     linha("rcc_reciclado_pct", rcc.pctReciclado, antes.pctReciclado),

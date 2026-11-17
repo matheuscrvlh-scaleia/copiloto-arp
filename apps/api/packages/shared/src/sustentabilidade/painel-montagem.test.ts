@@ -56,7 +56,7 @@ function entrada(p: Partial<EntradaDoPainel> = {}): EntradaDoPainel {
     atual: periodo(2026),
     anterior: periodo(2025, { volume: mensal([50, 100, 150]) }),
     desdeOInicio: { valor: 41_250 + 600, marcoAteAno: 2025 },
-    agua: { m3: 1000, anterior: 950, incompleta: false },
+    agua: { mes: "2026-03-01", m3: 1000, anterior: 950, incompleta: false },
     clube: {
       ativos: 27,
       locatarios: 27,
@@ -117,7 +117,7 @@ describe("cartões do painel", () => {
         energia: mensal([null, null, null]),
         volume: mensal([null, null, null]),
       }),
-      agua: { m3: null, anterior: null, incompleta: false },
+      agua: { mes: "2026-03-01", m3: null, anterior: null, incompleta: false },
       clube: null,
       entrevistas: {
         emDia: 0,
@@ -164,7 +164,9 @@ describe("cartões do painel", () => {
 
   it("água: variação sobre o mesmo mês do ano anterior (sempre) e aviso de mês incompleto", () => {
     const m = porChave(
-      entrada({ agua: { m3: 1100, anterior: 1000, incompleta: true } }),
+      entrada({
+        agua: { mes: "2026-03-01", m3: 1100, anterior: 1000, incompleta: true },
+      }),
     );
     expect(m.consumo_agua?.titulo).toBe("Consumo de água – mar/2026");
     expect(m.consumo_agua?.valor).toBe("1.100 m³");
@@ -172,6 +174,21 @@ describe("cartões do painel", () => {
     // mais água que antes é ruim
     expect(m.consumo_agua?.variacao?.sentido).toBe("ruim");
     expect(m.consumo_agua?.aviso).toContain("incompleto");
+  });
+
+  it("água: mês do filtro sem leitura mostra o último mês importado", () => {
+    const m = porChave(
+      entrada({
+        agua: { mes: "2026-01-01", m3: 900, anterior: 1000, incompleta: false },
+      }),
+    );
+    expect(m.consumo_agua?.titulo).toBe("Consumo de água – jan/2026");
+    expect(m.consumo_agua?.valor).toBe("900 m³");
+    expect(m.consumo_agua?.variacao?.texto).toBe("-10,0% sobre 01/2025");
+    expect(m.consumo_agua?.aviso).toBe(
+      "mar/2026 ainda sem leitura em Operações: mostrando o último mês importado.",
+    );
+    expect(m.consumo_agua?.href).toBe("/operacoes/agua?mes=2026-01");
   });
 
   it("variação do ano só aparece com 'comparar'", () => {

@@ -7,6 +7,7 @@ import type {
   RespostaPainel,
 } from "@arp/shared/sustentabilidade/contratos/painel";
 import type { CamposDeFormulario } from "@arp/shared/sustentabilidade/contratos/parametros";
+import { mesmoMesDoAnoAnterior } from "@arp/shared/sustentabilidade/painel";
 import {
   apurarClube,
   apurarEntrevistas,
@@ -181,9 +182,11 @@ export async function dadosDoPainel(
     const primeiro = Math.min(f.ano - 1, b.primeiroAno ?? f.ano - 1);
     try {
       [agua, solar] = await banco.comoServico(async (tx) => [
+        // 24 meses: o último mês com leitura (até 12 para trás) e o mesmo
+        // mês do ano anterior.
         await consumoDeAguaPorMes(
           tx,
-          `${f.ano - 1}-${mes}-01`,
+          `${f.ano - 2}-${mes}-01`,
           `${f.ano}-${mes}-01`,
         ),
         await geracaoSolarPorMes(tx, `${primeiro}-01-01`, `${f.ano}-12-01`),
@@ -260,8 +263,13 @@ export async function dadosDoPainel(
 
   const dataFoto = dataDeReferencia(f.ano, f.ateMes, hoje);
   const comp = competenciaDoFiltro(f);
-  const mesAnterior = `${f.ano - 1}-${String(f.ateMes).padStart(2, "0")}-01`;
-  const doMes = agua.find((a) => a.mes === comp);
+  // Último mês com leitura nos 12 meses até o filtro (a fatura do mês
+  // chega depois; sem isso o cartão fica vazio até a importação).
+  const doMes = agua
+    .filter((a) => a.mes <= comp && a.mes > mesmoMesDoAnoAnterior(comp))
+    .at(-1);
+  const compAgua = doMes?.mes ?? comp;
+  const mesAnterior = mesmoMesDoAnoAnterior(compAgua);
   const metas: Partial<Record<ChaveDoIndicador, MetaDoPainel>> = {};
   for (const chave of CHAVES_COM_META) {
     const m = metaVigente(b.metas, indicadorDaMeta(chave), comp);
@@ -286,6 +294,7 @@ export async function dadosDoPainel(
       fechados,
     }),
     agua: {
+      mes: compAgua,
       m3: doMes?.m3_total ?? null,
       anterior: agua.find((a) => a.mes === mesAnterior)?.m3_total ?? null,
       incompleta: doMes?.incompleta ?? false,
@@ -332,8 +341,9 @@ export async function dadosDoPainel(
     b.exemplo.clube && "Clube",
     b.exemplo.contratos && "Entrevistas e contratos",
     b.exemplo.marcos && "Marco inicial",
-    agua.some((a) => a.exemplo && (a.mes === comp || a.mes === mesAnterior)) &&
-      "Água (Operações)",
+    agua.some(
+      (a) => a.exemplo && (a.mes === compAgua || a.mes === mesAnterior),
+    ) && "Água (Operações)",
     solar.some((s) => s.exemplo && anoDe(s.mes) >= f.ano - 1) &&
       "Energia (Operações)",
   ].filter((x): x is string => typeof x === "string");

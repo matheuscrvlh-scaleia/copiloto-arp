@@ -42,7 +42,7 @@ const entrada = (comValores: boolean): EntradaDoPainel => ({
   atual: periodo(2026),
   anterior: periodo(2025),
   desdeOInicio: { valor: 60000, marcoAteAno: 2025 },
-  agua: { m3: 1100, anterior: 1000, incompleta: true },
+  agua: { mes: "2026-10-01", m3: 1100, anterior: 1000, incompleta: true },
   clube: { ativos: 27, locatarios: 27, clientes: 178, participacao: 15.2 },
   entrevistas: {
     emDia: 150,
