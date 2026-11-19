@@ -357,9 +357,6 @@ function AbaArp({
         <Cartoes modulo="marketing">
           <CartaoDaTela
             titulo="Nota média"
-            exemplo={
-              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-            }
             valor={nota(notaArp)}
             detalhe={
               local
@@ -378,9 +375,6 @@ function AbaArp({
           />
           <CartaoDaTela
             titulo="Avaliações novas no mês"
-            exemplo={
-              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-            }
             valor={formatarNumero(mes.novas)}
             variacao={variacaoContra(
               mes.novas,
@@ -399,9 +393,6 @@ function AbaArp({
           />
           <CartaoDaTela
             titulo="Reclamações no mês"
-            exemplo={
-              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-            }
             valor={formatarNumero(mes.reclamacoes)}
             variacao={variacaoContra(
               mes.reclamacoes,
@@ -416,9 +407,6 @@ function AbaArp({
           />
           <CartaoDaTela
             titulo="Sem resposta"
-            exemplo={
-              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-            }
             valor={formatarNumero(mes.semResposta)}
             detalhe={`No mês. Taxa de resposta ${formatarPct(mes.taxaResposta)}${mes.tempoMedianoResposta !== null ? ` · tempo mediano ${textoDias(mes.tempoMedianoResposta)}` : ""}`}
             calculo="Avaliações do mês sem resposta do dono (reviewReply). Responder é no Google: o link fica em cada linha."
@@ -476,9 +464,6 @@ function AbaArp({
             tom="verde"
             titulo="Estrelas"
             calculo="Avaliações da ARP feitas no período, contadas por número de estrelas (starRating), de 5 a 1. Fonte: Google Perfil da Empresa."
-            exemplo={
-              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-            }
             descricao={`${f.rotulo}, de 5 a 1`}
           >
             <BarrasHorizontais
@@ -508,9 +493,6 @@ function AbaArp({
           <Secao
             titulo="Nota média por mês"
             calculo="Média das estrelas das avaliações feitas em cada mês (createTime), últimos 12 meses. Não é a nota acumulada do perfil. Linha tracejada: meta de nota média (Configurações › Metas). Fonte: Google Perfil da Empresa."
-            exemplo={
-              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-            }
             descricao="Últimos 12 meses: média das estrelas das avaliações de cada mês"
           >
             <Linhas
@@ -542,9 +524,6 @@ function AbaArp({
           tom="escuro"
           titulo="Reclamações por mês"
           calculo="Avaliações da ARP em cada mês com as estrelas que contam como reclamação (Configurações › Reputação), últimos 12 meses. Fonte: Google Perfil da Empresa."
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
           descricao={`Últimos 12 meses: avaliações de ${estrelasRecl} estrelas`}
         >
           <Colunas
@@ -769,9 +748,6 @@ function AbaLocatarios({
           />
           <CartaoDaTela
             titulo="Nota média geral"
-            exemplo={
-              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-            }
             valor={nota(notaGeral)}
             detalhe={`Média simples de ${comNota.length} ${comNota.length === 1 ? "locatário" : "locatários"} com nota`}
             calculo="Média das notas do Google (averageRating) dos locatários com dados; quem está sem dados fica de fora."
@@ -779,9 +755,6 @@ function AbaLocatarios({
           />
           <CartaoDaTela
             titulo="Reclamações no período"
-            exemplo={
-              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-            }
             valor={formatarNumero(reclamacoes)}
             variacao={variacaoContra(
               reclamacoes,
@@ -798,9 +771,6 @@ function AbaLocatarios({
           />
           <CartaoDaTela
             titulo="Lojas em alerta"
-            exemplo={
-              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-            }
             valor={formatarNumero(conta("alerta"))}
             detalhe={`${conta("atencao")} em atenção · últimos ${p.janela_reputacao_dias} dias`}
             calculo={`${regra} (Configurações).`}
@@ -876,9 +846,6 @@ function AbaLocatarios({
           <Secao
             titulo="Reclamações por tema"
             calculo="Reclamações dos locatários no período (avaliações com as estrelas de reclamação), todos juntos, por tema. O tema é a classificação automática do texto da avaliação numa lista fixa (Configurações › Reputação). Fonte: Google Perfil da Empresa."
-            exemplo={
-              "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-            }
             descricao={`${f.rotulo} · todos os locatários juntos`}
           >
             <BarrasHorizontais
@@ -900,9 +867,6 @@ function AbaLocatarios({
         <Secao
           titulo="Locatário × tema"
           calculo="Cada célula: reclamações daquele locatário naquele tema, no período. Cor mais forte, mais reclamações. Tema pela lista de Configurações. Fonte: Google Perfil da Empresa dos locatários que deram acesso à ARP."
-          exemplo={
-            "avaliações do Google Perfil da Empresa, até a ferramenta ser ligada"
-          }
           descricao="Reclamações no período. Clique na célula para ver as avaliações daquele tema."
         >
           {comReclamacao.length ? (

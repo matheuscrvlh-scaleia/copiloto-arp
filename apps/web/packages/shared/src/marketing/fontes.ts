@@ -1,7 +1,7 @@
 // Registros de cada ferramenta com os nomes de campo das APIs oficiais (spec
 // do Marketing, seção 4.1). Cada conector valida a resposta com Zod e
-// devolve estes tipos; as fontes ainda não ligadas (Google e TikTok) têm
-// dados de exemplo nestes mesmos formatos. Só o que está aqui pode aparecer em tela.
+// devolve estes tipos; as fontes ainda não ligadas (YouTube, Perfil da Empresa
+// e TikTok) vêm vazias, sem dado de exemplo. Só o que está aqui pode aparecer em tela.
 //
 // Datas: "aaaa-mm-dd" (dia do relatório) ou ISO com fuso (instantes).
 // Valores: número (as APIs mandam texto em alguns casos; o conector converte).

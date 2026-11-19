@@ -412,7 +412,6 @@ function Painel({ f }: { f: FiltrosLidos }) {
         {ve("nota_google") && pode("marketing.reputacao") && (
           <CartaoDaTela
             titulo="Nota no Google"
-            exemplo="avaliações do Google (o Perfil da Empresa ainda não foi ligado)"
             valor={rep.notaArp === null ? "—" : formatarNumero(rep.notaArp, 1)}
             detalhe={
               rep.totalArp === null
@@ -523,7 +522,6 @@ function Painel({ f }: { f: FiltrosLidos }) {
         {ve("campanhas") && pode("marketing.anuncios") && (
           <CartaoDaTela
             titulo="Campanhas ativas"
-            exemplo="campanhas do TikTok Ads (Meta e Google são reais)"
             valor={formatarNumero(campanhas.linhas.length)}
             variacao={variacaoContra(
               campanhas.linhas.length,
@@ -540,7 +538,6 @@ function Painel({ f }: { f: FiltrosLidos }) {
         {ve("investimento") && pode("marketing.anuncios") && (
           <CartaoDaTela
             titulo="Investimento em anúncios"
-            exemplo="investimento do TikTok Ads (Meta e Google são reais)"
             valor={formatarMoeda(ads.investimento)}
             variacao={variacaoContra(
               ads.investimento,

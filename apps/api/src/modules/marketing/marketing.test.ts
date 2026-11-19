@@ -137,14 +137,15 @@ descreverComBanco("marketing (/api/v1/marketing)", () => {
       expect(meta.indicador.startsWith("marketing.")).toBe(true);
   });
 
-  it("ferramenta que não responde: fonte real vazia, com aviso; exemplo continua", async () => {
+  it("ferramenta que não responde: fonte real vazia, com aviso; sem exemplo", async () => {
     const a = (await admin.pedir("GET", `${MKT}/fontes/anuncios`)).json();
     expect(a.metaReal).toBe(false);
     expect(typeof a.avisoMeta).toBe("string");
     expect(a.googleReal).toBe(false);
     expect(a.meta.insights).toEqual([]);
-    // TikTok é de exemplo: 2 campanhas.
-    expect(a.tiktok.campanhas).toHaveLength(2);
+    // TikTok não está ligado: vazio, sem dado de exemplo.
+    expect(a.tiktok.campanhas).toEqual([]);
+    expect(a.campanhas).toEqual([]);
 
     const s = (await admin.pedir("GET", `${MKT}/fontes/site`)).json();
     expect(s.siteReal).toBe(false);
@@ -155,9 +156,12 @@ descreverComBanco("marketing (/api/v1/marketing)", () => {
     expect(typeof asana.aviso).toBe("string");
   });
 
-  it("reputação de exemplo traz a ARP; histórico respeita o limite", async () => {
+  it("reputação e redes não ligadas vêm vazias; histórico respeita o limite", async () => {
     const r = (await admin.pedir("GET", `${MKT}/fontes/reputacao`)).json();
-    expect(r.locais.some((l: { id: string }) => l.id === "arp")).toBe(true);
+    expect(r).toEqual({ locais: [], avaliacoes: [], temas: [] });
+    const redes = (await admin.pedir("GET", `${MKT}/fontes/redes`)).json();
+    expect(redes.youtube.dias).toEqual([]);
+    expect(redes.tiktok.videos).toEqual([]);
     const h = (await admin.pedir("GET", `${MKT}/historico?limite=3`)).json();
     expect(h.alteracoes.length).toBeLessThanOrEqual(3);
   });

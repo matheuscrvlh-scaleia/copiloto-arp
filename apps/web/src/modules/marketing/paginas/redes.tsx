@@ -20,7 +20,7 @@ import {
 } from "@arp/shared/marketing/redes";
 import { visiveisDa } from "@arp/shared/marketing/visualizacao";
 import { useSuspenseQueries } from "@tanstack/react-query";
-import { Clapperboard, Share2, TriangleAlert } from "lucide-react";
+import { Clapperboard, Share2 } from "lucide-react";
 import { Suspense } from "react";
 import {
   CartaoCarregando,
@@ -185,10 +185,6 @@ function Redes({ f }: { f: FiltrosLidos }) {
         <Cartoes modulo="marketing">
           <CartaoDaTela
             titulo="Seguidores"
-            exemplo={
-              redes.some((r) => r === "youtube" || r === "tiktok") &&
-              "seguidores do YouTube e do TikTok (Instagram e Facebook são reais)"
-            }
             valor={formatarNumero(t.seguidores)}
             variacao={variacaoContra(
               t.seguidores,
@@ -204,10 +200,6 @@ function Redes({ f }: { f: FiltrosLidos }) {
           />
           <CartaoDaTela
             titulo="Novos seguidores no período"
-            exemplo={
-              redes.some((r) => r === "youtube" || r === "tiktok") &&
-              "seguidores do YouTube e do TikTok (Instagram e Facebook são reais)"
-            }
             valor={formatarNumero(t.novos)}
             variacao={variacaoContra(t.novos, ta.novos, f.rotuloAnterior)}
             detalhe={
@@ -220,10 +212,6 @@ function Redes({ f }: { f: FiltrosLidos }) {
           />
           <CartaoDaTela
             titulo="Alcance e visualizações"
-            exemplo={
-              redes.some((r) => r === "youtube" || r === "tiktok") &&
-              "visualizações do YouTube e do TikTok (Instagram e Facebook são reais)"
-            }
             valor={formatarNumero(t.alcanceEVisualizacoes)}
             variacao={variacaoContra(
               t.alcanceEVisualizacoes,
@@ -236,10 +224,6 @@ function Redes({ f }: { f: FiltrosLidos }) {
           />
           <CartaoDaTela
             titulo="Interações"
-            exemplo={
-              redes.some((r) => r === "youtube" || r === "tiktok") &&
-              "interações do YouTube e do TikTok (Instagram e Facebook são reais)"
-            }
             valor={formatarNumero(t.interacoes)}
             variacao={variacaoContra(
               t.interacoes,
@@ -348,10 +332,6 @@ function Redes({ f }: { f: FiltrosLidos }) {
           <Secao
             titulo="Seguidores por rede"
             calculo="Seguidores no fim de cada semana, pela foto diária de cada rede. Instagram e Facebook: followers_count gravado todo dia pela sincronização da Meta (06h45). YouTube: inscritos de hoje, voltando os ganhos e perdas de cada dia. TikTok: followers_count. Antes da primeira foto não há número. Cada mini-gráfico tem a própria escala."
-            exemplo={
-              redes.some((r) => r === "youtube" || r === "tiktok") &&
-              "YouTube e TikTok (Instagram e Facebook são reais)"
-            }
             descricao="Últimas 12 semanas, no fim de cada semana. Cada rede na sua escala."
           >
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -365,12 +345,6 @@ function Redes({ f }: { f: FiltrosLidos }) {
                     <p className="flex items-baseline justify-between gap-2 text-sm">
                       <span className="inline-flex items-center gap-1 font-medium">
                         {REDES[h.rede].rotulo}
-                        {(h.rede === "youtube" || h.rede === "tiktok") && (
-                          <TriangleAlert
-                            className="size-3 text-amber-500"
-                            aria-label="Dados de exemplo"
-                          />
-                        )}
                       </span>
                       <span className="tabular-nums text-neutral-600">
                         {ultimo ? formatarNumero(ultimo.valor) : "—"}

@@ -406,7 +406,7 @@ export const dadosAsana = z.object({
 export type DadosAsana = z.infer<typeof dadosAsana>;
 
 // ---------------------------------------------------------------------------
-// Reputação (Google Perfil da Empresa; ainda de exemplo)
+// Reputação (Google Perfil da Empresa; ainda não ligado, vem vazio)
 // ---------------------------------------------------------------------------
 
 export const googleLocal: z.ZodType<GoogleLocal> = z.object({

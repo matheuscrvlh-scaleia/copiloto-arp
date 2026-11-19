@@ -157,10 +157,6 @@ function Tela() {
             <Cartoes modulo="marketing">
               <CartaoDaTela
                 titulo="Investimento"
-                exemplo={
-                  c.plataforma !== "meta" &&
-                  `investimento da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
-                }
                 valor={formatarMoeda(c.investimento)}
                 variacao={
                   ant
@@ -176,10 +172,6 @@ function Tela() {
               />
               <CartaoDaTela
                 titulo="Leads no RD"
-                exemplo={
-                  c.plataforma !== "meta" &&
-                  `leads da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
-                }
                 valor={formatarNumero(c.leadsRd)}
                 variacao={
                   ant
@@ -191,10 +183,6 @@ function Tela() {
               />
               <CartaoDaTela
                 titulo="Custo por lead"
-                exemplo={
-                  c.plataforma !== "meta" &&
-                  `investimento e leads da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
-                }
                 valor={
                   c.custoPorLead === null
                     ? "sem lead"
@@ -214,10 +202,6 @@ function Tela() {
               />
               <CartaoDaTela
                 titulo="Cliques no link"
-                exemplo={
-                  c.plataforma !== "meta" &&
-                  `cliques da campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
-                }
                 valor={formatarNumero(c.cliques)}
                 detalhe={`CTR ${formatarPct(c.ctr, 2)} · CPC ${formatarMoeda(c.cpc)}${c.frequencia ? ` · frequência ${formatarNumero(c.frequencia, 2)}` : ""}`}
                 fonte={PLATAFORMAS[c.plataforma].ferramenta}
@@ -229,10 +213,6 @@ function Tela() {
                 titulo="Investimento por dia"
                 descricao={f.rotulo}
                 calculo="Investimento (spend) da campanha em cada dia do período, como a plataforma informa no relatório diário. Fonte: Meta Ads, Google Ads ou TikTok Ads, conforme a campanha."
-                exemplo={
-                  c.plataforma !== "meta" &&
-                  `campanha de exemplo do ${PLATAFORMAS[c.plataforma].ferramenta}`
-                }
               >
                 <AreaLinha
                   descricao="Investimento por dia"
@@ -254,10 +234,6 @@ function Tela() {
                 titulo="Leads no RD por dia"
                 descricao={f.rotulo}
                 calculo="Conversões do RD Station em cada dia cujo traffic_campaign (UTM) é igual ao nome desta campanha. As conversões que a plataforma conta ficam de fora. Fonte: RD Station."
-                exemplo={
-                  c.plataforma !== "meta" &&
-                  `leads de exemplo da campanha do ${PLATAFORMAS[c.plataforma].ferramenta}`
-                }
               >
                 <Colunas
                   descricao="Leads no RD por dia"

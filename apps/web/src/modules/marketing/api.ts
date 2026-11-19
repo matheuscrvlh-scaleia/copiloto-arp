@@ -160,7 +160,7 @@ export const consultaDoHistorico = (limite = LIMITE_HISTORICO) =>
 // Fontes (dados das ferramentas)
 // ---------------------------------------------------------------------------
 
-/** GET /marketing/fontes/anuncios: Meta e Google (reais) com TikTok (exemplo). */
+/** GET /marketing/fontes/anuncios: Meta e Google; TikTok vazio (não ligado). */
 export const consultaDosAnuncios = queryOptions({
   queryKey: chavesMarketing.fonte("anuncios"),
   queryFn: ({ signal }) =>
@@ -208,7 +208,7 @@ export const consultaDoAsana = queryOptions({
     api.get("/marketing/fontes/asana", { esquema: dadosAsana, sinal: signal }),
 });
 
-/** GET /marketing/fontes/reputacao (Google Perfil da Empresa, de exemplo). */
+/** GET /marketing/fontes/reputacao (Google Perfil da Empresa; vazio, não ligado). */
 export const consultaDaReputacao = queryOptions({
   queryKey: chavesMarketing.fonte("reputacao"),
   queryFn: ({ signal }) =>

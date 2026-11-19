@@ -173,9 +173,9 @@ export function FerramentasDoMarketing({
         ))}
       </ul>
       <p className="mt-3 text-xs text-neutral-500">
-        Os números das telas continuam de exemplo até a leitura diária de cada
-        ferramenta entrar (V3); ela vai usar os acessos conectados abaixo. A
-        agenda do site já é a real, relida a cada hora.
+        Ferramenta ainda não ligada (YouTube, Perfil da Empresa e TikTok) fica
+        vazia nas telas, sem número de exemplo, até a leitura diária dela
+        entrar. A agenda do site já é a real, relida a cada hora.
       </p>
     </details>
   );
