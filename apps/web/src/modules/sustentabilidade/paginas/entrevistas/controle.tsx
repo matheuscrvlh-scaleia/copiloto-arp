@@ -51,10 +51,14 @@ import {
   TopoDaTela,
 } from "@/components/dashboard/tela";
 import { BotaoExportar } from "@/components/exportar";
-import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
-import { Link } from "@/lib/navegacao";
+import { Link, Redirecionar } from "@/lib/navegacao";
+import { useSessao } from "@/lib/sessao";
 import { consultaDoControle } from "../../api-entrevistas";
+import {
+  abasDeEntrevistas,
+  CabecalhoDeEntrevistas,
+} from "../../components/entrevistas/abas";
 import {
   AGRUPAR,
   type Agrupar,
@@ -79,12 +83,13 @@ const ACESSA = [
 ] as const;
 
 export default function Page() {
+  const sessao = useSessao();
+  // O menu leva para cá; quem só abre outra aba vai direto para ela.
+  const outra = abasDeEntrevistas(sessao)[0];
+  if (!sessao.pode(ACESSA) && outra) return <Redirecionar para={outra.href} />;
   return (
     <>
-      <PageHeader
-        title="Entrevistas de resíduos"
-        description="Para cada contrato ativo, se a entrevista está feita, pendente, a vencer ou vencida. A tarefa de entrevistar é um chamado do setor; aqui ficam as respostas e a cobertura."
-      />
+      <CabecalhoDeEntrevistas descricao="Para cada contrato ativo, se a entrevista está feita, pendente, a vencer ou vencida. A tarefa de entrevistar é um chamado do setor; aqui ficam as respostas e a cobertura." />
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao={ACESSA}>
           <Tela />

@@ -4,6 +4,8 @@ export interface Aba {
   href: string;
   rotulo: string;
   descricao: string;
+  /** true: só fica ativa na própria rota (não nas de baixo). */
+  exata?: boolean;
 }
 
 /** Abas de Configurações: a ativa fica escura, as outras em vidro. */
@@ -15,7 +17,8 @@ export function Abas({ abas }: { abas: Aba[] }) {
       className="vidro flex w-full gap-1 overflow-x-auto rounded-full p-1 sm:w-fit"
     >
       {abas.map((a) => {
-        const ativa = atual === a.href || atual.startsWith(`${a.href}/`);
+        const ativa =
+          atual === a.href || (!a.exata && atual.startsWith(`${a.href}/`));
         return (
           <Link
             key={a.href}

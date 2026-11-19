@@ -1,20 +1,18 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { CartaoCarregando, TelaCarregando } from "@/components/carregando";
-import { EmConstrucao, PageHeader } from "@/components/page-header";
+import { EmConstrucao } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { consultaDoQuestionario } from "../../api-editor";
 import { EditorDeFormulario } from "../../components/editor";
+import { CabecalhoDeEntrevistas } from "../../components/entrevistas/abas";
 
 // /sustentabilidade/entrevistas/questionario (app/(app)/sustentabilidade/entrevistas/questionario/page.tsx).
 
 export default function Page() {
   return (
     <>
-      <PageHeader
-        title="Editar questionário"
-        description="Perguntas da entrevista de diagnóstico de resíduos: criar, editar, duplicar, mover, inativar e excluir perguntas, opções e seções, com rascunho, pré-visualização, publicação e versões."
-      />
+      <CabecalhoDeEntrevistas descricao="Perguntas da entrevista de diagnóstico de resíduos: criar, editar, duplicar, mover, inativar e excluir perguntas, opções e seções, com rascunho, pré-visualização, publicação e versões." />
       <Suspense fallback={<Esqueleto />}>
         <Protegido permissao="sustentabilidade.entrevistas.questionario">
           <Tela />

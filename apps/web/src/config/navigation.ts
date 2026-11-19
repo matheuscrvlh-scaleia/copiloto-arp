@@ -550,19 +550,9 @@ export const navigation: NavSection[] = [
           "sustentabilidade.entrevistas.ver",
           "sustentabilidade.entrevistas.aplicar",
           "sustentabilidade.entrevistas.dispensar",
+          "sustentabilidade.entrevistas.respostas",
+          "sustentabilidade.entrevistas.questionario",
         ],
-      },
-      {
-        href: "/sustentabilidade/entrevistas/respostas",
-        label: "Respostas",
-        icone: "respostas",
-        permissao: "sustentabilidade.entrevistas.respostas",
-      },
-      {
-        href: "/sustentabilidade/entrevistas/questionario",
-        label: "Editar questionário",
-        icone: "questionario",
-        permissao: "sustentabilidade.entrevistas.questionario",
       },
       {
         href: "/sustentabilidade/clube",

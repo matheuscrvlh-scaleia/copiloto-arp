@@ -40,9 +40,9 @@ import { Nota, Secao } from "@/components/dashboard/tabela";
 import { TabelaLista } from "@/components/dashboard/tabela-lista";
 import { TopoDaTela } from "@/components/dashboard/tela";
 import { BotaoExportar } from "@/components/exportar";
-import { PageHeader } from "@/components/page-header";
 import { Protegido } from "@/components/protegido";
 import { consultaDasRespostas } from "../../api-entrevistas";
+import { CabecalhoDeEntrevistas } from "../../components/entrevistas/abas";
 import { type FiltrosSu, useContextoSu, useFiltrosSu } from "../../contexto-su";
 
 // /sustentabilidade/entrevistas/respostas (app/(app)/sustentabilidade/entrevistas/respostas/page.tsx).
@@ -59,10 +59,7 @@ const ORIGEM: Record<string, string> = {
 export default function Page() {
   return (
     <>
-      <PageHeader
-        title="Respostas das entrevistas"
-        description="Todas as entrevistas salvas, uma linha por entrevista, com os gráficos das perguntas que alimentam os indicadores. A planilha sai igual à do Forms."
-      />
+      <CabecalhoDeEntrevistas descricao="Todas as entrevistas salvas, uma linha por entrevista, com os gráficos das perguntas que alimentam os indicadores. A planilha sai igual à do Forms." />
       <Suspense
         fallback={
           <TelaCarregando>
