@@ -60,7 +60,7 @@ export function CabecalhoDoFormulario({
         className="inline-flex w-fit items-center gap-1.5 text-sm text-neutral-500 transition hover:text-neutral-900"
       >
         <ArrowLeft className="size-4" aria-hidden />
-        Relatórios
+        Formulários
       </Link>
       <header data-guia="titulo" className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
@@ -80,7 +80,7 @@ export function CabecalhoDoFormulario({
         </p>
       </header>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <AbasDaTela abas={abas} ativa={aba} rotulo="Partes do relatório" />
+        <AbasDaTela abas={abas} ativa={aba} rotulo="Partes do formulário" />
         <div className="flex flex-wrap gap-2">
           <Link
             href={rotaDoFormulario(f.id, "previa")}

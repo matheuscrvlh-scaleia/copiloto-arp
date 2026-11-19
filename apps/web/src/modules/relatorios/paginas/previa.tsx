@@ -44,7 +44,7 @@ function Previa() {
         className="inline-flex w-fit items-center gap-1.5 text-sm text-neutral-500 transition hover:text-neutral-900"
       >
         <ArrowLeft className="size-4" aria-hidden />
-        Voltar ao relatório
+        Voltar ao formulário
       </Link>
       <FormularioPublico
         titulo={f.titulo}

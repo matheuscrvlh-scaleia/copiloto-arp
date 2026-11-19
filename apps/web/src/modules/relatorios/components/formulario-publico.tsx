@@ -43,7 +43,7 @@ import {
 // Arquivo sobe na hora em que é escolhido. Na prévia nada é enviado.
 // Com "uma seção por página", cada seção é uma página, com barra de
 // progresso; "Próxima" confere só as perguntas da página. A cor de destaque
-// vem do relatório (variável --destaque).
+// vem do formulário (variável --destaque).
 
 type Respostas = Record<string, unknown>;
 

@@ -329,7 +329,7 @@ export const TITULO_DO_MODULO: Record<string, string> = {
   operacoes: "Operações",
   sustentabilidade: "Sustentabilidade",
   calendario: "Calendário",
-  relatorios: "Relatórios",
+  relatorios: "Formulários",
   casca: "Sistema",
 };
 

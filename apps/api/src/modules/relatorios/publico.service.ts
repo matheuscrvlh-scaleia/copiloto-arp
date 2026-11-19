@@ -50,7 +50,7 @@ type Acesso =
   | { id: string; formulario: FormularioPublico }
   | { motivo: MotivoFechado };
 
-/** O relatório do link, ou o motivo de ele estar fechado. */
+/** O formulário do link, ou o motivo de ele estar fechado. */
 export async function peloToken(token: string): Promise<Acesso> {
   if (!tokenValido(token)) return { motivo: "inexistente" };
   const f = await banco.comoServico((tx) => repo.peloToken(tx, token));

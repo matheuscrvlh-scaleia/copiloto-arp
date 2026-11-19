@@ -6,8 +6,8 @@ import { Redirecionar } from "@/lib/navegacao";
 // resto do endereço e é copiado para o destino; a busca (?tipo=) segue junto.
 
 export const REDIRECIONAMENTOS: { de: string; para: string }[] = [
-  // Formulários virou Relatórios (11/11/2026).
-  { de: "formularios/*", para: "/relatorios/*" },
+  // Relatórios voltou a se chamar Formulários (19/11/2026).
+  { de: "relatorios/*", para: "/formularios/*" },
   { de: "os/abertos-por-mim", para: "/os?aberto_por=eu" },
   { de: "os/modelos", para: "/os/disparos" },
   { de: "rh/folha", para: "/rh/configuracoes/importacoes" },

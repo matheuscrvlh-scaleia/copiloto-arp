@@ -13,7 +13,7 @@ import type { z } from "zod";
 import { contextoDe } from "@/http/permissao";
 import * as service from "./relatorios.service";
 
-// HTTP dos relatórios (a equipe): lê a requisição validada e chama o service.
+// HTTP dos formulários (a equipe): lê a requisição validada e chama o service.
 
 type ComId = { Params: { id: string } };
 
@@ -44,7 +44,7 @@ export async function salvarConteudo(
     request.params.id,
     request.body,
   );
-  return { mensagem: "Relatório salvo." };
+  return { mensagem: "Formulário salvo." };
 }
 
 export async function salvarConfiguracoes(
@@ -102,5 +102,5 @@ export async function excluir(
   request: FastifyRequest<ComId>,
 ): Promise<RespostaMensagem> {
   await service.excluir(contextoDe(request), request.params.id);
-  return { mensagem: "Relatório excluído." };
+  return { mensagem: "Formulário excluído." };
 }

@@ -51,7 +51,7 @@ export const conteudoSchema = z.object({
   titulo: z
     .string()
     .trim()
-    .min(1, "Dê um título ao relatório.")
+    .min(1, "Dê um título ao formulário.")
     .max(200, "Título com no máximo 200 caracteres."),
   descricao: z.string().trim().max(5000).default(""),
   campos: camposSchema,

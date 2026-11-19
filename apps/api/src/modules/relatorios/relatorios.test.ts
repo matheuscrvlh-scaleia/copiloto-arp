@@ -7,8 +7,8 @@ import { env } from "@/config/env";
 import { banco } from "@/infra/banco";
 import { descreverComBanco, Navegador, TESTE } from "@/testes/apoio";
 
-// Relatórios de ponta a ponta na homologação: quem não tem acesso recebe
-// 403; o administrador cria um relatório de teste, publica, responde pelo
+// Formulários de ponta a ponta na homologação: quem não tem acesso recebe
+// 403; o administrador cria um formulário de teste, publica, responde pelo
 // link público (com um arquivo), lê as respostas e apaga tudo no fim.
 
 const REL = "/api/v1/relatorios";
@@ -30,7 +30,7 @@ function multipart(campo: string, nome: string, bytes: Buffer) {
   return { corpo, tipo: `multipart/form-data; boundary=${limite}` };
 }
 
-descreverComBanco("relatórios (/api/v1/relatorios)", () => {
+descreverComBanco("formulários (/api/v1/relatorios)", () => {
   let app: FastifyInstance;
   let admin: Navegador;
   let semAcesso: Navegador;
@@ -80,7 +80,7 @@ descreverComBanco("relatórios (/api/v1/relatorios)", () => {
     const novo = await semAcesso.pedir("POST", REL, { modelo: "branco" });
     expect(novo.statusCode).toBe(403);
     expect(novo.json().erro.mensagem).toBe(
-      "Você não tem permissão para editar relatórios.",
+      "Você não tem permissão para editar formulários.",
     );
     expect((await semAcesso.pedir("DELETE", `${REL}/${id}`)).statusCode).toBe(
       403,
@@ -104,14 +104,14 @@ descreverComBanco("relatórios (/api/v1/relatorios)", () => {
     criados.push(id);
 
     const conteudo = await admin.pedir("PATCH", `${REL}/${id}/conteudo`, {
-      titulo: "Relatório de teste",
+      titulo: "Formulário de teste",
       descricao: "",
       campos: [
         { id: "nome0001", tipo: "texto", titulo: "Nome", obrigatorio: true },
         { id: "foto0001", tipo: "arquivo", titulo: "Foto" },
       ],
     });
-    expect(conteudo.json()).toEqual({ mensagem: "Relatório salvo." });
+    expect(conteudo.json()).toEqual({ mensagem: "Formulário salvo." });
 
     const config = await admin.pedir("PATCH", `${REL}/${id}/configuracoes`, {
       mensagem_final: "Obrigado.",
@@ -136,12 +136,12 @@ descreverComBanco("relatórios (/api/v1/relatorios)", () => {
       acao: "publicar",
     });
     expect(publicar.json().mensagem).toBe(
-      "Relatório publicado: o link já recebe respostas.",
+      "Formulário publicado: o link já recebe respostas.",
     );
 
     const aberto = await visitante.pedir("GET", `${REL}/publico/${token}`);
     expect(aberto.json().formulario).toMatchObject({
-      titulo: "Relatório de teste",
+      titulo: "Formulário de teste",
       cor: "#1d4ed8",
     });
     expect(aberto.json().formulario.id).toBeUndefined();
@@ -225,7 +225,7 @@ descreverComBanco("relatórios (/api/v1/relatorios)", () => {
     criados.push(copia.json().id);
     expect(
       (await admin.pedir("GET", `${REL}/${copia.json().id}`)).json().titulo,
-    ).toBe("Relatório de teste (cópia)");
+    ).toBe("Formulário de teste (cópia)");
 
     const link = await admin.pedir("POST", `${REL}/${id}/novo-link`);
     expect(link.json().mensagem).toBe(
@@ -246,7 +246,7 @@ descreverComBanco("relatórios (/api/v1/relatorios)", () => {
 
     for (const alvo of [id, copia.json().id]) {
       const fora = await admin.pedir("DELETE", `${REL}/${alvo}`);
-      expect(fora.json().mensagem).toBe("Relatório excluído.");
+      expect(fora.json().mensagem).toBe("Formulário excluído.");
     }
     expect((await admin.pedir("GET", `${REL}/${id}`)).statusCode).toBe(404);
   }, 120_000);

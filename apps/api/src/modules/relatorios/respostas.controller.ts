@@ -4,7 +4,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { contextoDe } from "@/http/permissao";
 import * as service from "./respostas.service";
 
-// HTTP das respostas de um relatório.
+// HTTP das respostas de um formulário.
 
 type DoFormulario = { Params: { id: string } };
 type DaResposta = { Params: { id: string; resposta: string } };

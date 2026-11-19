@@ -1,34 +1,34 @@
 import { abertura, busca, cartoes, exportar } from "./comum";
 import type { Guia } from "./tipos";
 
-// Um guia para todas as telas do módulo Relatórios (antigo Formulários): a
-// lista e as telas de um relatório (Respostas, Perguntas, Link e
+// Um guia para todas as telas do módulo Formulários: a
+// lista e as telas de um formulário (Respostas, Perguntas, Link e
 // configurações). Cada tela mostra só os passos cujos pontos estão nela.
 
 export const GUIAS_FORMULARIOS: Record<string, Guia> = {
-  "/relatorios": {
+  "/formularios": {
     versao: 4,
     passos: [
       abertura(
-        "Relatórios",
-        "Relatórios do jeito que você quiser, com link público e QR code. O caminho: <b>1.</b> criar (em branco ou de um modelo), <b>2.</b> montar as perguntas, <b>3.</b> publicar, <b>4.</b> mandar o link, <b>5.</b> acompanhar e perguntar sobre as respostas.",
+        "Formulários",
+        "Formulários do jeito que você quiser, com link público e QR code. O caminho: <b>1.</b> criar (em branco ou de um modelo), <b>2.</b> montar as perguntas, <b>3.</b> publicar, <b>4.</b> mandar o link, <b>5.</b> acompanhar e perguntar sobre as respostas.",
       ),
       {
         alvo: "formularios-novo",
-        titulo: "Passo 1. Crie o relatório",
+        titulo: "Passo 1. Crie o formulário",
         texto:
-          "<b>Novo relatório</b> mostra os modelos: em branco, visita técnica, checklist de vistoria, pesquisa de satisfação, inscrição e avaliação de fornecedor. O modelo só adianta as perguntas; tudo é editável. Ninguém de fora vê nada até você publicar.",
+          "<b>Novo formulário</b> mostra os modelos: em branco, visita técnica, checklist de vistoria, pesquisa de satisfação, inscrição e avaliação de fornecedor. O modelo só adianta as perguntas; tudo é editável. Ninguém de fora vê nada até você publicar.",
       },
       cartoes(
         "Quantos estão publicados, em rascunho e encerrados. Clique no cartão para filtrar a lista.",
       ),
       {
-        alvo: "secao:Todos os relatórios",
-        titulo: "Abra um relatório",
+        alvo: "secao:Todos os formulários",
+        titulo: "Abra um formulário",
         texto:
           "Clique na linha para ver as respostas, editar as perguntas ou pegar o link.",
       },
-      busca("Digite parte do título para achar o relatório."),
+      busca("Digite parte do título para achar o formulário."),
       {
         alvo: "aba:Perguntas",
         titulo: "Perguntas",
@@ -69,7 +69,7 @@ export const GUIAS_FORMULARIOS: Record<string, Guia> = {
         alvo: "formularios-chat",
         titulo: "Passo 5. Pergunte às respostas",
         texto:
-          "Escreva a pergunta ou clique numa sugestão: “quantas pessoas responderam?”, “quantos marcaram Alta em Urgência?”, “qual a média da nota?”, “quantas respostas nesta semana?”. A conta é feita aqui, com as respostas do relatório; nada sai do sistema.",
+          "Escreva a pergunta ou clique numa sugestão: “quantas pessoas responderam?”, “quantos marcaram Alta em Urgência?”, “qual a média da nota?”, “quantas respostas nesta semana?”. A conta é feita aqui, com as respostas do formulário; nada sai do sistema.",
       },
       {
         alvo: "secao:Respostas por dia",

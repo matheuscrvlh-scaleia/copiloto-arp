@@ -31,7 +31,7 @@ function paraTela(r: {
   };
 }
 
-/** Todas as respostas de um relatório, das mais recentes para as mais antigas. */
+/** Todas as respostas de um formulário, das mais recentes para as mais antigas. */
 export async function doFormulario(
   ctx: Contexto,
   formularioId: string,
@@ -57,7 +57,7 @@ export async function obter(
 }
 
 /**
- * "Excluir resposta" (teste, spam): o total do relatório acompanha (gatilho
+ * "Excluir resposta" (teste, spam): o total do formulário acompanha (gatilho
  * do banco) e os arquivos da resposta saem do disco.
  */
 export async function excluir(
@@ -82,7 +82,7 @@ const ARQUIVO = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.[a-z0-9]{2,5}$/;
 
 /**
  * Link de 5 minutos para baixar um arquivo de resposta, para quem vê os
- * relatórios (conferido agora no banco: o disco não tem RLS).
+ * formulários (conferido agora no banco: o disco não tem RLS).
  */
 export async function linkDoArquivo(
   ctx: Contexto,

@@ -119,11 +119,11 @@ export const navigation: NavSection[] = [
     ],
   },
   {
-    titulo: "Relatórios",
+    titulo: "Formulários",
     itens: [
       {
-        href: "/relatorios",
-        label: "Relatórios",
+        href: "/formularios",
+        label: "Formulários",
         icone: "formularios",
         permissao: ["formularios.ver", "formularios.editar"],
       },

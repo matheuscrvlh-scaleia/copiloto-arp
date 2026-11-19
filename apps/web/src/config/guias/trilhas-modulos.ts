@@ -13,26 +13,26 @@ const FIM = {
 export const TRILHAS_MODULOS: Trilha[] = [
   {
     id: "formulario",
-    modulo: "/relatorios",
+    modulo: "/formularios",
     versao: 2,
-    titulo: "Do relatório às respostas",
+    titulo: "Do formulário às respostas",
     resumo:
       "Criar, montar as perguntas, publicar, mandar o link e ler as respostas",
     passos: [
       {
-        rota: "/relatorios",
-        titulo: "Do relatório às respostas",
+        rota: "/formularios",
+        titulo: "Do formulário às respostas",
         texto:
-          "O caminho de um relatório: <b>criar</b> (em branco ou de um modelo) → <b>montar as perguntas</b> → <b>publicar</b> → <b>mandar o link</b> → <b>acompanhar as respostas</b>. Nada é publicado sem você confirmar.",
+          "O caminho de um formulário: <b>criar</b> (em branco ou de um modelo) → <b>montar as perguntas</b> → <b>publicar</b> → <b>mandar o link</b> → <b>acompanhar as respostas</b>. Nada é publicado sem você confirmar.",
       },
       {
         alvo: "formularios-novo",
         ate: "formularios-editor",
-        titulo: "Crie o relatório",
+        titulo: "Crie o formulário",
         texto:
-          "Clique em <b>Novo relatório</b> e escolha um modelo (ou Em branco). O guia segue quando o editor abrir.",
+          "Clique em <b>Novo formulário</b> e escolha um modelo (ou Em branco). O guia segue quando o editor abrir.",
         semAlvo:
-          "Quem tem a permissão de editar relatórios cria um novo nesta tela.",
+          "Quem tem a permissão de editar formulários cria um novo nesta tela.",
       },
       {
         alvo: "formularios-editor",
@@ -40,14 +40,14 @@ export const TRILHAS_MODULOS: Trilha[] = [
         texto:
           "Escreva o título, use <b>Adicionar pergunta</b> e escolha o tipo de cada uma. Marque as obrigatórias e clique em <b>Salvar</b>. A <b>Prévia</b> mostra como fica.",
         semAlvo:
-          "Abra um relatório e vá em Perguntas para montar e salvar as perguntas.",
+          "Abra um formulário e vá em Perguntas para montar e salvar as perguntas.",
       },
       {
         alvo: "aba:Link e configurações",
         ate: "formularios-situacao",
         titulo: "Vá para Link e configurações",
         texto: "Clique nesta aba para publicar e pegar o link.",
-        semAlvo: "Abra a aba Link e configurações do relatório.",
+        semAlvo: "Abra a aba Link e configurações do formulário.",
       },
       {
         alvo: "formularios-situacao",
@@ -70,7 +70,7 @@ export const TRILHAS_MODULOS: Trilha[] = [
         texto:
           "As respostas chegam na aba <b>Respostas</b>, com gráficos, o chat <b>Pergunte às respostas</b> e o Excel.",
         semAlvo:
-          "As respostas chegam na aba Respostas do relatório, com gráficos, chat e Excel.",
+          "As respostas chegam na aba Respostas do formulário, com gráficos, chat e Excel.",
       },
       FIM,
     ],

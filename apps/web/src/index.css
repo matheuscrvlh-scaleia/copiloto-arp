@@ -86,15 +86,42 @@
     #080808;
 }
 
+/*
+ * O fundo fica numa camada fixa própria (::before), e não em
+ * `background-attachment: fixed`: com ele o navegador repinta a janela
+ * inteira a cada passo da rolagem.
+ */
 @utility fundo-app {
-  background: var(--fundo);
-  background-attachment: fixed;
+  background-color: #ececeb;
+  &::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -20;
+    pointer-events: none;
+    background: var(--fundo);
+  }
+  @media print {
+    &::before {
+      display: none;
+    }
+  }
+}
+:root[data-theme="dark"] .fundo-app {
+  background-color: #080808;
 }
 
 /*
  * Aurora: brilhos desfocados nos tons do verde da marca (claro, médio e
  * escuro) atrás de tudo, que se movem devagar. É o que dá cor ao vidro.
  * Parado para quem pede menos movimento.
+ *
+ * Desempenho: o desfoque vem do próprio degradê (paradas que imitam um
+ * `filter: blur(90px)` sobre um círculo de raio --r), e não de `filter`.
+ * Assim cada brilho é pintado uma vez e o movimento é só `transform`, feito
+ * pela placa de vídeo, sem refazer o desfoque a cada quadro. A caixa é
+ * 14rem maior em cada lado (a margem negativa a devolve ao lugar) para a
+ * borda esmaecida caber, como cabia o borrão do filtro.
  */
 .aurora {
   position: fixed;
@@ -104,46 +131,55 @@
   pointer-events: none;
 }
 .aurora i {
+  --r: 22rem;
+  --cor: transparent;
   position: absolute;
   display: block;
-  border-radius: 9999px;
-  filter: blur(90px);
+  width: calc(2 * var(--r) + 28rem);
+  height: calc(2 * var(--r) + 28rem);
+  margin: -14rem;
+  background: radial-gradient(
+    circle closest-side,
+    var(--cor) calc(var(--r) - 11.25rem),
+    color-mix(in srgb, var(--cor) 84%, transparent) calc(var(--r) - 5.625rem),
+    color-mix(in srgb, var(--cor) 50%, transparent) var(--r),
+    color-mix(in srgb, var(--cor) 16%, transparent) calc(var(--r) + 5.625rem),
+    color-mix(in srgb, var(--cor) 2%, transparent) calc(var(--r) + 11.25rem),
+    transparent calc(var(--r) + 14rem)
+  );
   will-change: transform;
   animation: deriva 40s ease-in-out infinite alternate;
 }
 .aurora i:nth-child(1) {
-  width: 44rem;
-  height: 44rem;
+  --r: 22rem;
   left: -12rem;
   top: -14rem;
-  background: rgb(88 192 105 / 0.3);
+  --cor: rgb(88 192 105 / 0.3);
 }
 .aurora i:nth-child(2) {
-  width: 36rem;
-  height: 36rem;
+  --r: 18rem;
   right: -10rem;
   top: 12%;
-  background: rgb(143 217 155 / 0.26);
+  --cor: rgb(143 217 155 / 0.26);
   animation-duration: 52s;
   animation-delay: -14s;
 }
 .aurora i:nth-child(3) {
-  width: 42rem;
-  height: 42rem;
+  --r: 21rem;
   left: 32%;
   bottom: -18rem;
-  background: rgb(47 125 61 / 0.16);
+  --cor: rgb(47 125 61 / 0.16);
   animation-duration: 46s;
   animation-delay: -22s;
 }
 :root[data-theme="dark"] .aurora i:nth-child(1) {
-  background: rgb(88 192 105 / 0.2);
+  --cor: rgb(88 192 105 / 0.2);
 }
 :root[data-theme="dark"] .aurora i:nth-child(2) {
-  background: rgb(143 217 155 / 0.08);
+  --cor: rgb(143 217 155 / 0.08);
 }
 :root[data-theme="dark"] .aurora i:nth-child(3) {
-  background: rgb(47 125 61 / 0.16);
+  --cor: rgb(47 125 61 / 0.16);
 }
 @keyframes deriva {
   0% {
@@ -162,7 +198,15 @@
   }
 }
 
-/* Superfície de vidro: cartões, menu e barras. Translúcida, com reflexo. */
+/*
+ * Superfície de vidro: cartões, menu e barras. Translúcida, com reflexo.
+ *
+ * Desempenho: o desfoque do que está atrás (`backdrop-filter`) é refeito a
+ * cada quadro em que o fundo muda (aurora andando, rolagem), por cartão.
+ * Atrás de um cartão parado só há o fundo, que já é liso: desfocá-lo não
+ * muda a imagem. Por isso o desfoque fica só no vidro que flutua sobre o
+ * conteúdo (absolute, fixed, sticky: menus, barras, dicas).
+ */
 @utility vidro {
   background-color: color-mix(in oklab, var(--color-white) 52%, transparent);
   background-image: linear-gradient(
@@ -170,7 +214,9 @@
     rgb(255 255 255 / 0.38),
     rgb(255 255 255 / 0) 45%
   );
-  backdrop-filter: blur(26px) saturate(170%);
+  &:is(.absolute, .fixed, .sticky) {
+    backdrop-filter: blur(26px) saturate(170%);
+  }
   border: 1px solid color-mix(in oklab, var(--color-white) 72%, transparent);
   box-shadow:
     0 1px 0 0 rgb(255 255 255 / 0.6) inset,
@@ -197,7 +243,10 @@
     rgb(255 255 255 / 0.12),
     rgb(255 255 255 / 0) 50%
   );
-  backdrop-filter: blur(26px) saturate(160%);
+  /* Desfoque só quando flutua (ver vidro). */
+  &:is(.absolute, .fixed, .sticky) {
+    backdrop-filter: blur(26px) saturate(160%);
+  }
   border: 1px solid rgb(255 255 255 / 0.12);
   box-shadow:
     0 1px 0 0 rgb(255 255 255 / 0.08) inset,
@@ -219,7 +268,7 @@
       transparent 60%
     ),
     linear-gradient(160deg, rgb(29 29 29 / 0.9), rgb(10 10 10 / 0.94));
-  backdrop-filter: blur(20px);
+  /* Sem backdrop-filter: com o cartão 90% opaco o desfoque não aparece. */
   border: 1px solid rgb(255 255 255 / 0.08);
   box-shadow: 0 24px 50px -28px rgb(0 0 0 / 0.55);
 }
@@ -494,7 +543,7 @@
       transparent 60%
     ),
     linear-gradient(160deg, rgb(29 29 29 / 0.92), rgb(10 10 10 / 0.95));
-  backdrop-filter: blur(20px);
+  /* Sem backdrop-filter: com o cartão 92% opaco o desfoque não aparece. */
   border: 1px solid rgb(255 255 255 / 0.08);
   box-shadow:
     0 1px 0 0 rgb(255 255 255 / 0.05) inset,

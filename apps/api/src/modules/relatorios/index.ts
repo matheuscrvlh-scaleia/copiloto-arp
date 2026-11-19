@@ -4,9 +4,9 @@ import { rotasDosRelatorios } from "./relatorios.routes";
 import { rotasDasRespostas } from "./respostas.routes";
 
 /**
- * Relatórios, o antigo Formulários (prefixo /api/v1/relatorios; schema
+ * Formulários (chamado de Relatórios de 11 a 19/11/2026; prefixo /api/v1/relatorios; schema
  * `formularios` no banco; permissões formularios.*). Recursos:
- *   relatorios  o relatório: lista, perguntas, link, situação, aparência
+ *   relatorios  o formulário: lista, perguntas, link, situação, aparência
  *   respostas   o que chegou pelos links (e os arquivos enviados)
  *   publico     /responder/<token>, sem login
  * Contratos: @arp/shared/formularios/contratos; regras puras em

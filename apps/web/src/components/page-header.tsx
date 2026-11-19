@@ -25,7 +25,7 @@ const VARIANTES = {
   claro: "vidro text-neutral-900",
   escuro: "destaque",
   tracejado:
-    "border border-dashed border-neutral-900/15 bg-white/25 text-neutral-500 backdrop-blur-xl",
+    "border border-dashed border-neutral-900/15 bg-white/25 text-neutral-500",
 } as const;
 
 export function Cartao({

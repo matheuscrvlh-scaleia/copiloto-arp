@@ -15,7 +15,7 @@ import {
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import * as controller from "./relatorios.controller";
 
-// /api/v1/relatorios: os relatórios em si. As telas abrem com
+// /api/v1/relatorios: os formulários em si. As telas abrem com
 // formularios.ver ou formularios.editar e as gravações pedem
 // formularios.editar; como são duas permissões (e a mensagem de "sem
 // permissão" é a do sistema anterior), quem confere é o service, e o RLS

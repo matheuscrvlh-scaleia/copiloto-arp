@@ -1,8 +1,8 @@
 import { type Campo, novoCampo, type TipoCampo } from "./campos";
 
-// Modelos para começar um relatório (como os modelos do Google Forms, Tally
+// Modelos para começar um formulário (como os modelos do Google Forms, Tally
 // e Jotform): perguntas prontas, todas editáveis depois. Cada chamada gera
-// ids novos, então dois relatórios do mesmo modelo não compartilham ids.
+// ids novos, então dois formulários do mesmo modelo não compartilham ids.
 
 export interface Modelo {
   titulo: string;
@@ -39,7 +39,7 @@ export const MODELOS = {
     rotulo: "Em branco",
     resumo: "Comece do zero, só com o nome.",
     criar: (): Modelo => ({
-      titulo: "Relatório sem título",
+      titulo: "Formulário sem título",
       descricao: "",
       mensagem_final: OBRIGADO,
       campos: montar([

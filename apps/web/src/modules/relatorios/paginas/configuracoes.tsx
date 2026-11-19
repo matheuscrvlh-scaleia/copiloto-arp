@@ -30,7 +30,7 @@ import {
 } from "../components/cabecalho";
 import { LinkDoFormulario } from "../components/link";
 
-// /relatorios/:id/configuracoes: situação, link e QR code, respostas e
+// /formularios/:id/configuracoes: situação, link e QR code, respostas e
 // aparência (só quem edita).
 
 export default function Pagina() {
@@ -121,7 +121,7 @@ function Configuracoes() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Secao
           titulo="Situação e ações"
-          descricao="Só o relatório publicado recebe respostas. Pode editar as perguntas a qualquer momento, mesmo publicado."
+          descricao="Só o formulário publicado recebe respostas. Pode editar as perguntas a qualquer momento, mesmo publicado."
         >
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -170,7 +170,7 @@ function Configuracoes() {
                 uma cópia em rascunho, com as mesmas perguntas e a mesma
                 aparência, sem as respostas.{" "}
                 <b className="font-medium text-neutral-800">Excluir</b> apaga o
-                relatório e{" "}
+                formulário e{" "}
                 {f.total_respostas
                   ? `as ${formatarNumero(f.total_respostas)} respostas`
                   : "o link"}
@@ -179,7 +179,7 @@ function Configuracoes() {
               <div className="flex flex-wrap gap-2">
                 <FormAcao
                   acao={duplicar}
-                  rotulo="Duplicar relatório"
+                  rotulo="Duplicar formulário"
                   rotuloEnviando="Duplicando…"
                   variante="secundario"
                 >
@@ -187,7 +187,7 @@ function Configuracoes() {
                 </FormAcao>
                 <FormAcao
                   acao={excluir}
-                  rotulo="Excluir relatório"
+                  rotulo="Excluir formulário"
                   rotuloEnviando="Excluindo…"
                   variante="perigo"
                   confirmar={`Excluir "${f.titulo}"${f.total_respostas ? ` e as ${f.total_respostas} respostas` : ""}? Não tem volta.`}
@@ -232,7 +232,7 @@ function Configuracoes() {
               <Nota>
                 {f.situacao === "rascunho"
                   ? "O link só abre depois de publicar. Até lá, use a Prévia para ver como fica."
-                  : "O link está fechado: quem abrir vê o aviso de relatório encerrado."}
+                  : "O link está fechado: quem abrir vê o aviso de formulário encerrado."}
               </Nota>
             )}
             <FormAcao
@@ -344,7 +344,7 @@ function Configuracoes() {
               <span>
                 Uma seção por página, com barra de progresso
                 <span className="block text-xs text-neutral-500">
-                  Cada título de seção abre uma página. Bom para relatórios
+                  Cada título de seção abre uma página. Bom para formulários
                   longos no celular.
                 </span>
               </span>

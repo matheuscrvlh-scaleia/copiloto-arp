@@ -24,8 +24,8 @@ import {
   rotaDoFormulario,
 } from "../api";
 
-// /relatorios/:id/respostas/:resposta: uma resposta inteira, com as
-// perguntas que já saíram do relatório e os arquivos enviados.
+// /formularios/:id/respostas/:resposta: uma resposta inteira, com as
+// perguntas que já saíram do formulário e os arquivos enviados.
 
 export default function Pagina() {
   return (
@@ -107,7 +107,7 @@ function Resposta() {
 
       {antigas.length > 0 && (
         <Secao
-          titulo="Perguntas que saíram do relatório"
+          titulo="Perguntas que saíram do formulário"
           descricao="Respondidas antes de a pergunta ser excluída ou trocada. O título é o da época do envio."
         >
           <Lista itens={antigas} formularioId={f.id} />
@@ -119,7 +119,7 @@ function Resposta() {
           <div className="flex flex-col gap-3">
             <Nota>
               Para respostas de teste ou enviadas por engano. O total do
-              relatório é recalculado.
+              formulário é recalculado.
             </Nota>
             <FormAcao
               acao={excluir}

@@ -1,6 +1,6 @@
 import type { Modulo } from "@/app/rota";
 
-// Telas de Relatórios (antigo Formulários). A permissão (formularios.ver ou
+// Telas de Formulários (a pasta e a API ainda se chamam relatorios). A permissão (formularios.ver ou
 // formularios.editar, conforme a tela) é conferida dentro de cada página,
 // como antes. O endereço antigo /formularios/* leva para cá
 // (app/redirecionamentos.tsx).
@@ -10,43 +10,43 @@ export const relatorios: Modulo = {
   autenticadas: [
     // app/(app)/relatorios/page.tsx
     {
-      caminho: "relatorios",
-      titulo: "Relatórios",
+      caminho: "formularios",
+      titulo: "Formulários",
       pagina: () => import("./paginas/lista"),
     },
     // app/(app)/relatorios/[id]/page.tsx
     {
-      caminho: "relatorios/:id",
-      titulo: "Respostas do relatório",
+      caminho: "formularios/:id",
+      titulo: "Respostas do formulário",
       pagina: () => import("./paginas/respostas"),
     },
     // app/(app)/relatorios/[id]/arquivo/route.ts (agora na API)
     {
-      caminho: "relatorios/:id/arquivo",
+      caminho: "formularios/:id/arquivo",
       pagina: () => import("./paginas/arquivo"),
     },
     // app/(app)/relatorios/[id]/configuracoes/page.tsx
     {
-      caminho: "relatorios/:id/configuracoes",
+      caminho: "formularios/:id/configuracoes",
       titulo: "Link e configurações",
       pagina: () => import("./paginas/configuracoes"),
     },
     // app/(app)/relatorios/[id]/editar/page.tsx
     {
-      caminho: "relatorios/:id/editar",
-      titulo: "Perguntas do relatório",
+      caminho: "formularios/:id/editar",
+      titulo: "Perguntas do formulário",
       pagina: () => import("./paginas/editar"),
     },
     // app/(app)/relatorios/[id]/previa/page.tsx
     {
-      caminho: "relatorios/:id/previa",
-      titulo: "Prévia do relatório",
+      caminho: "formularios/:id/previa",
+      titulo: "Prévia do formulário",
       pagina: () => import("./paginas/previa"),
     },
     // app/(app)/relatorios/[id]/respostas/[resposta]/page.tsx
     {
-      caminho: "relatorios/:id/respostas/:resposta",
-      titulo: "Resposta do relatório",
+      caminho: "formularios/:id/respostas/:resposta",
+      titulo: "Resposta do formulário",
       pagina: () => import("./paginas/resposta"),
     },
   ],

@@ -11,7 +11,7 @@ import { aparenciaSchema, hexDaCor, paginasDosCampos } from "./formulario";
 import { MODELOS, NOMES_DOS_MODELOS } from "./modelos";
 import { lerPeriodo, perguntar, sugestoes } from "./perguntar";
 
-// Relatórios (evolução de Formulários): opção "Outro", modelos, aparência,
+// Formulários (evolução de Formulários): opção "Outro", modelos, aparência,
 // páginas e o chat "Pergunte às respostas".
 
 const campo = (tipo: Campo["tipo"], extra: Partial<Campo> = {}): Campo => ({

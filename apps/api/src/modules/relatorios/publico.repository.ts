@@ -2,7 +2,7 @@ import { sql } from "kysely";
 import type { Tx } from "@/infra/banco";
 
 // Link público (/responder/<token>). Pela service role, só depois de o
-// service conferir o formato do token: lê o relatório daquele token e
+// service conferir o formato do token: lê o formulário daquele token e
 // grava a resposta por formularios.responder().
 
 export function peloToken(tx: Tx, token: string) {

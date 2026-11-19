@@ -158,7 +158,7 @@ interface Alvo {
   n: number;
 }
 
-/** A pergunta do relatório citada: "pergunta 3" ou pelas palavras do título. */
+/** A pergunta do formulário citada: "pergunta 3" ou pelas palavras do título. */
 function acharPergunta(q: string, perguntas: Alvo[]): Alvo | null {
   const num = q.match(/\bpergunta (\d{1,3})\b/);
   if (num) return perguntas[Number(num[1]) - 1] ?? null;
@@ -248,7 +248,7 @@ export function sugestoes(campos: Campo[]): string[] {
 }
 
 /**
- * Responde uma pergunta sobre as respostas do relatório. `registros` são
+ * Responde uma pergunta sobre as respostas do formulário. `registros` são
  * as respostas gravadas (qualquer ordem); as perguntas são as atuais.
  */
 export function perguntar(
@@ -261,7 +261,7 @@ export function perguntar(
   const naoEntendi = (texto?: string): RespostaDoChat => ({
     texto:
       texto ??
-      "Não entendi essa pergunta. Pergunte sobre quantidade, uma opção, média ou uma pergunta do relatório. Por exemplo:",
+      "Não entendi essa pergunta. Pergunte sobre quantidade, uma opção, média ou uma pergunta do formulário. Por exemplo:",
     sugestoes: sugestoes(campos),
   });
   if (!original) return naoEntendi();

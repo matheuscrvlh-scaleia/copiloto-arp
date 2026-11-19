@@ -18,7 +18,7 @@ import { notificar } from "@/components/notificacoes";
 import { useNavegar } from "@/lib/navegacao";
 import { criarFormulario } from "../api";
 
-// "Novo relatório": abre os modelos (como Google Forms, Tally e Jotform).
+// "Novo formulário": abre os modelos (como Google Forms, Tally e Jotform).
 // Escolher um cria o rascunho e abre o editor; tudo é editável depois.
 
 const ICONE: Record<NomeDoModelo, typeof FilePlus2> = {
@@ -49,7 +49,7 @@ export function NovoRelatorio() {
         onClick={() => setAberto(true)}
         className="w-fit rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800"
       >
-        + Novo relatório
+        + Novo formulário
       </button>
     );
 
@@ -60,7 +60,7 @@ export function NovoRelatorio() {
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold">Novo relatório</h2>
+          <h2 className="text-base font-semibold">Novo formulário</h2>
           <p className="text-sm text-neutral-500">
             Comece em branco ou de um modelo. Dá para mudar tudo depois.
           </p>

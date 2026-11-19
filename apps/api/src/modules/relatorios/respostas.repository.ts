@@ -1,8 +1,8 @@
 import type { Tx } from "@/infra/banco";
 
-// Respostas dos relatórios (formularios.respostas). Com a sessão: o RLS
-// libera ler a quem vê os relatórios e excluir a quem edita. Ao excluir,
-// o gatilho do banco desconta o total do relatório.
+// Respostas dos formulários (formularios.respostas). Com a sessão: o RLS
+// libera ler a quem vê os formulários e excluir a quem edita. Ao excluir,
+// o gatilho do banco desconta o total do formulário.
 
 const COLUNAS = ["id", "enviada_em", "respostas", "perguntas"] as const;
 

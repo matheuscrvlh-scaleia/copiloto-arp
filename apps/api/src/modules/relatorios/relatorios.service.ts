@@ -36,14 +36,14 @@ import { log } from "@/infra/log";
 import { BUCKET } from "./arquivos";
 import * as repo from "./relatorios.repository";
 
-// Relatórios (antigo Formulários): o que a equipe lê e grava, sempre com a
+// Formulários: o que a equipe lê e grava, sempre com a
 // sessão (o RLS confere formularios.ver/editar de novo). O link público
 // fica em publico.service.ts e as respostas em respostas.service.ts.
 
-const SEM_PERMISSAO = "Você não tem permissão para editar relatórios.";
+const SEM_PERMISSAO = "Você não tem permissão para editar formulários.";
 const FALHOU = "Não foi possível salvar. Tente de novo.";
 
-/** Vê os relatórios e as respostas (ver ou editar). */
+/** Vê os formulários e as respostas (ver ou editar). */
 export function conferirQueVe(ctx: Contexto): void {
   if (!pode(ctx, "formularios.ver") && !pode(ctx, "formularios.editar"))
     throw new ErroDePermissao();
@@ -66,7 +66,7 @@ const lerSituacao = (s: string): Situacao =>
 export const linkDoFormulario = (token: string) =>
   `${env.SITE_URL}/responder/${token}`;
 
-/** Todos os relatórios (o RLS filtra), do mais recente para o mais antigo. */
+/** Todos os formulários (o RLS filtra), do mais recente para o mais antigo. */
 export async function listar(ctx: Contexto): Promise<FormularioDaLista[]> {
   conferirQueVe(ctx);
   const linhas = await banco.comoUsuario(ctx.usuario.id, (tx) =>
@@ -89,7 +89,7 @@ export async function listar(ctx: Contexto): Promise<FormularioDaLista[]> {
   });
 }
 
-/** Um relatório (com a sessão); 404 se não existe ou não pode ver. */
+/** Um formulário (com a sessão); 404 se não existe ou não pode ver. */
 export async function obter(ctx: Contexto, id: string): Promise<Formulario> {
   conferirQueVe(ctx);
   const f = await banco.comoUsuario(ctx.usuario.id, (tx) => repo.porId(tx, id));
@@ -106,7 +106,7 @@ export async function obter(ctx: Contexto, id: string): Promise<Formulario> {
 }
 
 /**
- * "Novo relatório": rascunho a partir de um modelo (em branco, visita,
+ * "Novo formulário": rascunho a partir de um modelo (em branco, visita,
  * vistoria…). Devolve o id (a tela abre o editor).
  */
 export async function criar(
@@ -138,7 +138,7 @@ export async function salvarConteudo(
   // A tela marca todos os problemas; a mensagem é o primeiro.
   if (problemas.length)
     throw new ErroDeValidacao(
-      problemas[0] ?? "Confira o relatório.",
+      problemas[0] ?? "Confira o formulário.",
       Object.fromEntries(problemas.map((p, i) => [`problemas.${i}`, p])),
     );
   await banco.comoUsuario(ctx.usuario.id, async (tx) => {
@@ -146,7 +146,8 @@ export async function salvarConteudo(
     if (!atual) throw new ErroDeNegocio(FALHOU);
     if (atual.situacao === "publicado") {
       const p = problemaParaPublicar(d.campos);
-      if (p) throw new ErroDeNegocio(`Relatório publicado: ${p.toLowerCase()}`);
+      if (p)
+        throw new ErroDeNegocio(`Formulário publicado: ${p.toLowerCase()}`);
     }
     const ok = await repo.alterar(tx, id, {
       titulo: d.titulo,
@@ -227,7 +228,7 @@ export async function mudarSituacao(
     }
     if (nova === "rascunho" && f.total_respostas > 0)
       throw new ErroDeNegocio(
-        "Este relatório já tem respostas: encerre em vez de voltar para rascunho.",
+        "Este formulário já tem respostas: encerre em vez de voltar para rascunho.",
       );
     const ok = await repo.alterar(tx, id, {
       situacao: nova,
@@ -239,10 +240,10 @@ export async function mudarSituacao(
     if (!ok) throw new ErroDeNegocio(FALHOU);
   });
   return nova === "publicado"
-    ? "Relatório publicado: o link já recebe respostas."
+    ? "Formulário publicado: o link já recebe respostas."
     : nova === "encerrado"
-      ? "Relatório encerrado: o link não recebe mais respostas."
-      : "Relatório voltou para rascunho.";
+      ? "Formulário encerrado: o link não recebe mais respostas."
+      : "Formulário voltou para rascunho.";
 }
 
 /** "Gerar novo link": o link antigo para de funcionar na hora. */
@@ -270,7 +271,7 @@ export async function duplicar(ctx: Contexto, id: string): Promise<string> {
   });
 }
 
-/** "Excluir relatório": some com as respostas e os arquivos enviados. */
+/** "Excluir formulário": some com as respostas e os arquivos enviados. */
 export async function excluir(ctx: Contexto, id: string): Promise<void> {
   conferirQueEdita(ctx);
   const ok = await banco.comoUsuario(ctx.usuario.id, (tx) =>
@@ -278,10 +279,10 @@ export async function excluir(ctx: Contexto, id: string): Promise<void> {
   );
   if (!ok) throw new ErroDeNegocio("Não foi possível excluir. Tente de novo.");
   // A exclusão passou pelo RLS (formularios.editar, conferida agora no
-  // banco): os arquivos do relatório saem também.
+  // banco): os arquivos do formulário saem também.
   try {
     await removerArquivos(BUCKET, await listarArquivos(BUCKET, id));
   } catch (err) {
-    log.error({ err, formularioId: id }, "arquivos do relatório excluído");
+    log.error({ err, formularioId: id }, "arquivos do formulário excluído");
   }
 }

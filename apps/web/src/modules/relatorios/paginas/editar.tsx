@@ -8,7 +8,7 @@ import { consultaDoFormulario } from "../api";
 import { CabecalhoDoFormulario } from "../components/cabecalho";
 import { EditorDoFormulario } from "../components/editor";
 
-// /relatorios/:id/editar: as perguntas (só quem edita).
+// /formularios/:id/editar: as perguntas (só quem edita).
 
 export default function Pagina() {
   return (
@@ -38,7 +38,7 @@ function Editor() {
     <>
       <CabecalhoDoFormulario f={f} aba="perguntas" edita />
       <EditorDoFormulario
-        // Depois de salvar, a consulta traz o relatório novo: o editor
+        // Depois de salvar, a consulta traz o formulário novo: o editor
         // recomeça dele (a chave muda com a data de atualização).
         key={f.atualizado_em}
         id={f.id}

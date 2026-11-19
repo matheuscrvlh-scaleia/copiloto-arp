@@ -17,12 +17,12 @@ import { api, ErroDaApi, mensagemDoErro } from "@/lib/api";
 import { clienteDeConsultas } from "@/lib/consulta";
 import type { Navegador } from "@/lib/navegacao";
 
-// Chamadas do módulo Relatórios (antigo Formulários): /api/v1/relatorios.
+// Chamadas do módulo Formulários: /api/v1/relatorios.
 // Toda gravação invalida o que mudou; as que abriam outra tela (criar,
 // duplicar, excluir) navegam sem aviso de sucesso, como o redirect() de
 // antes.
 
-export const ROTA_FORMULARIOS = "/relatorios";
+export const ROTA_FORMULARIOS = "/formularios";
 export const rotaDoFormulario = (id: string, sub = "") =>
   `${ROTA_FORMULARIOS}/${id}${sub ? `/${sub}` : ""}`;
 

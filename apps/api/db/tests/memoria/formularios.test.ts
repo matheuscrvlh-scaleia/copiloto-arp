@@ -255,7 +255,8 @@ describe("envio pelo link", () => {
   });
 });
 
-// Relatórios (20261111210000): aparência do link e textos das permissões.
+// Relatórios (20261111210000): aparência do link; textos das permissões
+// (de novo Formulários desde a 0011).
 describe("aparência do relatório", () => {
   it("quem edita grava cor, páginas e endereço https; o resto o banco barra", async () => {
     const { id } = await novo();
@@ -280,10 +281,10 @@ describe("aparência do relatório", () => {
     expect(padrao.rows[0]).toMatchObject({ cor: "grafite", paginas: false });
   });
 
-  it("as permissões falam de relatórios", async () => {
+  it("as permissões falam de formulários", async () => {
     const r = await db.query<{ descricao: string }>(
       "select descricao from core.permissoes where codigo like 'formularios.%'",
     );
-    expect(r.rows.every((x) => x.descricao.includes("relatórios"))).toBe(true);
+    expect(r.rows.every((x) => x.descricao.includes("formulários"))).toBe(true);
   });
 });

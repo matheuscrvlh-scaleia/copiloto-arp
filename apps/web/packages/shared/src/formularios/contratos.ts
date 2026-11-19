@@ -2,7 +2,7 @@ import { z } from "zod";
 import { arquivoEnviadoSchema, camposSchema } from "./campos";
 import { SITUACOES } from "./formulario";
 
-// Contratos do módulo Relatórios (antigo Formulários; schema formularios),
+// Contratos do módulo Formulários (schema formularios),
 // API ↔ tela. As regras e schemas de conteúdo, configurações e aparência
 // continuam em ./formulario e ./campos; aqui ficam as leituras e o que as
 // rotas recebem.
@@ -78,7 +78,7 @@ export const consultaArquivo = z.object({
 // Gravações da equipe
 // ---------------------------------------------------------------------------
 
-/** "Novo relatório": o modelo escolhido (desconhecido vira em branco). */
+/** "Novo formulário": o modelo escolhido (desconhecido vira em branco). */
 export const entradaNovo = z.object({ modelo: z.string().max(40).optional() });
 export const respostaCriado = z.object({ id: z.string() });
 

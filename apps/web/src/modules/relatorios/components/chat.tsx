@@ -10,7 +10,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { classeCampo } from "@/components/estilos";
 
 // "Pergunte às respostas" (reunião de 05/11): em vez de uma tela fixa de
-// indicadores por relatório, a pessoa pergunta ("quantas pessoas
+// indicadores por formulário, a pessoa pergunta ("quantas pessoas
 // responderam?") e o chat responde com as respostas carregadas na tela.
 // Nada sai do sistema: a conta é feita aqui, em src/lib/formularios/perguntar.
 

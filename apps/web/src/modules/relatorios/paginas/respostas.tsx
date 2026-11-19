@@ -31,7 +31,7 @@ import {
   TotalAcumulado,
 } from "../components/metricas";
 
-// /relatorios/:id: as respostas de um relatório (cartões, chat e respostas
+// /formularios/:id: as respostas de um formulário (cartões, chat e respostas
 // por dia, acumulado e horários, taxa por pergunta, resumo por pergunta,
 // lista e Excel).
 
@@ -127,8 +127,8 @@ function Respostas() {
               {f.efetiva === "publicado"
                 ? "Nenhuma resposta ainda. Mande o link (em Link e configurações) e acompanhe por aqui."
                 : f.situacao === "rascunho"
-                  ? "Relatório em rascunho: publique em Link e configurações para o link começar a receber respostas."
-                  : "Relatório encerrado sem respostas."}
+                  ? "Formulário em rascunho: publique em Link e configurações para o link começar a receber respostas."
+                  : "Formulário encerrado sem respostas."}
             </p>
             {edita && (
               <Link
@@ -172,7 +172,7 @@ function Respostas() {
               />
               <Nota>
                 Resumo das perguntas atuais. Respostas a perguntas que já saíram
-                do relatório aparecem no detalhe de cada resposta.
+                do formulário aparecem no detalhe de cada resposta.
               </Nota>
             </div>
 

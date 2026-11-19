@@ -153,7 +153,7 @@ export function CartaoPendente({
 }) {
   return (
     <ComDetalhe origem={origem}>
-      <div className="flex h-full flex-col gap-3 rounded-[1.75rem] border border-dashed border-neutral-900/15 bg-white/25 p-5 backdrop-blur-xl">
+      <div className="flex h-full flex-col gap-3 rounded-[1.75rem] border border-dashed border-neutral-900/15 bg-white/25 p-5">
         <Titulo texto={titulo} clicavel={!!origem} />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <p className="text-3xl font-semibold tracking-tight text-neutral-300">

@@ -113,12 +113,12 @@ export function EditorDoFormulario({
 
   function salvar() {
     const locais = [
-      ...(titulo.trim() ? [] : ["Dê um título ao relatório."]),
+      ...(titulo.trim() ? [] : ["Dê um título ao formulário."]),
       ...problemasDosCampos(campos),
     ];
     setProblemas(locais);
     if (locais.length) {
-      notificar("erro", locais[0] ?? "Confira o relatório.");
+      notificar("erro", locais[0] ?? "Confira o formulário.");
       return;
     }
     iniciar(async () => {
@@ -138,7 +138,7 @@ export function EditorDoFormulario({
     <div className="flex flex-col gap-4 pb-24">
       {respostas > 0 && (
         <p className="rounded-2xl bg-amber-400/15 px-4 py-3 text-sm text-amber-900">
-          Este relatório já tem {respostas}{" "}
+          Este formulário já tem {respostas}{" "}
           {respostas === 1 ? "resposta" : "respostas"}. Pode editar à vontade:
           as respostas antigas guardam o que foi perguntado na época. Pergunta
           excluída sai da lista de respostas, mas continua no detalhe de cada
@@ -148,14 +148,14 @@ export function EditorDoFormulario({
 
       <section className="vidro flex flex-col gap-3 rounded-[1.75rem] border-t-4 border-neutral-900 p-5 md:p-6">
         <label htmlFor={ids.titulo} className="sr-only">
-          Título do relatório
+          Título do formulário
         </label>
         <input
           id={ids.titulo}
           value={titulo}
           maxLength={200}
           onChange={(e) => setTitulo(e.target.value)}
-          placeholder="Título do relatório"
+          placeholder="Título do formulário"
           className="w-full border-0 border-b border-transparent bg-transparent pb-1 text-2xl font-semibold tracking-tight outline-none transition placeholder:text-neutral-400 focus:border-neutral-900"
         />
         <label htmlFor={ids.descricao} className="sr-only">
@@ -560,7 +560,7 @@ function CartaoDaPergunta({
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-900/[0.06] pt-3">
         {secao ? (
           <span className="text-xs text-neutral-500">
-            Seção não recebe resposta: só organiza o relatório.
+            Seção não recebe resposta: só organiza o formulário.
           </span>
         ) : (
           <label

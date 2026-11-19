@@ -228,11 +228,11 @@ describe("telas que não existem ou falham", () => {
 describe("endereços antigos", () => {
   it("levam para a tela nova, com o resto do endereço e a busca", () => {
     const sem = { search: "", hash: "" };
-    expect(destinoDoRedirecionamento("/relatorios/*", "", sem)).toBe(
-      "/relatorios",
+    expect(destinoDoRedirecionamento("/formularios/*", "", sem)).toBe(
+      "/formularios",
     );
-    expect(destinoDoRedirecionamento("/relatorios/*", "12/editar", sem)).toBe(
-      "/relatorios/12/editar",
+    expect(destinoDoRedirecionamento("/formularios/*", "12/editar", sem)).toBe(
+      "/formularios/12/editar",
     );
     expect(
       destinoDoRedirecionamento("/operacoes/configuracoes/importacoes/*", "", {

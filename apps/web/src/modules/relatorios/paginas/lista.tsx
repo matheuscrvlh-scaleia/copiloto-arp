@@ -22,8 +22,8 @@ import { consultaDaLista, ROTA_FORMULARIOS, rotaDoFormulario } from "../api";
 import { SeloSituacao } from "../components/blocos";
 import { NovoRelatorio } from "../components/novo";
 
-// /relatorios: todos os relatórios, com os cartões por situação (filtro na
-// URL: ?situacao=publicado) e o "Novo relatório" para quem edita.
+// /formularios: todos os formulários, com os cartões por situação (filtro na
+// URL: ?situacao=publicado) e o "Novo formulário" para quem edita.
 
 const DETALHE: Record<Situacao, string> = {
   publicado: "recebendo respostas pelo link",
@@ -35,8 +35,8 @@ export default function Pagina() {
   return (
     <>
       <PageHeader
-        title="Relatórios"
-        description="Monte um relatório com as perguntas que quiser (em branco ou de um modelo), publique e mande o link ou o QR code: quem recebe responde sem login, pelo celular. As respostas chegam aqui, com gráficos, Excel e um chat para perguntar sobre elas."
+        title="Formulários"
+        description="Monte um formulário com as perguntas que quiser (em branco ou de um modelo), publique e mande o link ou o QR code: quem recebe responde sem login, pelo celular. As respostas chegam aqui, com gráficos, Excel e um chat para perguntar sobre elas."
       />
       <Suspense fallback={<Esqueleto />}>
         <Tela />
@@ -61,7 +61,7 @@ function Lista() {
   const respostas = todos.reduce((s, f) => s + f.total_respostas, 0);
 
   const colunas = [
-    { titulo: "Relatório" },
+    { titulo: "Formulário" },
     { titulo: "Situação" },
     { titulo: "Perguntas", numero: true },
     { titulo: "Respostas", numero: true },
@@ -84,7 +84,7 @@ function Lista() {
             titulo={`${ROTULO_SITUACAO[s]}s`}
             valor={formatarNumero(todos.filter((f) => f.efetiva === s).length)}
             detalhe={DETALHE[s]}
-            fonte="relatórios do sistema"
+            fonte="formulários do sistema"
             href={hrefCom(ROTA_FORMULARIOS, b, {
               situacao: situacao === s ? null : s,
             })}
@@ -94,28 +94,28 @@ function Lista() {
         <CartaoDaTela
           titulo="Respostas recebidas"
           valor={formatarNumero(respostas)}
-          detalhe="somando todos os relatórios"
+          detalhe="somando todos os formulários"
           fonte="respostas enviadas pelos links"
         />
       </Cartoes>
 
       <Secao
-        titulo="Todos os relatórios"
-        descricao={`${situacao ? `Só os ${ROTULO_SITUACAO[situacao].toLowerCase()}s (clique no cartão de novo para ver todos). ` : ""}Clique no relatório para ver as respostas, editar as perguntas ou pegar o link.`}
+        titulo="Todos os formulários"
+        descricao={`${situacao ? `Só os ${ROTULO_SITUACAO[situacao].toLowerCase()}s (clique no cartão de novo para ver todos). ` : ""}Clique no formulário para ver as respostas, editar as perguntas ou pegar o link.`}
       >
         <TabelaLista
           colunas={colunas}
           ordemInicial={{ coluna: 5, desc: true }}
           vazio={
             todos.length
-              ? "Nenhum relatório nessa situação."
+              ? "Nenhum formulário nessa situação."
               : edita
-                ? "Nenhum relatório ainda. Comece por “Novo relatório”."
-                : "Nenhum relatório ainda."
+                ? "Nenhum formulário ainda. Comece por “Novo formulário”."
+                : "Nenhum formulário ainda."
           }
           placeholder="Buscar pelo título…"
           rodape={[
-            `${formatarNumero(lista.length)} ${lista.length === 1 ? "relatório" : "relatórios"}`,
+            `${formatarNumero(lista.length)} ${lista.length === 1 ? "formulário" : "formulários"}`,
             "",
             "",
             formatarNumero(lista.reduce((s, f) => s + f.total_respostas, 0)),

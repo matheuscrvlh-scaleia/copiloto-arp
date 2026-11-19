@@ -1,6 +1,6 @@
 import { type Campo, recebeResposta, vazio, visiveis } from "./campos";
 
-// Métricas da tela de Respostas de um relatório: ritmo por dia e por
+// Métricas da tela de Respostas de um formulário: ritmo por dia e por
 // semana, quando as pessoas respondem e o quanto cada pergunta é
 // respondida. Dias e horas em Brasília (UTC-3, sem horário de verão).
 

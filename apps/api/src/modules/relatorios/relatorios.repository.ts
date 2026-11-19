@@ -1,7 +1,7 @@
 import type { Tx } from "@/infra/banco";
 import type { Json } from "@/infra/banco/tipos";
 
-// Relatórios (formularios.formularios). Só consultas; com a sessão o RLS
+// Formulários (formularios.formularios). Só consultas; com a sessão o RLS
 // libera ler a quem tem formularios.ver ou formularios.editar e gravar a
 // quem tem formularios.editar.
 
@@ -71,7 +71,7 @@ export async function criar(tx: Tx, novo: Novo): Promise<string> {
   return r.id;
 }
 
-/** O que se altera de um relatório (`campos` é gravado como JSON). */
+/** O que se altera de um formulário (`campos` é gravado como JSON). */
 export interface Mudanca {
   titulo?: string;
   descricao?: string;
