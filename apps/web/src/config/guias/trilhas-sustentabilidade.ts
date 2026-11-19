@@ -22,9 +22,57 @@ const PROGRAMAS = "/sustentabilidade/programas";
 
 export const TRILHAS_SUSTENTABILIDADE: Trilha[] = [
   {
-    id: "su-entrevista",
+    id: "su-chamados",
     modulo: "/sustentabilidade",
     versao: 1,
+    titulo: "Como os chamados ajudam na Sustentabilidade",
+    resumo:
+      "O que o sistema avisa sozinho pelos Chamados e o que fazer com cada aviso",
+    passos: [
+      {
+        rota: "/sustentabilidade",
+        titulo: "O sistema lembra você do que fazer",
+        texto:
+          "A Sustentabilidade usa os <b>Chamados</b> para lembrar a equipe do que precisa ser feito. Ninguém precisa abrir esses chamados à mão: o próprio sistema abre quando chega a hora.",
+      },
+      {
+        titulo: "1. Entrevista de resíduos com as lojas",
+        texto:
+          "Todo dia o sistema confere quais lojas precisam fazer a entrevista de resíduos: as que nunca fizeram e as que estão com a entrevista vencendo. Para cada uma, abre um chamado <b>“Entrevista de resíduos – Loja X”</b>.",
+      },
+      {
+        titulo: "Use o botão Executar",
+        texto:
+          "Dentro do chamado, o botão <b>Executar</b> já abre a entrevista daquela loja. Quando a entrevista é salva com as assinaturas, o chamado fecha sozinho.",
+      },
+      {
+        titulo: "2. Renovação do termo do Clube SustentArp",
+        texto:
+          "Quando o termo de um participante do Clube está perto de vencer, o sistema abre um chamado avisando. Ele fecha sozinho quando o termo novo é salvo.",
+      },
+      {
+        titulo: "3. Tarefas que se repetem todo mês",
+        texto:
+          "A <b>ronda dos coletores</b>, a <b>nota do RCC</b> e o <b>relatório mensal</b> viram chamados que se repetem. Quando um é concluído, o próximo é aberto automaticamente, já com o responsável definido.",
+      },
+      {
+        titulo: "Coletor cheio e parceiro atrasado",
+        texto:
+          "Na ronda, coletor acima do limite abre um chamado de recolhimento. Se o parceiro de um programa não lançar os dados do mês, abre o chamado <b>“Cobrar lançamento do parceiro”</b>, que fecha quando o lançamento chega.",
+      },
+      {
+        titulo: "Onde ver os seus chamados",
+        texto:
+          "Todos esses chamados ficam no módulo <b>Chamados</b>, na fila do seu setor. Ao terminar a tarefa pelo botão <b>Executar</b>, você não precisa fechar nada à mão.",
+      },
+      FIM,
+    ],
+  },
+
+  {
+    id: "su-entrevista",
+    modulo: "/sustentabilidade",
+    versao: 2,
     titulo: "Aplicar uma entrevista de resíduos",
     resumo:
       "Achar o contrato, executar, responder, assinar e salvar (o PDF sai pronto)",
@@ -33,7 +81,7 @@ export const TRILHAS_SUSTENTABILIDADE: Trilha[] = [
         rota: ENTREVISTAS,
         titulo: "Aplicar uma entrevista de resíduos",
         texto:
-          "O caminho de uma entrevista: <b>achar o contrato</b> → <b>executar</b> → <b>responder as seções</b> → <b>revisar</b> → <b>assinar</b> → <b>salvar</b>. O chamado “Entrevista de resíduos” abre sozinho perto do prazo e fecha sozinho ao salvar. Nada é salvo sem você clicar.",
+          "O caminho de uma entrevista: <b>achar o contrato</b> → <b>executar</b> → <b>responder as seções</b> → <b>revisar</b> → <b>assinar</b> → <b>salvar</b>. Você não precisa lembrar quem está na vez: o sistema abre sozinho o chamado “Entrevista de resíduos” para cada loja que precisa, e ele fecha sozinho quando você salva. Nada é salvo sem você clicar.",
       },
       {
         alvo: "filtros",
